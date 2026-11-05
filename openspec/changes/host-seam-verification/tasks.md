@@ -5,10 +5,10 @@
 
 ## 2. Recording loopback provider
 
-- [ ] 2.1 Write the fixture server under `tests/host/`: `127.0.0.1`, OS-assigned port, streaming `POST /v1/chat/completions`, in-memory recording of every request body in arrival order
-- [ ] 2.2 Add scripted replies (text and tool calls) selected by request matchers, with unmatched requests answered by an error and listed
-- [ ] 2.3 Generate the isolated `models.json` for the fixture provider with tier-named reasoning models and OpenAI-style thinking
-- [ ] 2.4 Unit-test the fixture directly over HTTP: recording, matching, unmatched errors, loopback binding
+- [x] 2.1 Write the fixture server under `tests/host/`: `127.0.0.1`, OS-assigned port, streaming `POST /v1/chat/completions`, in-memory recording of every request body in arrival order
+- [x] 2.2 Add scripted replies (text and tool calls) selected by request matchers, with unmatched requests answered by an error and listed
+- [x] 2.3 Generate the isolated `models.json` for the fixture provider with tier-named reasoning models and OpenAI-style thinking
+- [x] 2.4 Unit-test the fixture directly over HTTP: recording, matching, unmatched errors, loopback binding
 
 ## 3. Session driver and installs
 
