@@ -21,9 +21,9 @@
 ## 4. Seam probes and host tests (Q1 to Q7)
 
 - [x] 4.1 Q1: probe rewriting `model` and `thinking` in `tool_call`; host tests for foreground, background and a `locked` agent model; record observed values
-- [ ] 4.2 Q2: probe timing an async `message_end` against `tool_call` starts for two sibling launches; host test
-- [ ] 4.3 Q3: child probe removing a tool from `selectedTools`; host tests for the request `tools` list and for a scripted call to the removed tool
-- [ ] 4.4 Q4: probe recording `subagents:child:session-created` and the child's `session_start` session id and order; host test
+- [x] 4.2 Q2: probe timing an async `message_end` against `tool_call` starts for two sibling launches; host test
+- [x] 4.3 Q3: child probe removing a tool from `selectedTools`; host tests for the request `tools` list and for a scripted call to the removed tool
+- [x] 4.4 Q4: probe recording `subagents:child:session-created` and the child's `session_start` session id and order; host test
 - [ ] 4.5 Q5: probe returning a hidden `before_agent_start` message with a marker; host tests before and after `compact`
 - [ ] 4.6 Q6: probe calling `setThinkingLevel` in `before_agent_start`; host test on the same turn's first request
 - [x] 4.7 Q7: launch with `inherit_context: true` and a rewritten `model`; host test on the child's model and the parent marker
