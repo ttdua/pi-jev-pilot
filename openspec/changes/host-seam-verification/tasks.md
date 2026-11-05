@@ -12,11 +12,11 @@
 
 ## 3. Session driver and installs
 
-- [ ] 3.1 Write the harness that creates temporary agent and working directories, writes `models.json` and agent files, and removes them afterward
-- [ ] 3.2 Install the executor and named probe extensions into the agent dir with `pi install` under `PI_OFFLINE=1`, falling back to a packed tarball if the local install fails offline
-- [ ] 3.3 Spawn `pi --mode rpc` with the isolated environment, send JSONL commands (`prompt`, `compact`, `set_thinking_level`, `get_state`), and wait for the run to settle
-- [ ] 3.4 Give each session a probe report file through an environment variable, and read its JSON lines after the run
-- [ ] 3.5 Host-test the harness itself: a prompt settles with one recorded request; the agent dir is removed; the executor installs offline; a `subagent` tool call launches a child that the fixture records
+- [x] 3.1 Write the harness that creates temporary agent and working directories, writes `models.json` and agent files, and removes them afterward
+- [x] 3.2 Install the executor and named probe extensions into the agent dir with `pi install` under `PI_OFFLINE=1`, falling back to a packed tarball if the local install fails offline
+- [x] 3.3 Spawn `pi --mode rpc` with the isolated environment, send JSONL commands (`prompt`, `compact`, `set_thinking_level`, `get_state`), and wait for the run to settle
+- [x] 3.4 Give each session a probe report file through an environment variable, and read its JSON lines after the run
+- [x] 3.5 Host-test the harness itself: a prompt settles with one recorded request; the agent dir is removed; the executor installs offline; a `subagent` tool call launches a child that the fixture records
 
 ## 4. Seam probes and host tests (Q1 to Q7)
 
