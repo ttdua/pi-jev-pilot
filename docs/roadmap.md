@@ -8,7 +8,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 
 | Group | Title | Size | Depends on | Status |
 |---|---|---|---|---|
-| WG-01 | Repository scaffold | S | | Planned |
+| WG-01 | Repository scaffold | S | | Done |
 | WG-02 | Host seam verification | M | WG-01 | Planned |
 | WG-03 | Config and state stores | M | WG-01 | Planned |
 | WG-04 | Jev client and answer reading | M | WG-01 | Planned |

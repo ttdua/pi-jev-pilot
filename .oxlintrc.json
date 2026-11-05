@@ -1,0 +1,96 @@
+{
+  "ignorePatterns": ["tests/fixtures/**", "node_modules/**"],
+  "overrides": [
+    {
+      "files": ["src/policy/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../**"], "message": "policy/ imports nothing outside itself." },
+              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/jev/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../host/**"], "message": "jev/ must not import host/." },
+              { "group": ["../store/**"], "message": "jev/ must not import store/." },
+              { "group": ["../extension*"], "message": "jev/ must not import the entry point." },
+              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/store/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../host/**"], "message": "store/ must not import host/." },
+              { "group": ["../jev/**"], "message": "store/ must not import jev/." },
+              { "group": ["../policy/**"], "message": "store/ must not import policy/." },
+              { "group": ["../extension*"], "message": "store/ must not import the entry point." },
+              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["scripts/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["**/src/host/**"], "message": "scripts/ must not import host/." },
+              { "group": ["**/src/store/**"], "message": "scripts/ must not import store/." },
+              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/host/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../extension*"], "message": "host/ must not import the entry point." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/extension*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["./policy/**"], "message": "The entry point wires only host/." },
+              { "group": ["./jev/**"], "message": "The entry point wires only host/." },
+              { "group": ["./store/**"], "message": "The entry point wires only host/." },
+              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

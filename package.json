@@ -1,0 +1,34 @@
+{
+  "name": "pi-jev-pilot",
+  "version": "0.0.0",
+  "private": true,
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "bun check",
+    "lint": "oxlint --deny-warnings .",
+    "fmt": "oxfmt --write .",
+    "fmt:check": "oxfmt --check .",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.0",
+    "@types/bun": "1.4.4",
+    "oxfmt": "0.76.0",
+    "oxlint": "1.91.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "engines": {
+    "bun": ">=1.4.4"
+  },
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ]
+  }
+}

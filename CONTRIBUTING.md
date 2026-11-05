@@ -13,6 +13,17 @@ Read the [architecture](docs/architecture.md) and the [glossary](docs/glossary.m
 - **Rubrics:** data only. Changing one needs a [replay](docs/testing.md#replay-rules).
 - **Dependencies:** ask first. Keep runtime dependencies at zero where possible.
 
+## Running the checks
+
+- `bun install`: install the pinned dependencies.
+- `bun run typecheck`: type-check the whole project.
+- `bun run lint`: run oxlint, including the dependency-boundary rules.
+- `bun run fmt`: format every file in place.
+- `bun run fmt:check`: fail if any file is unformatted.
+- `bun run test`: run all tests.
+
+The load test needs Node ≥ 22.19, because the pinned `pi` binary runs on Node.
+
 ## Definition of done
 
 A change is done when:
