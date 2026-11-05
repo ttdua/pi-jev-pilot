@@ -99,7 +99,16 @@ function finalAssistantUsage(events: RpcEvent[]): Usage | undefined {
 
 async function main(): Promise<void> {
   const root = tempDir("jev-q8-");
+  let activeRpc: ReturnType<typeof spawnRpc> | undefined;
   const onSignal = (signal: NodeJS.Signals): void => {
+    // The Pi child is detached (own process group), so Ctrl-C does not reach it; kill the group.
+    if (activeRpc !== undefined) {
+      try {
+        process.kill(-activeRpc.pid, "SIGKILL");
+      } catch {
+        // ESRCH: already gone
+      }
+    }
     rmSync(root, { recursive: true, force: true });
     process.exit(signal === "SIGINT" ? 130 : 143);
   };
@@ -133,6 +142,7 @@ async function main(): Promise<void> {
       env,
       timeoutMs: TURN_TIMEOUT_MS,
     });
+    activeRpc = rpc;
     try {
       const stats = async (): Promise<Usage> => {
         const response = await rpc.send({ type: "get_session_stats" });
