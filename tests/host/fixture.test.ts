@@ -100,7 +100,7 @@ describe("recording loopback provider", () => {
   test("answers unmatched with an error", async () => {
     const f = await start([{ name: "none", match: () => false, reply: { text: "x" } }]);
     const res = await post(f, { model: "fixture-main" });
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     await res.text();
     expect(f.unmatched).toHaveLength(1);
     expect(f.unmatched[0]?.matched).toBeNull();
@@ -110,7 +110,7 @@ describe("recording loopback provider", () => {
     const f = await start([{ name: "once", match: any, reply: { text: "x" }, times: 1 }]);
     expect((await post(f, { model: "fixture-main" })).status).toBe(200);
     const second = await post(f, { model: "fixture-main" });
-    expect(second.status).toBe(500);
+    expect(second.status).toBe(400);
     await second.text();
     expect(f.unmatched).toHaveLength(1);
   });

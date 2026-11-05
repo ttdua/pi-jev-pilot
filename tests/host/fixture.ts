@@ -62,7 +62,7 @@ export async function startFixture(script: ScriptEntry[]): Promise<Fixture> {
       );
       if (!entry) {
         unmatched.push(recorded);
-        return Response.json({ error: { message: "no scripted reply matched" } }, { status: 500 });
+        return Response.json({ error: { message: "no scripted reply matched" } }, { status: 400 });
       }
       recorded.matched = entry.name;
       used.set(entry.name, (used.get(entry.name) ?? 0) + 1);
