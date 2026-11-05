@@ -17,6 +17,11 @@ describe("package manifest", () => {
     expect(Object.keys(pkg.dependencies ?? {}).length).toBe(0);
   });
 
+  test("executor is pinned exactly", () => {
+    expect(pkg.devDependencies["@gotgenes/pi-subagents"]).toBe("25.0.5");
+    expect(Object.keys(pkg.dependencies ?? {}).length).toBe(0);
+  });
+
   test("LICENSE is MIT", () => {
     const text = readFileSync(join(REPO_ROOT, "LICENSE"), "utf8");
     expect(text).toContain("MIT License");

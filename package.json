@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "1.5.0",
+    "@gotgenes/pi-subagents": "25.0.5",
     "@types/bun": "1.4.4",
     "oxfmt": "0.76.0",
     "oxlint": "1.91.0"
