@@ -17,6 +17,8 @@ afterEach(async () => {
 
 const MARKER = "JEV-MARKER-5c1e";
 // Synthetic filler so the session is large enough for compaction to find a cut point.
+// The size is tuned to the host compaction threshold (keep-window); if the compact
+// assertion fails with "Nothing to compact", that threshold has likely changed.
 const FILLER = "filler ".repeat(30_000);
 
 const hasMarker = (r: RecordedRequest | undefined): boolean =>
@@ -40,10 +42,17 @@ const textScript = (extra: ScriptEntry[] = []): ScriptEntry[] => [
 ];
 
 // Summarization request: no tools in the body, or a system prompt mentioning "summar".
-const isSummarization = (r: RecordedRequest): boolean => {
+const summarizationClauses = (r: RecordedRequest): { noTools: boolean; summarText: boolean } => {
   const msgs = Array.isArray(r.body.messages) ? (r.body.messages as { role?: string }[]) : [];
   const system = msgs.find((m) => m.role === "system" || m.role === "developer");
-  return r.toolNames.length === 0 || /summar/i.test(JSON.stringify(system ?? ""));
+  return {
+    noTools: r.toolNames.length === 0,
+    summarText: /summar/i.test(JSON.stringify(system ?? "")),
+  };
+};
+const isSummarization = (r: RecordedRequest): boolean => {
+  const c = summarizationClauses(r);
+  return c.noTools || c.summarText;
 };
 
 async function start(
@@ -87,7 +96,13 @@ describe("WG-02 Q5/Q6 main session", () => {
 
   test("Q5 after compaction", async () => {
     // WG-02 Q5: observed 2026-11-05, see docs/evidence/2026-11-05-host-seams.md#q5
-    const EXPECTED = { markerBeforeCompaction: true, markerAfterCompaction: false } as const;
+    // markerInHistoryBeforeCompaction: prompt 2's request (flag removed, no compaction yet)
+    // still carries the marker, i.e. the hidden message is retained in history.
+    // markerAfterCompaction: prompt 3's request (after compact) carries the marker.
+    const EXPECTED = {
+      markerInHistoryBeforeCompaction: true,
+      markerAfterCompaction: false,
+    } as const;
     const flag = flagFile();
     const fixture = await startFixture(
       textScript([
@@ -101,13 +116,14 @@ describe("WG-02 Q5/Q6 main session", () => {
     );
     const session = await start(fixture, { JEV_HIDDEN_FLAG: flag }, { persist: true });
     await session.prompt(`first turn ${FILLER}`);
-    const before = hasMarker(fixture.requests[0]);
     rmSync(flag, { force: true });
+    const secondIndex = fixture.requests.length;
     await session.prompt(`second turn ${FILLER}`);
+    const inHistory = hasMarker(fixture.requests[secondIndex]);
     const response = await session.send({ type: "compact" });
     const compactMatched = fixture.requests.filter((r) => r.matched === "summarization");
     observe(
-      `Q5 compact: success=${response.success} error=${String(response.error)} summarizationRequests=${compactMatched.length} toolCount=${compactMatched[0]?.toolNames.length}`,
+      `Q5 compact: success=${response.success} error=${String(response.error)} summarizationRequests=${compactMatched.length} toolCount=${compactMatched[0]?.toolNames.length} noToolsClause=${compactMatched[0] ? summarizationClauses(compactMatched[0]).noTools : "n/a"} summarTextClause=${compactMatched[0] ? summarizationClauses(compactMatched[0]).summarText : "n/a"}`,
     );
     expect(response.success, "WG-02 Q5 compact succeeded").toBe(true);
     expect(compactMatched.length, "WG-02 Q5 summarization matched once").toBe(1);
@@ -115,8 +131,12 @@ describe("WG-02 Q5/Q6 main session", () => {
     await session.prompt("third turn");
     const third = fixture.requests[countBefore];
     const after = hasMarker(third);
-    observe(`Q5 after compaction: before=${before} after=${after} (Q5 after compaction)`);
-    expect(before, "WG-02 Q5 marker before compaction").toBe(EXPECTED.markerBeforeCompaction);
+    observe(
+      `Q5 after compaction: markerInHistoryBeforeCompaction=${inHistory} markerAfterCompaction=${after} (Q5 after compaction)`,
+    );
+    expect(inHistory, "WG-02 Q5 marker in history before compaction").toBe(
+      EXPECTED.markerInHistoryBeforeCompaction,
+    );
     expect(after, "WG-02 Q5 marker after compaction").toBe(EXPECTED.markerAfterCompaction);
     expect(JSON.stringify(session.probeRecords()), "WG-02 Q5 marker not in probes").not.toContain(
       MARKER,
