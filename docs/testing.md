@@ -1,0 +1,56 @@
+# Testing strategy
+
+Each level proves something different. A claim must name the level that supports it. In particular, unit tests are never described as end-to-end.
+
+| Level | Runs | Proves | Cannot prove |
+|---|---|---|---|
+| **Unit** | Pure policy, stores, state builders, no network | The rules do what they say | That Pi calls them, or that Jev answers that way |
+| **Contract** | Jev client against a local HTTP fixture | Transport and parsing, including failures | Real Jev behavior |
+| **Host** | The real Pi CLI in RPC mode, local Jev and provider fixtures, real executor children, isolated `PI_CODING_AGENT_DIR` | The whole path through Pi, at a tested version | Real model quality, or other Pi versions |
+| **Replay** | Real prompts through real Jev, offline from Pi | How Jev routes real work | Whether the routed model does well |
+| **Field** | Real use, read from the ledger | What actually happens, and outcomes | Causes, without an experiment |
+
+Unit, contract and host tests run in CI: no secrets, no paid calls, no network beyond loopback. Replay and field work are manual and need approval.
+
+## What must be tested
+
+### Unit
+
+- Answer reading: valid, missing, unknown choice, out-of-range numbers, mixed good and bad.
+- Effort rules: table over choice, `risky`, current level and supported levels.
+- Worker decision order: table per mode, including every boundary (.6, .7, .9, .1).
+- Skill pick: all paths, including batches and `(none)`.
+- Strategy gates: each boundary.
+- Tuning: fire, cooldown, range, revert, allowlist.
+- Ledger: schema rejects free text, tolerates bad lines.
+
+Expected values come from this documentation, not from running the code. Each [invariant](domain-model.md#invariants) has at least one test named after it.
+
+### Host
+
+- A decision applies on the first provider request of the turn, by reading what the fixture received.
+- Jev down: identical provider requests to a run without the package, apart from a status line.
+- Esc during classification: no provider request follows.
+- A worker's actual model and thinking at the child's first request, foreground and background.
+- Nothing from a hidden log line reaches a provider.
+- Installation from a packed tarball, not only a checkout.
+
+### Privacy
+
+A test asserts the exact field set of each state kind, so adding a field that leaves the machine fails until the test and [Privacy](privacy.md) change together. Another searches the ledger after a host run for a marker placed in the prompt, and must not find it.
+
+## Version policy
+
+Host tests pin Pi and `@gotgenes/pi-subagents`. Upgrading either reruns them, and the [host seams](architecture.md#host-seams) table is rechecked. The peer ranges state only what has been tested.
+
+## Replay rules
+
+- Needs the operator's approval each time, stating the data and the estimated cost.
+- Input stays outside the repository. Output committed here is aggregate only.
+- Always includes a plain rerun, to measure noise. A difference smaller than noise is not a result.
+- Changes one thing per variant.
+- Reports where Jev routes, and never claims that a route is better without separate evidence.
+
+## Not in CI, deliberately
+
+Live Jev calls, paid models, and CLI reviews with real logins. They would add cost and flakiness, and would need secrets.
