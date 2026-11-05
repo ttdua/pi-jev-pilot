@@ -1,7 +1,7 @@
 ## 1. Executor dependency
 
-- [ ] 1.1 Add `@gotgenes/pi-subagents` `25.0.5` as an exact devDependency, update `bun.lock`, and test that `package.json` pins it exactly and still has no runtime `dependencies`
-- [ ] 1.2 Confirm `bun install --frozen-lockfile` and the existing checks (`typecheck`, `lint`, `fmt:check`, `test`) pass
+- [x] 1.1 Add `@gotgenes/pi-subagents` `25.0.5` as an exact devDependency, update `bun.lock`, and test that `package.json` pins it exactly and still has no runtime `dependencies`
+- [x] 1.2 Confirm `bun install --frozen-lockfile` and the existing checks (`typecheck`, `lint`, `fmt:check`, `test`) pass
 
 ## 2. Recording loopback provider
 
