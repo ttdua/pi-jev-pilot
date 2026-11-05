@@ -1,96 +1,31 @@
 schema: superspec
 language: en
 
-# Project context: constraints an agent cannot infer from the code.
-# The docs/ set is the authoritative specification; this file points to it
-# rather than repeating it.
 context: |
-  pi-jev-pilot is a Pi package (one extension) that asks Jev, TypeSafe's typed
-  classifier, questions and turns the answers into decisions with deterministic
-  code: main-session effort, worker model and effort, one skill per prompt, and
-  strategy advice. Code owns the control flow; Jev only answers questions.
-  It is a clean rewrite inspired by jev-pilot 0.12.1 (MIT, see NOTICE.md); the
-  earlier port naicoi92/pi-jev-pilot is evidence only, never a code base.
+  pi-jev-pilot is a Pi extension that asks Jev (TypeSafe's typed classifier)
+  questions and turns the answers into decisions with deterministic code:
+  main-session effort, worker model and effort, one skill per prompt, and
+  strategy advice. Code owns the control flow; Jev only answers.
 
-  Source of truth:
-  - docs/ is the specification until code exists, then is kept in sync with it.
-    Precedence: code and tests > docs/decisions/ > other docs/.
-  - Start from docs/README.md. Scope and feature IDs: docs/project-brief.md.
-    Work order: docs/roadmap.md work groups (WG-01..WG-19). Vocabulary:
-    docs/glossary.md.
-  - Do not write design docs to docs/superpowers/; superpowers design files are
-    not used in this project.
+  Stack: TypeScript run by Pi, Bun for tooling and tests, official Pi
+  (@earendil-works/pi-coding-agent), @gotgenes/pi-subagents as executor,
+  TypeSafe as the only classifier backend.
 
-  Fixed targets:
-  - Host: official Pi, @earendil-works/pi-coding-agent 1.5.0.
-  - Executor: @gotgenes/pi-subagents 25.x (children run in-process and bind the
-    parent's extension set).
-  - Classifier: TypeSafe POST /v1/systemone, model jev-latest. TypeSafe is the
-    only backend.
-  - TypeScript run by Pi directly; Bun for install, scripts and tests.
+  Specification lives in docs/; decisions in docs/decisions/. Use the
+  docs/glossary.md vocabulary.
 
-  Hard constraints:
-  - Public Pi APIs only: no user-message metadata tricks, patches, or
-    package-cache edits (ADR 0001). Seams marked "Verify" in
-    docs/architecture.md#host-seams are assumptions until WG-02 confirms them.
-  - Fail open: when Jev is down or slow, Pi behaves as if the package were not
-    installed, apart from the status line. A wrong classification may route
-    sub-optimally but must never break a turn or a worker launch.
-  - Decide on Jev probabilities, never on confidence (ADR 0002). Modes select a
-    rubric, not thresholds (ADR 0003). No mid-turn effort raise (ADR 0007).
-  - Module boundaries (docs/architecture.md#dependency-rules): policy/ is pure
-    and imports nothing outside itself; jev/ knows nothing about Pi; store/ knows
-    files and schemas only; only host/ imports Pi or reads executor events.
-  - Privacy: prompt text, tool arguments and tool output never enter the ledger
-    or any stored file. New outbound data updates docs/privacy.md and the
-    field-set test together.
-  - Thresholds live in one constants file, each citing its evidence; changing
-    one needs evidence. Rubrics are data; changing one needs a replay.
-  - Jev's primary language is English while the operator prompts in Vietnamese,
-    so every threshold is uncalibrated until measured.
-  - Runtime dependencies stay at zero where possible; adding one needs the
-    maintainer's approval first.
-  - Public repository: code, comments, docs, commits and PRs are in English.
-    Never commit real prompts, briefs, session files, API keys or personal
-    paths; docs/evidence/ is aggregate only.
-  - Out of scope (docs/project-brief.md#out-of-scope): main-model routing,
-    confidence rules, mid-turn raise, /jev report, pet, non-TypeSafe backends,
-    upstream budget/junior-lead/second-opinion/quality modes, routing launches
-    that bypass the subagent tool.
+  Invariants:
+  - Public Pi APIs only.
+  - Fail open: if Jev fails, Pi behaves as if the package were not installed.
+  - Decide on probabilities, never on confidence.
+  - policy/ is pure; only host/ touches Pi.
+  - Never store prompt text, tool arguments or tool output.
+  - Public repository: everything in English, no real prompts or secrets.
 
 rules:
-  brainstorm:
-    - Read the affected docs/ sections first; treat them as the baseline design and record only what this change adds or contradicts.
-    - Name the roadmap work group (WG-xx) and the project-brief feature IDs the change covers; flag anything outside the in-scope table.
   proposal:
-    - List every docs/ file the change alters under Impact; a behavior change updates its docs in the same change.
-    - State what is out of scope, citing docs/project-brief.md where relevant.
-    - A decision worth explaining gets a new record in docs/decisions/; supersede existing records instead of editing them.
-  design:
-    - Keep within the module layout and dependency rules in docs/architecture.md; justify any new module or seam.
-    - Any reliance on a host seam marked Verify must name the WG-02 evidence or include its verification.
-    - Describe the fail-open behavior for every new Jev call or host hook.
+    - List the docs/ files the change updates.
   specs:
-    - Use docs/glossary.md terms in requirement and scenario names; a new concept also gets a glossary entry.
-    - Each docs/domain-model.md invariant touched by the change maps to at least one scenario.
-    - Include scenarios for Jev failure (timeout, error, malformed or out-of-range answer) wherever the capability calls Jev.
-  tasks:
-    - Map tasks to the roadmap work group's "Done when" criteria.
-    - Include doc-update tasks for every affected docs/ file, and a docs/privacy.md plus field-set test task when outbound or stored data changes.
-    - Do not add dependencies, change config or ledger schemas, or change the /jev command surface without an explicit approval task.
+    - Cover Jev failure wherever the capability calls Jev.
   plan:
-    - Each step starts with a failing test at the lowest level in docs/testing.md that can prove the behavior.
-    - Expected test values come from docs/, never from running the code.
-    - Unit, contract and host tests must need no secrets, paid calls or network beyond loopback; replay and field work are manual and need operator approval stating data and estimated cost.
-
-operations:
-  apply:
-    guidance:
-      - Work in a Worktrunk (wt) worktree, never on main; commit small, one reason per commit, imperative subject.
-      - Run unit and host tests, lint, format and type checks before claiming a task done.
-      - Never push, merge or publish without the maintainer's explicit go-ahead.
-      - Name the test level behind each claim; unit tests are never reported as end-to-end.
-      - Check that every affected docs/ file was updated in the same change and that no prompt text reaches stored files.
-  archive:
-    guidance:
-      - Confirm docs/roadmap.md status reflects the completed work group before archiving.
+    - Tests need no secrets, paid calls or network beyond loopback.
