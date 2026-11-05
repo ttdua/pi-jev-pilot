@@ -11,9 +11,9 @@
 
 ## 3. Dependency boundaries
 
-- [ ] 3.1 Add boundary fixtures under `tests/fixtures/boundaries/` (one violating file per forbidden edge and Pi import, plus allowed files) and the boundary test, which runs oxlint over them.
-- [ ] 3.2 Add the `no-restricted-imports` overrides from design D3 to `.oxlintrc.json` until the boundary test passes.
-- [ ] 3.3 Add a test that `oxfmt --check` rejects an unformatted file written to a temporary directory.
+- [x] 3.1 Add boundary fixtures under `tests/fixtures/boundaries/` (one violating file per forbidden edge and Pi import, plus allowed files) and the boundary test, which runs oxlint over them.
+- [x] 3.2 Add the `no-restricted-imports` overrides from design D3 to `.oxlintrc.json` until the boundary test passes.
+- [x] 3.3 Add a test that `oxfmt --check` rejects an unformatted file written to a temporary directory.
 
 ## 4. CI and docs
 
