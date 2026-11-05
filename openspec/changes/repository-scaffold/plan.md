@@ -37,7 +37,7 @@
 | npm scripts | new | `typecheck`: `bun check`; `lint`: `oxlint --deny-warnings .`; `fmt`: `oxfmt --write .`; `fmt:check`: `oxfmt --check .`; `test`: `bun test` | no (contributor commands) |
 | `.oxlintrc.json` | new | `ignorePatterns: ["tests/fixtures/**", "node_modules/**"]`, plus one `overrides` entry per design D3 row, each `{ files: [<glob>], rules: { "no-restricted-imports": ["error", { patterns: [{ group: [...], message: "<rule from docs/architecture.md#dependency-rules>" }] }] } }` | no |
 | `.oxfmtrc.json` | new | `{ "ignorePatterns": ["openspec/**", "docs/**", "*.md", "tests/fixtures/**"] }`, so only code and config are formatted. Docs and fixtures stay hand-written. A probe confirmed the key works in oxfmt 0.76 | no |
-| `.github/workflows/ci.yml` | new | `on: [push, pull_request]`; job `check` on `ubuntu-latest`; steps: checkout, `oven-sh/setup-bun@v2` with `bun-version: 1.4.4`, `actions/setup-node@v4` with `node-version: 22`, then `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun run test` | no |
+| `.github/workflows/ci.yml` | new | `on: [push, pull_request]`; top-level `permissions: contents: read` (added during apply: least-privilege token, no secret, internal); job `check` on `ubuntu-latest`; steps: checkout, `oven-sh/setup-bun@v2` with `bun-version: 1.4.4`, `actions/setup-node@v4` with `node-version: 22`, then `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun run test` | no |
 
 The Contracts table changes no existing public API or CLI. The `pi` manifest and entry point are new public surface, recorded in design D1 and D2.
 

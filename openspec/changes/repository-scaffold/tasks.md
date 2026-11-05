@@ -17,5 +17,5 @@
 
 ## 4. CI and docs
 
-- [ ] 4.1 Add `.github/workflows/ci.yml` (Bun and Node 22, frozen install, typecheck, lint, fmt:check, test, no secrets) and a test asserting its trigger and step order.
-- [ ] 4.2 Update `CONTRIBUTING.md` with the check commands, and set WG-01 to Done in `docs/roadmap.md`.
+- [x] 4.1 Add `.github/workflows/ci.yml` (Bun and Node 22, frozen install, typecheck, lint, fmt:check, test, no secrets) and a test asserting its trigger and step order.
+- [x] 4.2 Update `CONTRIBUTING.md` with the check commands, and set WG-01 to Done in `docs/roadmap.md`.
