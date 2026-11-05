@@ -1,7 +1,7 @@
 ## 1. Package and toolchain
 
-- [ ] 1.1 Add `package.json` (scripts and exact dev-only dependencies), `bun.lock`, `.gitignore` and `tsconfig.json`.
-- [ ] 1.2 Add `.oxlintrc.json` and `.oxfmtrc.json`, with the fixture directories ignored, so that `lint` and `fmt:check` pass on the tree.
+- [x] 1.1 Add `package.json` (scripts and exact dev-only dependencies), `bun.lock`, `.gitignore` and `tsconfig.json`.
+- [x] 1.2 Add `.oxlintrc.json` and `.oxfmtrc.json`, with the fixture directories ignored, so that `lint` and `fmt:check` pass on the tree.
 
 ## 2. Package loading
 
