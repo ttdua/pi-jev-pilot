@@ -12,6 +12,7 @@ export type RpcResponse = {
 export type RpcEvent = { type: string; [key: string]: unknown };
 
 export type RpcProcess = {
+  pid: number;
   send(cmd: Record<string, unknown>): Promise<RpcResponse>;
   prompt(text: string): Promise<void>;
   waitFor(pred: () => boolean, label: string): Promise<void>;
@@ -19,11 +20,31 @@ export type RpcProcess = {
   close(): Promise<void>;
 };
 
+const BASE_ENV_KEYS = ["PATH", "TMPDIR"] as const;
+
+/**
+ * Allow-listed child environment: nothing from the operator's shell (HOME, XDG_*, PI_*,
+ * provider credentials) leaks in. HOME points at a throwaway dir.
+ */
+export function isolatedEnv(
+  agentDir: string,
+  home: string,
+  extra: Record<string, string> = {},
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of BASE_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return { ...env, HOME: home, PI_CODING_AGENT_DIR: agentDir, ...extra };
+}
+
 const POLL_MS = 25;
 const KILL_AFTER_MS = 2000;
 
 export function spawnRpc(opts: {
   agentDir: string;
+  home: string;
   cwd: string;
   args: string[];
   env?: Record<string, string>;
@@ -32,7 +53,8 @@ export function spawnRpc(opts: {
   const timeoutMs = opts.timeoutMs ?? 30_000;
   const proc = Bun.spawn([PI_BIN, "--mode", "rpc", ...opts.args], {
     cwd: opts.cwd,
-    env: { ...process.env, PI_CODING_AGENT_DIR: opts.agentDir, ...opts.env },
+    env: isolatedEnv(opts.agentDir, opts.home, opts.env),
+    detached: true,
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
@@ -108,6 +130,10 @@ export function spawnRpc(opts: {
   const send = (cmd: Record<string, unknown>): Promise<RpcResponse> => {
     const id = `req-${++nextId}`;
     return new Promise<RpcResponse>((resolve, reject) => {
+      if (exited) {
+        reject(failure(`send ${String(cmd.type)} (process already exited)`));
+        return;
+      }
       const timer = setTimeout(() => {
         pending.delete(id);
         reject(failure(`response to ${String(cmd.type)}`));
@@ -131,17 +157,28 @@ export function spawnRpc(opts: {
     await waitFor(() => settledCount() > before, "agent_settled");
   };
 
-  const close = async (): Promise<void> => {
-    if (exited) return;
+  const killGroup = (): void => {
     try {
-      void proc.stdin.end();
+      process.kill(-proc.pid, "SIGKILL");
     } catch {
-      // stdin already closed
+      // group already gone
     }
-    const killer = setTimeout(() => proc.kill("SIGKILL"), KILL_AFTER_MS);
-    await proc.exited;
-    clearTimeout(killer);
   };
 
-  return { send, prompt, waitFor, events, close };
+  const close = async (): Promise<void> => {
+    if (!exited) {
+      try {
+        void proc.stdin.end();
+      } catch {
+        // stdin already closed
+      }
+      const killer = setTimeout(killGroup, KILL_AFTER_MS);
+      await proc.exited;
+      clearTimeout(killer);
+    }
+    // Detached => pid is the process-group id; reap executor children and grandchildren too.
+    killGroup();
+  };
+
+  return { pid: proc.pid, send, prompt, waitFor, events, close };
 }

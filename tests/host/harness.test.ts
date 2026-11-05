@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
 import { startHostSession, type HostSession } from "./harness";
@@ -28,9 +28,19 @@ async function sessionWith(
   return s;
 }
 
-function piRpcPids(): Set<string> {
-  const out = Bun.spawnSync(["pgrep", "-f", "mode rpc"]).stdout.toString();
-  return new Set(out.split("\n").filter(Boolean));
+/** Processes whose command line mentions this session's agent dir (scoped, so concurrent runs don't interfere). */
+function processesFor(agentDir: string): string[] {
+  const out = Bun.spawnSync(["ps", "-axo", "pid=,command="]).stdout.toString();
+  return out.split("\n").filter((l) => l.includes(agentDir));
+}
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 describe("host session harness", () => {
@@ -125,12 +135,10 @@ describe("host session harness", () => {
     const fixture = await fixtureWith([]);
     const s = await sessionWith(fixture, { timeoutMs: 1500 });
     await expect(s.waitFor(() => false, "never")).rejects.toThrow(/never.*last event/);
-    // keep the session for the cleanup test below
     await s.close();
   }, 60_000);
 
   test("cleans up after a failed run", async () => {
-    const before = piRpcPids();
     const fixture = await fixtureWith([]);
     const s = await sessionWith(fixture, { timeoutMs: 1500 });
     // An unmatched request is a 400: Pi reports the error and settles once (no retry duplicates).
@@ -145,7 +153,58 @@ describe("host session harness", () => {
     expect((failure as Error).message).toMatch(/last event/);
     await s.close();
     expect(existsSync(s.agentDir)).toBe(false);
-    const leaked = [...piRpcPids()].filter((p) => !before.has(p));
-    expect(leaked).toEqual([]);
+    expect(processesFor(s.agentDir)).toEqual([]);
+    await expect(s.send({ type: "get_state" })).rejects.toThrow(/already exited/);
+  }, 60_000);
+
+  test("close kills executor descendants", async () => {
+    const fixture = await fixtureWith([]);
+    const s = await sessionWith(fixture, { executor: true, probes: ["spawner"] });
+    await s.waitFor(
+      () => s.probeRecords().some((r) => r.probe === "spawner" && r.event === "child"),
+      "spawner child",
+    );
+    const pid = Number(s.probeRecords().find((r) => r.probe === "spawner")?.data?.pid);
+    expect(pid).toBeGreaterThan(0);
+    expect(alive(pid)).toBe(true);
+    await s.close();
+    for (let i = 0; i < 40 && alive(pid); i++) await Bun.sleep(50);
+    expect(alive(pid)).toBe(false);
+    expect(processesFor(s.agentDir)).toEqual([]);
+  }, 90_000);
+
+  test("child env is isolated from the operator's environment", async () => {
+    const sentinel = realpathSync(mkdtempSync(join(tmpdir(), "jev-sentinel-")));
+    const saved = {
+      HOME: process.env.HOME,
+      PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    };
+    process.env.HOME = sentinel;
+    process.env.PI_CODING_AGENT_DIR = sentinel;
+    process.env.OPENAI_API_KEY = "sk-poisoned-test";
+    process.env.ANTHROPIC_API_KEY = "sk-poisoned-test";
+    try {
+      const fixture = await fixtureWith([
+        { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+      ]);
+      const s = await sessionWith(fixture, { probes: ["envcheck"] });
+      await s.prompt("hi");
+      const env = s.probeRecords().find((r) => r.probe === "envcheck")?.data;
+      expect(env?.hasOpenAiKey).toBe(false);
+      expect(env?.hasAnthropicKey).toBe(false);
+      expect(env?.agentDir).toBe(s.agentDir);
+      expect(env?.home).not.toBe(sentinel);
+      expect(String(env?.home).startsWith(s.agentDir)).toBe(true);
+      await s.close();
+      expect(readdirSync(sentinel)).toEqual([]);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      rmSync(sentinel, { recursive: true, force: true });
+    }
   }, 60_000);
 });

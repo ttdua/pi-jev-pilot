@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PI_BIN, REPO_ROOT, run, tempDir } from "../helpers";
+import { PI_BIN, REPO_ROOT, tempDir } from "../helpers";
 import { fixtureModelsJson, type Fixture } from "./fixture";
-import { spawnRpc, type RpcProcess } from "./rpc";
+import { isolatedEnv, spawnRpc, type RpcProcess } from "./rpc";
 
 export type ProbeRecord = {
   probe: string;
@@ -22,23 +22,28 @@ export type HostSession = RpcProcess & {
 
 const EXECUTOR_DIR = join(REPO_ROOT, "node_modules", "@gotgenes", "pi-subagents");
 
-function install(source: string, agentDir: string, cwd: string): { code: number; out: string } {
-  const r = run([PI_BIN, "install", source], {
-    cwd,
-    env: { PI_CODING_AGENT_DIR: agentDir, PI_OFFLINE: "1" },
+type Dirs = { agentDir: string; home: string; cwd: string };
+
+function install(source: string, dirs: Dirs): { code: number; out: string } {
+  const r = Bun.spawnSync([PI_BIN, "install", source], {
+    cwd: dirs.cwd,
+    env: isolatedEnv(dirs.agentDir, dirs.home, { PI_OFFLINE: "1" }),
   });
-  return { code: r.code, out: `${r.stdout}${r.stderr}` };
+  return { code: r.exitCode ?? -1, out: `${r.stdout.toString()}${r.stderr.toString()}` };
 }
 
-function installExecutor(agentDir: string, cwd: string): "node_modules" | "tarball" {
-  const primary = install(EXECUTOR_DIR, agentDir, cwd);
+function installExecutor(dirs: Dirs): "node_modules" | "tarball" {
+  const primary = install(EXECUTOR_DIR, dirs);
   if (primary.code === 0) return "node_modules";
   const packDir = tempDir("jev-pack-");
   try {
-    const packed = run(["bun", "pm", "pack", "--destination", packDir], { cwd: EXECUTOR_DIR });
-    if (packed.code !== 0) throw new Error(`bun pm pack failed: ${packed.stderr}`);
-    const tarball = Bun.spawnSync(["ls", packDir]).stdout.toString().trim().split("\n")[0];
-    const fallback = install(join(packDir, tarball ?? ""), agentDir, cwd);
+    const packed = Bun.spawnSync(["bun", "pm", "pack", "--destination", packDir], {
+      cwd: EXECUTOR_DIR,
+    });
+    if (packed.exitCode !== 0) throw new Error(`bun pm pack failed: ${packed.stderr.toString()}`);
+    const tarball = readdirSync(packDir).find((f) => f.endsWith(".tgz"));
+    if (!tarball) throw new Error("bun pm pack produced no tarball");
+    const fallback = install(join(packDir, tarball), dirs);
     if (fallback.code !== 0) {
       throw new Error(`executor install failed (${primary.out} / ${fallback.out})`);
     }
@@ -61,11 +66,15 @@ export async function startHostSession(opts: {
 }): Promise<HostSession> {
   const agentDir = tempDir("jev-host-agent-");
   const cwd = tempDir("jev-host-cwd-");
+  const home = join(agentDir, "home");
+  const dirs: Dirs = { agentDir, home, cwd };
+  let rpc: RpcProcess | undefined;
   const cleanDirs = (): void => {
     rmSync(agentDir, { recursive: true, force: true });
     rmSync(cwd, { recursive: true, force: true });
   };
   try {
+    mkdirSync(home, { recursive: true });
     writeFileSync(
       join(agentDir, "models.json"),
       JSON.stringify(fixtureModelsJson(opts.fixture.baseUrl)),
@@ -77,9 +86,9 @@ export async function startHostSession(opts: {
       }
     }
     let installPath: HostSession["installPath"] = null;
-    if (opts.executor) installPath = installExecutor(agentDir, cwd);
+    if (opts.executor) installPath = installExecutor(dirs);
     for (const probe of opts.probes ?? []) {
-      const r = install(join(REPO_ROOT, "tests", "host", "probes", probe), agentDir, cwd);
+      const r = install(join(REPO_ROOT, "tests", "host", "probes", probe), dirs);
       if (r.code !== 0) throw new Error(`probe install failed (${probe}): ${r.out}`);
     }
 
@@ -89,16 +98,19 @@ export async function startHostSession(opts: {
     if (opts.thinking) args.push("--thinking", opts.thinking);
     if (!opts.persist) args.push("--no-session");
 
-    const rpc = spawnRpc({
+    const spawned = spawnRpc({
       agentDir,
+      home,
       cwd,
       args,
       env: { PI_OFFLINE: "1", JEV_PROBE_REPORT: reportPath, ...opts.env },
       timeoutMs: opts.timeoutMs,
     });
 
+    rpc = spawned;
+
     return {
-      ...rpc,
+      ...spawned,
       agentDir,
       cwd,
       installPath,
@@ -111,13 +123,14 @@ export async function startHostSession(opts: {
       },
       close: async () => {
         try {
-          await rpc.close();
+          await spawned.close();
         } finally {
           cleanDirs();
         }
       },
     };
   } catch (error) {
+    if (rpc) await rpc.close().catch(() => undefined);
     cleanDirs();
     throw error;
   }
