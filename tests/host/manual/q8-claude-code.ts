@@ -4,12 +4,15 @@
  * Operator run (uses the real Claude subscription login, needs network; never part of `bun test`):
  *   bun tests/host/manual/q8-claude-code.ts
  *
+ * The real HOME is used so `claude` finds its login; `claude` may therefore write under ~/.claude.
+ * Pi's own state stays in a temp agent dir. The reported `level` is read back from Pi (`get_state`).
+ *
  * Prints one `turn=...` line per prompt and a final versions line. No prompt or response text,
  * and no account details, are printed.
  */
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { PI_BIN, REPO_ROOT, run, tempDir } from "../../helpers";
+import { PI_BIN, REPO_ROOT, tempDir } from "../../helpers";
 import { isolatedEnv, spawnRpc, type RpcEvent } from "../rpc";
 
 const PI_CLAUDE_CODE_SOURCE = "git:github.com/earendil-works/pi-claude-code@47f9e2b";
@@ -96,6 +99,12 @@ function finalAssistantUsage(events: RpcEvent[]): Usage | undefined {
 
 async function main(): Promise<void> {
   const root = tempDir("jev-q8-");
+  const onSignal = (signal: NodeJS.Signals): void => {
+    rmSync(root, { recursive: true, force: true });
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
   try {
     const agentDir = join(root, "agent");
     const cwd = join(root, "cwd");
@@ -103,9 +112,17 @@ async function main(): Promise<void> {
 
     const env = loginEnv();
     const installEnv = isolatedEnv(agentDir, env.HOME ?? root, env);
-    const install = run([PI_BIN, "install", PI_CLAUDE_CODE_SOURCE], { cwd, env: installEnv });
-    if (install.code !== 0) {
-      throw new Error(`pi install failed (exit ${install.code}): ${install.stderr.slice(-500)}`);
+    // Exact env (no process.env spread), identical to the RPC child's.
+    const install = Bun.spawnSync([PI_BIN, "install", PI_CLAUDE_CODE_SOURCE], {
+      cwd,
+      env: installEnv,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (install.exitCode !== 0) {
+      throw new Error(
+        `pi install failed (exit ${install.exitCode}): ${install.stderr.toString().slice(-500)}`,
+      );
     }
 
     const rpc = spawnRpc({
@@ -127,8 +144,18 @@ async function main(): Promise<void> {
         };
       };
 
+      const effectiveLevel = async (requested: string): Promise<string> => {
+        const response = await rpc.send({ type: "get_state" });
+        const raw = (response.data as { thinkingLevel?: unknown } | undefined)?.thinkingLevel;
+        const effective = typeof raw === "string" ? raw : "unknown";
+        if (effective !== requested) {
+          console.log(`level-mismatch requested=${requested} effective=${effective}`);
+        }
+        return effective;
+      };
+
       let turn = 0;
-      let level = "low";
+      let level = await effectiveLevel("low");
       const runTurn = async (text: string): Promise<void> => {
         turn += 1;
         const startIndex = rpc.events.length;
@@ -156,7 +183,7 @@ async function main(): Promise<void> {
 
       const changed = await rpc.send({ type: "set_thinking_level", level: "high" });
       if (!changed.success) throw new Error(`set_thinking_level rejected: ${changed.error ?? ""}`);
-      level = "high";
+      level = await effectiveLevel("high");
 
       for (const text of PROMPTS) await runTurn(text);
     } finally {
