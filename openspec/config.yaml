@@ -1,0 +1,31 @@
+schema: superspec
+language: en
+
+context: |
+  pi-jev-pilot is a Pi extension that asks Jev (TypeSafe's typed classifier)
+  questions and turns the answers into decisions with deterministic code:
+  main-session effort, worker model and effort, one skill per prompt, and
+  strategy advice. Code owns the control flow; Jev only answers.
+
+  Stack: TypeScript run by Pi, Bun for tooling and tests, official Pi
+  (@earendil-works/pi-coding-agent), @gotgenes/pi-subagents as executor,
+  TypeSafe as the only classifier backend.
+
+  Specification lives in docs/; decisions in docs/decisions/. Use the
+  docs/glossary.md vocabulary.
+
+  Invariants:
+  - Public Pi APIs only.
+  - Fail open: if Jev fails, Pi behaves as if the package were not installed.
+  - Decide on probabilities, never on confidence.
+  - policy/ is pure; only host/ touches Pi.
+  - Never store prompt text, tool arguments or tool output.
+  - Public repository: everything in English, no real prompts or secrets.
+
+rules:
+  proposal:
+    - List the docs/ files the change updates.
+  specs:
+    - Cover Jev failure wherever the capability calls Jev.
+  plan:
+    - Tests need no secrets, paid calls or network beyond loopback.
