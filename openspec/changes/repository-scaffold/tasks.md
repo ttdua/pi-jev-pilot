@@ -5,9 +5,9 @@
 
 ## 2. Package loading
 
-- [ ] 2.1 Add a manifest test covering the `package.json` requirements and `LICENSE`, then make it pass by adding the `pi` manifest keys, the peer and the MIT `LICENSE`.
-- [ ] 2.2 Add the load test: real `pi install` into a temporary agent directory, `DefaultResourceLoader`, one extension at `src/extension.ts`, zero errors, nothing registered. Then add the no-op `src/extension.ts`.
-- [ ] 2.3 Add the throwing-extension fixture package and the negative-control case in the load test.
+- [x] 2.1 Add a manifest test covering the `package.json` requirements and `LICENSE`, then make it pass by adding the `pi` manifest keys, the peer and the MIT `LICENSE`.
+- [x] 2.2 Add the load test: real `pi install` into a temporary agent directory, `DefaultResourceLoader`, one extension at `src/extension.ts`, zero errors, nothing registered. Then add the no-op `src/extension.ts`.
+- [x] 2.3 Add the throwing-extension fixture package and the negative-control case in the load test.
 
 ## 3. Dependency boundaries
 
