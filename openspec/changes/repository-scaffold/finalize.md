@@ -16,7 +16,7 @@
 - **Branch**: `spec/repository-scaffold`, fast-forwarded to `16ec463` from worktree branch `repository-scaffold`.
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/2`
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `pending`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/2#issuecomment-6657939097)
 
 ---
 
@@ -46,6 +46,7 @@
 - **Baseline status at finish**: `passing`.
   - In the worktree: `bun test`, 9 pass and 0 fail.
   - In the main checkout after the merge: `bun install --frozen-lockfile`, then `bun test` with 9 pass and 0 fail, and `bun run typecheck` with no errors.
+  - On GitHub: the `CI` workflow passed both its `push` run (42026866281) and its `pull_request` run (42027023520), 14 s each. That closes verify warning W1.
 
 ---
 
@@ -60,7 +61,7 @@
 
 ## Next step
 
-Wait for PR review, and confirm that the GitHub `CI` run is green, which closes verify warning W1. After approval:
+Wait for PR review. After approval:
 
 1. Run `/opsx-archive` on this feature branch, so the commits land here.
 2. Push the archive commits to update the PR.
