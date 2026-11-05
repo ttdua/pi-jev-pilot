@@ -27,12 +27,12 @@
 - [x] 4.5 Q5: probe returning a hidden `before_agent_start` message with a marker; host tests before and after `compact`
 - [x] 4.6 Q6: probe calling `setThinkingLevel` in `before_agent_start`; host test on the same turn's first request
 - [x] 4.7 Q7: launch with `inherit_context: true` and a rewritten `model`; host test on the child's model and the parent marker
-- [ ] 4.8 Pin every Q1 to Q7 observation as fixed expected values in its test, including negative answers
+- [x] 4.8 Pin every Q1 to Q7 observation as fixed expected values in its test, including negative answers
 
 ## 5. Question 8 manual run
 
-- [ ] 5.1 Write `tests/host/manual/q8-claude-code.ts`: isolated agent dir, install `pi-claude-code` at commit `47f9e2b`, scripted synthetic session on `claude-code/claude-haiku-5-5` with a mid-session level change, per-turn output of level, events and cache counts, plus date and versions
-- [ ] 5.2 Confirm `bun run test` does not pick up the script
+- [x] 5.1 Write `tests/host/manual/q8-claude-code.ts`: isolated agent dir, install `pi-claude-code` at commit `47f9e2b`, scripted synthetic session on `claude-code/claude-haiku-5-5` with a mid-session level change, per-turn output of level, events and cache counts, plus date and versions
+- [x] 5.2 Confirm `bun run test` does not pick up the script
 - [ ] 5.3 Run the script once by hand with the operator's login and keep its printed output for the report
 
 ## 6. Evidence and documents
