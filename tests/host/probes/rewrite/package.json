@@ -1,0 +1,13 @@
+{
+  "name": "jev-probe-rewrite",
+  "private": true,
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
