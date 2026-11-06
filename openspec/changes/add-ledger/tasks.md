@@ -17,8 +17,8 @@
 
 ## 4. Concurrency
 
-- [ ] 4.1 Add a writer script `tests/fixtures/ledger/writer.ts` that appends N distinct entries tagged with a writer id and sequence number
-- [ ] 4.2 Multi-process tests in `tests/store/ledger-concurrency.test.ts`: 8 processes × 200 entries into an empty ledger, and across a rotation from 1990 lines; assert no loss, no duplicates, per-process order and no invalid line
+- [x] 4.1 Add a writer script `tests/fixtures/ledger/writer.ts` that appends N distinct entries tagged with a writer id and sequence number
+- [x] 4.2 Multi-process tests in `tests/store/ledger-concurrency.test.ts`: 8 processes × 200 entries into an empty ledger, and across a rotation from 1990 lines; assert no loss, no duplicates, per-process order and no invalid line
 
 ## 5. Docs
 
