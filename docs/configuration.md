@@ -131,6 +131,8 @@ Content that leaves the machine with its own switch.
 |---|---|---|
 | `cli` | `codex` | `codex` or `opencode`. `/jev cli-review` stores an override in `state.json` and leaves this file alone |
 
+`state.json` holds the override as `cliReview: { cli, model?, effort? }`. `cliReview.model` is 1 to 128 characters of letters, digits, `.`, `_`, `-`, `:` and `/`, and does not start with `-`, `:` or `/`, so it can never be read as a flag. It is not the word `default`: `/jev cli-review ... default` removes the field instead.
+
 ## Fixed, not configurable
 
 | Value | Number | Why fixed |

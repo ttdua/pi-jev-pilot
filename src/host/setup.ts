@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isChild, subscribeChildren } from "./child.ts";
 import { runJev } from "./commands.ts";
 import { loadSnapshot } from "./readiness.ts";
+import { hideReviewInChild, registerReviewTool } from "./review.ts";
 import { drawStatus } from "./status.ts";
 import { jevDir } from "./stores.ts";
 
@@ -18,6 +19,16 @@ export function setup(pi: ExtensionAPI): void {
     }
   });
 
+  registerReviewTool(pi);
+
+  pi.on("before_agent_start", (event, ctx) => {
+    try {
+      hideReviewInChild(event, ctx.sessionManager.getSessionId());
+    } catch {
+      /* keep the turn */
+    }
+  });
+
   pi.on("session_shutdown", async () => {
     try {
       off();
@@ -28,6 +39,11 @@ export function setup(pi: ExtensionAPI): void {
 
   pi.registerCommand("jev", {
     description: "Show or change jev-pilot features",
-    handler: (args, ctx) => runJev(args, ctx, { dir: jevDir(), load: () => loadSnapshot(pi) }),
+    handler: (args, ctx) =>
+      runJev(args, ctx, {
+        dir: jevDir(),
+        load: () => loadSnapshot(pi),
+        exec: (c, a, o) => pi.exec(c, a, o),
+      }),
   });
 }

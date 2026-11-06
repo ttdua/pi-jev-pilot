@@ -18,6 +18,8 @@ function fakePi(opts: { throwOnOff?: boolean } = {}) {
       handlers.set(name, [...(handlers.get(name) ?? []), h]);
     },
     registerCommand: (name: string, def: unknown) => commands.set(name, def),
+    registerTool: () => {},
+    exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
     getAllTools: () => [],
     events: {
       on: (channel: string, handler: (d: unknown) => void) => {
@@ -78,7 +80,11 @@ describe("setup", () => {
     expect(f.order.slice(0, 2).sort()).toEqual([`events:${CREATED}`, `events:${DISPOSED}`].sort());
     expect(f.order.indexOf("on:session_start")).toBeGreaterThan(1);
     expect([...f.commands.keys()]).toEqual(["jev"]);
-    expect([...f.handlers.keys()].sort()).toEqual(["session_shutdown", "session_start"]);
+    expect([...f.handlers.keys()].sort()).toEqual([
+      "before_agent_start",
+      "session_shutdown",
+      "session_start",
+    ]);
   });
 
   test("session_start draws the line on a main session", async () => {

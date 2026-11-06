@@ -133,15 +133,31 @@ A slot offers Jev another model, with a description of when to choose it.
 have Codex review this change
 ```
 
+Say `with Codex` or `with OpenCode`, and name a model or effort, to override the default for one request. Per-request values are not checked in advance; a wrong name fails the review with the CLI's own error.
+
 Set a default:
 
 ```text
 /jev cli-review codex luna high
 /jev cli-review opencode
+/jev cli-review opencode openai/gpt-6.1-sol high
 /jev cli-review codex default
+/jev cli-review codex luna default
 ```
 
-The choice is kept in `state.json`; `config.json` is not changed. `default` clears the model or effort.
+The model takes one of three forms:
+
+| Form | Example | Meaning |
+|---|---|---|
+| Tier | `luna` | A Codex tier name. The newest model of that tier is used at each run |
+| Full id | `gpt-6.1-luna`, `openai/gpt-6.1-sol` | A pinned model. For OpenCode, a bare name such as `gpt-6.1-sol` works when only one provider lists it |
+| `default` | `default` | Clears the model, so the CLI uses its own default. `default` for the effort clears the effort |
+
+`/jev cli-review` checks the model and effort against the CLI's own list (`codex debug models`, `opencode models`). An unknown model, an unsupported effort, or a name that two OpenCode providers list is refused, and the message suggests close matches. When the list cannot be read (CLI missing, error or timeout), the value is accepted with a warning that it was not checked. An OpenCode effort needs a model.
+
+The choice is kept in `state.json`; `config.json` is not changed. `/jev` shows it on a `cli review:` line, such as `cli review: codex (model luna, effort high)`, or `CLI defaults` when nothing is set. `/jev reset` clears it.
+
+A CLI review does not need the Jev key and does not depend on the switches. It runs only when you ask, and it is never offered to subagents.
 
 ## Switches
 
@@ -154,7 +170,7 @@ The choice is kept in `state.json`; `config.json` is not changed. `default` clea
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
 
-From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: `mode` (WG-12), slot commands (WG-13), `cli-review` (WG-15) and `tune` (WG-18).
+From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: `mode` (WG-12), slot commands (WG-13) and `tune` (WG-18).
 
 ## Tool assessment
 
@@ -194,7 +210,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev <slot> <provider/model> [when <text>]   add or replace a slot (WG-13)
 /jev <slot>                                  show it (WG-13)
 /jev remove <slot>                           WG-13
-/jev cli-review <codex|opencode> [model] [effort]   kept in state.json (WG-15)
+/jev cli-review <codex|opencode> [model|default] [effort|default]   kept in state.json
 /jev tune | /jev tune undo | /jev tune reset | /jev tune off   WG-18
 ```
 

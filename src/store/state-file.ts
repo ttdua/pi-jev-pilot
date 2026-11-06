@@ -26,11 +26,36 @@ export type StateRead =
   | { kind: "malformed"; state: {}; issues: Issue[] }
   | { kind: "unreadable"; state: {}; issues: Issue[] };
 
-const cliValue = refine(
-  string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ }),
-  (text) => text !== "default",
-  "expected a value other than default (omit the field instead)",
+const notDefault = (text: string): boolean => text !== "default";
+const NOT_DEFAULT_MESSAGE = "expected a value other than default (omit the field instead)";
+
+const cliModel = refine(
+  string({ pattern: /^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$/ }),
+  notDefault,
+  NOT_DEFAULT_MESSAGE,
 );
+
+const cliEffort = refine(
+  string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ }),
+  notDefault,
+  NOT_DEFAULT_MESSAGE,
+);
+
+const cliReviewValidator = object(
+  {
+    cli: oneOf(["codex", "opencode"] as const),
+    model: cliModel,
+    effort: cliEffort,
+  },
+  { required: ["cli"] },
+);
+
+/** Validates a candidate cliReview object; issue paths are prefixed `cliReview`. */
+export function validateCliReview(candidate: unknown): Issue[] {
+  const issues: Issue[] = [];
+  cliReviewValidator(candidate, "cliReview", issues);
+  return issues;
+}
 
 function stateValidator(): V<State & { version: 1 }> {
   return object(
@@ -38,14 +63,7 @@ function stateValidator(): V<State & { version: 1 }> {
       version: integer({ min: 1, max: 1 }),
       switches: object(Object.fromEntries(FEATURES.map((f) => [f, boolean()]))),
       mode: oneOf(MODES),
-      cliReview: object(
-        {
-          cli: oneOf(["codex", "opencode"] as const),
-          model: cliValue,
-          effort: cliValue,
-        },
-        { required: ["cli"] },
-      ),
+      cliReview: cliReviewValidator,
     },
     { required: ["version"] },
   ) as V<State & { version: 1 }>;

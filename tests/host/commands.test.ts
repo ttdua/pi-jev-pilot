@@ -10,6 +10,7 @@ import {
   usageText,
   type JevArgs,
 } from "../../src/host/commands.ts";
+import type { Exec } from "../../src/host/review-cli.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
@@ -48,7 +49,24 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("all on")).toEqual({ kind: "all", on: true });
     expect(parseJevArgs("reset")).toEqual({ kind: "reset" });
   });
+  test("cli-review", () => {
+    expect(parseJevArgs("cli-review opencode")).toEqual({ kind: "cli-review", cli: "opencode" });
+    expect(parseJevArgs("cli-review codex default high")).toEqual({
+      kind: "cli-review",
+      cli: "codex",
+      effort: "high",
+    });
+    expect(parseJevArgs("cli-review codex luna default")).toEqual({
+      kind: "cli-review",
+      cli: "codex",
+      model: "luna",
+    });
+  });
   for (const bad of [
+    "cli-review",
+    "cli-review claude",
+    "cli-review Codex",
+    "cli-review codex luna high now",
     "mode premium",
     "colors off",
     "skills maybe",
@@ -71,8 +89,11 @@ describe("usageText", () => {
   });
   test("lists no later forms", () => {
     for (const line of text.split("\n"))
-      for (const p of ["/jev mode", "/jev cli-review", "/jev tune", "/jev remove"])
+      for (const p of ["/jev mode", "/jev tune", "/jev remove", "/jev slot"])
         expect(line.trimStart().startsWith(p)).toBe(false);
+  });
+  test("lists the cli-review form", () => {
+    expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
   });
 });
 
@@ -87,6 +108,19 @@ describe("formatStatus", () => {
     expect(text).toMatch(/TYPESAFE_API_KEY[^\n]*\bset\b/);
     expect(text).not.toContain("not set");
     expect(text).not.toContain("no executor");
+  });
+  test("cli review default and set values", () => {
+    expect(formatStatus(snap())).toContain("cli review: codex (CLI defaults)");
+    const state: State = { cliReview: { cli: "codex", model: "luna", effort: "high" } };
+    const lines = formatStatus(snap({ state })).split("\n");
+    expect(lines).toContain("cli review: codex (model luna, effort high)");
+    expect(lines.indexOf("cli review: codex (model luna, effort high)")).toBe(
+      lines.findIndex((l) => l.startsWith("  verbose:")) + 1,
+    );
+    const m = formatStatus(snap({ state: { cliReview: { cli: "opencode", model: "p/m" } } }));
+    expect(m).toContain("cli review: opencode (model p/m)");
+    const e = formatStatus(snap({ state: { cliReview: { cli: "opencode", effort: "high" } } }));
+    expect(e).toContain("cli review: opencode (effort high)");
   });
   test("key not set", () => {
     expect(formatStatus(snap({ env: {} }))).toContain("not set");
@@ -170,8 +204,12 @@ const load = (dir: string) => () =>
     toolNames: ["subagent"],
   });
 
-async function run(args: string, dir: string, c = fakeCtx()) {
-  await runJev(args, c.ctx, { dir, load: load(dir) });
+const noExec: Exec = async () => {
+  throw new Error("exec must not be called");
+};
+
+async function run(args: string, dir: string, c = fakeCtx(), exec: Exec = noExec) {
+  await runJev(args, c.ctx, { dir, load: load(dir), exec });
   return c.rec;
 }
 
@@ -279,6 +317,7 @@ describe("runJev", () => {
     const c = fakeCtx();
     await runJev("", c.ctx, {
       dir,
+      exec: noExec,
       load: () => {
         throw new TypeError("boom");
       },
@@ -294,10 +333,214 @@ describe("runJev", () => {
     };
     await runJev("", c.ctx, {
       dir,
+      exec: noExec,
       load: () => {
         throw new TypeError("boom");
       },
     });
-    await runJev("mode premium", c.ctx, { dir, load: load(dir) });
+    await runJev("mode premium", c.ctx, { dir, load: load(dir), exec: noExec });
+  });
+});
+
+describe("runJev cli-review", () => {
+  const catalog = JSON.stringify({
+    models: [
+      {
+        slug: "gpt-6-luna",
+        display_name: "GPT-6-Luna",
+        visibility: "list",
+        supported_reasoning_levels: [{ effort: "low" }, { effort: "high" }],
+      },
+      {
+        slug: "gpt-5.6-luna",
+        display_name: "GPT-5.6-Luna",
+        visibility: "hide",
+        supported_reasoning_levels: [],
+      },
+      {
+        slug: "gpt-5.6-nebula",
+        display_name: "GPT-5.6-Nebula",
+        supported_reasoning_levels: [{ effort: "low" }],
+      },
+    ],
+  });
+  const ok = (stdout: string) => ({
+    stdout,
+    stderr: "",
+    code: 0,
+    killed: false,
+    truncated: false,
+  });
+  function fake(result: Awaited<ReturnType<Exec>> | Error) {
+    const calls: [string, string[], object][] = [];
+    const exec: Exec = async (c, a, o) => {
+      calls.push([c, a, o]);
+      if (result instanceof Error) throw result;
+      return result;
+    };
+    return { exec, calls };
+  }
+  const review = (dir: string) => (readState(dir).state as State).cliReview;
+
+  async function go(args: string, f: ReturnType<typeof fake>, dir = jevDir()) {
+    const c = fakeCtx();
+    await runJev(args, c.ctx, { dir, load: load(dir), exec: f.exec });
+    return { rec: c.rec, dir };
+  }
+
+  test("bare reviewer stores, reports and redraws", async () => {
+    const f = fake(ok(""));
+    const { rec, dir } = await go("cli-review opencode", f);
+    expect(review(dir)).toEqual({ cli: "opencode" });
+    expect(f.calls).toHaveLength(0);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("cli review: opencode (CLI defaults)");
+    expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("tier stored as typed, list read once with the right command", async () => {
+    const f = fake(ok(catalog));
+    const { rec, dir } = await go("cli-review codex luna high", f);
+    expect(review(dir)).toEqual({ cli: "codex", model: "luna", effort: "high" });
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0]![0]).toBe("codex");
+    expect(f.calls[0]![1]).toEqual(["debug", "models"]);
+    expect(f.calls[0]![2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+    expect(rec.notes[0]![0]).toContain("cli review: codex (model luna, effort high)");
+  });
+
+  test("tier in another case stored as typed", async () => {
+    const { dir } = await go("cli-review codex Luna", fake(ok(catalog)));
+    expect(review(dir)).toEqual({ cli: "codex", model: "Luna" });
+  });
+
+  test("display name stored as its slug", async () => {
+    const { dir } = await go("cli-review codex GPT-5.6-Nebula", fake(ok(catalog)));
+    expect(review(dir)).toEqual({ cli: "codex", model: "gpt-5.6-nebula" });
+  });
+
+  test("unknown model is refused with suggestions", async () => {
+    const { rec, dir } = await go("cli-review codex nova", fake(ok(catalog)));
+    expect(review(dir)).toBeUndefined();
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain('Unknown Codex model "nova".');
+    expect(rec.notes[0]![0]).toContain("\nTry: luna (now gpt-6-luna), nebula");
+    expect(rec.widgets).toHaveLength(0);
+  });
+
+  test("unsupported effort lists the supported ones", async () => {
+    const { rec, dir } = await go("cli-review codex luna ultra", fake(ok(catalog)));
+    expect(review(dir)).toBeUndefined();
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("Try: low, high");
+  });
+
+  test("codex effort without a model reads no list", async () => {
+    const f = fake(ok(catalog));
+    const { dir } = await go("cli-review codex default high", f);
+    expect(review(dir)).toEqual({ cli: "codex", effort: "high" });
+    expect(f.calls).toHaveLength(0);
+  });
+
+  test("opencode model by name stored as full id", async () => {
+    const f = fake(ok("ollama-cloud/glm-5.3\nother/thing\n"));
+    const { dir } = await go("cli-review opencode glm-5.3 high", f);
+    expect(f.calls[0]![0]).toBe("opencode");
+    expect(f.calls[0]![1]).toEqual(["models"]);
+    expect(review(dir)).toEqual({ cli: "opencode", model: "ollama-cloud/glm-5.3", effort: "high" });
+  });
+
+  test("opencode name with two providers is refused naming both", async () => {
+    const { rec, dir } = await go(
+      "cli-review opencode glm-5.3",
+      fake(ok("a/glm-5.3\nb/glm-5.3\n")),
+    );
+    expect(review(dir)).toBeUndefined();
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("a/glm-5.3, b/glm-5.3");
+  });
+
+  test("opencode effort without a model is refused before any read", async () => {
+    const f = fake(ok(""));
+    const { rec, dir } = await go("cli-review opencode default high", f);
+    expect(f.calls).toHaveLength(0);
+    expect(review(dir)).toBeUndefined();
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("needs a model");
+    expect(rec.notes[0]![0]).not.toContain("Try:");
+  });
+
+  test("unreadable list (non-zero exit) stores with a warning", async () => {
+    const f = fake({ ...ok(""), code: 1, stderr: "boom" });
+    const { rec, dir } = await go("cli-review codex luna high", f);
+    expect(review(dir)).toEqual({ cli: "codex", model: "luna", effort: "high" });
+    expect(rec.notes.map((n) => n[1])).toEqual(["warning", "info"]);
+    expect(rec.notes[0]![0]).toBe("CLI review model not checked: could not read the model list.");
+  });
+
+  test("timeout, empty parse and throwing exec are unreadable", async () => {
+    for (const f of [
+      fake({ ...ok(catalog), killed: true }),
+      fake(ok("{}")),
+      fake(new Error("spawn failed")),
+    ]) {
+      const { rec, dir } = await go("cli-review codex luna", f);
+      expect(review(dir)).toEqual({ cli: "codex", model: "luna" });
+      expect(rec.notes[0]![1]).toBe("warning");
+    }
+  });
+
+  test("opencode missing on PATH stores with a not-found warning", async () => {
+    const f = fake({ ...ok(""), code: 1, stderr: "spawn opencode ENOENT" });
+    const { rec, dir } = await go("cli-review opencode p/m", f);
+    expect(review(dir)).toEqual({ cli: "opencode", model: "p/m" });
+    expect(rec.notes[0]).toEqual(["CLI review model not checked: opencode not found.", "warning"]);
+  });
+
+  test("default clears the model and reads no list", async () => {
+    const dir = jevDir();
+    await go("cli-review codex luna high", fake(ok(catalog)), dir);
+    const f = fake(ok(catalog));
+    await go("cli-review codex default", f, dir);
+    expect(review(dir)).toEqual({ cli: "codex" });
+    expect(f.calls).toHaveLength(0);
+  });
+
+  test("other state fields are kept", async () => {
+    const dir = jevDir();
+    await go("skills off", fake(ok("")), dir);
+    await go("cli-review opencode", fake(ok("")), dir);
+    expect(switches(dir)?.skills).toBe(false);
+  });
+
+  test("value outside the state rules is refused, no exec", async () => {
+    const f = fake(ok(catalog));
+    const { rec, dir } = await go("cli-review codex -m", f);
+    expect(f.calls).toHaveLength(0);
+    expect(existsSync(join(dir, "state.json"))).toBe(false);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("cliReview.model");
+  });
+
+  test("usage forms change nothing", async () => {
+    const f = fake(ok(catalog));
+    for (const a of ["cli-review", "cli-review claude", "cli-review Codex"]) {
+      const { rec, dir } = await go(a, f);
+      expect(rec.notes).toEqual([[usageText(), "warning"]]);
+      expect(existsSync(join(dir, "state.json"))).toBe(false);
+    }
+  });
+
+  test("cli-review is inert in a child", async () => {
+    const dir = jevDir();
+    (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["kid"]);
+    const f = fake(ok(catalog));
+    const c = fakeCtx(true, "kid");
+    await runJev("cli-review codex luna", c.ctx, { dir, load: load(dir), exec: f.exec });
+    expect(c.rec.notes).toHaveLength(0);
+    expect(f.calls).toHaveLength(0);
+    expect(existsSync(join(dir, "state.json"))).toBe(false);
   });
 });

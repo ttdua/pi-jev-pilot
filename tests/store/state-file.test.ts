@@ -1,7 +1,12 @@
 import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { readState, resetState, updateState } from "../../src/store/state-file.ts";
+import {
+  readState,
+  resetState,
+  updateState,
+  validateCliReview,
+} from "../../src/store/state-file.ts";
 import { tempDir } from "../helpers.ts";
 
 const isRoot = process.getuid?.() === 0;
@@ -69,6 +74,43 @@ describe("state content", () => {
       expect(r.kind).toBe("malformed");
       expect(paths(r)).toEqual(["cliReview.model"]);
     }));
+
+  test("OpenCode provider/model id accepted", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReview":{"cli":"opencode","model":"ollama-cloud/gpt-oss:120b"}}');
+      expect(readState(dir)).toEqual({
+        kind: "ok",
+        state: { cliReview: { cli: "opencode", model: "ollama-cloud/gpt-oss:120b" } },
+      });
+    }));
+
+  test("Model starting with dash rejected", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReview":{"cli":"codex","model":"-m"}}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["cliReview.model"]);
+    }));
+
+  test("Model over 128 characters rejected", () =>
+    withDir((dir) => {
+      put(dir, JSON.stringify({ version: 1, cliReview: { cli: "codex", model: "a".repeat(129) } }));
+      expect(readState(dir).kind).toBe("malformed");
+    }));
+
+  test("Effort with slash rejected", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReview":{"cli":"codex","effort":"a/b"}}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["cliReview.effort"]);
+    }));
+
+  test("validateCliReview reports prefixed paths", () => {
+    const bad = validateCliReview({ cli: "codex", model: "-m" });
+    expect(bad.map((i) => i.path)).toEqual(["cliReview.model"]);
+    expect(validateCliReview({ cli: "opencode", model: "p/m" })).toEqual([]);
+  });
 
   test("Unknown feature", () =>
     withDir((dir) => {

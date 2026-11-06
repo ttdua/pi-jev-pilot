@@ -94,6 +94,23 @@
       }
     },
     {
+      "files": ["src/host/review-cli.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../extension*"], "message": "host/ must not import the entry point." },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "review-cli.ts stays free of Pi imports."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/extension*.ts"],
       "rules": {
         "no-restricted-imports": [

@@ -1,0 +1,31 @@
+#!/bin/sh
+# Fake codex CLI for host tests. Never records the prompt.
+log="${FAKE_CODEX_LOG:-/dev/null}"
+if [ "$1" = "debug" ] && [ "$2" = "models" ]; then
+  echo "debug models" >> "$log"
+  printf '%s\n' '{"models":[]}'
+  exit 0
+fi
+sub="$1"
+argc=$#
+model=""
+out=""
+prev=""
+for a in "$@"; do
+  case "$prev" in
+    -m) model="$a" ;;
+    -o) out="$a" ;;
+  esac
+  prev="$a"
+done
+echo "$sub argc=$argc model=$model" >> "$log"
+if [ "${FAKE_CODEX_MODE:-ok}" = "fail" ]; then
+  i=1
+  while [ "$i" -le 30 ]; do
+    echo "err line $i" >&2
+    i=$((i + 1))
+  done
+  exit 3
+fi
+[ -n "$out" ] && echo "JEV-MARKER-OUT PASS" > "$out"
+exit 0
