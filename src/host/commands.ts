@@ -1,9 +1,16 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DECISION_FEATURES, FEATURES, type Feature } from "../store/defaults.ts";
-import { resetState, updateState } from "../store/state-file.ts";
+import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
 import type { Issue } from "../store/validate.ts";
 import { isChild } from "./child.ts";
-import type { Exec } from "./review-cli.ts";
+import {
+  checkCodexChoice,
+  checkOpencodeChoice,
+  parseCodexCatalog,
+  parseOpencodeModels,
+  type CheckResult,
+  type Exec,
+} from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
 import { drawStatus, statusText } from "./status.ts";
 
@@ -92,6 +99,37 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.constructor.name : "UnknownError";
 }
 
+type CliReviewArgs = Extract<JevArgs, { kind: "cli-review" }>;
+
+/** The check, or a `reason` when the model list cannot be read. */
+async function checkAgainstCli(
+  a: CliReviewArgs,
+  exec: Exec,
+): Promise<{ check: CheckResult } | { reason: string }> {
+  const [cmd, args] = a.cli === "codex" ? ["codex", ["debug", "models"]] : ["opencode", ["models"]];
+  let r: Awaited<ReturnType<Exec>> | undefined;
+  try {
+    r = await exec(cmd!, args!, { timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+  } catch {
+    r = undefined;
+  }
+  const unreadable = (): { reason: string } => ({
+    reason:
+      r !== undefined && r.stdout === "" && r.stderr.includes("ENOENT")
+        ? `${a.cli} not found`
+        : "could not read the model list",
+  });
+  if (r === undefined || r.code !== 0 || r.killed) return unreadable();
+  if (a.cli === "codex") {
+    const catalog = parseCodexCatalog(r.stdout);
+    if (catalog.length === 0) return unreadable();
+    return { check: checkCodexChoice(a.model, a.effort, catalog) };
+  }
+  const ids = parseOpencodeModels(r.stdout);
+  if (ids.length === 0) return unreadable();
+  return { check: checkOpencodeChoice(a.model, a.effort, ids) };
+}
+
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
@@ -103,20 +141,64 @@ export async function runJev(
       if (ctx.hasUI) ctx.ui.notify(message, type);
     };
     const parsed = parseJevArgs(args);
-    if (parsed.kind === "usage" || parsed.kind === "cli-review") {
+    if (parsed.kind === "usage") {
       notify(usageText(), "warning");
       return;
+    }
+    let cliReview: { model?: string; effort?: string } | undefined;
+    if (parsed.kind === "cli-review") {
+      const stateIssues = validateCliReview({
+        cli: parsed.cli,
+        ...(parsed.model === undefined ? {} : { model: parsed.model }),
+        ...(parsed.effort === undefined ? {} : { effort: parsed.effort }),
+      });
+      if (stateIssues.length > 0) {
+        notify(stateIssues.map((i) => `${i.path}: ${i.message}`).join("\n"), "error");
+        return;
+      }
+      cliReview = { model: parsed.model, effort: parsed.effort };
+      // A list is read only when a model is given, or to refuse an OpenCode effort with no model.
+      if (
+        parsed.model !== undefined ||
+        (parsed.cli === "opencode" && parsed.effort !== undefined)
+      ) {
+        const outcome =
+          parsed.model === undefined
+            ? { check: checkOpencodeChoice(undefined, parsed.effort, []) }
+            : await checkAgainstCli(parsed, deps.exec);
+        if ("reason" in outcome) {
+          notify(`CLI review model not checked: ${outcome.reason}.`, "warning");
+        } else if (!outcome.check.ok) {
+          const { message, suggestions } = outcome.check;
+          notify(
+            suggestions.length > 0 ? `${message}\nTry: ${suggestions.join(", ")}` : message,
+            "error",
+          );
+          return;
+        } else {
+          cliReview = { model: outcome.check.model, effort: outcome.check.effort };
+        }
+      }
     }
     if (parsed.kind !== "status") {
       const result =
         parsed.kind === "reset"
           ? resetState(deps.dir)
-          : updateState(deps.dir, (st) => {
-              const features = parsed.kind === "all" ? DECISION_FEATURES : [parsed.feature];
-              const switches = { ...st.switches };
-              for (const f of features) switches[f] = parsed.on;
-              return { ...st, switches };
-            });
+          : parsed.kind === "cli-review"
+            ? updateState(deps.dir, (st) => ({
+                ...st,
+                cliReview: {
+                  cli: parsed.cli,
+                  ...(cliReview?.model ? { model: cliReview.model } : {}),
+                  ...(cliReview?.effort ? { effort: cliReview.effort } : {}),
+                },
+              }))
+            : updateState(deps.dir, (st) => {
+                const features = parsed.kind === "all" ? DECISION_FEATURES : [parsed.feature];
+                const switches = { ...st.switches };
+                for (const f of features) switches[f] = parsed.on;
+                return { ...st, switches };
+              });
       if (!result.ok) {
         notify(
           result.issues.map((i) => (i.path ? `${i.path}: ${i.message}` : i.message)).join("\n"),
