@@ -25,4 +25,4 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Update `docs/configuration.md`, `docs/architecture.md`, `docs/domain-model.md`, `docs/usage-guide.md` and `docs/roadmap.md` as listed in `proposal.md`
+- [x] 6.1 Update `docs/configuration.md`, `docs/architecture.md`, `docs/domain-model.md`, `docs/usage-guide.md` and `docs/roadmap.md` as listed in `proposal.md`
