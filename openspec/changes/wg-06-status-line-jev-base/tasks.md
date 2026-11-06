@@ -19,8 +19,8 @@
 
 ## 5. Wiring
 
-- [ ] 5.1 Add `src/host/setup.ts` with `setup(pi)`, and make `src/extension.ts` delegate to it (lint forbids Pi imports in the entry point): `subscribeChildren(pi.events)` in the factory; `session_start` (child guard, `loadSnapshot`, `drawStatus`, errors swallowed); `session_shutdown` unsubscribes; `registerCommand("jev", …)` calling `runJev`. No other registrations.
-- [ ] 5.2 Update `tests/load.test.ts` for the "Extension registrations are bounded" requirement (commands exactly `jev`; handlers exactly `session_start` and `session_shutdown`; no tools, flags or shortcuts).
+- [x] 5.1 Add `src/host/setup.ts` with `setup(pi)`, and make `src/extension.ts` delegate to it (lint forbids Pi imports in the entry point): `subscribeChildren(pi.events)` in the factory; `session_start` (child guard, `loadSnapshot`, `drawStatus`, errors swallowed); `session_shutdown` unsubscribes; `registerCommand("jev", …)` calling `runJev`. No other registrations.
+- [x] 5.2 Update `tests/load.test.ts` for the "Extension registrations are bounded" requirement (commands exactly `jev`; handlers exactly `session_start` and `session_shutdown`; no tools, flags or shortcuts).
 
 ## 6. Host tests through the real CLI
 
