@@ -12,8 +12,8 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-02 | Host seam verification | M | WG-01 | Done |
 | WG-03 | Config and state stores | M | WG-01 | Done |
 | WG-04 | Jev client and answer reading | M | WG-01 | Done |
-| WG-05 | Ledger | M | WG-03 | Planned |
-| WG-06 | Status line and `/jev` base | M | WG-03 | Planned |
+| WG-05 | Ledger | M | WG-03 | Done |
+| WG-06 | Status line and `/jev` base | M | WG-03 | Done |
 | WG-07 | Main effort | M | WG-02, 04, 05, 06 | Planned |
 | WG-08 | Effort hold | S | WG-07 | Planned |
 | WG-09 | Skill pick and delivery | L | WG-07 | Planned |
@@ -157,11 +157,17 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-11: Worker routing core
 
-**B1, B2.** The largest group; it depends most on WG-02.
+**B1, B2.** The largest group; it depends most on WG-02. It ships as two changes:
+
+- `wg-11-worker-policy`: agent reader, worker request, pure decision, effort and fallback.
+- `wg-11-worker-host`: host wiring, `subagents.forkedLaunch`, registry and credential check, pre-launch tier cascade with a warning naming the setting, ledger outcome.
+
+The pre-launch tier cascade moved here from WG-13.
 
 - **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` ([WG-02 Q2](evidence/2026-11-05-host-seams.md#q2)), input mutation with validation, `locked` handling, worker outcome in the ledger.
-- **Open option ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** on `inherit_context` launches, keep the model and change only thinking; currently skipped per the domain model.
-- **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` and `inherit_context` are untouched, and a Jev outage leaves launches unchanged.
+- **Decision ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** forked launches follow `subagents.forkedLaunch`, default `untouched`; `thinking` keeps the model and changes only thinking.
+- **Also includes:** launches issued by another tool (nested, `parentToolCallId`) are classified at `tool_call`; `resume` and `inherit_context` are read as effective values (launch input, else the agent file); the pre-launch tier cascade uses effort `xhigh` on every tier and warns with the failing tier, the tier used instead and the setting to fix.
+- **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` is untouched, a forked launch follows `subagents.forkedLaunch`, an unusable tier cascades down, never to `expert`, and a Jev outage leaves launches unchanged.
 
 ### WG-12: Modes and expert tier
 
@@ -173,8 +179,8 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 **F1, H3.**
 
-- **Includes:** config and `/jev <slot>` commands checked against the registry, nearest-name hints, `slot::` options, probability bar, pre-launch cascade for tiers and slots, warnings naming the setting.
-- **Done when:** the reviewer slot routes in a host test, an unusable model cascades as specified, and `expert` is never a target of fallback.
+- **Includes:** config and `/jev <slot>` commands checked against the registry, nearest-name hints, `slot::` options, probability bar, slot fallback to `balanced`, warnings naming the setting.
+- **Done when:** the reviewer slot routes in a host test, an unusable slot falls back to `balanced`, and `expert` is never a target of fallback.
 
 ### WG-14: Tool assessment, observe only
 

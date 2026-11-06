@@ -50,6 +50,8 @@ src/
   policy/                Pure. No Pi imports, no I/O.
     answers.ts           Validates a raw response, per question
     effort.ts            Effort rules: risk floor, ceiling, fast-tier cap
+    launch.ts            Effective launch fields and locks
+    worker.ts            Reads worker answers
     tier.ts              Model decision order
     modes.ts             Mode names, Fable rules
     skill.ts             Skill pick from choice and gate answers
@@ -59,6 +61,7 @@ src/
 
   shared/                Dependency-free rules used by more than one module
     urls.ts              The Jev URL rule
+    text.ts              Code-point cut
 
   jev/                   Talks to TypeSafe.
     client.ts            Transport: timeout, abort, no redirects
