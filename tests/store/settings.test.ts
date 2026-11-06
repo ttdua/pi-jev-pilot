@@ -3,6 +3,11 @@ import { DEFAULTS } from "../../src/store/defaults.ts";
 import { resolveSettings } from "../../src/store/settings.ts";
 
 describe("resolveSettings", () => {
+  test("Forked launch from config", () => {
+    const s = resolveSettings({ config: { subagents: { forkedLaunch: "thinking" } }, state: {} });
+    expect(s.subagents.forkedLaunch).toBe("thinking");
+  });
+
   test("Everything defaulted", () => {
     expect(resolveSettings({ config: {}, state: {} })).toEqual({
       classifier: {
@@ -17,6 +22,7 @@ describe("resolveSettings", () => {
       skills: { inject: "content" },
       tools: { mode: "observe" },
       state: { parentRequest: false },
+      subagents: { forkedLaunch: "untouched" },
       review: { cli: "codex" },
       mode: "standard",
       switches: {

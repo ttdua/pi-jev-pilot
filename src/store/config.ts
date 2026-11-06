@@ -26,6 +26,7 @@ export type Config = {
   skills?: { inject?: "content" | "suggest" };
   tools?: { mode?: "observe" | "enforce" };
   state?: { parentRequest?: boolean };
+  subagents?: { forkedLaunch?: "untouched" | "thinking" };
   review?: { cli?: "codex" | "opencode" };
 };
 
@@ -90,6 +91,7 @@ function configValidator(): V<Config> {
     skills: object({ inject: oneOf(["content", "suggest"] as const) }),
     tools: object({ mode: oneOf(["observe", "enforce"] as const) }),
     state: object({ parentRequest: boolean() }),
+    subagents: object({ forkedLaunch: oneOf(["untouched", "thinking"] as const) }),
     review: object({ cli: oneOf(["codex", "opencode"] as const) }),
   }) as V<Config>;
 }

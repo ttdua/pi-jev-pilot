@@ -249,6 +249,21 @@ describe("readConfig", () => {
     expect(paths(r).sort()).toEqual(["review.cli", "skills.inject", "tools.mode"]);
   });
 
+  test("Forked launch setting accepted", () => {
+    const r = readJson({ subagents: { forkedLaunch: "thinking" } });
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") expect(r.config.subagents?.forkedLaunch).toBe("thinking");
+  });
+
+  test("Forked launch setting rejected", () => {
+    expect(paths(readJson({ subagents: { forkedLaunch: "skip" } }))).toEqual([
+      "subagents.forkedLaunch",
+    ]);
+    expect(paths(readJson({ subagents: { inheritContext: "skip" } }))).toEqual([
+      "subagents.inheritContext",
+    ]);
+  });
+
   test("Read leaves the file untouched", () => {
     withDir((dir) => {
       const file = join(dir, "config.json");

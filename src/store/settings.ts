@@ -12,6 +12,7 @@ export type Settings = {
   skills: { inject: "content" | "suggest" };
   tools: { mode: "observe" | "enforce" };
   state: { parentRequest: boolean };
+  subagents: { forkedLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; model?: string; effort?: string };
   mode: Mode;
   switches: Record<Feature, boolean>;
@@ -61,6 +62,11 @@ export function resolveSettings(input: {
     skills: { inject: config.skills?.inject ?? (DEFAULTS.skills.inject as "content" | "suggest") },
     tools: { mode: config.tools?.mode ?? (DEFAULTS.tools.mode as "observe" | "enforce") },
     state: { parentRequest: config.state?.parentRequest ?? DEFAULTS.state.parentRequest },
+    subagents: {
+      forkedLaunch:
+        config.subagents?.forkedLaunch ??
+        (DEFAULTS.subagents.forkedLaunch as "untouched" | "thinking"),
+    },
     review,
     mode: state.mode ?? DEFAULTS.mode,
     switches,
