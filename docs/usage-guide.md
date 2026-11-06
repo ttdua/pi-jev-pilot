@@ -57,11 +57,11 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 |---|---|
 | `Jev · standard` | Working. The word is the current mode |
 | `Jev · no key` | `TYPESAFE_API_KEY` (or the variable named in config) is not set in this shell |
-| `Jev · config error` | `config.json` is malformed. `/jev` names the field |
+| `Jev · config error` | `config.json` is malformed or invalid. `/jev` names the field |
 | `Jev · off` | All seven decision features are switched off |
 | `no executor` in `/jev` | Worker routing and tool assessment are off |
 
-If several apply, the first in this order wins: config error, no key, off, mode. The line shows only in an interactive session, never in print or JSON mode. `/jev status off` removes it.
+If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
 
 Later work groups add the decision to the line, once Jev classifies prompts:
 
@@ -146,7 +146,7 @@ The choice is kept in `state.json`; `config.json` is not changed. `default` clea
 ## Switches
 
 ```text
-/jev                     status and session tally
+/jev                     status (session tally: WG-17)
 /jev skills off          one feature
 /jev all off             the seven decision features
 /jev reset               switches, mode and CLI review default back to config defaults
@@ -186,7 +186,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 ## All commands
 
 ```text
-/jev                                         status and tally
+/jev                                         status (session tally: WG-17)
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
 /jev reset                                   switches, mode and CLI review default back to config defaults
@@ -198,7 +198,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev tune | /jev tune undo | /jev tune reset | /jev tune off   WG-18
 ```
 
-The first five lines work from WG-06. Forms marked with a later work group print the usage text until then.
+The first four lines work from WG-06. Forms marked with a later work group print the usage text until then.
 
 No command calls Jev. An unknown model in a slot command gets the three closest names from Pi's registry, without any network lookup.
 
