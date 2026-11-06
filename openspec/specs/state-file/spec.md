@@ -1,7 +1,7 @@
 # state-file Specification
 
 ## Purpose
-TBD
+`state.json` holds the switches, mode and CLI review default set through `/jev`, written atomically, falling back to defaults when missing or malformed and never discarding a file that cannot be read.
 
 ## Requirements
 

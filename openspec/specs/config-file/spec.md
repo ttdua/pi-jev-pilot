@@ -1,7 +1,7 @@
 # config-file Specification
 
 ## Purpose
-TBD
+The operator's `config.json` is validated strictly, with every problem reported by field path and no value echoed, and is written only by the slot writer, which replaces `crew.slots` and keeps every other key.
 
 ## Requirements
 

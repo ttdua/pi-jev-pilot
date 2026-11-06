@@ -1,7 +1,7 @@
 # store-location Specification
 
 ## Purpose
-TBD
+The package's files live in `<agentDir>/jev/`, located through Pi's agent directory, are created owner-only and are replaced atomically, with write failures returned rather than thrown.
 
 ## Requirements
 

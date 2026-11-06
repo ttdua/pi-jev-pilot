@@ -1,7 +1,7 @@
 # settings-resolution Specification
 
 ## Purpose
-TBD
+One pure function merges tuning, state, config and code defaults into complete effective settings, in that order of precedence.
 
 ## Requirements
 
