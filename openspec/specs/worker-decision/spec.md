@@ -1,7 +1,7 @@
 # worker-decision Specification
 
 ## Purpose
-TBD
+Pure rules that turn worker answers into a tier, an effort and a fallback target, never falling back to `expert`.
 
 ## Requirements
 

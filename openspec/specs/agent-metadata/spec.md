@@ -1,7 +1,7 @@
 # agent-metadata Specification
 
 ## Purpose
-TBD
+Find a launch's agent the way the executor does, and read the facts routing and the worker request need, never the agent's own model or thinking.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # worker-request Specification
 
 ## Purpose
-TBD
+The state and questions of one worker request to Jev, and how its answers, including every Jev failure, are read.
 
 ## Requirements
 
