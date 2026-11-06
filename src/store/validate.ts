@@ -114,3 +114,14 @@ export function object<S extends Shape>(
     return issues.length === before ? (out as Out<S>) : undefined;
   };
 }
+
+/** Wraps a validator with an extra check on the value it accepted. */
+export function refine<T>(inner: V<T>, ok: (value: T) => boolean, message: string): V<T> {
+  return (value, path, issues) => {
+    const before = issues.length;
+    const v = inner(value, path, issues);
+    if (v === undefined || issues.length !== before) return undefined;
+    if (!ok(v)) return fail(issues, path, message);
+    return v;
+  };
+}
