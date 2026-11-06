@@ -112,4 +112,4 @@ Added with [WG-07](../roadmap.md#wg-07-main-effort); not one of the eight WG-02 
 
 **Documents changed.** [architecture.md](../architecture.md#host-seams) host seams table and failure model, [workflow.md](../workflow.md#1-a-main-prompt), [usage-guide.md](../usage-guide.md), [jev-questions.md](../jev-questions.md#wire-format), [roadmap.md](../roadmap.md) WG-07 status.
 
-**Work groups affected.** WG-07. The restore can be removed once Pi exposes a signal in `before_agent_start`; an upstream issue is drafted in the WG-07 change and not yet posted.
+**Work groups affected.** WG-07. The restore may become removable once Pi exposes a signal in `before_agent_start`; an upstream issue is drafted in the WG-07 change and not yet posted.

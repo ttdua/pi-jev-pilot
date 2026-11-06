@@ -6,7 +6,7 @@ Wording decides routing, so a change here needs a [replay](testing.md#replay-rul
 
 ## Wire format
 
-Questions follow the documented Choice and Noul shapes. A choice has `type`, `instructions` and `criteria`, a map from each option to its description. A noul has `type`, `instructions` and optional `criteria` with the keys `true` and `false`.
+Questions follow the documented Choice and Noul shapes. A choice has `type`, `instructions` and `criteria`, a map from each option to its description. A noul has `type`, `instructions` and `criteria` with the keys `true` and `false`. The package always sends `criteria`; TypeSafe treats it as optional.
 
 ## Tier rubrics
 

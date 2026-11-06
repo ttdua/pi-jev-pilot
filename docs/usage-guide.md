@@ -76,6 +76,8 @@ Later work groups add skill and advice to the line.
 | `Jev · standard · high` | Jev chose the level for the last prompt (`high` here) |
 | `Jev · no answer` | Jev timed out or failed. Work continues normally |
 
+If you press Esc before any provider request, the status line also returns to its previous text.
+
 ## What changes in your sessions
 
 | Thing | Change |
