@@ -9,9 +9,9 @@
 
 ## 3. Host routing
 
-- [ ] 3.1 Add `src/host/worker.ts` request side: gate from `loadSnapshot` and the child registry, `message_end` batch over `subagent` calls (agent read, `launchKind`, state and questions with registry display names and optional parent request, concurrent `askJev` with `ctx.signal`), bounded cache by tool call id (When routing runs, Sibling launches classified together, Worker request content)
-- [ ] 3.2 Add the `tool_call` side: classify a launch without a cached result, check offered tiers with `ctx.modelRegistry.find` and `hasConfiguredAuth`, call `routeLaunch`, mutate `input.model` and `input.thinking`, catch every error (Launches without a cached result, Target check before writing, Input mutation, Routing fails open)
-- [ ] 3.3 Add fallback warnings with once-per-tier-and-model dedupe, cleared when `/jev` runs (Fallback warning)
+- [x] 3.1 Add `src/host/worker.ts` request side: gate from `loadSnapshot` and the child registry, `message_end` batch over `subagent` calls (agent read, `launchKind`, state and questions with registry display names and optional parent request, concurrent `askJev` with `ctx.signal`), bounded cache by tool call id (When routing runs, Sibling launches classified together, Worker request content)
+- [x] 3.2 Add the `tool_call` side: classify a launch without a cached result, check offered tiers with `ctx.modelRegistry.find` and `hasConfiguredAuth`, call `routeLaunch`, mutate `input.model` and `input.thinking`, catch every error (Launches without a cached result, Target check before writing, Input mutation, Routing fails open)
+- [x] 3.3 Add fallback warnings with once-per-tier-and-model dedupe, cleared when `/jev` runs (Fallback warning)
 - [ ] 3.4 Wire `src/host/worker.ts` into `src/host/setup.ts`, unsubscribing on `session_shutdown` and clearing shown warnings when `/jev` runs
 
 ## 4. Ledger
