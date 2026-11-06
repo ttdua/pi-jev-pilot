@@ -9,8 +9,8 @@
 
 ## 3. Status line
 
-- [ ] 3.1 Add `src/host/status.ts`: pure `statusText(snapshot)` with the precedence `config error` > `no key` > `off` > mode, and `alignRight(text, width)` (pad, or cut when narrow). Unit tests in `tests/host/status.test.ts` for every status-line text scenario.
-- [ ] 3.2 Add `drawStatus(ctx, snapshot)`: nothing without `ctx.hasUI`; clear `jev` when `status` is off; a component factory in `tui` mode and `string[]` in `rpc` mode, placed `aboveEditor`. Unit tests with a fake `ctx.ui`.
+- [x] 3.1 Add `src/host/status.ts`: pure `statusText(snapshot)` with the precedence `config error` > `no key` > `off` > mode, and `alignRight(text, width)` (pad, or cut when narrow). Unit tests in `tests/host/status.test.ts` for every status-line text scenario.
+- [x] 3.2 Add `drawStatus(ctx, snapshot)`: nothing without `ctx.hasUI`; clear `jev` when `status` is off; a component factory in `tui` mode and `string[]` in `rpc` mode, placed `aboveEditor`. Unit tests with a fake `ctx.ui`.
 
 ## 4. /jev command
 
