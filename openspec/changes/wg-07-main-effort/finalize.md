@@ -7,7 +7,7 @@
 
 **Change**: `wg-07-main-effort`
 **Finalized at**: `2026-11-06 16:05`
-**Outcome**: `pr-updated`
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `WG-07`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` (feature branch pushed; see PR URL)
-- **PR URL**: `N/A` (no PR yet; the push creates the remote branch)
+- **Final state**: `pr-open`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/29` (opened at finalize step 11 with the operator's approval in the Inbox; the push created the remote branch)
 
 `WG-07` had no remote tracking branch before finalize, so step 3's `git pull` was skipped. The worktree branch `wg-07-main-effort` was merged with `git merge --ff-only` (`fd131ad..58fe10e`).
 
@@ -33,7 +33,7 @@ Deviation (project `AGENTS.md`: worktrees are managed only with Worktrunk): the 
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/29#issuecomment-6689033228)
 
 ---
 
@@ -53,4 +53,4 @@ Deviation (project `AGENTS.md`: worktrees are managed only with Worktrunk): the 
 
 ## Next step
 
-Wait for PR code-review (open one for `WG-07` against `main` if none exists). After approval, run `/opsx-archive` on this feature branch (commits land here), push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI) — that single merge lands implementation + archive into main. Before archive, consider the verify warning: add a sentence and scenario to `specs/main-ledger` for a turn whose session is replaced before it settles.
+Wait for PR review. After approval, run `/opsx-archive` on this feature branch (commits land here), push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI) — that single merge lands implementation + archive into main. Before archive, consider the verify warning: add a sentence and scenario to `specs/main-ledger` for a turn whose session is replaced before it settles.
