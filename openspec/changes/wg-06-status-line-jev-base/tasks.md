@@ -24,11 +24,11 @@
 
 ## 6. Host tests through the real CLI
 
-- [ ] 6.1 Extend `tests/host/harness.ts` with an option to install the repository checkout itself and to reuse an agent directory, factor its setup so a helper can run the pinned `pi` once in print mode (`-p`) and in JSON mode (`--mode json`) with the same isolated agent directory and loopback fixture; add a per-entry reply delay to `tests/host/fixture.ts`.
-- [ ] 6.2 Add `tests/host/jev-base.test.ts` (RPC): `setWidget` for `jev` with `["Jev · standard"]` and `aboveEditor` at start; `no key` without the variable; `/jev` notifies `info` and adds no session message; `/jev review off` after the others redraws `Jev · off`; `/jev status off` clears the widget; `/jev mode premium` gives a `warning`; `/jev` with the executor installed reports it present, and without it reports `no executor`.
-- [ ] 6.3 Add the restart test: `/jev skills off` in one RPC process, a new process on the same agent directory, `/jev` reports `skills` `off`.
-- [ ] 6.4 Add print and JSON tests: one prompt with the package installed produces no `Jev ·` text and no `jev` widget record, and its provider requests match a run without the package on the same cwd and agent directory; `pi -p "/jev skills off"` prints nothing from the package and writes `switches.skills` `false`.
-- [ ] 6.5 Add a child smoke test with the executor and a scripted `subagent` launch: every `jev` widget request comes from the main session. The guard itself is proven by the unit test in 5.1, since a child may have no UI anyway.
+- [x] 6.1 Extend `tests/host/harness.ts` with an option to install the repository checkout itself and to reuse an agent directory, factor its setup so a helper can run the pinned `pi` once in print mode (`-p`) and in JSON mode (`--mode json`) with the same isolated agent directory and loopback fixture; add a per-entry reply delay to `tests/host/fixture.ts`.
+- [x] 6.2 Add `tests/host/jev-base.test.ts` (RPC): `setWidget` for `jev` with `["Jev · standard"]` and `aboveEditor` at start; `no key` without the variable; `/jev` notifies `info` and adds no session message; `/jev review off` after the others redraws `Jev · off`; `/jev status off` clears the widget; `/jev mode premium` gives a `warning`; `/jev` with the executor installed reports it present, and without it reports `no executor`.
+- [x] 6.3 Add the restart test: `/jev skills off` in one RPC process, a new process on the same agent directory, `/jev` reports `skills` `off`.
+- [x] 6.4 Add print and JSON tests: one prompt with the package installed produces no `Jev ·` text and no `jev` widget record, and its provider requests match a run without the package on the same cwd and agent directory; `pi -p "/jev skills off"` prints nothing from the package and writes `switches.skills` `false`.
+- [x] 6.5 Add a child smoke test with the executor and a scripted `subagent` launch: every `jev` widget request comes from the main session. The guard itself is proven by the unit test in 5.1, since a child may have no UI anyway.
 
 ## 7. Documentation
 
