@@ -12,7 +12,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { appendLedger, type LedgerHooks } from "../../src/store/ledger.ts";
+import {
+  appendLedger,
+  type LedgerHooks,
+  type LedgerRead,
+  readLedger,
+} from "../../src/store/ledger.ts";
 import { tempDir } from "../helpers.ts";
 import { entry } from "./ledger-fixtures.ts";
 
@@ -220,5 +225,132 @@ describe("rotation", () => {
     };
     expect(appendLedger(dir, entry(1999), hooks).ok).toBe(true);
     expect(mode).toBe(0o600);
+  });
+});
+
+describe("read", () => {
+  const J = (v: unknown): string => `${JSON.stringify(v)}\n`;
+  const seq = (from: number, to: number): string => {
+    let s = "";
+    for (let i = from; i <= to; i++) s += J(entry(i));
+    return s;
+  };
+  const chars = (r: LedgerRead): number[] =>
+    r.kind === "ok" ? r.entries.map((e) => (e as { briefChars: number }).briefChars) : [];
+  const active = (dir: string): string => join(dir, "ledger.jsonl");
+  const old = (dir: string): string => join(dir, "ledger.1.jsonl");
+
+  test("bad lines skipped", () => {
+    const { dir } = mk();
+    writeFileSync(
+      active(dir),
+      `${J(entry(1))}{"v":1,"kind":\n${J({ ...entry(2), v: 2 })}${J(entry(3))}`,
+    );
+    const r = readLedger(dir);
+    expect(r.kind).toBe("ok");
+    expect(chars(r)).toEqual([1, 3]);
+    expect(r.kind === "ok" && r.skipped).toBe(2);
+  });
+
+  test("torn last line skipped", () => {
+    const { dir } = mk();
+    writeFileSync(active(dir), J(entry(1)) + JSON.stringify(entry(2)));
+    const r = readLedger(dir);
+    expect(chars(r)).toEqual([1]);
+    expect(r.kind === "ok" && r.skipped).toBe(1);
+  });
+
+  test("both segments read in order", () => {
+    const { dir } = mk();
+    writeFileSync(old(dir), seq(1, 2000));
+    writeFileSync(active(dir), seq(2001, 2300));
+    const r = readLedger(dir);
+    const c = chars(r);
+    expect(c.length).toBe(2000);
+    expect(c[0]).toBe(301);
+    expect(c[1999]).toBe(2300);
+    expect(r.kind === "ok" && r.skipped).toBe(0);
+  });
+
+  test("rotation during read", () => {
+    const { dir } = mk();
+    writeFileSync(old(dir), seq(1, 2000));
+    writeFileSync(active(dir), seq(2001, 2100));
+    let fired = 0;
+    const r = readLedger(dir, {
+      betweenSegments: () => {
+        fired++;
+        renameSync(active(dir), old(dir));
+        writeFileSync(active(dir), seq(2101, 2105));
+      },
+    });
+    const c = chars(r);
+    expect(fired).toBe(1);
+    expect(new Set(c).size).toBe(c.length);
+    for (let i = 1; i < c.length; i++) expect(c[i]!).toBeGreaterThan(c[i - 1]!);
+    expect(c[c.length - 1]).toBe(2105);
+  });
+
+  test("no ledger", () => {
+    const { dir } = mk();
+    expect(readLedger(dir)).toEqual({ kind: "ok", entries: [], skipped: 0 });
+  });
+
+  test("unreadable ledger", () => {
+    const { dir } = mk();
+    mkdirSync(active(dir));
+    const r = readLedger(dir);
+    expect(r.kind).toBe("unreadable");
+    expect(r.kind === "unreadable" && r.issues[0]?.message).toContain("EISDIR");
+  });
+
+  test("unterminated line is skipped after a later append", () => {
+    const { dir } = mk();
+    writeFileSync(active(dir), JSON.stringify(entry(1)));
+    expect(appendLedger(dir, entry(2)).ok).toBe(true);
+    const r = readLedger(dir);
+    expect(chars(r)).toEqual([]);
+    expect(r.kind === "ok" && r.skipped).toBe(1);
+    expect(appendLedger(dir, entry(3)).ok).toBe(true);
+    expect(chars(readLedger(dir))).toEqual([3]);
+  });
+
+  test("oversized line rejected", () => {
+    const { dir } = mk();
+    const json = JSON.stringify(entry(1));
+    const padded = `${json.slice(0, -1)}${" ".repeat(4100 - json.length)}}`;
+    expect(Buffer.byteLength(padded)).toBe(4100);
+    writeFileSync(active(dir), `${padded}\n${J(entry(2))}`);
+    const r = readLedger(dir);
+    expect(chars(r)).toEqual([2]);
+    expect(r.kind === "ok" && r.skipped).toBe(1);
+  });
+
+  test("oversized multibyte line skipped", () => {
+    const { dir } = mk();
+    const line = JSON.stringify({ ...entry(1), model: `a/${"é".repeat(2100)}` });
+    expect(line.length).toBeLessThan(4096);
+    expect(Buffer.byteLength(line)).toBeGreaterThan(4096);
+    writeFileSync(active(dir), `${line}\n${J(entry(2))}`);
+    const r = readLedger(dir);
+    expect(chars(r)).toEqual([2]);
+    expect(r.kind === "ok" && r.skipped).toBe(1);
+  });
+
+  test("blank line skipped", () => {
+    const { dir } = mk();
+    writeFileSync(active(dir), `${J(entry(1))}\n${J(entry(2))}`);
+    const r = readLedger(dir);
+    expect(chars(r)).toEqual([1, 2]);
+    expect(r.kind === "ok" && r.skipped).toBe(1);
+  });
+
+  test("empty active next to full old segment", () => {
+    const { dir } = mk();
+    writeFileSync(old(dir), seq(1, 2000));
+    writeFileSync(active(dir), "");
+    const r = readLedger(dir);
+    expect(chars(r).length).toBe(2000);
+    expect(r.kind === "ok" && r.skipped).toBe(0);
   });
 });
