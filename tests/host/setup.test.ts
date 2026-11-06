@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY, isChild } from "../../src/host/child.ts";
 import { setup } from "../../src/host/setup.ts";
+import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
+import { body, TIERS } from "./worker-fakes.ts";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
 
-function fakePi(opts: { throwOnOff?: boolean } = {}) {
+function fakePi(opts: { throwOnOff?: boolean; executor?: boolean } = {}) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
   const subs: { channel: string; live: boolean; handler: (d: unknown) => void }[] = [];
@@ -20,7 +23,7 @@ function fakePi(opts: { throwOnOff?: boolean } = {}) {
     registerCommand: (name: string, def: unknown) => commands.set(name, def),
     registerTool: () => {},
     exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
-    getAllTools: () => [],
+    getAllTools: () => (opts.executor === true ? [{ name: "subagent" }] : []),
     events: {
       on: (channel: string, handler: (d: unknown) => void) => {
         order.push(`events:${channel}`);
@@ -74,6 +77,88 @@ describe("setup", () => {
     await expect(f.handlers.get("session_shutdown")![0]!({}, {})).resolves.toBeUndefined();
   });
 
+  test("session_shutdown removes routing subscriptions", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    expect(f.subs.filter((s) => s.live)).toHaveLength(5);
+    await f.handlers.get("session_shutdown")![0]!({}, {});
+    expect(f.subs.filter((s) => s.live)).toHaveLength(0);
+  });
+
+  test("shutdown unsubscribes routing even when the child unsubscribe throws", async () => {
+    const f = fakePi();
+    let throwing = true;
+    const on = f.pi.events.on.bind(f.pi.events);
+    let n = 0;
+    f.pi.events.on = ((channel: string, h: (d: unknown) => void) => {
+      const off = on(channel, h);
+      // The first two subscriptions are the child registry's; make them throw.
+      return n++ < 2 && throwing
+        ? () => {
+            throw new Error("unsubscribe failed");
+          }
+        : off;
+    }) as never;
+    setup(f.pi);
+    await f.handlers.get("session_shutdown")![0]!({}, {});
+    expect(f.subs.filter((s) => s.channel.startsWith("subagents:c")).length).toBeGreaterThan(0);
+    expect(
+      f.subs.filter(
+        (s) =>
+          ["subagents:completed", "subagents:failed", "subagents:resumed"].includes(s.channel) &&
+          s.live,
+      ),
+    ).toHaveLength(0);
+    throwing = false;
+  });
+
+  test("/jev clears shown warnings", async () => {
+    const fx = await startJevFixture({ "/ask": { json: body("deep") } });
+    try {
+      mkdirSync(join(agentDir, "jev"), { recursive: true });
+      writeFileSync(
+        join(agentDir, "jev", "config.json"),
+        JSON.stringify({ classifier: { url: fx.url("/ask") }, tiers: TIERS }),
+      );
+      const f = fakePi({ executor: true });
+      setup(f.pi);
+      const notes: string[] = [];
+      const ctx = {
+        cwd: agentDir,
+        hasUI: true,
+        mode: "rpc",
+        ui: { setWidget: () => {}, notify: (t: string) => notes.push(t) },
+        sessionManager: { getSessionId: () => "main-1", getBranch: () => [] },
+        modelRegistry: {
+          find: (p: string, id: string) =>
+            id === "deep" ? undefined : { id, provider: p, name: id, reasoning: true },
+          hasConfiguredAuth: () => true,
+        },
+      };
+      const launch = async (id: string) => {
+        const event = {
+          type: "tool_call",
+          toolName: "subagent",
+          toolCallId: id,
+          input: { prompt: "do a thing", description: "d", subagent_type: "general-purpose" },
+        };
+        for (const h of f.handlers.get("tool_call") ?? []) await h(event, ctx);
+      };
+      await launch("c1");
+      expect(notes).toHaveLength(1);
+      await launch("c2");
+      expect(notes).toHaveLength(1);
+      const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+      await jev.handler("", ctx);
+      const before = notes.length;
+      await launch("c3");
+      expect(notes.length).toBe(before + 1);
+      expect(notes.at(-1)).toContain("tier deep");
+    } finally {
+      await fx.stop();
+    }
+  });
+
   test("subscribes to both child events before any handler is registered", () => {
     const f = fakePi();
     setup(f.pi);
@@ -82,8 +167,17 @@ describe("setup", () => {
     expect([...f.commands.keys()]).toEqual(["jev"]);
     expect([...f.handlers.keys()].sort()).toEqual([
       "before_agent_start",
+      "message_end",
       "session_shutdown",
       "session_start",
+      "tool_call",
+      "tool_result",
+    ]);
+    expect(f.order.slice(0, 2).sort()).toEqual([`events:${CREATED}`, `events:${DISPOSED}`].sort());
+    expect(f.subs.map((s) => s.channel).slice(2)).toEqual([
+      "subagents:completed",
+      "subagents:failed",
+      "subagents:resumed",
     ]);
   });
 
@@ -129,7 +223,7 @@ describe("setup", () => {
 
     const b = fakePi();
     setup(b.pi);
-    expect(b.subs.filter((s) => s.live)).toHaveLength(2);
+    expect(b.subs.filter((s) => s.live)).toHaveLength(5);
     let calls = 0;
     await b.handlers.get("session_start")![0]!(
       {},

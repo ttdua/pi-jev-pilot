@@ -55,8 +55,11 @@ describe("package loading", () => {
     expect(ext).toBeDefined();
     expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual([
       "before_agent_start",
+      "message_end",
       "session_shutdown",
       "session_start",
+      "tool_call",
+      "tool_result",
     ]);
     expect([...(ext?.tools.keys() ?? [])]).toEqual(["jev_review"]);
     expect([...(ext?.commands.keys() ?? [])]).toEqual(["jev"]);
