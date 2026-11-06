@@ -119,10 +119,31 @@ describe("main effort through the real CLI", () => {
   test(
     "level on first request",
     async () => {
-      const { s, fixture } = await setup(answers("xhigh", 0.1, 0.05));
+      // `match` runs synchronously when the provider request arrives, so the snapshot of the
+      // RPC event stream taken there is race-free: it holds exactly what the host had emitted
+      // (and the harness had read) before the first provider request was received.
+      let atRequest: (string[] | undefined)[] | undefined;
+      let session: HostSession | undefined;
+      const { s, fixture } = await setup(answers("xhigh", 0.1, 0.05), {
+        script: [
+          {
+            name: "main",
+            match: (r) => {
+              if (r.model !== "fixture-main") return false;
+              if (atRequest === undefined && session !== undefined) {
+                atRequest = widgetLines(session).slice();
+              }
+              return true;
+            },
+            reply: { text: "ok" },
+          },
+        ],
+      });
+      session = s;
       await s.waitFor(() => widgetLines(s).length >= 1, "start widget");
       expect(widgetLines(s)[0]).toEqual(["Jev · standard"]);
       await s.prompt("hello");
+      expect(atRequest).toContainEqual(["Jev · standard · xhigh"]);
       expect(fixture.requests[0]?.reasoningEffort).toBe("xhigh");
       expect(fixture.requests[0]?.model).toBe("fixture-main");
       expect(widgetLines(s)).toContainEqual(["Jev · standard · xhigh"]);
@@ -203,6 +224,7 @@ describe("main effort through the real CLI", () => {
       expect(lines.length).toBe(1);
       expect(lines[0]).toMatchObject({ answered: false, miss: "error" });
       expect(jev.requests.length).toBe(1);
+      // Raw equality is valid: the provider body carries no id or timestamp field today.
       const bodies = (f: Fixture): string[] => f.requests.map((r) => JSON.stringify(r.body));
       expect(bodies(fixture).length).toBeGreaterThan(0);
       expect(bodies(fixture)).toEqual(bodies(plain));
@@ -245,7 +267,7 @@ describe("main effort through the real CLI", () => {
       h.release(answers("xhigh"));
       const ar = await abort;
       expect(ar.success).toBe(true);
-      void resp;
+      await resp.catch(() => {});
       await s.waitFor(() => settled(s) > before, "agent_settled");
       await Bun.sleep(500);
       expect(fixture.requests.length).toBe(0);
@@ -259,6 +281,7 @@ describe("main effort through the real CLI", () => {
     "discard when the operator changes the level",
     async () => {
       const h = held();
+      // Start at `high` (not the default) so the operator change to `medium` is a real change.
       const { s, fixture, jev } = await setup(h.route, { timeoutMs: 5000, thinking: "high" });
       await s.waitFor(() => widgetLines(s).length >= 1, "start widget");
       const resp = s.send({ type: "prompt", message: "hello" });
