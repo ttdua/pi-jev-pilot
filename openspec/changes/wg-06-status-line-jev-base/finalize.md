@@ -49,7 +49,7 @@
 
 ## Deviations
 
-- Steps 10 and 11 (push `WG-06`, open the PR) ran only after the operator explicitly allowed them in the Inbox thread. The roadmap's working agreements require the same. Superseded note from the first receipt: "không push, merge hay mở PR nếu chưa được user cho phép rõ trong chat" (no push, merge or PR without the user's explicit permission). The roadmap's working agreements say the same. The operator is asked separately.
+- Steps 10 and 11 (push `WG-06`, open the PR) ran only after the operator explicitly allowed them in the Inbox thread. This follows the project AGENTS.md rule (no push, merge or PR without the user's explicit permission) and the roadmap's working agreements.
 - Step 3 `git pull` was skipped: `WG-06` had no upstream configured.
 - `origin/main` moved after this branch was cut: `bc36ff5`, add-ledger (#24), is not in `WG-06`. `git merge-tree` between `WG-06` and `origin/main` reports no conflicts. The branch was not rebased, so the PR may show it as behind `main`.
 
