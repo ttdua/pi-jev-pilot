@@ -54,12 +54,15 @@ describe("package loading", () => {
     const ext = result.extensions.find((e) => resolvesTo(e.resolvedPath, entry));
     expect(ext).toBeDefined();
     expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual([
+      "agent_settled",
       "before_agent_start",
+      "before_provider_request",
       "message_end",
       "session_shutdown",
       "session_start",
       "tool_call",
       "tool_result",
+      "turn_end",
     ]);
     expect([...(ext?.tools.keys() ?? [])]).toEqual(["jev_review"]);
     expect([...(ext?.commands.keys() ?? [])]).toEqual(["jev"]);

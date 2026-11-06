@@ -101,3 +101,15 @@ Turn 4 read the same cached prefix as turn 3 and wrote 26 tokens; Pi reported le
 **Documents changed.** [roadmap.md](../roadmap.md) WG-08 note, [configuration.md](../configuration.md) `effort.holdProviders` note, [testing.md](../testing.md) Host level.
 
 **Work groups affected.** WG-08: `claude-code` is not in the default hold list.
+
+## `before_agent_start` signal (WG-07)
+
+Added with [WG-07](../roadmap.md#wg-07-main-effort); not one of the eight WG-02 questions. Source reading at Pi 1.5.0, plus the host test `tests/host/main-effort.test.ts` "esc starts nothing" (testing level: Host).
+
+**Observed.** `ctx.signal` reads `agent.signal`, which exists only while a run is active. `_startRun` in `agent-session.js` awaits every `before_agent_start` handler (in `_prepareRun`) before `agent.prompt` creates the run, so `ctx.signal` is `undefined` throughout the handler. Esc during that time only sets a flag; Pi aborts the run at `agent_start`, before any provider request, and `agent_settled` then fires with `aborted: true`. The host test confirms the result: with Esc sent while Jev is still answering, no provider request is recorded, the thinking level after the turn equals the level before, and no ledger line exists. The package cannot see the Esc while it waits, so it restores the replaced level when the run settles aborted with no provider request.
+
+**Limits.** The source reading is tied to Pi 1.5.0. The host test covers one Esc timing (during the Jev wait).
+
+**Documents changed.** [architecture.md](../architecture.md#host-seams) host seams table and failure model, [workflow.md](../workflow.md#1-a-main-prompt), [usage-guide.md](../usage-guide.md), [jev-questions.md](../jev-questions.md#wire-format), [roadmap.md](../roadmap.md) WG-07 status.
+
+**Work groups affected.** WG-07. The restore may become removable once Pi exposes a signal in `before_agent_start`; an upstream issue is drafted in the WG-07 change and not yet posted.

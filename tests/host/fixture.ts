@@ -146,7 +146,11 @@ export function fixtureModelsJson(baseUrl: string, opts: { keyless?: boolean } =
       apiKey: "fixture",
       compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
       models: [
-        { id: "fixture-main", reasoning: true },
+        {
+          id: "fixture-main",
+          reasoning: true,
+          thinkingLevelMap: { xhigh: "xhigh", max: "max" },
+        },
         { id: "fixture-balanced", reasoning: true },
         { id: "fixture-fast", reasoning: true },
       ],

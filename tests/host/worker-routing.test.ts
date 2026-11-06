@@ -46,6 +46,16 @@ const isMainFirst = (r: RecordedRequest): boolean =>
   !hasTool(r) &&
   JSON.stringify(r.body.messages).includes("START-MAIN");
 
+// Main-session effort (WG-07) also asks Jev on every prompt; count worker requests only.
+const workerRequests = (j: JevFixture): JevFixture["requests"] =>
+  j.requests.filter((r) => {
+    try {
+      return (JSON.parse(r.body) as { state?: { task?: unknown } }).state?.task !== undefined;
+    } catch {
+      return false;
+    }
+  });
+
 const CALLER = { model: "fixture/fixture-balanced", thinking: "low" };
 
 function launch(extra: Record<string, unknown> = {}, brief = "CHILD-TASK do the work"): object {
@@ -182,7 +192,7 @@ describe("worker routing through the real CLI", () => {
         status: "completed",
         callerModel: "fixture/fixture-main",
       });
-      expect(jev.requests.length).toBe(1);
+      expect(workerRequests(jev).length).toBe(1);
       expect(fixture.unmatched).toEqual([]);
     },
     TIMEOUT,
@@ -258,7 +268,7 @@ describe("worker routing through the real CLI", () => {
       const lines = workerLines(session);
       expect(lines[0]).toMatchObject({ tier: "fast", status: "completed" });
       expect(lines[1]).toMatchObject({ reason: "untouched", status: "completed" });
-      expect(jev.requests.length).toBe(1);
+      expect(workerRequests(jev).length).toBe(1);
       expect(fixture.unmatched).toEqual([]);
     },
     TIMEOUT,
@@ -277,7 +287,7 @@ describe("worker routing through the real CLI", () => {
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
-      expect(jev.requests.length).toBe(0);
+      expect(workerRequests(jev).length).toBe(0);
       expect(workerLines(session)[0]).toMatchObject({ reason: "untouched", answered: false });
     },
     TIMEOUT,
@@ -296,8 +306,8 @@ describe("worker routing through the real CLI", () => {
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("high");
-      expect(jev.requests.length).toBe(1);
-      const body = JSON.parse(jev.requests[0]?.body ?? "{}") as { questions?: object };
+      expect(workerRequests(jev).length).toBe(1);
+      const body = JSON.parse(workerRequests(jev)[0]?.body ?? "{}") as { questions?: object };
       expect(Object.keys(body.questions ?? {}).sort()).toEqual(["effort", "risky"]);
       expect(workerLines(session)[0]).toMatchObject({ reason: "untouched", answered: true });
     },
@@ -336,7 +346,7 @@ describe("worker routing through the real CLI", () => {
       await session.waitFor(() => afterTool(fixture), "main after the launch");
       await Bun.sleep(300);
       expect(childOf(fixture)?.model).toBe("fixture-balanced");
-      expect(jev.requests.length).toBe(0);
+      expect(workerRequests(jev).length).toBe(0);
       expect(workerLines(session)).toEqual([]);
     },
     TIMEOUT,
@@ -351,7 +361,7 @@ describe("worker routing through the real CLI", () => {
       await session.prompt("START-MAIN");
       await session.waitFor(() => afterTool(fixture), "main after the launch");
       expect(childOf(fixture)?.model).toBe("fixture-balanced");
-      expect(jev.requests.length).toBe(0);
+      expect(workerRequests(jev).length).toBe(0);
       expect(workerLines(session)).toEqual([]);
     },
     TIMEOUT,
@@ -373,7 +383,7 @@ describe("worker routing through the real CLI", () => {
       await session.waitFor(() => workerLines(session).length >= 2, "two ledger lines");
       const children = fixture.requests.filter(isChild);
       expect(children.map((c) => c.model)).toEqual(["fixture-balanced", "fixture-balanced"]);
-      expect(jev.requests.length).toBe(2);
+      expect(workerRequests(jev).length).toBe(2);
       const warned = warnings(session).filter((w) => w.message?.includes("tiers.deep"));
       expect(warned.length).toBe(1);
       for (const line of workerLines(session)) {
@@ -395,7 +405,7 @@ describe("worker routing through the real CLI", () => {
       writeJev(session.agentDir, { config: config(jev) });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
-      expect(jev.requests.length).toBe(1);
+      expect(workerRequests(jev).length).toBe(1);
       expect(
         session
           .probeRecords()

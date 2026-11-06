@@ -11,6 +11,7 @@ import {
   type JevArgs,
 } from "../../src/host/commands.ts";
 import type { Exec } from "../../src/host/review-cli.ts";
+import type { Decision } from "../../src/host/status.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
@@ -207,9 +208,16 @@ const load = (dir: string) => () =>
 const noExec: Exec = async () => {
   throw new Error("exec must not be called");
 };
+const noDecision = (): Decision | undefined => undefined;
 
-async function run(args: string, dir: string, c = fakeCtx(), exec: Exec = noExec) {
-  await runJev(args, c.ctx, { dir, load: load(dir), exec });
+async function run(
+  args: string,
+  dir: string,
+  c = fakeCtx(),
+  decision: () => Decision | undefined = noDecision,
+  exec: Exec = noExec,
+) {
+  await runJev(args, c.ctx, { dir, load: load(dir), decision, exec });
   return c.rec;
 }
 
@@ -225,6 +233,15 @@ describe("runJev", () => {
     expect(rec.widgets).toHaveLength(1);
     await run("skills on", dir);
     expect(switches(dir)?.skills).toBe(true);
+  });
+
+  test("redraw keeps the decision suffix; effort off drops it", async () => {
+    const dir = jevDir();
+    const decision = (): Decision => ({ kind: "level", level: "high" });
+    const a = await run("skills off", dir, fakeCtx(), decision);
+    expect(a.widgets[0]![1]).toEqual(["Jev · standard · high"]);
+    const b = await run("effort off", dir, fakeCtx(), decision);
+    expect(b.widgets[0]![1]).toEqual(["Jev · standard"]);
   });
 
   test("plain status writes nothing, notifies and redraws", async () => {
@@ -317,6 +334,7 @@ describe("runJev", () => {
     const c = fakeCtx();
     await runJev("", c.ctx, {
       dir,
+      decision: noDecision,
       exec: noExec,
       load: () => {
         throw new TypeError("boom");
@@ -333,12 +351,18 @@ describe("runJev", () => {
     };
     await runJev("", c.ctx, {
       dir,
+      decision: noDecision,
       exec: noExec,
       load: () => {
         throw new TypeError("boom");
       },
     });
-    await runJev("mode premium", c.ctx, { dir, load: load(dir), exec: noExec });
+    await runJev("mode premium", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+    });
   });
 });
 
@@ -384,7 +408,7 @@ describe("runJev cli-review", () => {
 
   async function go(args: string, f: ReturnType<typeof fake>, dir = jevDir()) {
     const c = fakeCtx();
-    await runJev(args, c.ctx, { dir, load: load(dir), exec: f.exec });
+    await runJev(args, c.ctx, { dir, load: load(dir), decision: noDecision, exec: f.exec });
     return { rec: c.rec, dir };
   }
 
@@ -538,7 +562,12 @@ describe("runJev cli-review", () => {
     (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["kid"]);
     const f = fake(ok(catalog));
     const c = fakeCtx(true, "kid");
-    await runJev("cli-review codex luna", c.ctx, { dir, load: load(dir), exec: f.exec });
+    await runJev("cli-review codex luna", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: f.exec,
+    });
     expect(c.rec.notes).toHaveLength(0);
     expect(f.calls).toHaveLength(0);
     expect(existsSync(join(dir, "state.json"))).toBe(false);

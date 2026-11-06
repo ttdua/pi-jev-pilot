@@ -1,6 +1,12 @@
 // Pure launch route. Imports nothing outside src/policy/.
 
-import { clampLevel, workerEffort, type ModelThinking, type ThinkingLevel } from "./effort.ts";
+import {
+  clampLevel,
+  supportedLevels,
+  workerEffort,
+  type ModelThinking,
+  type ThinkingLevel,
+} from "./effort.ts";
 import type { EffectiveLaunch, TierName } from "./launch.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
 import type { WorkerAnswers } from "./worker.ts";
@@ -126,7 +132,10 @@ export function routeLaunch(input: RouteInput): Route {
       movedByFallback: fallback.kind === "moved",
     });
     if (level !== undefined) {
-      const clamped = clampLevel(input.thinkingOf(final) ?? { reasoning: true }, level);
+      const clamped = clampLevel(
+        level,
+        supportedLevels(input.thinkingOf(final) ?? { reasoning: true }),
+      );
       write.thinking = clamped;
       record.effort = clamped;
     }

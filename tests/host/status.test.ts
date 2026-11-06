@@ -120,3 +120,22 @@ describe("drawStatus", () => {
     }
   });
 });
+
+describe("decision suffix", () => {
+  const high = { kind: "level", level: "high" } as const;
+  const none = { kind: "no-answer" } as const;
+  test("level", () => expect(statusText(snap(), high)).toBe("Jev · standard · high"));
+  test("no answer", () => expect(statusText(snap(), none)).toBe("Jev · standard · no answer"));
+  test("effort off drops it", () =>
+    expect(statusText(snap({ state: { switches: { effort: false } } }), high)).toBe(
+      "Jev · standard",
+    ));
+  test("all off drops it", () =>
+    expect(statusText(snap({ state: allOff() }), high)).toBe("Jev · off"));
+  test("no key drops it", () => expect(statusText(snap({ env: {} }), high)).toBe("Jev · no key"));
+  test("rpc draw", () => {
+    const { ctx, calls } = ctxFor(true, "rpc");
+    drawStatus(ctx, snap(), { kind: "level", level: "xhigh" });
+    expect(calls).toEqual([["jev", ["Jev · standard · xhigh"], OPT]]);
+  });
+});

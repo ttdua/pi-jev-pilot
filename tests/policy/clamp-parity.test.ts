@@ -8,7 +8,7 @@ import {
 import {
   clampLevel,
   supportedLevels,
-  THINKING_LADDER,
+  LEVELS,
   type ModelThinking,
 } from "../../src/policy/effort.ts";
 
@@ -27,9 +27,11 @@ describe("Parity with Pi", () => {
     test(`supportedLevels ${JSON.stringify(shape)}`, () => {
       expect(supportedLevels(shape)).toEqual(getSupportedThinkingLevels(piModel));
     });
-    for (const level of THINKING_LADDER) {
+    for (const level of LEVELS) {
       test(`clampLevel ${JSON.stringify(shape)} ${level}`, () => {
-        expect(clampLevel(shape, level)).toEqual(clampThinkingLevel(piModel, level));
+        expect(clampLevel(level, supportedLevels(shape))).toEqual(
+          clampThinkingLevel(piModel, level),
+        );
       });
     }
   }

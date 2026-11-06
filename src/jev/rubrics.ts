@@ -55,3 +55,17 @@ export const EXPERT_NEEDED_QUESTION: WireQuestion = {
       "Routine architecture explanation or design using known patterns; ordinary review; implementing a settled plan; collecting evidence; formatting or saving Markdown; a long task; a security or production label; missing requirements; or lack of evidence. Being difficult, high effort or high risk is not enough.",
   },
 };
+
+export const MAIN_EFFORT_INSTRUCTION =
+  'How much step-by-step reasoning does the work this request asks for need? Rate the work, not how important the topic sounds: a question or advice answered in words, even about architecture or security, is low or medium, and reviewing a small diff is medium. A short reply that approves, continues or picks an option ("go ahead", "fix all and continue", "1") takes the size of the work it approves, from the recent conversation.';
+
+export const CORRECTS_QUESTION: WireQuestion = {
+  type: "noul",
+  instructions:
+    "The user's latest message tells the assistant that its previous answer or work was wrong, broken, incomplete, or not what was asked, and asks for it to be fixed or redone.",
+  criteria: {
+    true: "The message reports a problem with what the assistant just did or said: it doesn't work, it's wrong, it missed something, it's not what was asked, try again.",
+    false:
+      "The message approves, continues, asks something new, or gives a new task; or there was no previous answer.",
+  },
+};

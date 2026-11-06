@@ -8,7 +8,9 @@ export type FixtureRoute =
   | { stallAfterHeaders: true }
   | { streamBytes: number }
   // Streams the given chunks as-is, one per read, so a test can split a multi-byte character.
-  | { chunks: Uint8Array[] };
+  | { chunks: Uint8Array[] }
+  // The request is recorded at once; the response waits for the promise, then answers with the route it resolves to.
+  | { held: Promise<FixtureRoute> };
 
 export type RecordedJevRequest = {
   method: string;
@@ -26,6 +28,7 @@ export type JevFixture = {
 const CHUNK_BYTES = 16 * 1024;
 
 function respond(route: FixtureRoute): Response | Promise<Response> {
+  if ("held" in route) return route.held.then(respond);
   if ("hang" in route) return new Promise<Response>(() => {});
   if ("stallAfterHeaders" in route) {
     const encoder = new TextEncoder();

@@ -1,7 +1,11 @@
+// Question sets for main and worker requests. Wording lives in ./rubrics.ts.
 import type { QuestionSpec } from "../policy/answers.ts";
+import { EFFORT_LEVELS } from "../policy/effort.ts";
 import { TIER_LADDER, type TierName } from "../policy/launch.ts";
 import {
+  CORRECTS_QUESTION,
   EXPERT_NEEDED_QUESTION,
+  MAIN_EFFORT_INSTRUCTION,
   RISKY_QUESTION,
   STANDARD_TIER_CRITERIA,
   TIER_INSTRUCTION,
@@ -11,6 +15,35 @@ import {
 
 export type { WireQuestion };
 
+export type MainQuestions = {
+  wire: Record<string, WireQuestion>;
+  specs: Record<string, QuestionSpec>;
+};
+
+// A fresh copy per call, so a caller mutating a result cannot change the next one.
+function copy(question: WireQuestion): WireQuestion {
+  return { ...question, criteria: { ...question.criteria } };
+}
+
+/** Questions for a main request; `effort` and `risky` only when `askEffort`. */
+export function mainQuestions(o: { askEffort: boolean }): MainQuestions {
+  const wire: Record<string, WireQuestion> = {};
+  const specs: Record<string, QuestionSpec> = {};
+  if (o.askEffort) {
+    // The five effort criteria are shared with the worker question; only the instruction differs.
+    wire["effort"] = {
+      type: "choice",
+      instructions: MAIN_EFFORT_INSTRUCTION,
+      criteria: { ...WORKER_EFFORT_QUESTION.criteria },
+    };
+    specs["effort"] = { type: "choice", options: EFFORT_LEVELS };
+    wire["risky"] = copy(RISKY_QUESTION);
+    specs["risky"] = { type: "noul" };
+  }
+  wire["corrects"] = copy(CORRECTS_QUESTION);
+  specs["corrects"] = { type: "noul" };
+  return { wire, specs };
+}
 /** Configured tiers in ladder order; `expert` only when its switch is on. */
 export function offeredTiers(
   tiers: Partial<Record<TierName, string>>,
@@ -21,10 +54,6 @@ export function offeredTiers(
     const value = tiers[tier];
     return typeof value === "string" && value !== "";
   });
-}
-
-function copy(question: WireQuestion): WireQuestion {
-  return { ...question, criteria: { ...question.criteria } };
 }
 
 export function buildWorkerQuestions(
