@@ -147,8 +147,8 @@ The apply.md deviation (`startHostSession` takes `cwd?`; `runOnce` takes `cwd?` 
 **CRITICAL**: none.
 
 **WARNING**
-- design.md D1 table is stale against the code. Recommendation: replace the signatures with the plan.md Contracts names and fix the "Imports Pi" column for `readiness.ts`. This is a documentation-only edit to the change artifact.
-- "Status off at start" is covered only by the `drawStatus` unit test, not through the real CLI. Recommendation: optionally add an RPC host test that starts with `switches.status: false` in `state.json` and asserts no `setWidget` for `jev` carries `widgetLines`.
+- design.md D1 table is stale against the code. Recommendation: replace the signatures with the plan.md Contracts names and fix the "Imports Pi" column for `readiness.ts`. This is a documentation-only edit to the change artifact. **Resolved after this run** at the operator's decision: D1 now uses the Contracts names and the correct import column (docs-only, no code change).
+- "Status off at start" is covered only by the `drawStatus` unit test, not through the real CLI. Recommendation: optionally add an RPC host test that starts with `switches.status: false` in `state.json` and asserts no `setWidget` for `jev` carries `widgetLines`. Accepted as is by the operator.
 
 **SUGGESTION**
 - After archive, do task 7.4: set the `package-loading` Purpose line.

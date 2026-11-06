@@ -20,10 +20,10 @@
 
 | File | Role | Imports Pi |
 |---|---|---|
-| `src/host/child.ts` | Registry on `globalThis[Symbol.for("pi-jev-pilot.children")]` (`Set<string>`); `subscribeChildren(pi)`; `isChild(sessionId)` | Types only |
-| `src/host/readiness.ts` | `readiness({ config, settings, env, tools })` → snapshot; `hasExecutor(tools)` | No |
+| `src/host/child.ts` | Registry on `globalThis[Symbol.for("pi-jev-pilot.children")]` (`Set<string>`); `subscribeChildren(events)`; `isChild(sessionId)` | No |
+| `src/host/readiness.ts` | Pure `buildSnapshot(...)`, `isKeySet(env, varName)`, `hasExecutor(toolNames)`; `loadSnapshot(pi)` reads the files | Types only |
 | `src/host/status.ts` | Pure `statusText(snapshot)`; `drawStatus(ctx, snapshot)` | Types only |
-| `src/host/commands.ts` | Pure `parseJevArgs(text)`, pure `formatStatus(snapshot)`, `usageText()`; `registerJevCommand(pi)` | Types only |
+| `src/host/commands.ts` | Pure `parseJevArgs(text)`, pure `formatStatus(snapshot)`, `usageText()`; `runJev(args, ctx, deps)` | Types only |
 | `src/host/setup.ts` | `setup(pi)`: subscribes, registers handlers and `/jev` | Yes |
 | `src/extension.ts` | Default export delegating to `setup` | No |
 
