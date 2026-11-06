@@ -17,5 +17,5 @@
 
 ## 4. Docs and checks
 
-- [ ] 4.1 Update `docs/jev-contract.md` (Transport: loopback forms, size cap, outcome kinds; Validation: strict rules, malformed JSON as `schema`), `docs/configuration.md` (`classifier.url` loopback forms), `docs/testing.md` (contract fixture location) and `docs/roadmap.md` (WG-04 status)
-- [ ] 4.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`, all passing
+- [x] 4.1 Update `docs/jev-contract.md` (Transport: loopback forms, size cap, outcome kinds; Validation: strict rules, malformed JSON as `schema`), `docs/configuration.md` (`classifier.url` loopback forms), `docs/testing.md` (contract fixture location) and `docs/roadmap.md` (WG-04 status)
+- [x] 4.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`, all passing
