@@ -4,8 +4,8 @@
 
 ## 2. Pure review logic (`src/host/review-cli.ts`)
 
-- [ ] 2.1 `REVIEW_INSTRUCTIONS` constant and `buildPrompt(brief)`; test that the constant equals the block in `docs/jev-questions.md`; lint override keeping `review-cli.ts` free of Pi imports
-- [ ] 2.2 `codexArgs` and `opencodeArgs` builders per the spec argument orders
+- [x] 2.1 `REVIEW_INSTRUCTIONS` constant and `buildPrompt(brief)`; test that the constant equals the block in `docs/jev-questions.md`; lint override keeping `review-cli.ts` free of Pi imports
+- [x] 2.2 `codexArgs` and `opencodeArgs` builders per the spec argument orders
 - [ ] 2.3 `parseCodexCatalog` (visible models, slugs, names, efforts) and `parseOpencodeModels`
 - [ ] 2.4 `isTier`, `resolveTier` (newest by digit groups, case-insensitive)
 - [ ] 2.5 `checkCodexChoice` and `checkOpencodeChoice` with suggestions (at most five)
