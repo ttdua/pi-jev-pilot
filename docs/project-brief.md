@@ -74,7 +74,7 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 | — | Modes: `budget`, `standard`, `premium` | WG-12 |
 | H1 | `expert` tier | WG-12 |
 | F1 | Custom model slots, checked against Pi's registry | WG-13 |
-| H3 | Pre-launch fallback to a lower tier | WG-13 |
+| H3 | Pre-launch fallback to a lower tier | WG-11 (tiers), WG-13 (slots) |
 | H2 | Tool assessment in workers, through `@gotgenes/pi-subagents` | WG-14 |
 | F4 | On-demand CLI review with Codex or OpenCode | WG-15 |
 | G1 | Decision ledger | WG-05 |

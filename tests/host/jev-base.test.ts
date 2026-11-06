@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
+import { toolNames, withoutReview } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
 import type { RpcEvent } from "./rpc";
@@ -225,9 +226,13 @@ describe("status line and /jev through the real CLI", () => {
   );
 });
 
+function noReview(f: Fixture): boolean {
+  return f.requests.every((r: RecordedRequest) => !toolNames(r.body).includes("jev_review"));
+}
+
 describe("print and JSON mode", () => {
   test(
-    "print mode shows no status line and sends the same provider requests",
+    "print mode shows no status line and changes provider requests only by the jev_review tool",
     async () => {
       const agentDir = tempDir("jev-host-agent-");
       const cwd = tempDir("jev-host-cwd-");
@@ -262,7 +267,13 @@ describe("print and JSON mode", () => {
       // Ports differ per fixture, so the models.json base URL is not part of the body; compare bodies.
       const bodies = (f: Fixture): string[] =>
         f.requests.map((r: RecordedRequest) => JSON.stringify(r.body));
-      expect(bodies(withPkg)).toEqual(bodies(plain));
+      const hasReview = (f: Fixture): boolean =>
+        f.requests.every((r: RecordedRequest) => toolNames(r.body).includes("jev_review"));
+      expect(hasReview(withPkg)).toBe(true);
+      expect(noReview(plain)).toBe(true);
+      expect(
+        withPkg.requests.map((r: RecordedRequest) => JSON.stringify(withoutReview(r.body))),
+      ).toEqual(bodies(plain));
     },
     TIMEOUT,
   );

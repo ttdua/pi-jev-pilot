@@ -128,13 +128,13 @@ Made once per eligible main prompt.
 Made once per `subagent` launch, in this order. The first match wins.
 
 1. The mode's Fable rule passes: `expert`.
-2. `risky > .7`: `deep`, or the highest configured non-expert tier.
+2. `risky > .7`: `deep`, or the highest configured tier below `expert`.
 3. A slot with probability ≥ .6: that slot. Below .6, continue with the highest tier.
-4. `expert` that did not pass the rule: `deep`.
-5. `fast`: only with probability ≥ .6, otherwise `balanced`.
+4. `expert` that did not pass the rule: `deep`, or the highest configured tier below `expert`. With no tier below `expert`, nothing is decided.
+5. `fast`: only with probability ≥ .6, otherwise `balanced`, or the lowest configured tier above `fast` and below `expert`.
 6. Otherwise the chosen tier.
 
-Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, capped at `medium` on `fast`, clamped to the final model.
+Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, capped at `medium` on `fast`, clamped to the final model. After a fallback move, effort is `xhigh` on every tier, without the `fast` cap.
 
 Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `expert`; an unusable slot moves to `balanced`; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
 

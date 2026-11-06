@@ -1,67 +1,85 @@
-// Main-request question set. Wording is copied verbatim from docs/jev-questions.md.
-import { EFFORT_LEVELS } from "../policy/effort.ts";
+// Question sets for main and worker requests. Wording lives in ./rubrics.ts.
 import type { QuestionSpec } from "../policy/answers.ts";
+import { EFFORT_LEVELS } from "../policy/effort.ts";
+import { TIER_LADDER, type TierName } from "../policy/launch.ts";
+import {
+  CORRECTS_QUESTION,
+  EXPERT_NEEDED_QUESTION,
+  MAIN_EFFORT_INSTRUCTION,
+  RISKY_QUESTION,
+  STANDARD_TIER_CRITERIA,
+  TIER_INSTRUCTION,
+  WORKER_EFFORT_QUESTION,
+  type WireQuestion,
+} from "./rubrics.ts";
 
-export type WireQuestion =
-  | { type: "choice"; instructions: string; criteria: Record<string, string> }
-  | { type: "noul"; instructions: string; criteria: { true: string; false: string } };
+export type { WireQuestion };
 
 export type MainQuestions = {
   wire: Record<string, WireQuestion>;
   specs: Record<string, QuestionSpec>;
 };
 
-const EFFORT_INSTRUCTIONS =
-  'How much step-by-step reasoning does the work this request asks for need? Rate the work, not how important the topic sounds: a question or advice answered in words, even about architecture or security, is low or medium, and reviewing a small diff is medium. A short reply that approves, continues or picks an option ("go ahead", "fix all and continue", "1") takes the size of the work it approves, from the recent conversation.';
-
-const EFFORT_CRITERIA: Record<(typeof EFFORT_LEVELS)[number], string> = {
-  low: "Answered from what is already known, or mechanical work with nothing to work out: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, a one-line change.",
-  medium:
-    "An ordinary, well-specified change to one or a few files, or a direct question about code already in view.",
-  high: "A change across several files that needs working out, a bug whose cause is described but has to be traced, writing tests, or reviewing a diff with care.",
-  xhigh:
-    "Design across several components, a bug whose cause is unknown, a refactor with many dependents, or careful reasoning about concurrency, performance or failure modes.",
-  max: "Novel architecture, a security or data-integrity question, a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo.",
-};
-
-// Built per call so a caller mutating a result cannot change the next one.
-const risky = (): WireQuestion => ({
-  type: "noul",
-  instructions:
-    "Carrying out this task would itself change production, move real money, or alter data that cannot be restored. Writing or testing code that deals with such things, without running it against the real system, does not count.",
-  criteria: {
-    true: "Doing the task runs something against a real system with lasting effect: deploying or releasing, changing production data or configuration, moving money, deleting or overwriting data with no backup, or rewriting shared history (force-push).",
-    false:
-      "Reading, explaining, planning, or writing and testing code locally, even code that deals with production, payments or data, without running it against the real system.",
-  },
-});
-
-const corrects = (): WireQuestion => ({
-  type: "noul",
-  instructions:
-    "The user's latest message tells the assistant that its previous answer or work was wrong, broken, incomplete, or not what was asked, and asks for it to be fixed or redone.",
-  criteria: {
-    true: "The message reports a problem with what the assistant just did or said: it doesn't work, it's wrong, it missed something, it's not what was asked, try again.",
-    false:
-      "The message approves, continues, asks something new, or gives a new task; or there was no previous answer.",
-  },
-});
+// A fresh copy per call, so a caller mutating a result cannot change the next one.
+function copy(question: WireQuestion): WireQuestion {
+  return { ...question, criteria: { ...question.criteria } };
+}
 
 /** Questions for a main request; `effort` and `risky` only when `askEffort`. */
 export function mainQuestions(o: { askEffort: boolean }): MainQuestions {
   const wire: Record<string, WireQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
   if (o.askEffort) {
+    // The five effort criteria are shared with the worker question; only the instruction differs.
     wire["effort"] = {
       type: "choice",
-      instructions: EFFORT_INSTRUCTIONS,
-      criteria: { ...EFFORT_CRITERIA },
+      instructions: MAIN_EFFORT_INSTRUCTION,
+      criteria: { ...WORKER_EFFORT_QUESTION.criteria },
     };
     specs["effort"] = { type: "choice", options: EFFORT_LEVELS };
-    wire["risky"] = risky();
+    wire["risky"] = copy(RISKY_QUESTION);
     specs["risky"] = { type: "noul" };
   }
-  wire["corrects"] = corrects();
+  wire["corrects"] = copy(CORRECTS_QUESTION);
   specs["corrects"] = { type: "noul" };
   return { wire, specs };
+}
+/** Configured tiers in ladder order; `expert` only when its switch is on. */
+export function offeredTiers(
+  tiers: Partial<Record<TierName, string>>,
+  expertOn: boolean,
+): TierName[] {
+  return TIER_LADDER.filter((tier) => {
+    if (tier === "expert" && !expertOn) return false;
+    const value = tiers[tier];
+    return typeof value === "string" && value !== "";
+  });
+}
+
+export function buildWorkerQuestions(
+  offered: readonly TierName[],
+  displayNames: Partial<Record<TierName, string>>,
+): { questions: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> } {
+  const questions: Record<string, WireQuestion> = {};
+  const specs: Record<string, QuestionSpec> = {};
+  const ordered = TIER_LADDER.filter((tier) => offered.includes(tier));
+  if (ordered.length > 0) {
+    const criteria: Record<string, string> = {};
+    for (const tier of ordered) {
+      const name = displayNames[tier];
+      const text = STANDARD_TIER_CRITERIA[tier];
+      criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
+    }
+    questions["tier"] = { type: "choice", instructions: TIER_INSTRUCTION, criteria };
+    specs["tier"] = { type: "choice", options: ordered };
+  }
+  questions["effort"] = copy(WORKER_EFFORT_QUESTION);
+  specs["effort"] = { type: "choice", options: Object.keys(WORKER_EFFORT_QUESTION.criteria) };
+  questions["risky"] = copy(RISKY_QUESTION);
+  specs["risky"] = { type: "noul" };
+  if (ordered.includes("expert")) {
+    questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTION);
+    specs["expert_needed"] = { type: "noul" };
+  }
+  return { questions, specs };
 }

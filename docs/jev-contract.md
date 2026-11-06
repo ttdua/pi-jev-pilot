@@ -187,7 +187,9 @@ The agent's `model` and `thinking` are never sent. Replay showed no significant 
 
 The 4000-character cap covers about 90% of real briefs. Replay at 2000 versus full length changed about as many answers as noise.
 
-Agent details are read from `.pi/agents/<name>.md`, then `<agentDir>/agents/<name>.md`, and otherwise from a table of the executor's built-in agents (`general-purpose`, `Explore`, `Plan`).
+`brief` and the excerpts count code points, not UTF-16 units. Agent files are matched by listing the agents directory, so a path-like type never reaches the file system. `max_turns` is the agent's own value; `run_in_background` is the effective value of the launch. Built-in agents send an empty `instructions_excerpt`.
+
+The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/agents/`, and otherwise from a table of the executor's built-in agents (`general-purpose`, `Explore`, `Plan`).
 
 ## Worker questions
 

@@ -1,3 +1,8 @@
+// Pure effort rules for the main session and workers. Imports nothing outside src/policy/.
+
+import type { ChoiceAnswer } from "./answers.ts";
+import type { TierName } from "./launch.ts";
+
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -69,4 +74,42 @@ export function decideEffort(i: {
 /** Effort is worth asking only when at least two levels from `low` upward are supported. */
 export function canAskEffort(supported: readonly ThinkingLevel[]): boolean {
   return EFFORT_LEVELS.filter((level) => supported.includes(level)).length >= 2;
+}
+
+// Worker effort rules.
+
+/** The effort ladder; the same order as `EFFORT_LEVELS`. */
+export const EFFORT_LADDER: readonly EffortLevel[] = EFFORT_LEVELS;
+export type EffortInput = {
+  effort?: ChoiceAnswer;
+  risky?: number;
+  tier?: TierName;
+  movedByFallback: boolean;
+};
+
+function isEffortLevel(value: string): value is EffortLevel {
+  return (EFFORT_LADDER as readonly string[]).includes(value);
+}
+
+function rank(level: EffortLevel): number {
+  return EFFORT_LADDER.indexOf(level);
+}
+
+function atLeast(level: EffortLevel, floor: EffortLevel): EffortLevel {
+  return rank(level) >= rank(floor) ? level : floor;
+}
+
+function atMost(level: EffortLevel, cap: EffortLevel): EffortLevel {
+  return rank(level) <= rank(cap) ? level : cap;
+}
+
+export function workerEffort(input: EffortInput): EffortLevel | undefined {
+  if (input.movedByFallback) return "xhigh";
+  const choice = input.effort?.choice;
+  if (choice === undefined || !isEffortLevel(choice)) return undefined;
+  let level: EffortLevel = choice;
+  if (input.risky !== undefined && input.risky > 0.7) level = atLeast(level, "high");
+  level = atMost(level, "xhigh");
+  if (input.tier === "fast") level = atMost(level, "medium");
+  return level;
 }

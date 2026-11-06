@@ -50,6 +50,8 @@ src/
   policy/                Pure. No Pi imports, no I/O.
     answers.ts           Validates a raw response, per question
     effort.ts            Effort rules: risk floor, ceiling, fast-tier cap
+    launch.ts            Effective launch fields and locks
+    worker.ts            Reads worker answers
     tier.ts              Model decision order
     modes.ts             Mode names, Fable rules
     skill.ts             Skill pick from choice and gate answers
@@ -59,6 +61,7 @@ src/
 
   shared/                Dependency-free rules used by more than one module
     urls.ts              The Jev URL rule
+    text.ts              Code-point cut
 
   jev/                   Talks to TypeSafe.
     client.ts            Transport: timeout, abort, no redirects
@@ -70,7 +73,8 @@ src/
     main.ts              before_agent_start: effort, skill, advice
     worker.ts            message_end and tool_call: model and thinking
     child.ts             Child registry; tool assessment in children
-    review.ts            jev_review tool
+    review.ts            jev_review tool, runs the CLI, hides the tool in children
+    review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
     context.ts           Reads the branch, tools, git counts, platforms
     agents.ts            Reads agent files and the built-in agent table
     commands.ts          /jev
@@ -143,7 +147,8 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | Idle moment for tuning; end of a turn (ledger line, Esc restore) | `pi.on("agent_settled")` | Documented |
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
-| CLI review | `pi.registerTool`, `pi.exec` | Documented |
+| CLI review | `pi.registerTool`, `pi.exec` | Verified by host test `tests/host/cli-review.test.ts` (fake `codex` and `opencode` on `PATH`) |
+| Hide the review tool in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` (the Q3 seam) | Verified by the same host test: absent in a child's request |
 
 ## Runtime contexts
 
@@ -155,7 +160,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Worker routing | Yes | Not possible: the executor removes `subagent` |
 | Tool assessment | No | Yes |
 | Status line, tally | Yes | No |
-| Review tool | Yes | Not offered |
+| Review tool | Yes | Not offered: removed from `selectedTools` in `before_agent_start`, and refused if called |
 
 **Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. The registry also drops an id on `subagents:child:disposed`, and each instance unsubscribes on `session_shutdown`. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
 
@@ -191,7 +196,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Agent file locks the model | Executor ignores the change | Ledger `locked` |
 | Tool assessment fails | Worker keeps all tools | Verbose log |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
-| CLI review fails | Tool result says the review did not run | Tool result |
+| CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |
 | Ledger write fails | Decision still applied | Verbose log |
 
 ## Data flow boundaries

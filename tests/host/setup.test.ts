@@ -18,6 +18,8 @@ function fakePi(opts: { throwOnOff?: boolean } = {}) {
       handlers.set(name, [...(handlers.get(name) ?? []), h]);
     },
     registerCommand: (name: string, def: unknown) => commands.set(name, def),
+    registerTool: () => {},
+    exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
     getAllTools: () => [],
     events: {
       on: (channel: string, handler: (d: unknown) => void) => {

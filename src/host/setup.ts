@@ -6,6 +6,7 @@ import { appendLedger } from "../store/ledger.ts";
 import { scanPlatforms } from "./context.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
+import { hideReviewInChild, registerReviewTool } from "./review.ts";
 import { drawStatus } from "./status.ts";
 import { jevDir } from "./stores.ts";
 
@@ -32,9 +33,15 @@ export function setup(pi: ExtensionAPI): void {
     }
   });
 
+  registerReviewTool(pi);
+
   pi.on("before_agent_start", async (event, ctx) => {
     try {
-      if (isChild(ctx.sessionManager.getSessionId())) return undefined;
+      const sessionId = ctx.sessionManager.getSessionId();
+      if (isChild(sessionId)) {
+        hideReviewInChild(event, sessionId);
+        return undefined;
+      }
       return await main.beforeAgentStart(event, ctx);
     } catch {
       return undefined;
@@ -84,6 +91,7 @@ export function setup(pi: ExtensionAPI): void {
         dir: jevDir(),
         load: () => loadSnapshot(pi),
         decision: main.decision,
+        exec: (c, a, o) => pi.exec(c, a, o),
       }),
   });
 }
