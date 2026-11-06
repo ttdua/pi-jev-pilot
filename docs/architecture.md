@@ -175,7 +175,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 
 | Failure | Effect on work | Visible as |
 |---|---|---|
-| No API key | None; package inert | Status line: `no key` |
+| No API key | None; package inert | Status line: `Jev · no key` |
 | Jev timeout, HTTP error, unreadable response | None; turn or launch proceeds unchanged | Status line; ledger `miss` |
 | One invalid answer in a response | Other answers still count | Verbose log |
 | User cancels (Esc) | Everything stops; no fallback runs | Normal Pi behavior |

@@ -18,7 +18,13 @@ export function setup(pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("session_shutdown", async () => off());
+  pi.on("session_shutdown", async () => {
+    try {
+      off();
+    } catch {
+      /* keep shutdown clean */
+    }
+  });
 
   pi.registerCommand("jev", {
     description: "Show or change jev-pilot features",

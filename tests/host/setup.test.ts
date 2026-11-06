@@ -7,7 +7,7 @@ import { tempDir } from "../helpers.ts";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
 
-function fakePi() {
+function fakePi(opts: { throwOnOff?: boolean } = {}) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
   const subs: { channel: string; live: boolean; handler: (d: unknown) => void }[] = [];
@@ -25,6 +25,7 @@ function fakePi() {
         const sub = { channel, live: true, handler };
         subs.push(sub);
         return () => {
+          if (opts.throwOnOff) throw new Error("unsubscribe failed");
           sub.live = false;
         };
       },
@@ -65,6 +66,12 @@ afterEach(() => {
 });
 
 describe("setup", () => {
+  test("session_shutdown resolves even when an unsubscribe throws", async () => {
+    const f = fakePi({ throwOnOff: true });
+    setup(f.pi);
+    await expect(f.handlers.get("session_shutdown")![0]!({}, {})).resolves.toBeUndefined();
+  });
+
   test("subscribes to both child events before any handler is registered", () => {
     const f = fakePi();
     setup(f.pi);

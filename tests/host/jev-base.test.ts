@@ -103,7 +103,9 @@ describe("status line and /jev through the real CLI", () => {
       expect(n.length).toBe(1);
       expect(n[0]?.notifyType).toBe("info");
       const msgs = await s.send({ type: "get_messages" });
-      expect(JSON.stringify(msgs.data?.messages ?? [])).not.toContain("/jev");
+      const all = (msgs.data?.messages ?? []) as { role?: string; content?: unknown }[];
+      const userText = all.filter((m) => m.role === "user").map((m) => JSON.stringify(m.content));
+      expect(userText.some((c) => c.includes("/jev"))).toBe(false);
     },
     TIMEOUT,
   );
