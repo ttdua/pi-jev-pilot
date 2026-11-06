@@ -4,8 +4,8 @@
 
 ## 2. Readiness snapshot
 
-- [ ] 2.1 Add `DECISION_FEATURES` to `src/store/defaults.ts`, and `src/host/readiness.ts`: pure `isKeySet(env, varName)`, `hasExecutor(toolNames)` and `buildSnapshot({ configRead, stateRead, env, toolNames })`. An invalid config resolves the settings from an empty config and the state and uses `TYPESAFE_API_KEY` (specs/readiness-checks). Unit tests in `tests/host/readiness.test.ts`.
-- [ ] 2.2 Add `loadSnapshot(pi)` in the same module, reading `readConfig(jevDir())`, `readState(jevDir())`, `process.env` and `pi.getAllTools()` at call time. Test it against a temporary `PI_CODING_AGENT_DIR`, including a hand-edited `state.json`.
+- [x] 2.1 Add `DECISION_FEATURES` to `src/store/defaults.ts`, and `src/host/readiness.ts`: pure `isKeySet(env, varName)`, `hasExecutor(toolNames)` and `buildSnapshot({ configRead, stateRead, env, toolNames })`. An invalid config resolves the settings from an empty config and the state and uses `TYPESAFE_API_KEY` (specs/readiness-checks). Unit tests in `tests/host/readiness.test.ts`.
+- [x] 2.2 Add `loadSnapshot(pi)` in the same module, reading `readConfig(jevDir())`, `readState(jevDir())`, `process.env` and `pi.getAllTools()` at call time. Test it against a temporary `PI_CODING_AGENT_DIR`, including a hand-edited `state.json`.
 
 ## 3. Status line
 
