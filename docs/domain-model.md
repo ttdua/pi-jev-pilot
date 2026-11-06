@@ -121,7 +121,7 @@ Made once per eligible main prompt.
 | Hold | Config | Providers in `holdProviders` keep the first decision until a compaction, without asking `effort` or `risky` |
 | Skill | `which`, `gate::*` | At most one; probability ≥ .5, or probability and gate mean both ≥ .3 |
 | Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates |
-| Correction mark | `corrects` | ≥ .7 marks the previous turn in the ledger |
+| Correction mark | `corrects` | ≥ .7 writes a `correction` line for the previous turn |
 
 ### WorkerDecision
 
@@ -214,37 +214,41 @@ stateDiagram-v2
 
 ## Ledger entry
 
-One line per decision in `ledger.jsonl`, the latest 2000 kept, owner-only permissions, safe with several Pi processes. **Never prompt text, briefs, tool arguments or output.**
+One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two files (`ledger.jsonl` and `ledger.1.jsonl`), owner-only permissions, safe with several Pi processes. **Never prompt text, briefs, tool arguments or output.**
 
 | Group | Field | Meaning |
 |---|---|---|
-| Common | `at` | Time, milliseconds since the epoch |
-| | `kind` | `main` or `worker` |
+| Common | `v` | Schema version, always `1` |
+| | `at` | Time, milliseconds since the epoch |
+| | `kind` | `main`, `worker` or `correction` |
 | | `session` | Pi session id |
 | | `mode` | Active mode |
 | | `answered`, `ms` | Whether Jev answered, and how fast |
 | | `miss` | `timeout`, `error` or `schema` |
-| Main | `effortP` | All effort probabilities |
-| | `risky` | Noul |
+| Main, worker | `effortP` | All effort probabilities |
+| | `risky` | Probability |
 | | `requested`, `effective`, `from` | Effort wanted, effort applied, effort before |
 | | `held` | Decided by hold, without asking |
 | | `strategy`, `strategyP`, `advised` | Answer, its probability, whether advice was attached |
 | | `skill`, `skillP`, `gate` | Pick, its probability, gate mean |
-| | `corrects`, `corrected` | This prompt's read; whether the next prompt marked this turn |
-| | `toolCalls`, `failures`, `outcome`, `durationMs`, `inputTokens`, `outputTokens` | Filled at turn end |
+| | `turnId` | Id of this turn, so a later `correction` line can point at it |
+| | `corrects` | This prompt's read of whether it corrects the previous turn |
+| | `toolCalls`, `failures`, `outcome`, `durationMs`, `inputTokens`, `outputTokens` | Filled at turn end. `outcome` is `ok`, `error` or `aborted` |
 | Worker | `agent`, `briefChars` | Agent name and brief length |
-| | `tierP`, `expertNeeded`, `effortP`, `risky` | All raw answers |
+| | `tierP`, `expertNeeded`, `risky` | All raw answers, with `effortP` |
 | | `tier`, `model`, `effort` | The decision. `tier` is a slot name when a slot won |
-| | `reason` | Which rule decided |
+| | `reason` | Which rule decided: `fable`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`. All but the last two require `tier` |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
 | | `toolsScored`, `toolsFlagged` | Tool assessment counts |
-| | `status`, `durationMs`, `tokens`, `toolUses` | Filled on completion |
+| | `status`, `durationMs`, `tokens`, `toolUses` | Filled on completion. `status` is `completed`, `aborted`, `stopped` or `error` |
+| Correction | `turnId`, `corrects` | The turn being marked, and the probability that marked it (≥ .7) |
 
 Rules:
 
 - Probabilities are stored whole, so later analysis can replay any threshold without calling Jev again.
-- `corrected`: when `corrects ≥ .7`, mark the previous turn on the current branch.
+- Correction: when `corrects ≥ .7`, append a `correction` line carrying the previous turn's `turnId` on the current branch. Lines are never rewritten.
+- A line with `miss` has `answered` false.
 - Tier and agent must always be recorded. The port's ledger omits tier and writes `agent: unknown`, which is why its tier decisions could only be inferred.
 
 ## Tuning
@@ -269,7 +273,7 @@ Stored in `tuning.json`, never in `config.json`.
 **Signals observed and shown by `/jev tune`, per mode, not applied:**
 
 - `low` or `fast` workers failing.
-- Main turns marked corrected.
+- Main turns with a correction line.
 - Large turns at low effort (at least 15 tool calls).
 - `high` starts finishing in at most two tool calls, without failures.
 

@@ -1,7 +1,7 @@
 # store-location Specification
 
 ## Purpose
-The package's files live in `<agentDir>/jev/`, located through Pi's agent directory, are created owner-only and are replaced atomically, with write failures returned rather than thrown.
+The package's files live in `<agentDir>/jev/`, located through Pi's agent directory, are created owner-only, with whole-file stores replaced atomically, with write failures returned rather than thrown.
 
 ## Requirements
 
@@ -43,7 +43,7 @@ A store write that fails on I/O (for example `EACCES`, `ENOSPC`, or a directory 
 - **THEN** the update returns a problem at `""` naming `EACCES`, and nothing is thrown
 
 ### Requirement: Atomic replacement
-Every store write SHALL write a temporary file in the same directory, flush it, and rename it over the target, so a reader sees either the old content or the new content, never a partial file. If the write fails, the temporary file MUST be removed and the target MUST be unchanged.
+Every write of a whole-file store (`config.json`, `state.json`) SHALL write a temporary file in the same directory, flush it, and rename it over the target, so a reader sees either the old content or the new content, never a partial file. If the write fails, the temporary file MUST be removed and the target MUST be unchanged. The ledger is not a whole-file store: it appends whole lines and rotates by rename, as the `decision-ledger` capability specifies.
 
 #### Scenario: Failed write leaves the target unchanged
 - **WHEN** a write fails after the temporary file was created

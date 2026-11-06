@@ -119,7 +119,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-05: Ledger
 
-- **Includes:** the schema with no free-text fields, append, trim to 2000, tolerance of bad lines, safe writes from several processes, owner-only permissions.
+- **Includes:** the schema with no free-text fields, append, keep at least the latest 2000 in two rotating files, tolerance of bad lines, safe writes from several processes, owner-only permissions.
 - **Done when:** concurrent writers lose no line in a test, and a test proves a long text field is rejected.
 
 ### WG-06: Status line and `/jev` base

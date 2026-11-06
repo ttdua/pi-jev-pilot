@@ -33,14 +33,14 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 
 ## What is stored locally
 
-`<agentDir>/jev/ledger.jsonl`, owner-readable only, the latest 2000 lines:
+`<agentDir>/jev/ledger.jsonl` and `ledger.1.jsonl`, owner-readable only, at least the latest 2000 lines (at most about 4000):
 
 - Labels, numbers and outcomes: levels, probabilities, tier, model id, agent name, token counts, durations.
 - **Never** prompt text, briefs, tool arguments or output.
 
 Hidden skill and advice messages are saved in your Pi session files, as any context is.
 
-Delete the ledger at any time; nothing depends on it except tuning signals.
+Delete the ledger at any time (both files); nothing depends on it except tuning signals.
 
 ## Credentials
 

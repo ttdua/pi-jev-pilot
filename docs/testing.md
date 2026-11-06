@@ -43,7 +43,7 @@ The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent 
 
 ### Privacy
 
-A test asserts the exact field set of each state kind, so adding a field that leaves the machine fails until the test and [Privacy](privacy.md) change together. Another searches the ledger after a host run for a marker placed in the prompt, and must not find it.
+A test asserts the exact field set of each ledger kind against `LEDGER_FIELDS`, so adding a field that leaves the machine fails until the test and [Privacy](privacy.md) change together. Another searches the ledger after a host run for a marker placed in the prompt, and must not find it.
 
 ## Version policy
 
