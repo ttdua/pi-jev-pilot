@@ -52,7 +52,8 @@ const workerRequests = (j: JevFixture): JevFixture["requests"] =>
     try {
       return (JSON.parse(r.body) as { state?: { task?: unknown } }).state?.task !== undefined;
     } catch {
-      return false;
+      // Counted, so a malformed body can never make a "no request" assertion pass.
+      return true;
     }
   });
 
