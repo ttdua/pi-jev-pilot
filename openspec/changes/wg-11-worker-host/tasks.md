@@ -5,7 +5,7 @@
 ## 2. Pure route
 
 - [x] 2.1 Add `supportedLevels` and `clampLevel` in `src/policy/effort.ts`, with a parity test against pi-ai's `getSupportedThinkingLevels` and `clampThinkingLevel` in `tests/policy/` (Supported thinking levels, Thinking clamp)
-- [ ] 2.2 Add `launchKind` and `routeLaunch` in `src/policy/route.ts`, built on `decideTier`, `chooseFallback` and `workerEffort` (Route result, Launches left untouched, Route on Jev failure, Route writes thinking only, Routed launch, Nothing can run, Locks in the route)
+- [x] 2.2 Add `launchKind` and `routeLaunch` in `src/policy/route.ts`, built on `decideTier`, `chooseFallback` and `workerEffort` (Route result, Launches left untouched, Route on Jev failure, Route writes thinking only, Routed launch, Nothing can run, Locks in the route)
 
 ## 3. Host routing
 
