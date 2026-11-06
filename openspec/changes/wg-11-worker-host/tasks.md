@@ -1,6 +1,6 @@
 ## 1. Setting
 
-- [ ] 1.1 Add `subagents.forkedLaunch` (`untouched` | `thinking`) to `src/store/config.ts` validation and `Config`, its default `untouched` to `src/store/defaults.ts`, and `settings.subagents.forkedLaunch` to `src/store/settings.ts` (config-file: Other field rules; settings-resolution: One resolver for effective settings)
+- [x] 1.1 Add `subagents.forkedLaunch` (`untouched` | `thinking`) to `src/store/config.ts` validation and `Config`, its default `untouched` to `src/store/defaults.ts`, and `settings.subagents.forkedLaunch` to `src/store/settings.ts` (config-file: Other field rules; settings-resolution: One resolver for effective settings)
 
 ## 2. Pure route
 
