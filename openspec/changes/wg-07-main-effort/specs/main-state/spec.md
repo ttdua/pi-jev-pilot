@@ -1,3 +1,6 @@
+## Purpose
+The minimal main state sent to Jev with a main request: request signals computed in code, a bounded window of recent conversation text and tool counts, the turn index and the workspace platforms, built from plain inputs and never carrying tool arguments, tool output or injected context.
+
 ## ADDED Requirements
 
 ### Requirement: Minimal main state

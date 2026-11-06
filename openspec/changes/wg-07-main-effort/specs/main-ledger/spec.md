@@ -1,7 +1,10 @@
+## Purpose
+A decided main turn appends one `main` ledger line with its answers, levels and outcome when its run settles, a `correction` line for the previous turn when the prompt reads as a correction, and a `jev-turn` session entry holding only the turn id, with no prompt or conversation text.
+
 ## ADDED Requirements
 
 ### Requirement: One main line per decided turn
-For every eligible prompt whose Jev request completed (answered or missed), the package SHALL append exactly one `main` ledger line when the run settles, never earlier and never rewritten, unless the run settled aborted with no provider request. A prompt that was not eligible, or whose run was cancelled before any provider request, MUST write no `main` line. A ledger write failure MUST NOT affect the turn.
+For every eligible prompt whose Jev request completed (answered or missed), the package SHALL append exactly one `main` ledger line when the run settles, never earlier and never rewritten, unless the run settled aborted with no provider request. A prompt that was not eligible, or whose run was cancelled before any provider request, MUST write no `main` line. A turn whose session is replaced before its run settles MUST write no line. A ledger write failure MUST NOT affect the turn.
 
 #### Scenario: Decided turn
 - **WHEN** an eligible prompt is answered and its run completes
@@ -14,6 +17,10 @@ For every eligible prompt whose Jev request completed (answered or missed), the 
 #### Scenario: Run fails before any provider request
 - **WHEN** an eligible prompt is answered and the run settles not aborted with an error before any provider request
 - **THEN** one `main` line is written with `outcome` `error`
+
+#### Scenario: Session replaced before the turn settles
+- **WHEN** an eligible prompt is answered, the session starts again before its run settles, and the old run then settles
+- **THEN** no `main` line, no `correction` line and no `jev-turn` entry are written for that turn
 
 #### Scenario: Ledger directory unwritable
 - **WHEN** the ledger cannot be written

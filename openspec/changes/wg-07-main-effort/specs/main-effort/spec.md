@@ -1,3 +1,6 @@
+## Purpose
+Before each eligible main prompt the package asks Jev for `effort`, `risky` and `corrects`, turns the answers into a thinking level with fixed rules, and applies it before the turn's first provider request; a Jev failure, a manual change during the wait, or Esc leaves the session as it was.
+
 ## ADDED Requirements
 
 ### Requirement: Eligible main prompts
