@@ -37,8 +37,8 @@
 
 ## 6. Evidence and documents
 
-- [ ] 6.1 Write `docs/evidence/<date>-host-seams.md`: per question the answer, supporting test or run, testing level and versions, with no prompts, request bodies or account details
-- [ ] 6.2 Update the host seams table in `docs/architecture.md` with each settled answer and a link to the report, and fix any contradicted statement elsewhere in `docs/architecture.md`
-- [ ] 6.3 Update `docs/roadmap.md`: WG-02 done, and any later work group whose scope an answer changed
-- [ ] 6.4 Update `docs/testing.md` if the harness or the Q8 procedure changes what it states
-- [ ] 6.5 Search `docs/` for any remaining statement an answer contradicted, and run all checks once more
+- [x] 6.1 Write `docs/evidence/<date>-host-seams.md`: per question the answer, supporting test or run, testing level and versions, with no prompts, request bodies or account details
+- [x] 6.2 Update the host seams table in `docs/architecture.md` with each settled answer and a link to the report, and fix any contradicted statement elsewhere in `docs/architecture.md`
+- [x] 6.3 Update `docs/roadmap.md`: WG-02 done, and any later work group whose scope an answer changed
+- [x] 6.4 Update `docs/testing.md` if the harness or the Q8 procedure changes what it states
+- [x] 6.5 Search `docs/` for any remaining statement an answer contradicted, and run all checks once more
