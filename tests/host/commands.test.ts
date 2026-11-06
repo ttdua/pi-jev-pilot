@@ -285,4 +285,19 @@ describe("runJev", () => {
     });
     expect(c.rec.notes.map((n) => n[1])).toEqual(["error"]);
   });
+
+  test("throwing notify never escapes the handler", async () => {
+    const dir = jevDir();
+    const c = fakeCtx();
+    (c.ctx.ui as { notify: unknown }).notify = () => {
+      throw new Error("ui gone");
+    };
+    await runJev("", c.ctx, {
+      dir,
+      load: () => {
+        throw new TypeError("boom");
+      },
+    });
+    await runJev("mode premium", c.ctx, { dir, load: load(dir) });
+  });
 });

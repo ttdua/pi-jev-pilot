@@ -104,6 +104,10 @@ export async function runJev(
     drawStatus(ctx, snapshot);
     notify(formatStatus(snapshot), "info");
   } catch (err) {
-    if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");
+    try {
+      if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");
+    } catch {
+      /* swallow: command failures stay inside the package */
+    }
   }
 }
