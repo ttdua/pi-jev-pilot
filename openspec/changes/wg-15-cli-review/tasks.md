@@ -14,7 +14,7 @@
 
 ## 3. Tool (`src/host/review.ts`)
 
-- [ ] 3.1 `runReview(exec, input)` with temp directory lifecycle, `-o` removal before each attempt, timeout retry once, cancel stop, throw-to-failure, tier resolution from `codex debug models`; unit tests with a fake `exec`
+- [x] 3.1 `runReview(exec, input)` with temp directory lifecycle, `-o` removal before each attempt, timeout retry once, cancel stop, throw-to-failure, tier resolution from `codex debug models`; unit tests with a fake `exec`
 - [ ] 3.2 `registerReviewTool(pi)`: `jev_review` definition with typebox schema, description and prompt guideline; `execute` refuses in a child; reads settings through `loadSnapshot`
 - [ ] 3.3 Child hiding: `before_agent_start` handler removing `jev_review` from `selectedTools` in a child session; wire both into `src/host/setup.ts`
 
