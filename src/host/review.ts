@@ -1,10 +1,15 @@
 import { chmodSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { BeforeAgentStartEvent, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
+import { isChild } from "./child.ts";
+import { loadSnapshot, type Snapshot } from "./readiness.ts";
 import {
   buildPrompt,
   classifyAttempt,
   codexArgs,
+  effectiveChoice,
   formatFailure,
   formatSuccess,
   isTier,
@@ -135,4 +140,95 @@ export async function runReview(
   } finally {
     if (dir !== undefined) rmSync(dir, { recursive: true, force: true });
   }
+}
+
+export const REVIEW_TOOL = "jev_review";
+
+const MODEL_PATTERN = "^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$";
+const EFFORT_PATTERN = "^[A-Za-z0-9._-]{1,64}$";
+
+const reviewParameters = Type.Object({
+  brief: Type.String({
+    minLength: 1,
+    maxLength: 20000,
+    description: "What changed and what the reviewer should check.",
+  }),
+  reviewer: Type.Optional(
+    Type.Union([Type.Literal("codex"), Type.Literal("opencode")], {
+      description: "Which CLI reviews. Omit unless the user named one.",
+    }),
+  ),
+  model: Type.Optional(
+    Type.String({
+      pattern: MODEL_PATTERN,
+      description: "Model for the reviewer. Omit unless the user named one.",
+    }),
+  ),
+  effort: Type.Optional(
+    Type.String({
+      pattern: EFFORT_PATTERN,
+      description: "Effort for the reviewer. Omit unless the user named one.",
+    }),
+  ),
+});
+
+const failure = (text: string) => ({
+  content: [{ type: "text" as const, text }],
+  details: undefined,
+  isError: true as const,
+});
+
+/** Registers the `jev_review` tool. It needs no key and no feature switch. */
+export function registerReviewTool(
+  pi: Pick<ExtensionAPI, "registerTool" | "exec" | "getAllTools">,
+  deps: { load?: () => Snapshot; exec?: Exec } = {},
+): void {
+  const exec: Exec = deps.exec ?? ((c, a, o) => pi.exec(c, a, o) as ReturnType<Exec>);
+  const load = deps.load ?? (() => loadSnapshot(pi));
+  pi.registerTool({
+    name: REVIEW_TOOL,
+    label: "Jev review",
+    description:
+      "Ask the Codex or OpenCode CLI for a read-only code review of the current working tree. Pass what changed and what to check as `brief`. Returns the reviewer's findings.",
+    promptSnippet: "Get a code review from the Codex or OpenCode CLI",
+    promptGuidelines: [
+      "Use jev_review only when the user asks for a review by Codex or OpenCode, passing what changed and what to check as `brief`; omit `reviewer`, `model` and `effort` unless the user named them.",
+    ],
+    parameters: reviewParameters,
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      try {
+        if (isChild(ctx.sessionManager.getSessionId())) {
+          return failure("jev_review is not available in a subagent session.");
+        }
+        let defaults: ReviewChoice = { cli: "codex" };
+        try {
+          defaults = load().settings.review;
+        } catch {
+          /* fall back to codex */
+        }
+        const choice = effectiveChoice(defaults, params);
+        const r = await runReview(exec, {
+          choice,
+          brief: params.brief,
+          cwd: ctx.cwd,
+          ...(signal ? { signal } : {}),
+        });
+        return {
+          content: [{ type: "text" as const, text: r.text }],
+          details: r.details,
+          ...(r.isError ? { isError: true as const } : {}),
+        };
+      } catch (e) {
+        return failure(`The review did not run: ${e instanceof Error ? e.name : "Error"}.`);
+      }
+    },
+  });
+}
+
+/** Removes the review tool from a child's tool list for this turn. */
+export function hideReviewInChild(event: BeforeAgentStartEvent, sessionId: string): void {
+  if (!isChild(sessionId)) return;
+  const tools = event.systemPromptOptions?.selectedTools;
+  if (!Array.isArray(tools)) return;
+  for (let i = tools.length - 1; i >= 0; i--) if (tools[i] === REVIEW_TOOL) tools.splice(i, 1);
 }

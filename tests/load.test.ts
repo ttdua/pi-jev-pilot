@@ -53,8 +53,12 @@ describe("package loading", () => {
     const result = await installAndLoad(REPO_ROOT);
     const ext = result.extensions.find((e) => resolvesTo(e.resolvedPath, entry));
     expect(ext).toBeDefined();
-    expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual(["session_shutdown", "session_start"]);
-    expect(ext?.tools.size).toBe(0);
+    expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual([
+      "before_agent_start",
+      "session_shutdown",
+      "session_start",
+    ]);
+    expect([...(ext?.tools.keys() ?? [])]).toEqual(["jev_review"]);
     expect([...(ext?.commands.keys() ?? [])]).toEqual(["jev"]);
     expect(ext?.flags.size).toBe(0);
     expect(ext?.shortcuts.size).toBe(0);

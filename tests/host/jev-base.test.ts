@@ -225,9 +225,36 @@ describe("status line and /jev through the real CLI", () => {
   );
 });
 
+function toolNames(body: unknown): string[] {
+  const tools = (body as { tools?: { function?: { name?: string } }[] }).tools ?? [];
+  return tools.map((t) => t.function?.name ?? "");
+}
+
+function noReview(f: Fixture): boolean {
+  return f.requests.every((r: RecordedRequest) => !toolNames(r.body).includes("jev_review"));
+}
+
+/** Drops the jev_review tool entry and the system-prompt lines that mention it. */
+function withoutReview(body: unknown): unknown {
+  const b = structuredClone(body) as {
+    tools?: { function?: { name?: string } }[];
+    messages?: { content?: unknown }[];
+  };
+  if (b.tools) b.tools = b.tools.filter((t) => t.function?.name !== "jev_review");
+  for (const m of b.messages ?? []) {
+    if (typeof m.content === "string") {
+      m.content = m.content
+        .split("\n")
+        .filter((l) => !l.includes("jev_review"))
+        .join("\n");
+    }
+  }
+  return b;
+}
+
 describe("print and JSON mode", () => {
   test(
-    "print mode shows no status line and sends the same provider requests",
+    "print mode shows no status line and changes provider requests only by the jev_review tool",
     async () => {
       const agentDir = tempDir("jev-host-agent-");
       const cwd = tempDir("jev-host-cwd-");
@@ -262,7 +289,13 @@ describe("print and JSON mode", () => {
       // Ports differ per fixture, so the models.json base URL is not part of the body; compare bodies.
       const bodies = (f: Fixture): string[] =>
         f.requests.map((r: RecordedRequest) => JSON.stringify(r.body));
-      expect(bodies(withPkg)).toEqual(bodies(plain));
+      const hasReview = (f: Fixture): boolean =>
+        f.requests.every((r: RecordedRequest) => toolNames(r.body).includes("jev_review"));
+      expect(hasReview(withPkg)).toBe(true);
+      expect(noReview(plain)).toBe(true);
+      expect(
+        withPkg.requests.map((r: RecordedRequest) => JSON.stringify(withoutReview(r.body))),
+      ).toEqual(bodies(plain));
     },
     TIMEOUT,
   );
