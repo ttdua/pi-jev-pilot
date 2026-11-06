@@ -1,8 +1,8 @@
 ## 1. Schema
 
-- [ ] 1.1 Add `src/store/ledger-schema.ts` with the value-domain validators (id, agent, skill, model, caller model, target, level, mode, probability, count, time, distributions) built on `src/store/validate.ts`
-- [ ] 1.2 Add the per-kind field tables (`main`, `worker`, `correction`), the exported field-name sets, and `validateLedgerEntry` with the cross-field rules (deciding `reason` requires `tier`; `miss` requires `answered: false`) and the 4096-byte line limit
-- [ ] 1.3 Unit tests in `tests/store/ledger-schema.test.ts` for every schema, domain and free-text scenario, including the exported field-set test
+- [x] 1.1 Add `src/store/ledger-schema.ts` with the value-domain validators (id, agent, skill, model, caller model, target, level, mode, probability, count, time, distributions) built on `src/store/validate.ts`
+- [x] 1.2 Add the per-kind field tables (`main`, `worker`, `correction`), the exported field-name sets, and `validateLedgerEntry` with the cross-field rules (deciding `reason` requires `tier`; `miss` requires `answered: false`) and the 4096-byte line limit
+- [x] 1.3 Unit tests in `tests/store/ledger-schema.test.ts` for every schema, domain and free-text scenario, including the exported field-set test
 
 ## 2. Append and rotation
 
