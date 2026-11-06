@@ -60,6 +60,12 @@ describe("requestSignals", () => {
       "a/".repeat(50_000),
       "at ".repeat(33_333),
       "x.ts ".repeat(20_000),
+      ".".repeat(100_000) + "a",
+      "?".repeat(100_000) + "x",
+      "!".repeat(100_000),
+      "at" + " ".repeat(100_000) + "z",
+      "at " + "a".repeat(100_000),
+      "a.".repeat(50_000),
     ]) {
       const t = performance.now();
       requestSignals(p);
@@ -69,6 +75,26 @@ describe("requestSignals", () => {
 });
 
 describe("recentMessages", () => {
+  test("newest assistant keeps its share when later users are long", () => {
+    const out = recentMessages([
+      asst("A".repeat(2500) + "Z".repeat(2500)),
+      user("u".repeat(900)),
+      user("v".repeat(900)),
+    ]);
+    const a = out.find((m) => m.role === "assistant")!;
+    expect(a).toBeDefined();
+    expect(a.text.length).toBeLessThanOrEqual(1100);
+    expect(a.text.startsWith("A")).toBe(true);
+    expect(a.text.endsWith("Z")).toBe(true);
+    expect(out.reduce((n, m) => n + m.text.length, 0)).toBeLessThanOrEqual(2000);
+    expect(out.length).toBeLessThanOrEqual(4);
+  });
+  test("newest item a user message with a long assistant before it", () => {
+    const out = recentMessages([user("q"), asst("A".repeat(3000)), user("w".repeat(3000))]);
+    expect(out.map((m) => m.role)).toEqual(["assistant", "user"]);
+    expect(out.reduce((n, m) => n + m.text.length, 0)).toBeLessThanOrEqual(2000);
+    expect(out[0]!.text.length).toBeLessThanOrEqual(1100);
+  });
   test("short history", () => {
     expect(recentMessages([user("hi"), asst("hello")])).toEqual([
       { role: "user", text: "hi", tools: [] },
@@ -134,7 +160,13 @@ describe("recentTools / turnIndex / mainState", () => {
     const t = recentTools([
       asst("", [{ name: "web_search" }, { name: "write" }, { name: "subagent" }]),
     ]);
-    expect(t).toEqual({ edits: 1, commands: 0, reads: 1, subagents: 1, failed: 0 });
+    expect(t).toEqual({
+      edits: 1,
+      commands: 0,
+      reads: 1,
+      subagents: 1,
+      failed: 0,
+    });
   });
   test("only the last 10 items count", () => {
     const items = [asst("", [{ name: "bash" }]), ...Array.from({ length: 10 }, () => user("x"))];
@@ -148,7 +180,11 @@ describe("recentTools / turnIndex / mainState", () => {
     ).toEqual([]);
   });
   test("mainState keys", () => {
-    const s = mainState({ prompt: "hi", items: [user("a")], platforms: ["Docker"] });
+    const s = mainState({
+      prompt: "hi",
+      items: [user("a")],
+      platforms: ["Docker"],
+    });
     expect(Object.keys(s)).toEqual(["request", "conversation", "workspace"]);
     expect(Object.keys(s.conversation)).toEqual(["recent", "recent_tools", "turn_index"]);
     expect(Object.keys(s.workspace)).toEqual(["platforms"]);

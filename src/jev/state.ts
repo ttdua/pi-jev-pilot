@@ -59,7 +59,16 @@ const ERROR_PATTERN =
 
 // Tokens are split by hand so a long prompt costs linear time (no regex scan per position).
 const TOKEN_SPLIT = /[\s"'`()[\]{}<>,;:|]+/;
-const TRAILING_PUNCT = /[.?!]+$/;
+
+function stripTrailingPunct(raw: string): string {
+  let end = raw.length;
+  while (end > 0) {
+    const c = raw.charCodeAt(end - 1);
+    if (c !== 46 && c !== 63 && c !== 33) break; // . ? !
+    end--;
+  }
+  return end === raw.length ? raw : raw.slice(0, end);
+}
 
 function extensionOf(name: string): string | undefined {
   const dot = name.lastIndexOf(".");
@@ -67,7 +76,7 @@ function extensionOf(name: string): string | undefined {
 }
 
 function mentionedFile(raw: string): string | undefined {
-  const token = raw.replace(TRAILING_PUNCT, "");
+  const token = stripTrailingPunct(raw);
   if (token === "") return undefined;
   const slash = token.lastIndexOf("/");
   if (slash >= 0) {
@@ -111,29 +120,29 @@ type Recent = MainState["conversation"]["recent"];
 
 export function recentMessages(items: BranchItem[]): Recent {
   const messages = items.filter((i) => i.role !== "toolResult");
-  let assistantPending = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
+  // The newest assistant message only counts when it is among the last MAX_MESSAGES.
+  let assistantAt = -1;
+  for (let i = messages.length - 1; i >= Math.max(0, messages.length - MAX_MESSAGES); i--) {
     if (messages[i]!.role === "assistant") {
-      assistantPending = i;
+      assistantAt = i;
       break;
     }
   }
+  const reserved =
+    assistantAt >= 0 ? Math.min(messages[assistantAt]!.text.length, NEWEST_ASSISTANT_CAP) : 0;
   const out: Recent = [];
   let remaining = TOTAL_BUDGET;
   for (let i = messages.length - 1; i >= 0 && out.length < MAX_MESSAGES; i--) {
     const m = messages[i]!;
-    const isNewestAssistant = i === assistantPending;
     let text: string;
-    if (isNewestAssistant) {
+    if (i === assistantAt) {
       text = elide(m.text, NEWEST_ASSISTANT_CAP);
     } else {
-      // Keep room for the newest assistant message if it is still ahead of us.
-      const reserved =
-        assistantPending >= 0 && i > assistantPending
-          ? Math.min(messages[assistantPending]!.text.length, NEWEST_ASSISTANT_CAP)
-          : 0;
-      const available = remaining - reserved;
-      if (available < Math.min(m.text.length, MIN_OTHER)) break;
+      const available = remaining - (i > assistantAt ? reserved : 0);
+      if (available < Math.min(m.text.length, MIN_OTHER)) {
+        if (i > assistantAt) continue; // newer than the assistant: skip, keep its share
+        break; // older: the oldest are dropped first
+      }
       text = elide(m.text, available);
     }
     remaining -= text.length;
