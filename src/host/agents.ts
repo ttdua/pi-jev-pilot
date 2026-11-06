@@ -1,20 +1,18 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
-import type { AgentFacts, LockableField, LockDeclaration } from "../policy/launch.ts";
+import {
+  type AgentFacts,
+  LOCKABLE_FIELDS,
+  type LockableField,
+  type LockDeclaration,
+} from "../policy/launch.ts";
 import { cutCodePoints } from "../shared/text.ts";
 
 const READ_ONLY_TOOLS = ["read", "bash", "grep", "find", "ls"];
 const EXCERPT_MAX = 500;
 const FALLBACK = "general-purpose";
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
-const LOCKABLE: readonly string[] = [
-  "model",
-  "thinking",
-  "max_turns",
-  "inherit_context",
-  "run_in_background",
-];
 
 function builtin(
   name: string,
@@ -77,7 +75,9 @@ function lockDeclaration(val: unknown): LockDeclaration | undefined {
   if (typeof val === "boolean") return val ? true : undefined;
   const entries = parseList(val);
   if (entries === undefined) return undefined;
-  const fields = entries.filter((e): e is LockableField => LOCKABLE.includes(e));
+  const fields = entries.filter((e): e is LockableField =>
+    (LOCKABLE_FIELDS as readonly string[]).includes(e),
+  );
   return fields.length > 0 ? fields : undefined;
 }
 

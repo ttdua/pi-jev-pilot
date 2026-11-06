@@ -1,7 +1,7 @@
 // Wording copied verbatim from docs/jev-questions.md. A change here needs a replay.
 import type { TierName } from "../policy/launch.ts";
 
-export type RubricQuestion = {
+export type WireQuestion = {
   type: "choice" | "noul";
   instructions: string;
   criteria: Record<string, string>;
@@ -19,7 +19,7 @@ export const STANDARD_TIER_CRITERIA: Record<TierName, string> = {
     "Rare. Choose only for exceptionally difficult architectural or advisory reasoning that resolves a specific unresolved technical decision with tightly interacting constraints or conflicting evidence, where the expected result is a reusable diagnosis, decision or plan. Ordinary design, review, implementation, long tasks and security or production labels are not expert work; an agent's title grants no eligibility.",
 };
 
-export const WORKER_EFFORT_QUESTION: RubricQuestion = {
+export const WORKER_EFFORT_QUESTION: WireQuestion = {
   type: "choice",
   instructions:
     "How much step-by-step reasoning does a subagent need to carry out this brief? A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, an unknown cause, or reasoning that is not already written out. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
@@ -34,7 +34,7 @@ export const WORKER_EFFORT_QUESTION: RubricQuestion = {
   },
 };
 
-export const RISKY_QUESTION: RubricQuestion = {
+export const RISKY_QUESTION: WireQuestion = {
   type: "noul",
   instructions:
     "Carrying out this task would itself change production, move real money, or alter data that cannot be restored. Writing or testing code that deals with such things, without running it against the real system, does not count.",
@@ -45,7 +45,7 @@ export const RISKY_QUESTION: RubricQuestion = {
   },
 };
 
-export const EXPERT_NEEDED_QUESTION: RubricQuestion = {
+export const EXPERT_NEEDED_QUESTION: WireQuestion = {
   type: "noul",
   instructions:
     "Does this task require exceptional architectural or advisory reasoning beyond the normal deep tier to resolve a specific unresolved technical decision involving tightly interacting constraints or conflicting evidence? Judge the work actually requested and the supplied evidence, not the agent's title, task length, or topic importance.",

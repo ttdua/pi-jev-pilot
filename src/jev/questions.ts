@@ -6,13 +6,10 @@ import {
   STANDARD_TIER_CRITERIA,
   TIER_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
+  type WireQuestion,
 } from "./rubrics.ts";
 
-export type WireQuestion = {
-  type: "choice" | "noul";
-  instructions: string;
-  criteria: Record<string, string>;
-};
+export type { WireQuestion };
 
 /** Configured tiers in ladder order; `expert` only when its switch is on. */
 export function offeredTiers(

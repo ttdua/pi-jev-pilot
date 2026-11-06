@@ -73,6 +73,14 @@ describe("Case-insensitive agent match", () => {
     expect(facts.name).toBe("Explore");
     expect(facts.source).toBe("builtin");
   });
+  test("Case-insensitive match prefers a global name over a project-only name", () => {
+    const s = setup();
+    s.global("Worker.md", fmFile("description: global"));
+    s.project("wORKER.md", fmFile("description: project"));
+    const facts = readAgent("worker", s.dirs);
+    expect(facts.description).toBe("global");
+    expect(facts.source).toBe("global");
+  });
 });
 
 describe("Agent files are found by listing", () => {
@@ -113,6 +121,7 @@ describe("Built-in agents", () => {
     const s = setup();
     const facts = readAgent("Explore", s.dirs);
     expect(facts.source).toBe("builtin");
+    expect(facts.sets).toEqual({ model: true, thinking: false });
     expect(facts.description).toBe("Fast codebase exploration agent (read-only)");
     expect(facts.declaredTools).toEqual(["read", "bash", "grep", "find", "ls"]);
     expect(facts.instructionsExcerpt).toBe("");

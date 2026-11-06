@@ -2,12 +2,15 @@ export type TierName = "fast" | "balanced" | "deep" | "expert";
 
 export const TIER_LADDER: readonly TierName[] = ["fast", "balanced", "deep", "expert"];
 
-export type LockableField =
-  | "model"
-  | "thinking"
-  | "max_turns"
-  | "inherit_context"
-  | "run_in_background";
+export const LOCKABLE_FIELDS = [
+  "model",
+  "thinking",
+  "max_turns",
+  "inherit_context",
+  "run_in_background",
+] as const;
+
+export type LockableField = (typeof LOCKABLE_FIELDS)[number];
 
 export type LockDeclaration = true | readonly LockableField[];
 
