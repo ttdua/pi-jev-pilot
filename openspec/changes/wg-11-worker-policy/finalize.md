@@ -16,7 +16,7 @@
 - **Branch**: `WG-11`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `PENDING`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/27`
 
 The worktree branch `wg-11-worker-policy` was merged into `WG-11` by fast-forward (`45f4e77..618c20d`), then pushed, and a PR was opened into `main` with the operator's explicit approval (Inbox, 2026-11-06). `WG-11` had no remote branch and no PR before this step. The same branch will also carry `wg-11-worker-host`; issue #12 closes when both changes land.
 
@@ -33,7 +33,7 @@ Removed with Worktrunk (`wt remove`, project rule) instead of `git worktree remo
 
 ## PR comment
 
-- **PR comment status**: `PENDING`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/27#issuecomment-6687406254)
 
 ---
 
