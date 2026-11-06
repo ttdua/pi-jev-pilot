@@ -101,6 +101,8 @@ type PrepareOpts = {
   fixture: Fixture;
   probes?: string[];
   executor?: boolean;
+  /** Adds provider `fixture2` (no credentials) to models.json. */
+  keyless?: boolean;
   agents?: Record<string, string>;
   /** Install this checkout (`pi install REPO_ROOT`) into the agent directory. */
   self?: boolean;
@@ -126,7 +128,7 @@ function prepare(opts: PrepareOpts): Prepared {
     mkdirSync(home, { recursive: true });
     writeFileSync(
       join(agentDir, "models.json"),
-      JSON.stringify(fixtureModelsJson(opts.fixture.baseUrl)),
+      JSON.stringify(fixtureModelsJson(opts.fixture.baseUrl, { keyless: opts.keyless === true })),
     );
     if (opts.agents) {
       mkdirSync(join(agentDir, "agents"), { recursive: true });
