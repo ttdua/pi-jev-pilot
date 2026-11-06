@@ -263,7 +263,7 @@ export async function runOnce(opts: {
       proc.exited,
     ]);
     if (proc.signalCode !== null) throw new Error(`pi timed out after ${RUN_TIMEOUT_MS} ms`);
-    // Hand created directories to the caller (it removes them); drop nothing here.
+    // The caller owns cleanup of the directories this call created (returned below).
     return { code, stdout, stderr, agentDir: dirs.agentDir, cwd: dirs.cwd };
   } catch (error) {
     // Failure path only: remove what this call created.

@@ -172,21 +172,30 @@ describe("status line and /jev through the real CLI", () => {
   test(
     "/jev skills off while a prompt streams writes state and the run completes",
     async () => {
-      const fixture = await fixtureWith(mainReply(1500));
+      const fixture = await fixtureWith(mainReply(3000));
       const s = await host(fixture);
       const settledBefore = s.events.filter((e) => e.type === "agent_settled").length;
       const first = await s.send({ type: "prompt", message: "hello" });
       expect(first.success).toBe(true);
       await s.waitFor(() => fixture.requests.length >= 1, "request in flight");
+      const settledCount = (): number => s.events.filter((e) => e.type === "agent_settled").length;
+      // The run must still be streaming when the command is sent.
+      expect(settledCount()).toBe(settledBefore);
       await command(s, "/jev skills off");
-      await s.waitFor(
-        () => s.events.filter((e) => e.type === "agent_settled").length > settledBefore,
-        "agent_settled",
-      );
-      const state = JSON.parse(readFileSync(join(s.agentDir, "jev", "state.json"), "utf8")) as {
+      expect(settledCount()).toBe(settledBefore);
+      const stateFile = join(s.agentDir, "jev", "state.json");
+      await s.waitFor(() => existsSync(stateFile), "state.json written");
+      // Read before the run settles: the write happened mid-stream.
+      const state = JSON.parse(readFileSync(stateFile, "utf8")) as {
         switches?: Record<string, boolean>;
       };
       expect(state.switches?.skills).toBe(false);
+      expect(settledCount()).toBe(settledBefore);
+      await s.waitFor(() => settledCount() > settledBefore, "agent_settled");
+      const msgs = await s.send({ type: "get_messages" });
+      const json = JSON.stringify(msgs.data?.messages ?? []);
+      expect(json).toContain("ok");
+      expect(json).not.toContain("/jev skills");
       expect(fixture.unmatched).toEqual([]);
     },
     TIMEOUT,
@@ -244,7 +253,9 @@ describe("print and JSON mode", () => {
         env: KEY,
       });
       expect(r2.code).toBe(0);
+      // That the package is loaded in print mode is proven by the "/jev skills off" print test below.
       expect(r2.stdout).not.toContain("Jev ·");
+      expect(r2.stderr).not.toContain("Jev ·");
       expect(plain.requests.length).toBeGreaterThan(0);
       // Ports differ per fixture, so the models.json base URL is not part of the body; compare bodies.
       const bodies = (f: Fixture): string[] =>
@@ -272,6 +283,30 @@ describe("print and JSON mode", () => {
         expect(line).not.toContain("Jev ·");
         expect(line).not.toContain('"widgetKey":"jev"');
       }
+      expect(r.stderr).not.toContain("Jev ·");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "json mode runs /jev skills off with no jev output and writes state",
+    async () => {
+      const fixture = await fixtureWith();
+      const r = await runOnce({
+        fixture,
+        mode: "json",
+        message: "/jev skills off",
+        self: true,
+        env: KEY,
+      });
+      dirs.push(r.agentDir, r.cwd);
+      expect(r.code).toBe(0);
+      const file = join(r.agentDir, "jev", "state.json");
+      expect(existsSync(file)).toBe(true);
+      for (const line of `${r.stdout}\n${r.stderr}`.split("\n")) {
+        expect(line).not.toContain("Jev ·");
+        expect(line).not.toContain('"widgetKey":"jev"');
+      }
     },
     TIMEOUT,
   );
@@ -290,6 +325,8 @@ describe("print and JSON mode", () => {
       dirs.push(r.agentDir, r.cwd);
       expect(r.code).toBe(0);
       expect(r.stdout).toBe("");
+      expect(r.stderr).not.toContain("Jev ·");
+      expect(r.stderr).toBe("");
       const file = join(r.agentDir, "jev", "state.json");
       expect(existsSync(file)).toBe(true);
       const state = JSON.parse(readFileSync(file, "utf8")) as {
