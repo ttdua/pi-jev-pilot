@@ -47,6 +47,8 @@
 | `ReviewChoice` | new (internal) | `{ cli: "codex"\|"opencode"; model?: string; effort?: string }` | no |
 | `CodexModel` | new (internal) | `{ slug: string; name: string; efforts: string[] }` | no |
 | `CheckResult` | new (internal) | `{ ok: true; model?: string; effort?: string } \| { ok: false; message: string; suggestions: string[] }` | no |
+| `validateCliReview` | new (internal) | `(candidate: unknown) => Issue[]` in `src/store/state-file.ts`, same validator as `state.json`, paths `cliReview.*`. Added during apply: Task 7's state-rule pre-check needed a named function | no |
+| `formatFailure` | new (internal) | `(cli, outcome, r?: ExecResult, errorName?: string) => string`. `errorName` added during apply for the `could not start (<ErrorName>)` reason | no |
 | `JevArgs` | modified (internal) | adds `{ kind: "cli-review"; cli: "codex"\|"opencode"; model?: string; effort?: string }` | no |
 
 ---
