@@ -5,12 +5,12 @@
 
 ## 2. Contract fixture
 
-- [ ] 2.1 Add `tests/jev/fixture.ts`: a `Bun.serve` server on `127.0.0.1` with per-path scripted behaviours (JSON reply, status, redirect, hang, stall after headers, oversized declared and streamed body, raw body), recording each request's method, path, headers and body
+- [x] 2.1 Add `tests/jev/fixture.ts`: a `Bun.serve` server on `127.0.0.1` with per-path scripted behaviours (JSON reply, status, redirect, hang, stall after headers, oversized declared and streamed body, raw body), recording each request's method, path, headers and body
 
 ## 3. Jev client
 
-- [ ] 3.1 Add `src/jev/client.ts` with `MAX_RESPONSE_BYTES`, `isAllowedJevUrl`, and input checks (URL, timeout, serialisable body, sendable key), each giving an `error` miss with `ms` 0 and no request (design D4, D5)
-- [ ] 3.2 Request shape, status and redirect handling: one `POST` with `redirect: "manual"`, non-2xx is `error`, and no retry (design D6, D8)
+- [x] 3.1 Add `src/jev/client.ts` with `MAX_RESPONSE_BYTES`, `isAllowedJevUrl`, and input checks (URL, timeout, serialisable body, sendable key), each giving an `error` miss with `ms` 0 and no request (design D4, D5)
+- [x] 3.2 Request shape, status and redirect handling: one `POST` with `redirect: "manual"`, non-2xx is `error`, and no retry (design D6, D8)
 - [ ] 3.3 Body reading: size cap by `Content-Length` and by streamed count, then JSON parse, where invalid JSON or an empty body is `schema`, and `ok` carries `model` (design D7)
 - [ ] 3.4 Timeout and cancellation through `AbortSignal.any`, with cancellation taking precedence and the timer cleared in `finally` (design D5)
 - [ ] 3.5 Contract tests in `tests/jev/client.test.ts` for every jev-transport scenario, plus a subprocess test proving no timer is left pending
