@@ -138,7 +138,7 @@ Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, capped
 
 Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `expert`; an unusable slot moves to `balanced`; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
 
-A launch with `resume` or `inherit_context` is left untouched. An agent file with `locked` wins: the executor ignores the change and reports it, and this is logged, not fought. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
+A launch with `resume` is always left untouched. A forked launch (`inherit_context`) follows `subagents.forkedLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. When the agent file locks the model, Jev is still asked, only thinking is written, and the tier is recorded. When both fields are locked, the launch is untouched. When nothing can run, the input stays unchanged and a warning is shown. An agent file with `locked` wins: the executor ignores the change and reports it, and this is logged, not fought. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
 
 ### Fable rules
 
@@ -237,7 +237,7 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | Worker | `agent`, `briefChars` | Agent name and brief length |
 | | `tierP`, `expertNeeded`, `risky` | All raw answers, with `effortP` |
 | | `tier`, `model`, `effort` | The decision. `tier` is a slot name when a slot won |
-| | `reason` | Which rule decided: `fable`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`. All but the last two require `tier` |
+| | `reason` | Which rule decided the model: `fable`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
 | | `toolsScored`, `toolsFlagged` | Tool assessment counts |

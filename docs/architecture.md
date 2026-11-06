@@ -53,6 +53,7 @@ src/
     launch.ts            Effective launch fields and locks
     worker.ts            Reads worker answers
     tier.ts              Model decision order
+    route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
     modes.ts             Mode names, Fable rules
     skill.ts             Skill pick from choice and gate answers
     strategy.ts          Advice gates and advice text
@@ -71,7 +72,7 @@ src/
 
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice
-    worker.ts            message_end and tool_call: model and thinking
+    worker.ts            message_end batch; tool_call route and mutation; warnings; ledger join
     child.ts             Child registry; tool assessment in children
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text

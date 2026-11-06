@@ -64,8 +64,11 @@ sequenceDiagram
     X->>X: cache by toolCallId
     loop each subagent call
         P->>X: tool_call
-        alt resume, inherit_context, or switched off
+        alt resume, forked with untouched, both locked, or switched off
             X-->>P: leave input unchanged
+        else forked with thinking
+            X->>X: policy: thinking only
+            X->>P: mutate input.thinking
         else
             X->>X: policy: model, then effort
             X->>X: check registry and credentials
@@ -73,11 +76,11 @@ sequenceDiagram
         end
     end
     P->>E: execute subagent
-    E-->>X: subagents:completed or failed
+    E-->>X: subagents:completed, failed or resumed
     X->>X: ledger: status, tokens, tool uses
 ```
 
-Classification of sibling launches happens at `message_end`, which finishes before `tool_call` preflight (verified, [Q2](evidence/2026-11-05-host-seams.md#q2)).
+Classification of sibling launches happens at `message_end`, which finishes before `tool_call` preflight (verified, [Q2](evidence/2026-11-05-host-seams.md#q2)). Launches issued by another tool (nested, with `parentToolCallId`) have no `message_end` batch, so they are classified at `tool_call`. The outcome is read from `subagents:completed`, `subagents:failed` or `subagents:resumed`.
 
 **Model selection example** with the default `standard` mode:
 
