@@ -16,6 +16,8 @@ export type ScriptEntry = {
   match: (req: RecordedRequest) => boolean;
   reply: FixtureReply;
   times?: number;
+  /** Wait this long before the reply streams. */
+  delayMs?: number;
 };
 
 export type Fixture = {
@@ -66,6 +68,8 @@ export async function startFixture(script: ScriptEntry[]): Promise<Fixture> {
       }
       recorded.matched = entry.name;
       used.set(entry.name, (used.get(entry.name) ?? 0) + 1);
+
+      if (entry.delayMs) await Bun.sleep(entry.delayMs);
 
       const id = `chatcmpl-fixture-${recorded.seq}`;
       const chunk = (choice: Record<string, unknown>, extra: Record<string, unknown> = {}) =>

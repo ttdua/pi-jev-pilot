@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { PI_BIN, REPO_ROOT, tempDir } from "../helpers";
 import { fixtureModelsJson, type Fixture } from "./fixture";
 import { isolatedEnv, spawnRpc, type RpcProcess } from "./rpc";
@@ -60,6 +60,15 @@ function install(source: string, dirs: Dirs): { code: number; out: string } {
   return { code: r.exitCode ?? -1, out: `${r.stdout.toString()}${r.stderr.toString()}` };
 }
 
+/** True when the agent directory's settings.json lists a package whose resolved path matches. */
+function isInstalled(dirs: Dirs, match: (resolved: string) => boolean): boolean {
+  const file = join(dirs.agentDir, "settings.json");
+  if (!existsSync(file)) return false;
+  const parsed = JSON.parse(readFileSync(file, "utf8")) as { packages?: unknown };
+  const list = Array.isArray(parsed.packages) ? parsed.packages : [];
+  return list.some((p) => typeof p === "string" && match(resolve(dirs.agentDir, p)));
+}
+
 function installExecutor(dirs: Dirs): "node_modules" | "tarball" {
   const primary = install(EXECUTOR_DIR, dirs);
   if (primary.code === 0) return "node_modules";
@@ -81,25 +90,37 @@ function installExecutor(dirs: Dirs): "node_modules" | "tarball" {
   }
 }
 
-export async function startHostSession(opts: {
+type Prepared = {
+  dirs: Dirs;
+  installPath: HostSession["installPath"];
+  /** Removes the directories this call created; given directories are left to the caller. */
+  cleanDirs: () => void;
+};
+
+type PrepareOpts = {
   fixture: Fixture;
   probes?: string[];
   executor?: boolean;
   agents?: Record<string, string>;
-  persist?: boolean;
-  model?: string;
-  thinking?: string;
-  env?: Record<string, string>;
-  timeoutMs?: number;
-}): Promise<HostSession> {
-  const agentDir = tempDir("jev-host-agent-");
-  const cwd = tempDir("jev-host-cwd-");
+  /** Install this checkout (`pi install REPO_ROOT`) into the agent directory. */
+  self?: boolean;
+  /** Reuse an agent directory (left for the caller to remove); packages already listed in its settings.json are not installed again. */
+  agentDir?: string;
+  /** Reuse a working directory. */
+  cwd?: string;
+};
+
+/** Shared setup: temp dirs, models.json, agents and installs. */
+function prepare(opts: PrepareOpts): Prepared {
+  const ownAgent = opts.agentDir === undefined;
+  const ownCwd = opts.cwd === undefined;
+  const agentDir = opts.agentDir ?? tempDir("jev-host-agent-");
+  const cwd = opts.cwd ?? tempDir("jev-host-cwd-");
   const home = join(agentDir, "home");
   const dirs: Dirs = { agentDir, home, cwd };
-  let rpc: RpcProcess | undefined;
   const cleanDirs = (): void => {
-    rmSync(agentDir, { recursive: true, force: true });
-    rmSync(cwd, { recursive: true, force: true });
+    if (ownAgent) rmSync(agentDir, { recursive: true, force: true });
+    if (ownCwd) rmSync(cwd, { recursive: true, force: true });
   };
   try {
     mkdirSync(home, { recursive: true });
@@ -114,12 +135,38 @@ export async function startHostSession(opts: {
       }
     }
     let installPath: HostSession["installPath"] = null;
-    if (opts.executor) installPath = installExecutor(dirs);
-    for (const probe of opts.probes ?? []) {
-      const r = install(join(REPO_ROOT, "tests", "host", "probes", probe), dirs);
-      if (r.code !== 0) throw new Error(`probe install failed (${probe}): ${r.out}`);
+    if (opts.executor && !isInstalled(dirs, (p) => p.includes("pi-subagents")))
+      installPath = installExecutor(dirs);
+    if (opts.self && !isInstalled(dirs, (p) => p === REPO_ROOT)) {
+      const r = install(REPO_ROOT, dirs);
+      if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
     }
+    if (ownAgent) {
+      for (const probe of opts.probes ?? []) {
+        const r = install(join(REPO_ROOT, "tests", "host", "probes", probe), dirs);
+        if (r.code !== 0) throw new Error(`probe install failed (${probe}): ${r.out}`);
+      }
+    }
+    return { dirs, installPath, cleanDirs };
+  } catch (error) {
+    cleanDirs();
+    throw error;
+  }
+}
 
+export async function startHostSession(
+  opts: PrepareOpts & {
+    persist?: boolean;
+    model?: string;
+    thinking?: string;
+    env?: Record<string, string>;
+    timeoutMs?: number;
+  },
+): Promise<HostSession> {
+  const { dirs, installPath, cleanDirs } = prepare(opts);
+  const { agentDir, home, cwd } = dirs;
+  let rpc: RpcProcess | undefined;
+  try {
     const reportPath = join(agentDir, "probe-report.jsonl");
     writeFileSync(reportPath, "");
     const args = ["--provider", "fixture", "--model", opts.model ?? "fixture-main"];
@@ -161,6 +208,66 @@ export async function startHostSession(opts: {
   } catch (error) {
     if (rpc) await rpc.close().catch(() => undefined);
     cleanDirs();
+    throw error;
+  }
+}
+
+const RUN_TIMEOUT_MS = 30_000;
+
+/**
+ * One non-interactive run (`pi -p` or `pi --mode json`). Directories created here are returned
+ * for the caller to remove; given ones are left alone.
+ */
+export async function runOnce(opts: {
+  fixture: Fixture;
+  mode: "print" | "json";
+  message: string;
+  self: boolean;
+  agentDir?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+}): Promise<{ code: number; stdout: string; stderr: string; agentDir: string; cwd: string }> {
+  const { dirs, cleanDirs } = prepare({
+    fixture: opts.fixture,
+    self: opts.self,
+    agentDir: opts.agentDir,
+    cwd: opts.cwd,
+  });
+  const created = { agentDir: opts.agentDir === undefined, cwd: opts.cwd === undefined };
+  const flags = opts.mode === "print" ? ["-p"] : ["--mode", "json"];
+  const proc = Bun.spawn(
+    [
+      PI_BIN,
+      ...flags,
+      "--provider",
+      "fixture",
+      "--model",
+      "fixture-main",
+      "--no-session",
+      opts.message,
+    ],
+    {
+      cwd: dirs.cwd,
+      env: isolatedEnv(dirs.agentDir, dirs.home, { PI_OFFLINE: "1", ...opts.env }),
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: RUN_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    },
+  );
+  try {
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    if (proc.signalCode !== null) throw new Error(`pi timed out after ${RUN_TIMEOUT_MS} ms`);
+    // Hand created directories to the caller (it removes them); drop nothing here.
+    return { code, stdout, stderr, agentDir: dirs.agentDir, cwd: dirs.cwd };
+  } catch (error) {
+    // Failure path only: remove what this call created.
+    if (created.agentDir || created.cwd) cleanDirs();
     throw error;
   }
 }
