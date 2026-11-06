@@ -77,7 +77,7 @@ sequenceDiagram
     X->>X: ledger: status, tokens, tool uses
 ```
 
-If `message_end` turns out not to finish before preflight, classification happens inside `tool_call` instead, one launch at a time.
+Classification of sibling launches happens at `message_end`, which finishes before `tool_call` preflight (verified, [Q2](evidence/2026-11-05-host-seams.md#q2)).
 
 **Model selection example** with the default `standard` mode:
 

@@ -35,6 +35,10 @@ Expected values come from this documentation, not from running the code. Each [i
 - Nothing from a hidden log line reaches a provider.
 - Installation from a packed tarball, not only a checkout.
 
+The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md).
+
+**Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
+
 ### Privacy
 
 A test asserts the exact field set of each state kind, so adding a field that leaves the machine fails until the test and [Privacy](privacy.md) change together. Another searches the ledger after a host run for a marker placed in the prompt, and must not find it.

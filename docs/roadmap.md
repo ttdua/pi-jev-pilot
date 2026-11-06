@@ -9,7 +9,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | Group | Title | Size | Depends on | Status |
 |---|---|---|---|---|
 | WG-01 | Repository scaffold | S | | Done |
-| WG-02 | Host seam verification | M | WG-01 | Planned |
+| WG-02 | Host seam verification | M | WG-01 | Done |
 | WG-03 | Config and state stores | M | WG-01 | Planned |
 | WG-04 | Jev client and answer reading | M | WG-01 | Planned |
 | WG-05 | Ledger | M | WG-03 | Planned |
@@ -137,6 +137,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 **A5.** First decision kept for the session on listed providers; one new decision after a compaction; questions omitted while held.
 
 - **Done when:** a host test shows no thinking change after the first decision on a held provider, and exactly one after a compaction.
+- **Note:** in the [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run, `claude-code` kept the prompt cache across a thinking change, so it is not in the default hold list.
 
 ### WG-09: Skill pick and delivery
 
@@ -155,7 +156,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 **B1, B2.** The largest group; it depends most on WG-02.
 
-- **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` or per-call per WG-02, input mutation with validation, `locked` handling, worker outcome in the ledger.
+- **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` ([WG-02 Q2](evidence/2026-11-05-host-seams.md#q2)), input mutation with validation, `locked` handling, worker outcome in the ledger.
 - **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` and `inherit_context` are untouched, and a Jev outage leaves launches unchanged.
 
 ### WG-12: Modes and expert tier

@@ -20,6 +20,14 @@ export type HostSession = RpcProcess & {
   probeRecords(): ProbeRecord[];
 };
 
+/** Throws if a probe report holds a test marker: probes must record counts and ids only. */
+export function assertProbeReportClean(reportPath: string): void {
+  if (!existsSync(reportPath)) return;
+  if (readFileSync(reportPath, "utf8").includes("JEV-MARKER-")) {
+    throw new Error("probe report holds a JEV-MARKER- string");
+  }
+}
+
 const EXECUTOR_DIR = join(REPO_ROOT, "node_modules", "@gotgenes", "pi-subagents");
 
 type Dirs = { agentDir: string; home: string; cwd: string };
@@ -124,6 +132,7 @@ export async function startHostSession(opts: {
       close: async () => {
         try {
           await spawned.close();
+          assertProbeReportClean(reportPath);
         } finally {
           cleanDirs();
         }
