@@ -5,8 +5,8 @@
 
 ## 2. Worker request
 
-- [ ] 2.1 Add the `standard` rubric, worker `effort`, `risky` and `expert_needed` wording in `src/jev/rubrics.ts`, verbatim from `docs/jev-questions.md` (Question wording)
-- [ ] 2.2 Add `offeredTiers` and `buildWorkerQuestions` in `src/jev/questions.ts`, returning wire questions and `QuestionSpec`s from one option list (Offered tiers, Worker questions, Question wording)
+- [x] 2.1 Add the `standard` rubric, worker `effort`, `risky` and `expert_needed` wording in `src/jev/rubrics.ts`, verbatim from `docs/jev-questions.md` (Question wording)
+- [x] 2.2 Add `offeredTiers` and `buildWorkerQuestions` in `src/jev/questions.ts`, returning wire questions and `QuestionSpec`s from one option list (Offered tiers, Worker questions, Question wording)
 - [ ] 2.3 Add `buildWorkerState` in `src/jev/state.ts` with code-point cuts (Worker state shape, Worker state text limits)
 - [ ] 2.4 Add `readWorkerOutcome` in `src/policy/worker.ts`, mapping a `JevOutcome` and specs to worker answers (Reading worker answers)
 
