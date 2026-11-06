@@ -41,16 +41,8 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("   ")).toEqual({ kind: "status" });
   });
   test("set", () => {
-    expect(parseJevArgs("skills off")).toEqual({
-      kind: "set",
-      feature: "skills",
-      on: false,
-    });
-    expect(parseJevArgs("status on")).toEqual({
-      kind: "set",
-      feature: "status",
-      on: true,
-    });
+    expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
+    expect(parseJevArgs("status on")).toEqual({ kind: "set", feature: "status", on: true });
   });
   test("all and reset", () => {
     expect(parseJevArgs("all off")).toEqual({ kind: "all", on: false });
@@ -258,10 +250,7 @@ describe("runJev", () => {
     writeFileSync(join(dir, "state.json"), "{nope");
     await run("skills off", dir);
     expect(existsSync(join(dir, "state.json.bad"))).toBe(true);
-    expect(readState(dir)).toEqual({
-      kind: "ok",
-      state: { switches: { skills: false } },
-    });
+    expect(readState(dir)).toEqual({ kind: "ok", state: { switches: { skills: false } } });
   });
 
   test.skipIf(process.getuid?.() === 0)("unreadable state is refused", async () => {

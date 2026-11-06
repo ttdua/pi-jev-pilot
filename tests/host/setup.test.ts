@@ -10,11 +10,7 @@ type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
 function fakePi(opts: { throwOnOff?: boolean } = {}) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
-  const subs: {
-    channel: string;
-    live: boolean;
-    handler: (d: unknown) => void;
-  }[] = [];
+  const subs: { channel: string; live: boolean; handler: (d: unknown) => void }[] = [];
   const order: string[] = [];
   const pi = {
     on: (name: string, h: Handler) => {
@@ -38,14 +34,7 @@ function fakePi(opts: { throwOnOff?: boolean } = {}) {
   const emit = (channel: string, data: unknown) => {
     for (const s of subs) if (s.live && s.channel === channel) s.handler(data);
   };
-  return {
-    pi: pi as unknown as ExtensionAPI,
-    handlers,
-    commands,
-    subs,
-    order,
-    emit,
-  };
+  return { pi: pi as unknown as ExtensionAPI, handlers, commands, subs, order, emit };
 }
 
 function fakeCtx(sessionId: string, setWidget: () => void) {
@@ -59,10 +48,7 @@ function fakeCtx(sessionId: string, setWidget: () => void) {
 
 const CREATED = "subagents:child:session-created";
 const DISPOSED = "subagents:child:disposed";
-const saved = {
-  dir: process.env.PI_CODING_AGENT_DIR,
-  key: process.env.TYPESAFE_API_KEY,
-};
+const saved = { dir: process.env.PI_CODING_AGENT_DIR, key: process.env.TYPESAFE_API_KEY };
 let agentDir = "";
 
 beforeEach(() => {

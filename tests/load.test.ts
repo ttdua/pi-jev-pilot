@@ -26,11 +26,7 @@ async function installAndLoad(pkgDir: string): Promise<LoadExtensionsResult> {
   expect(installed.code).toBe(0);
   process.env.PI_OFFLINE = "1";
   const settingsManager = SettingsManager.create(tmpCwd, agentDir);
-  const loader = new DefaultResourceLoader({
-    cwd: tmpCwd,
-    agentDir,
-    settingsManager,
-  });
+  const loader = new DefaultResourceLoader({ cwd: tmpCwd, agentDir, settingsManager });
   await loader.reload();
   return loader.getExtensions();
 }

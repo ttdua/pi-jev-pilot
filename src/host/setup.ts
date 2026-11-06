@@ -33,24 +33,40 @@ export function setup(pi: ExtensionAPI): void {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    if (isChild(ctx.sessionManager.getSessionId())) return undefined;
-    return main.beforeAgentStart(event, ctx);
+    try {
+      if (isChild(ctx.sessionManager.getSessionId())) return undefined;
+      return await main.beforeAgentStart(event, ctx);
+    } catch {
+      return undefined;
+    }
   });
 
   pi.on("before_provider_request", async (_event, ctx) => {
-    if (isChild(ctx.sessionManager.getSessionId())) return undefined;
-    await main.beforeProviderRequest();
+    try {
+      if (isChild(ctx.sessionManager.getSessionId())) return undefined;
+      await main.beforeProviderRequest();
+    } catch {
+      /* swallow: the request goes out unchanged */
+    }
     return undefined;
   });
 
   pi.on("turn_end", async (event, ctx) => {
-    if (isChild(ctx.sessionManager.getSessionId())) return;
-    await main.turnEnd(event);
+    try {
+      if (isChild(ctx.sessionManager.getSessionId())) return;
+      await main.turnEnd(event);
+    } catch {
+      /* swallow */
+    }
   });
 
   pi.on("agent_settled", async (event, ctx) => {
-    if (isChild(ctx.sessionManager.getSessionId())) return;
-    await main.agentSettled(event);
+    try {
+      if (isChild(ctx.sessionManager.getSessionId())) return;
+      await main.agentSettled(event);
+    } catch {
+      /* swallow */
+    }
   });
 
   pi.on("session_shutdown", async () => {
