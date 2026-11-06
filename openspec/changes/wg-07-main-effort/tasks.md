@@ -27,8 +27,8 @@
 
 ## 5. Status line and wiring
 
-- [ ] 5.1 Extend `statusText(snapshot, decision?)` and `drawStatus` in `src/host/status.ts` with the suffix rules; keep the last decision in the `main.ts` instance, clear it on `session_start`, and use it in the `/jev` redraw (specs/status-line). Update `tests/host/status.test.ts` for every new scenario.
-- [ ] 5.2 Register the four new handlers in `src/host/setup.ts`; update `tests/load.test.ts` for the bounded registrations (specs/package-loading).
+- [x] 5.1 Extend `statusText(snapshot, decision?)` and `drawStatus` in `src/host/status.ts` with the suffix rules; keep the last decision in the `main.ts` instance, clear it on `session_start`, and use it in the `/jev` redraw (specs/status-line). Update `tests/host/status.test.ts` for every new scenario.
+- [x] 5.2 Register the four new handlers in `src/host/setup.ts`; update `tests/load.test.ts` for the bounded registrations (specs/package-loading).
 
 ## 6. Host tests through the real CLI
 
