@@ -1,6 +1,6 @@
 ## 1. Child registry
 
-- [ ] 1.1 Add `src/host/child.ts`: a `Set<string>` on `globalThis[Symbol.for("pi-jev-pilot.children")]`, `isChild(sessionId)`, and `subscribeChildren(events)` that handles `subagents:child:session-created` and `subagents:child:disposed`, ignores payloads without a string `sessionId`, and returns an unsubscribe function (specs/child-registry). Unit tests in `tests/host/child.test.ts` with a fake event bus.
+- [x] 1.1 Add `src/host/child.ts`: a `Set<string>` on `globalThis[Symbol.for("pi-jev-pilot.children")]`, `isChild(sessionId)`, and `subscribeChildren(events)` that handles `subagents:child:session-created` and `subagents:child:disposed`, ignores payloads without a string `sessionId`, and returns an unsubscribe function (specs/child-registry). Unit tests in `tests/host/child.test.ts` with a fake event bus.
 
 ## 2. Readiness snapshot
 
