@@ -34,4 +34,4 @@
 ## 6. Docs and manual check
 
 - [x] 6.1 Update `docs/workflow.md` §6, `docs/usage-guide.md`, `docs/configuration.md`, `docs/architecture.md`, `docs/privacy.md`, `docs/testing.md`, `docs/roadmap.md`
-- [ ] 6.2 Manual script `tests/host/manual/cli-review-real.ts` and a real run with the operator's Codex and OpenCode (after the operator's go-ahead), recorded as counts and outcome only in `docs/evidence/`
+- [x] 6.2 Manual script `tests/host/manual/cli-review-real.ts` and a real run with the operator's Codex and OpenCode (after the operator's go-ahead), recorded as counts and outcome only in `docs/evidence/`
