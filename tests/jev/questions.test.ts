@@ -49,6 +49,17 @@ describe("mainQuestions", () => {
     }
   });
 
+  test("results are fresh objects: mutation does not leak into the next call", () => {
+    const a = mainQuestions({ askEffort: true });
+    a.wire["risky"]!.instructions = "changed";
+    a.wire["risky"]!.criteria["true"] = "changed";
+    a.wire["corrects"]!.criteria["false"] = "changed";
+    const b = mainQuestions({ askEffort: true });
+    expect(b.wire["risky"]!.instructions).not.toBe("changed");
+    expect(b.wire["risky"]!.criteria["true"]).not.toBe("changed");
+    expect(b.wire["corrects"]!.criteria["false"]).not.toBe("changed");
+  });
+
   test("effort criteria match the docs table rows", () => {
     const effort = mainQuestions({ askEffort: true }).wire["effort"]!;
     for (const level of EFFORT_LEVELS) {

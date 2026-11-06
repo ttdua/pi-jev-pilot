@@ -24,7 +24,8 @@ const EFFORT_CRITERIA: Record<(typeof EFFORT_LEVELS)[number], string> = {
   max: "Novel architecture, a security or data-integrity question, a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo.",
 };
 
-const RISKY: WireQuestion = {
+// Built per call so a caller mutating a result cannot change the next one.
+const risky = (): WireQuestion => ({
   type: "noul",
   instructions:
     "Carrying out this task would itself change production, move real money, or alter data that cannot be restored. Writing or testing code that deals with such things, without running it against the real system, does not count.",
@@ -33,9 +34,9 @@ const RISKY: WireQuestion = {
     false:
       "Reading, explaining, planning, or writing and testing code locally, even code that deals with production, payments or data, without running it against the real system.",
   },
-};
+});
 
-const CORRECTS: WireQuestion = {
+const corrects = (): WireQuestion => ({
   type: "noul",
   instructions:
     "The user's latest message tells the assistant that its previous answer or work was wrong, broken, incomplete, or not what was asked, and asks for it to be fixed or redone.",
@@ -44,7 +45,7 @@ const CORRECTS: WireQuestion = {
     false:
       "The message approves, continues, asks something new, or gives a new task; or there was no previous answer.",
   },
-};
+});
 
 /** Questions for a main request; `effort` and `risky` only when `askEffort`. */
 export function mainQuestions(o: { askEffort: boolean }): MainQuestions {
@@ -57,10 +58,10 @@ export function mainQuestions(o: { askEffort: boolean }): MainQuestions {
       criteria: { ...EFFORT_CRITERIA },
     };
     specs["effort"] = { type: "choice", options: EFFORT_LEVELS };
-    wire["risky"] = RISKY;
+    wire["risky"] = risky();
     specs["risky"] = { type: "noul" };
   }
-  wire["corrects"] = CORRECTS;
+  wire["corrects"] = corrects();
   specs["corrects"] = { type: "noul" };
   return { wire, specs };
 }
