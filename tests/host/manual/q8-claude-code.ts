@@ -3,6 +3,7 @@
  *
  * Operator run (uses the real Claude subscription login, needs network; never part of `bun test`):
  *   bun tests/host/manual/q8-claude-code.ts
+ * `--preflight-only` runs just the login check (no install, no model call).
  *
  * The real HOME is used so `claude` finds its login; `claude` may therefore write under ~/.claude.
  * Pi's own state stays in a temp agent dir. The reported `level` is read back from Pi (`get_state`).
@@ -41,6 +42,10 @@ function loginEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const key of [
     "HOME",
+    // The claude CLI on macOS looks its login up in the user keychain, which needs USER
+    // (and LOGNAME where set); without them `claude auth status` reports loggedIn=false.
+    "USER",
+    "LOGNAME",
     "PI_CLAUDE_CODE_COMMAND",
     "PI_CLAUDE_CODE_CONFIG_DIR",
     "CLAUDE_CONFIG_DIR",
@@ -49,6 +54,26 @@ function loginEnv(): Record<string, string> {
     if (value !== undefined) env[key] = value;
   }
   return env;
+}
+
+/**
+ * Fail fast when the claude login is not visible with the exact env the RPC child gets.
+ * pi-claude-code decides the provider is configured from `claude auth status`. The status
+ * payload contains the account email, so it is parsed and never printed.
+ */
+function claudeLoggedIn(childEnv: Record<string, string>, cwd: string): boolean {
+  const result = Bun.spawnSync([childEnv.PI_CLAUDE_CODE_COMMAND ?? "claude", "auth", "status"], {
+    cwd,
+    env: childEnv,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  try {
+    const parsed = JSON.parse(result.stdout.toString()) as { loggedIn?: unknown };
+    return parsed.loggedIn === true;
+  } catch {
+    return false;
+  }
 }
 
 function packageVersion(name: string): string {
@@ -121,6 +146,15 @@ async function main(): Promise<void> {
 
     const env = loginEnv();
     const installEnv = isolatedEnv(agentDir, env.HOME ?? root, env);
+    if (!claudeLoggedIn(installEnv, cwd)) {
+      console.error('claude-login-missing: run "claude auth login"');
+      rmSync(root, { recursive: true, force: true });
+      process.exit(1);
+    }
+    if (process.argv.includes("--preflight-only")) {
+      console.log("preflight=logged-in");
+      return;
+    }
     // Exact env (no process.env spread), identical to the RPC child's.
     const install = Bun.spawnSync([PI_BIN, "install", PI_CLAUDE_CODE_SOURCE], {
       cwd,
