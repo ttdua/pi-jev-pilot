@@ -41,7 +41,7 @@ All are package-internal. No public API, CLI or command changes in this change; 
 | `state.json` format | new | `{ version: 1; switches?: Partial<Record<Feature, boolean>>; mode?: Mode; cliReview?: { cli: "codex" \| "opencode"; model?: string; effort?: string } }`, written with 2-space indent and a final newline | yes (operator-visible file) |
 | `state.json.bad` | new | Byte copy of the last malformed `state.json`, mode `0600`, never read | no |
 | `Issue` | new | `{ path: string; message: string }` in `src/store/validate.ts` | no |
-| Validator API | new | `src/store/validate.ts`: `type V<T> = (value: unknown, path: string, issues: Issue[]) => T \| undefined`; `object`, `string`, `integer`, `oneOf`, `boolean`, `array`, `joinPath` as in Task 1 | no |
+| Validator API | new | `src/store/validate.ts`: `type V<T> = (value: unknown, path: string, issues: Issue[]) => T \| undefined`; `object`, `string`, `integer`, `oneOf`, `boolean`, `array`, `joinPath` as in Task 1; plus `refine(inner, ok, message)` (deviation, added in Task 3 for the URL and literal-`default` rules; internal and additive) | no |
 | `slotsValidator` | new | `src/store/config.ts`: `V<Slot[]>` for `crew.slots`, shared by `readConfig` and `writeSlots` | no |
 | `WriteResult` | new | `{ ok: true } \| { ok: false; issues: Issue[] }` in `src/store/validate.ts` | no |
 | `Feature`, `Mode`, `Tier`, `FEATURES`, `MODES`, `TIERS`, `RESERVED_SLOT_NAMES`, `DEFAULTS` | new | `src/store/defaults.ts`. `FEATURES = ["effort","subagents","skills","strategy","tools","expert","review","status","verbose"]`; `MODES = ["budget","standard","premium"]`; `TIERS = ["fast","balanced","deep","expert"]`; reserved names as `docs/configuration.md` | no |
