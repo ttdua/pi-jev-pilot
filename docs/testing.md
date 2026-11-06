@@ -28,6 +28,8 @@ Expected values come from this documentation, not from running the code. Each [i
 
 ### Host
 
+The manual Q8 run is the only Host evidence that uses a real provider and login. It is run by hand and is never part of CI.
+
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
 - Jev down: identical provider requests to a run without the package, apart from a status line.
 - Esc during classification: no provider request follows.

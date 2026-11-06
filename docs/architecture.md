@@ -139,7 +139,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Status line, tally | Yes | No |
 | Review tool | Yes | Not offered |
 
-**Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern, Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
+**Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
 
 Without the executor installed, nothing counts as a child, and worker routing and tool assessment are off with a note in `/jev`.
 

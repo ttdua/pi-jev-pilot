@@ -144,6 +144,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 **C1, C2, C5.**
 
 - **Includes:** catalog from `getCommands`, batching over 254, gates, pick logic, platform scan, injection and suggestion through a hidden message, no duplicates on a branch, explicit `/skill:name` skips.
+- **After a compaction:** a hidden message injected earlier is gone ([WG-02 Q5](evidence/2026-11-05-host-seams.md#q5)), so delivery must not assume a skill or advice injected before a compaction is still present.
 - **Done when:** a host test proves the body reaches the provider exactly once across repeated picks, and the `(none)` and gate paths attach nothing.
 
 ### WG-10: Strategy advice

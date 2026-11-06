@@ -14,7 +14,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 | Q4 | Is `subagents:child:session-created` visible, in time, with a usable session id? | Yes | `tests/host/q3-q4-child.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q5 | Is a hidden `before_agent_start` message sent to the model and kept across compaction as expected? | Yes. Kept until a compaction, dropped by it | `tests/host/q5-q6-main.test.ts` | Host | Pi 1.5.0 |
 | Q6 | Does `setThinkingLevel` in `before_agent_start` apply to that turn's first request? | Yes | `tests/host/q5-q6-main.test.ts` | Host | Pi 1.5.0 |
-| Q7 | Does a mutated `model` still behave with `inherit_context`? | Yes. The seam works; the skip policy is an open decision | `tests/host/q1-q7-worker-mutation.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
+| Q7 | Does a mutated `model` still behave with `inherit_context`? | Yes. The seam works; launches with `inherit_context` stay skipped by operator decision | `tests/host/q1-q7-worker-mutation.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q8 | How do thinking changes and the prompt cache behave on `claude-code`? | No cache loss on one low to high change; no thinking-related events seen | `tests/host/manual/q8-claude-code.ts`, manual, real provider, one run | Host | Pi 1.5.0, executor 25.0.5, pi-claude-code 47f9e2b |
 
 ## Harness facts
@@ -45,7 +45,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 **Documents changed.** [architecture.md](../architecture.md#host-seams) host seams table.
 
-**Work groups affected.** Child tool removal (WG-14 and later) may rely on it.
+**Work groups affected.** none; confirms the design of WG-14 (tool removal works as `enforce` expects).
 
 ## Q4
 
@@ -61,7 +61,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 **Documents changed.** [architecture.md](../architecture.md#host-seams) rows marked as documented are unchanged.
 
-**Work groups affected.** WG-09 and WG-10 (skill and advice delivery): delivery lasts until a compaction and is then dropped.
+**Work groups affected.** WG-09 gets a note: skills and advice injected before a compaction are gone after it ([roadmap](../roadmap.md#wg-09-skill-pick-and-delivery)).
 
 ## Q6
 
@@ -75,11 +75,11 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 **Observed.** With `inherit_context: true`, a rewritten model applies and the parent conversation reaches the child.
 
-**Policy.** Launches with `inherit_context` stay skipped ([domain-model.md](../domain-model.md), [jev-contract.md](../jev-contract.md)) pending an operator decision; the seam itself works.
+**Policy.** Launches with `inherit_context` stay skipped ([domain-model.md](../domain-model.md), [jev-contract.md](../jev-contract.md)). The seam itself works, and on 2026-11-06 the operator decided to keep skipping these launches.
 
 **Documents changed.** none.
 
-**Work groups affected.** WG-11, if the operator drops the skip rule.
+**Work groups affected.** none; the skip rule stays as designed.
 
 ## Q8
 

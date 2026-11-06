@@ -71,6 +71,17 @@ describe("host seam evidence", () => {
     expect(report).not.toContain('"messages"');
   });
 
+  test("report has a heading per question", () => {
+    const report = read(REPORT);
+    for (let n = 1; n <= 8; n++) {
+      expect(new RegExp(`^## Q${n}$`, "m").test(report), `WG-02 Q${n} heading`).toBe(true);
+    }
+  });
+
+  test("report holds no email address", () => {
+    expect(read(REPORT)).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.]+/);
+  });
+
   test("pinned tests name their question", () => {
     const files = readdirSync(join(REPO_ROOT, "tests", "host")).filter((f) =>
       /^q.*\.test\.ts$/.test(f),
