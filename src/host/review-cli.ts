@@ -182,7 +182,7 @@ export function checkCodexChoice(
     const tiers: string[] = [];
     for (const m of catalog) {
       const t = tierOf(m.slug);
-      if (!tiers.includes(t)) tiers.push(t);
+      if (isTier(t) && !tiers.includes(t)) tiers.push(t);
     }
     return fail(
       `Unknown Codex model "${model}".`,
@@ -221,4 +221,72 @@ export function checkOpencodeChoice(
     `Unknown OpenCode model "${model}".`,
     ids.filter((id) => id.toLowerCase().includes(lower)),
   );
+}
+
+/** Per-call fields win; a new reviewer drops the default's model and effort. */
+export function effectiveChoice(
+  defaults: ReviewChoice,
+  call: { reviewer?: "codex" | "opencode"; model?: string; effort?: string },
+): ReviewChoice {
+  const cli = call.reviewer ?? defaults.cli;
+  const base: ReviewChoice = cli === defaults.cli ? defaults : { cli };
+  const model = call.model ?? base.model;
+  // A per-call model replaces the default's effort too, since efforts are model-specific.
+  const effort = call.effort ?? (call.model === undefined ? base.effort : undefined);
+  return {
+    cli,
+    ...(model === undefined ? {} : { model }),
+    ...(effort === undefined ? {} : { effort }),
+  };
+}
+
+export function classifyAttempt(r: ExecResult, aborted: boolean): ReviewDetails["outcome"] {
+  if (aborted) return "cancelled";
+  if (r.truncated) return "truncated";
+  if (r.killed) return "timeout";
+  if (r.code === 0) return "ok";
+  if (r.stdout === "" && r.stderr.includes("ENOENT")) return "not-found";
+  return "exit-error";
+}
+
+const DISPLAY = { codex: "Codex", opencode: "OpenCode" } as const;
+
+export function formatSuccess(choice: ReviewChoice, output: string): string {
+  const parts = [
+    ...(choice.model ? [`model ${choice.model}`] : []),
+    ...(choice.effort ? [`effort ${choice.effort}`] : []),
+  ];
+  const what = parts.length > 0 ? parts.join(", ") : "the CLI's default model and effort";
+  return `${DISPLAY[choice.cli]} review (${what}):\n${output.trim()}`;
+}
+
+const TAIL_LINES = 20;
+const TAIL_CHARS = 4000;
+
+export function stderrTail(stderr: string): string {
+  const lines = stderr.trimEnd().split(/\r?\n/);
+  const tail = lines.slice(-TAIL_LINES).join("\n");
+  return tail.length > TAIL_CHARS ? tail.slice(-TAIL_CHARS) : tail;
+}
+
+export function formatFailure(
+  cli: "codex" | "opencode",
+  outcome: ReviewDetails["outcome"],
+  r?: ExecResult,
+  errorName?: string,
+): string {
+  const reason: Record<ReviewDetails["outcome"], string> = {
+    ok: "no error",
+    "not-found": `${cli} not found`,
+    "exit-error": "exited with an error",
+    timeout: "timed out twice after 10 minutes",
+    cancelled: "cancelled",
+    truncated: "output exceeded 8 MiB",
+    "exec-error": `could not start (${errorName ?? "Error"})`,
+  };
+  let text = `The ${DISPLAY[cli]} review did not run: ${reason[outcome]}.`;
+  if (outcome === "exit-error" && r) text += ` Exit code ${r.code}.`;
+  const tail = r ? stderrTail(r.stderr) : "";
+  if (tail !== "") text += `\n\n${tail}`;
+  return text;
 }

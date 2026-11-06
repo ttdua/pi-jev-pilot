@@ -6,13 +6,21 @@ import {
   buildPrompt,
   checkCodexChoice,
   checkOpencodeChoice,
+  classifyAttempt,
   codexArgs,
+  effectiveChoice,
+  formatFailure,
+  formatSuccess,
+  stderrTail,
   isTier,
   opencodeArgs,
   parseCodexCatalog,
   parseOpencodeModels,
   resolveTier,
   type CodexModel,
+  type ExecResult,
+  type ReviewChoice,
+  type ReviewDetails,
 } from "../../src/host/review-cli.ts";
 import { REPO_ROOT } from "../helpers.ts";
 
@@ -238,4 +246,89 @@ test("checkOpencodeChoice", () => {
   const many = Array.from({ length: 8 }, (_, i) => `p/m${i}`);
   const cap = checkOpencodeChoice("m", undefined, many);
   expect(!cap.ok && cap.suggestions.length).toBe(5);
+});
+
+const ok = (o: Partial<ExecResult> = {}): ExecResult => ({
+  stdout: "x",
+  stderr: "",
+  code: 0,
+  killed: false,
+  truncated: false,
+  ...o,
+});
+
+test("checkCodexChoice suggests only tiers", () => {
+  const cat: CodexModel[] = [
+    { slug: "gpt-5.5", name: "GPT-5.5", efforts: [] },
+    { slug: "gpt-6-luna", name: "Luna", efforts: [] },
+  ];
+  const r = checkCodexChoice("nope", undefined, cat);
+  expect(r.ok).toBe(false);
+  if (!r.ok) {
+    expect(r.suggestions).toContain("luna (now gpt-6-luna)");
+    expect(r.suggestions.some((s) => /^\d/.test(s))).toBe(false);
+  }
+});
+
+test("effectiveChoice merges per-call fields", () => {
+  const d: ReviewChoice = { cli: "codex", model: "luna", effort: "high" };
+  expect(effectiveChoice(d, { reviewer: "opencode" })).toEqual({
+    cli: "opencode",
+  });
+  expect(effectiveChoice(d, { model: "gpt-5.6-sol" })).toEqual({
+    cli: "codex",
+    model: "gpt-5.6-sol",
+  });
+  expect(effectiveChoice({ cli: "codex", model: "gpt-5.6-luna" }, { effort: "low" })).toEqual({
+    cli: "codex",
+    model: "gpt-5.6-luna",
+    effort: "low",
+  });
+  expect(effectiveChoice(d, { reviewer: "codex" })).toEqual(d);
+});
+
+test("classifyAttempt", () => {
+  expect(classifyAttempt(ok(), false)).toBe("ok");
+  expect(classifyAttempt(ok({ killed: true, code: 1 }), false)).toBe("timeout");
+  expect(classifyAttempt(ok({ truncated: true }), false)).toBe("truncated");
+  expect(classifyAttempt(ok({ killed: true }), true)).toBe("cancelled");
+  expect(classifyAttempt(ok({ code: 1, stdout: "", stderr: "spawn codex ENOENT" }), false)).toBe(
+    "not-found",
+  );
+  expect(classifyAttempt(ok({ code: 1, stderr: "bad flag" }), false)).toBe("exit-error");
+});
+
+test("formatSuccess", () => {
+  expect(formatSuccess({ cli: "codex", model: "gpt-6-luna", effort: "high" }, "  hi \n")).toBe(
+    "Codex review (model gpt-6-luna, effort high):\nhi",
+  );
+  expect(formatSuccess({ cli: "codex" }, "a").split("\n")[0]).toBe(
+    "Codex review (the CLI's default model and effort):",
+  );
+  expect(formatSuccess({ cli: "opencode", effort: "low" }, "a").split("\n")[0]).toBe(
+    "OpenCode review (effort low):",
+  );
+});
+
+test("formatFailure", () => {
+  const f = (o: ReviewDetails["outcome"], r?: ExecResult, n?: string) =>
+    formatFailure("codex", o, r, n);
+  const err = f("exit-error", ok({ code: 3, stderr: "boom" }));
+  expect(err.startsWith("The Codex review did not run:")).toBe(true);
+  expect(err).toContain("Exit code 3.");
+  expect(err).toContain("\n\nboom");
+  expect(f("timeout", ok({ code: 1, killed: true }))).toContain("timed out twice after 10 minutes");
+  expect(f("timeout", ok({ code: 1, killed: true }))).not.toContain("Exit code");
+  expect(f("cancelled")).toContain("cancelled");
+  expect(f("cancelled")).not.toContain("Exit code");
+  expect(f("not-found", ok({ code: 1, stderr: "ENOENT" }))).toContain("codex not found");
+  expect(f("truncated", ok({ truncated: true }))).toContain("output exceeded 8 MiB");
+  expect(f("exec-error", undefined, "TypeError")).toContain("could not start (TypeError)");
+  expect(formatFailure("opencode", "not-found")).toContain("opencode not found");
+});
+
+test("stderrTail", () => {
+  const lines = Array.from({ length: 30 }, (_, i) => `l${i}`).join("\n");
+  expect(stderrTail(lines).split("\n")).toEqual(Array.from({ length: 20 }, (_, i) => `l${i + 10}`));
+  expect(stderrTail("a".repeat(10000)).length).toBe(4000);
 });
