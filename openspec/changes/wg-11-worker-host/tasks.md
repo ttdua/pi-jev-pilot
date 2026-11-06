@@ -26,6 +26,6 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Update `docs/domain-model.md`, `docs/jev-contract.md`, `docs/usage-guide.md` and `docs/workflow.md` for forked and thinking-only launches and the ledger `reason`; `docs/configuration.md` for `subagents.forkedLaunch`; `docs/architecture.md` module layout; `docs/roadmap.md` WG-11 and WG-13
-- [ ] 6.2 Draft the issue #14 (WG-13) body without the tier cascade, for the operator to approve before posting
-- [ ] 6.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 6.1 Update `docs/domain-model.md`, `docs/jev-contract.md`, `docs/usage-guide.md` and `docs/workflow.md` for forked and thinking-only launches and the ledger `reason`; `docs/configuration.md` for `subagents.forkedLaunch`; `docs/architecture.md` module layout; `docs/roadmap.md` WG-11 and WG-13
+- [x] 6.2 Draft the issue #14 (WG-13) body without the tier cascade, for the operator to approve before posting
+- [x] 6.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
