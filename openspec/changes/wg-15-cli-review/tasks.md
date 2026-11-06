@@ -27,9 +27,9 @@
 ## 5. Host and load tests
 
 - [x] 5.1 Update `tests/load.test.ts` for the new registrations (one tool, `before_agent_start`)
-- [ ] 5.2 Host test: main session's first provider request lists `jev_review`; a child's does not
-- [ ] 5.3 Host test: fake `codex` script on `PATH` driven through a scripted `jev_review` tool call: success and failure; timeout and retry are covered by unit tests against `pi.exec`'s `killed` contract, without a test-only knob in shipped code
-- [ ] 5.4 Privacy test: marker in the brief not found under the agent directory; temp directory gone
+- [x] 5.2 Host test: main session's first provider request lists `jev_review`; a child's does not
+- [x] 5.3 Host test: fake `codex` script on `PATH` driven through a scripted `jev_review` tool call: success and failure; timeout and retry are covered by unit tests against `pi.exec`'s `killed` contract, without a test-only knob in shipped code
+- [x] 5.4 Privacy test: marker in the brief not found under the agent directory; temp directory gone
 
 ## 6. Docs and manual check
 
