@@ -46,7 +46,7 @@
 
 - [x] 8.1 Update `docs/evidence/2026-11-05-host-seams.md` with the `before_agent_start` signal finding (source reading at Pi 1.5.0, and the host test from 6.4).
 - [x] 8.2 Update `docs/architecture.md` (host seams rows for `before_provider_request` and `agent_settled`; failure model row for Esc), `docs/workflow.md` (main prompt flow: restore on Esc, status line), `docs/usage-guide.md` (decision text on the status line), `docs/jev-questions.md` (wire format `instructions` and `criteria`), `docs/roadmap.md` (WG-07 status).
-- [ ] 8.3 After archive, update the Purpose lines of `openspec/specs/package-loading/spec.md` and `openspec/specs/status-line/spec.md`.
+- [x] 8.3 After archive, update the Purpose lines of `openspec/specs/package-loading/spec.md` and `openspec/specs/status-line/spec.md`.
 
 ## 9. Checks
 

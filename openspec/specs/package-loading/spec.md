@@ -1,7 +1,7 @@
 # package-loading Specification
 
 ## Purpose
-The repository is a Pi package whose manifest names one extension entry point that Pi loads without error and that registers only the `/jev` command and its session handlers.
+The repository is a Pi package whose manifest names one extension entry point that Pi loads without error and that registers only the `/jev` command, the `jev_review` tool and a bounded set of event handlers.
 
 ## Requirements
 

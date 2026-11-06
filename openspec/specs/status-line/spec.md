@@ -1,7 +1,7 @@
 # status-line Specification
 
 ## Purpose
-The line above the editor shows the package's base state (config error, no key, off, or the mode) in the main session when Pi has a UI, and never draws in print or JSON mode or in a child session.
+The line above the editor shows the package's base state (config error, no key, off, or the mode), followed by the latest main decision's level or `no answer`, in the main session when Pi has a UI, and never draws in print or JSON mode or in a child session.
 
 ## Requirements
 
