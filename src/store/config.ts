@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { writeFileAtomic } from "./atomic.ts";
 import { join } from "node:path";
 import { RESERVED_SLOT_NAMES, TIERS } from "./defaults.ts";
 import {
@@ -11,6 +12,7 @@ import {
   string,
   type Issue,
   type V,
+  type WriteResult,
 } from "./validate.ts";
 
 export type Slot = { name: string; model: string; when?: string };
@@ -127,4 +129,49 @@ export function readConfig(dir: string): ConfigRead {
   const config = configValidator()(raw, "", issues);
   if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
   return { kind: "ok", present: true, config };
+}
+
+/** Replaces only `crew.slots` in config.json, keeping every other key and its order. Never throws. */
+export function writeSlots(dir: string, slots: Slot[]): WriteResult {
+  const current = readConfig(dir);
+  if (current.kind === "invalid") return { ok: false, issues: current.issues };
+  const issues: Issue[] = [];
+  slotsValidator(slots, "crew.slots", issues);
+  if (issues.length > 0) return { ok: false, issues };
+  if (!current.present && slots.length === 0) return { ok: true };
+
+  let raw: Record<string, unknown> = {};
+  if (current.present) {
+    try {
+      raw = JSON.parse(readFileSync(join(dir, "config.json"), "utf8")) as Record<string, unknown>;
+    } catch {
+      return {
+        ok: false,
+        issues: [{ path: "", message: "cannot read config.json (EIO)" }],
+      };
+    }
+  }
+  const crew = { ...(raw.crew as Record<string, unknown> | undefined) };
+  if (slots.length > 0) {
+    crew.slots = slots.map((s) => ({
+      name: s.name,
+      model: s.model,
+      ...(s.when === undefined ? {} : { when: s.when }),
+    }));
+  } else {
+    delete crew.slots;
+  }
+  if (slots.length === 0 && Object.keys(crew).length === 0) delete raw.crew;
+  else raw.crew = crew;
+
+  const written = writeFileAtomic(dir, "config.json", JSON.stringify(raw, null, 2) + "\n", {
+    keepMode: true,
+  });
+  if (!written.ok) {
+    return {
+      ok: false,
+      issues: [{ path: "", message: `cannot write config.json (${written.code})` }],
+    };
+  }
+  return { ok: true };
 }
