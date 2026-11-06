@@ -16,7 +16,7 @@
 - **Branch**: `WG-11-host`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `PENDING`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/30`
 
 The worktree branch `wg-11-worker-host` was fast-forwarded into `WG-11-host` (`7b1bacd..56268ae`). The operator approved the next steps in the Inbox on 2026-11-07:
 - push `WG-11-host`, which had no remote branch and no PR;
@@ -37,7 +37,7 @@ The worktree was clean and was removed with Worktrunk (`wt remove`, project rule
 
 ## PR comment
 
-- **PR comment status**: `PENDING`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/30#issuecomment-6690975084)
 
 ---
 
