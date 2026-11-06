@@ -1,5 +1,8 @@
-// Jev HTTP client. Imports only ../policy/; never host/, store/, extension.ts or @earendil-works/*.
+// Jev HTTP client. Imports only ../policy/ and ../shared/; never host/, store/, extension.ts or @earendil-works/*.
 import type { MissKind } from "../policy/answers.ts";
+import { isAllowedJevUrl } from "../shared/urls.ts";
+
+export { isAllowedJevUrl };
 
 export type JevRequest = {
   url: string;
@@ -18,24 +21,6 @@ export type JevOutcome =
 
 // Response size cap; see docs/jev-contract.md#transport.
 export const MAX_RESPONSE_BYTES = 262_144;
-
-function isLoopbackHost(hostname: string): boolean {
-  if (hostname === "localhost" || hostname === "[::1]") return true;
-  const m = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.exec(hostname);
-  return m !== null;
-}
-
-export function isAllowedJevUrl(url: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return false;
-  }
-  if (parsed.username !== "" || parsed.password !== "") return false;
-  if (parsed.protocol === "https:") return true;
-  return parsed.protocol === "http:" && isLoopbackHost(parsed.hostname);
-}
 
 function miss(kind: MissKind, reason: string, ms: number): JevOutcome {
   return { kind: "miss", miss: kind, reason, ms };

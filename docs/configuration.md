@@ -67,7 +67,7 @@ Error messages name the field and what was expected, never the value found, so a
 
 | Key | Default | Notes |
 |---|---|---|
-| `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS, or HTTP only for `127.0.0.1`, `localhost` or `[::1]`. No username or password. Redirects are rejected |
+| `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS, or HTTP only to loopback (`localhost`, an address in `127.0.0.0/8`, `[::1]`). No username or password. Redirects are rejected |
 | `model` | `jev-latest` | `^[A-Za-z0-9._-]{1,64}$`. Pin a version with `jev-1.14.0` |
 | `apiKeyEnv` | `TYPESAFE_API_KEY` | The variable's name, `^[A-Z_][A-Z0-9_]{0,63}$`, so a pasted key is rejected. Never put the key in this file |
 | `timeoutMs` | `1500` | Range 300–5000. Tuning may change it |
