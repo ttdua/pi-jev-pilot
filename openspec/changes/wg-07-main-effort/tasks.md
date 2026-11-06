@@ -50,4 +50,4 @@
 
 ## 9. Checks
 
-- [ ] 9.1 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass with no secrets and no network beyond loopback.
+- [x] 9.1 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass with no secrets and no network beyond loopback.
