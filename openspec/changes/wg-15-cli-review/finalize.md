@@ -16,7 +16,7 @@
 - **Branch**: `WG-15`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending (filled in after gh pr create)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/26`
 
 The worktree branch `wg-15-cli-review` was merged into `WG-15` with `git merge --ff-only` (`c1c8850..bd3fe55`). `WG-15` had no upstream, so step 3's `git pull` was skipped; no PR existed, so the operator chose to push and open one.
 
@@ -33,7 +33,7 @@ Removed with Worktrunk (`wt remove wg-15-cli-review`), per the project's AGENTS.
 
 ## PR comment
 
-- **PR comment status**: `pending`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/26#issuecomment-6687403138)
 
 ---
 
