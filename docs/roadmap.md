@@ -184,9 +184,9 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-15: CLI review
 
-**F4.** `jev_review`, Codex and OpenCode commands, `/jev cli-review`, tier-name resolution, timeout and retry.
+**F4.** `jev_review` with per-call `reviewer`, `model` and `effort`; Codex and OpenCode command lines; `/jev cli-review` with validation against each CLI's model list; Codex tier names resolved at each run; one retry on timeout only; independent of the key and the switches; hidden in children through `before_agent_start`.
 
-- **Done when:** a fake CLI covers success, failure and timeout; a real run with the operator's CLI works; the tool is absent in children.
+- **Done when:** a fake CLI covers success, failure and timeout; a real run with the operator's CLI works (`tests/host/manual/cli-review-real.ts`); the tool is absent in children.
 
 ### WG-16: Rich state replay
 

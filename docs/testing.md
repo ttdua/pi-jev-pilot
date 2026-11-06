@@ -31,15 +31,19 @@ Expected values come from this documentation, not from running the code. Each [i
 The manual Q8 run is the only Host evidence that uses a real provider and login. It is run by hand and is never part of CI.
 
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
-- Jev down: identical provider requests to a run without the package, apart from a status line.
+- Jev down: identical provider requests to a run without the package, apart from a status line and the `jev_review` tool declaration with its prompt lines (the only other difference).
 - Esc during classification: no provider request follows.
 - A worker's actual model and thinking at the child's first request, foreground and background.
 - Nothing from a hidden log line reaches a provider.
 - Installation from a packed tarball, not only a checkout.
+- CLI review with fake `codex` and `opencode` scripts on `PATH`: the exact command lines, success, failure and exit codes, one retry on timeout, tier resolution at each run, the output file removed, and no brief or output in details or the ledger.
+- The review tool is offered in the main session and absent in a child's provider request.
 
 The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md).
 
 **Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
+
+**Manual CLI review procedure** (not in CI): `bun tests/host/manual/cli-review-real.ts`. Needs `codex` and `opencode` logins (each is skipped when not installed). It reviews a throwaway repository and prints counts only: outcome, attempts, exit code and output length, never the text. Set `JEV_REVIEW_CODEX_MODEL` or `JEV_REVIEW_OPENCODE_MODEL` to pick a model. Run it by hand after each CLI upgrade.
 
 ### Privacy
 
