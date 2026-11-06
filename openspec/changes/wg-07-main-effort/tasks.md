@@ -32,11 +32,11 @@
 
 ## 6. Host tests through the real CLI
 
-- [ ] 6.1 Extend `tests/jev/fixture.ts` with a held route that answers only when the test releases it, and let the host harness point `classifier.url` at it and set the key in the isolated environment.
-- [ ] 6.2 Add `tests/host/main-effort.test.ts` (RPC): `effort` `xhigh` reaches the first provider request; `risky` 0.8 with `low` gives `high`; `max` set by the operator is kept; the status line shows `Jev · standard · xhigh` before the first provider request.
-- [ ] 6.3 Jev down: HTTP 500 and a held route with `timeoutMs` 300; provider requests equal a run without the package; first request within 800 ms; `Jev · standard · no answer`; one `main` line with `answered` false.
-- [ ] 6.4 Esc and discard: RPC `abort` while Jev is held gives no provider request, the level restored, no ledger line; RPC `set_thinking_level` while Jev is held gives the operator's level on the first request and a line without `effective`.
-- [ ] 6.5 Ledger and privacy: two prompts with `corrects` 0.9 on the second give a `correction` line naming the first `turnId`; a `JEV-MARKER-` prompt string appears in no ledger file and no `jev-turn` entry.
+- [x] 6.1 Extend `tests/jev/fixture.ts` with a held route that answers only when the test releases it, and let the host harness point `classifier.url` at it and set the key in the isolated environment.
+- [x] 6.2 Add `tests/host/main-effort.test.ts` (RPC): `effort` `xhigh` reaches the first provider request; `risky` 0.8 with `low` gives `high`; `max` set by the operator is kept; the status line shows `Jev · standard · xhigh` before the first provider request.
+- [x] 6.3 Jev down: HTTP 500 and a held route with `timeoutMs` 300; provider requests equal a run without the package; first request within 800 ms; `Jev · standard · no answer`; one `main` line with `answered` false.
+- [x] 6.4 Esc and discard: RPC `abort` while Jev is held gives no provider request, the level restored, no ledger line; RPC `set_thinking_level` while Jev is held gives the operator's level on the first request and a line without `effective`.
+- [x] 6.5 Ledger and privacy: two prompts with `corrects` 0.9 on the second give a `correction` line naming the first `turnId`; a `JEV-MARKER-` prompt string appears in no ledger file and no `jev-turn` entry.
 
 ## 7. Upstream issue
 
