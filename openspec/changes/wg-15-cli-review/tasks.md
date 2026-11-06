@@ -6,9 +6,9 @@
 
 - [x] 2.1 `REVIEW_INSTRUCTIONS` constant and `buildPrompt(brief)`; test that the constant equals the block in `docs/jev-questions.md`; lint override keeping `review-cli.ts` free of Pi imports
 - [x] 2.2 `codexArgs` and `opencodeArgs` builders per the spec argument orders
-- [ ] 2.3 `parseCodexCatalog` (visible models, slugs, names, efforts) and `parseOpencodeModels`
-- [ ] 2.4 `isTier`, `resolveTier` (newest by digit groups, case-insensitive)
-- [ ] 2.5 `checkCodexChoice` and `checkOpencodeChoice` with suggestions (at most five)
+- [x] 2.3 `parseCodexCatalog` (visible models, slugs, names, efforts) and `parseOpencodeModels`
+- [x] 2.4 `isTier`, `resolveTier` (newest by digit groups, case-insensitive)
+- [x] 2.5 `checkCodexChoice` and `checkOpencodeChoice` with suggestions (at most five)
 - [ ] 2.6 `effectiveChoice(defaults, call)` override rules
 - [ ] 2.7 `classifyAttempt` (success, timeout, truncated, cancelled, not found, exit error) and `formatResult` / `formatFailure` (header, stderr tail of 20 lines / 4000 chars, no exit code when killed)
 
