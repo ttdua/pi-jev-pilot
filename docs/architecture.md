@@ -57,6 +57,9 @@ src/
     tools.ts             Which tools are assessed, which are removed
     tuning.ts            Tuning rules, revert rules
 
+  shared/                Dependency-free rules used by more than one module
+    urls.ts              The Jev URL rule
+
   jev/                   Talks to TypeSafe.
     client.ts            Transport: timeout, abort, no redirects
     rubrics.ts           Rubric text per mode (data)
@@ -96,11 +99,17 @@ flowchart TD
     host --> policy
     host --> store
     jev --> policy
+    host --> shared
+    jev --> shared
+    policy --> shared
+    store --> shared
     scripts["scripts/replay"] --> jev
     scripts --> policy
+    scripts --> shared
 ```
 
-- `policy/` imports nothing outside itself.
+- `policy/` imports nothing outside itself and `shared/`.
+- `shared/` imports nothing outside itself; any module but `extension.ts` may import it.
 - `jev/` knows nothing about Pi. It receives plain inputs, which is what lets `scripts/replay` reuse it.
 - `store/` knows files and schemas, nothing about decisions.
 - Only `host/` imports `@earendil-works/pi-coding-agent` or reads executor events.

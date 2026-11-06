@@ -110,6 +110,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 - **Includes:** schema and validation of `config.json`; `state.json`; path handling through `PI_CODING_AGENT_DIR`; atomic writes.
 - **Done when:** malformed input reports the field and leaves the package inert; a key found in config is rejected; nothing rewrites `config.json` except `/jev` slot commands.
 - **Note:** the CLI review override from `/jev cli-review` lives in `state.json`, not `config.json`.
+- **Note:** The `classifier.url` rule is the Jev client's rule, shared through `src/shared/urls.ts`.
 
 ### WG-04: Jev client and answer reading
 
