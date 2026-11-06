@@ -21,7 +21,7 @@
 
 ## 5. Host adapter
 
-- [ ] 5.1 Add `src/host/stores.ts` with `jevDir()` from Pi's `getAgentDir()`, and tests for `PI_CODING_AGENT_DIR` and the default under a temporary `HOME`; leave `src/extension.ts` a no-op
+- [x] 5.1 Add `src/host/stores.ts` with `jevDir()` from Pi's `getAgentDir()`, and tests for `PI_CODING_AGENT_DIR` and the default under a temporary `HOME`; leave `src/extension.ts` a no-op
 
 ## 6. Docs
 
