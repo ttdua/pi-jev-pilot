@@ -49,13 +49,13 @@ describe("package loading", () => {
     expect(matches.length).toBe(1);
   }, 60_000);
 
-  test("loaded extension registers nothing", async () => {
+  test("loaded extension registers only /jev and handlers", async () => {
     const result = await installAndLoad(REPO_ROOT);
     const ext = result.extensions.find((e) => resolvesTo(e.resolvedPath, entry));
     expect(ext).toBeDefined();
-    expect(ext?.handlers.size).toBe(0);
+    expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual(["session_shutdown", "session_start"]);
     expect(ext?.tools.size).toBe(0);
-    expect(ext?.commands.size).toBe(0);
+    expect([...(ext?.commands.keys() ?? [])]).toEqual(["jev"]);
     expect(ext?.flags.size).toBe(0);
     expect(ext?.shortcuts.size).toBe(0);
   }, 60_000);
