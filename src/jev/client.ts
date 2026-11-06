@@ -64,6 +64,7 @@ async function readCapped(res: Response): Promise<Uint8Array | "too large" | "un
       chunks.push(value);
     }
   } catch {
+    // Aborts surface here too; the caller classifies them by signal state.
     return "unreadable";
   }
   const joined = new Uint8Array(total);
@@ -76,6 +77,8 @@ async function readCapped(res: Response): Promise<Uint8Array | "too large" | "un
 }
 
 export async function askJev(req: JevRequest): Promise<JevOutcome> {
+  const timer = new AbortController();
+  let handle: ReturnType<typeof setTimeout> | undefined;
   try {
     // Pre-I/O step: every input check happens before the clock starts.
     if (!isAllowedJevUrl(req.url)) return miss("error", "bad url", 0);
@@ -101,14 +104,31 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
       return miss("error", "bad request", 0);
     }
 
+    // The caller's signal wins over the internal timeout in every classification.
+    if (req.signal?.aborted === true) return { kind: "cancelled" };
+
     // Fetch step.
     const started = performance.now();
     const elapsed = () => Math.round(performance.now() - started);
+    handle = setTimeout(() => timer.abort(), req.timeoutMs);
+    const combined =
+      req.signal === undefined ? timer.signal : AbortSignal.any([timer.signal, req.signal]);
+    const aborted = (fallback: JevOutcome): JevOutcome => {
+      if (req.signal?.aborted === true) return { kind: "cancelled" };
+      if (timer.signal.aborted) return miss("timeout", "timeout", elapsed());
+      return fallback;
+    };
     let res: Response;
     try {
-      res = await fetch(req.url, { method: "POST", headers, body: payload, redirect: "manual" });
+      res = await fetch(req.url, {
+        method: "POST",
+        headers,
+        body: payload,
+        redirect: "manual",
+        signal: combined,
+      });
     } catch {
-      return miss("error", "connection", elapsed());
+      return aborted(miss("error", "connection", elapsed()));
     }
 
     // Status step.
@@ -129,7 +149,7 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
     }
     const bytes = await readCapped(res);
     if (bytes === "too large") return miss("error", "too large", elapsed());
-    if (bytes === "unreadable") return miss("error", "connection", elapsed());
+    if (bytes === "unreadable") return aborted(miss("error", "connection", elapsed()));
     let body: unknown;
     try {
       body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -140,6 +160,8 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
     const ms = elapsed();
     return typeof model === "string" ? { kind: "ok", body, model, ms } : { kind: "ok", body, ms };
   } catch {
-    return miss("error", "connection", 0);
+    return req.signal?.aborted === true ? { kind: "cancelled" } : miss("error", "connection", 0);
+  } finally {
+    clearTimeout(handle);
   }
 }

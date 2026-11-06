@@ -225,3 +225,111 @@ describe("askJev body", () => {
     expect(out).toMatchObject({ kind: "miss", miss: "schema", reason: "invalid json" });
   });
 });
+
+describe("askJev timeout and cancellation", () => {
+  test("Server never answers", async () => {
+    const f = await fixture({ "/hang": { hang: true } });
+    const t0 = performance.now();
+    const out = await askJev(base(f.url("/hang"), { timeoutMs: 200 }));
+    expect(out).toMatchObject({ kind: "miss", miss: "timeout", reason: "timeout" });
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+
+  test("Body stalls after headers", async () => {
+    const f = await fixture({ "/stall": { stallAfterHeaders: true } });
+    const out = await askJev(base(f.url("/stall"), { timeoutMs: 200 }));
+    expect(out).toMatchObject({ kind: "miss", miss: "timeout", reason: "timeout" });
+  });
+
+  test("Already cancelled", async () => {
+    const f = await fixture({ "/ok": { json: {} } });
+    const out = await askJev(base(f.url("/ok"), { signal: AbortSignal.abort() }));
+    expect(out).toEqual({ kind: "cancelled" });
+    expect(f.requests.length).toBe(0);
+  });
+
+  test("Cancelled while waiting", async () => {
+    const f = await fixture({ "/hang": { hang: true } });
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 50);
+    const t0 = performance.now();
+    const out = await askJev(base(f.url("/hang"), { timeoutMs: 1500, signal: ctl.signal }));
+    expect(out).toEqual({ kind: "cancelled" });
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+
+  test("Cancelled while the body stalls", async () => {
+    const f = await fixture({ "/stall": { stallAfterHeaders: true } });
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 50);
+    const t0 = performance.now();
+    const out = await askJev(base(f.url("/stall"), { timeoutMs: 1500, signal: ctl.signal }));
+    expect(out).toEqual({ kind: "cancelled" });
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+});
+
+describe("askJev key hygiene", () => {
+  const routes = {
+    "/redirect": { status: 302, location: "/t" },
+    "/401": { status: 401 },
+    "/500": { json: { error: "x" }, status: 500 },
+    "/big": { raw: " ".repeat(262_145) },
+    "/invalid": { raw: "{" },
+    "/hang": { hang: true },
+  } as const;
+
+  test.each([
+    "bad url",
+    "bad timeout",
+    "bad request",
+    "connection",
+    "redirect",
+    "401",
+    "500",
+    "too large",
+    "invalid json",
+    "timeout",
+  ])("Key never appears in a reason", async (route) => {
+    const f = await fixture(routes);
+    let req: JevRequest;
+    switch (route) {
+      case "bad url":
+        req = base("http://example.com/x");
+        break;
+      case "bad timeout":
+        req = base(f.url("/401"), { timeoutMs: 0 });
+        break;
+      case "bad request":
+        req = base(f.url("/401"), { state: { n: 1n } });
+        break;
+      case "connection": {
+        const dead = await startJevFixture({});
+        const url = dead.url("/x");
+        await dead.stop();
+        req = base(url);
+        break;
+      }
+      case "redirect":
+        req = base(f.url("/redirect"));
+        break;
+      case "401":
+        req = base(f.url("/401"));
+        break;
+      case "500":
+        req = base(f.url("/500"));
+        break;
+      case "too large":
+        req = base(f.url("/big"));
+        break;
+      case "invalid json":
+        req = base(f.url("/invalid"));
+        break;
+      default:
+        req = base(f.url("/hang"), { timeoutMs: 100 });
+    }
+    const out = await askJev(req);
+    expect(out.kind).toBe("miss");
+    if (out.kind === "miss") expect(out.reason).not.toContain(KEY);
+  });
+});
