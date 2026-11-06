@@ -8,7 +8,7 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeSync,
+  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 
@@ -32,7 +32,7 @@ export function writeFileAtomic(
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     const fd = openSync(tmp, "wx", 0o600);
     try {
-      writeSync(fd, data);
+      writeFileSync(fd, data);
       fsyncSync(fd);
     } finally {
       closeSync(fd);

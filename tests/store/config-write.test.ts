@@ -69,6 +69,21 @@ describe("writeSlots", () => {
       expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
     }));
 
+  test("writeSlots validates what it rewrites", () =>
+    withDir((dir) => {
+      for (const text of ['{ "tools": { "mode": "remove" } }', "{ not json", "[]"]) {
+        writeFileSync(join(dir, "config.json"), text);
+        const r = writeSlots(dir, [slot("a")]);
+        expect(r.ok).toBe(false);
+        expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
+      }
+      writeFileSync(join(dir, "config.json"), "{ not json");
+      expect(writeSlots(dir, [slot("a")])).toEqual({
+        ok: false,
+        issues: [{ path: "", message: "config.json is not valid JSON" }],
+      });
+    }));
+
   test("Other keys kept", () =>
     withDir((dir) => {
       writeFileSync(join(dir, "config.json"), FULL);

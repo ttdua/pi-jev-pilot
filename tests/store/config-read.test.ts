@@ -108,8 +108,7 @@ describe("readConfig", () => {
     expect(JSON.stringify(r)).not.toContain(secret);
   });
 
-  test("Unreadable file", () => {
-    if (isRoot) return;
+  test.skipIf(isRoot)("Unreadable file", () => {
     withDir((dir) => {
       const file = join(dir, "config.json");
       writeFileSync(file, "{}");

@@ -107,13 +107,18 @@ function configValidator(): V<Config> {
   }) as V<Config>;
 }
 
-export function readConfig(dir: string): ConfigRead {
+type Loaded =
+  | { kind: "ok"; present: boolean; config: Config; raw: Record<string, unknown> }
+  | { kind: "invalid"; issues: Issue[] };
+
+/** Reads config.json once; the validated config and the parsed raw object come from the same text. */
+function load(dir: string): Loaded {
   let text: string;
   try {
     text = readFileSync(join(dir, "config.json"), "utf8");
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code ?? "EIO";
-    if (code === "ENOENT") return { kind: "ok", present: false, config: {} };
+    if (code === "ENOENT") return { kind: "ok", present: false, config: {}, raw: {} };
     return {
       kind: "invalid",
       issues: [{ path: "", message: `cannot read config.json (${code})` }],
@@ -128,29 +133,25 @@ export function readConfig(dir: string): ConfigRead {
   const issues: Issue[] = [];
   const config = configValidator()(raw, "", issues);
   if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
-  return { kind: "ok", present: true, config };
+  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown> };
+}
+
+export function readConfig(dir: string): ConfigRead {
+  const loaded = load(dir);
+  if (loaded.kind === "invalid") return loaded;
+  return { kind: "ok", present: loaded.present, config: loaded.config };
 }
 
 /** Replaces only `crew.slots` in config.json, keeping every other key and its order. Never throws. */
 export function writeSlots(dir: string, slots: Slot[]): WriteResult {
-  const current = readConfig(dir);
+  const current = load(dir);
   if (current.kind === "invalid") return { ok: false, issues: current.issues };
   const issues: Issue[] = [];
   slotsValidator(slots, "crew.slots", issues);
   if (issues.length > 0) return { ok: false, issues };
   if (!current.present && slots.length === 0) return { ok: true };
 
-  let raw: Record<string, unknown> = {};
-  if (current.present) {
-    try {
-      raw = JSON.parse(readFileSync(join(dir, "config.json"), "utf8")) as Record<string, unknown>;
-    } catch {
-      return {
-        ok: false,
-        issues: [{ path: "", message: "cannot read config.json (EIO)" }],
-      };
-    }
-  }
+  const raw = current.raw;
   const crew = { ...(raw.crew as Record<string, unknown> | undefined) };
   if (slots.length > 0) {
     crew.slots = slots.map((s) => ({
