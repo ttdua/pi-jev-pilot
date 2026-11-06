@@ -14,7 +14,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 | Q4 | Is `subagents:child:session-created` visible, in time, with a usable session id? | Yes | `tests/host/q3-q4-child.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q5 | Is a hidden `before_agent_start` message sent to the model and kept across compaction as expected? | Yes. Kept until a compaction, dropped by it | `tests/host/q5-q6-main.test.ts` | Host | Pi 1.5.0 |
 | Q6 | Does `setThinkingLevel` in `before_agent_start` apply to that turn's first request? | Yes | `tests/host/q5-q6-main.test.ts` | Host | Pi 1.5.0 |
-| Q7 | Does a mutated `model` still behave with `inherit_context`? | Yes. The seam works; launches with `inherit_context` stay skipped by operator decision | `tests/host/q1-q7-worker-mutation.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
+| Q7 | Do mutated `model` and `thinking` still behave with `inherit_context`? | Yes, both apply (child model `fixture-fast`, `reasoning_effort` `high`). The seam works; launches with `inherit_context` stay skipped by operator decision | `tests/host/q1-q7-worker-mutation.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q8 | How do thinking changes and the prompt cache behave on `claude-code`? | No cache loss on one low to high change; no thinking-related events seen | `tests/host/manual/q8-claude-code.ts`, manual, real provider, one run | Host | Pi 1.5.0, executor 25.0.5, pi-claude-code 47f9e2b |
 
 ## Harness facts
@@ -73,13 +73,13 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 ## Q7
 
-**Observed.** With `inherit_context: true`, a rewritten model applies and the parent conversation reaches the child.
+**Observed.** With `inherit_context: true`, a rewritten model applies and the parent conversation reaches the child. A rewritten thinking level applies too: the child's first request carried `reasoning_effort` `high` in all three runs.
 
-**Policy.** Launches with `inherit_context` stay skipped ([domain-model.md](../domain-model.md), [jev-contract.md](../jev-contract.md)). The seam itself works, and on 2026-11-06 the operator decided to keep skipping these launches.
+**Policy.** Launches with `inherit_context` stay skipped per [domain-model.md](../domain-model.md) and [jev-contract.md](../jev-contract.md) (operator decision 2026-11-06). An open option for WG-11 is to keep the model and change only thinking on fork launches. That avoids losing the prompt cache of the forked conversation (Q8: a thinking change on one model kept the cache, one run, see [Q8](#q8)) and avoids a smaller context window. Not decided.
 
 **Documents changed.** none.
 
-**Work groups affected.** none; the skip rule stays as designed.
+**Work groups affected.** WG-11 (open option).
 
 ## Q8
 

@@ -126,13 +126,20 @@ describe("WG-02 Q1/Q7 worker mutation", () => {
     expect(fixture.unmatched, "WG-02 Q1 unmatched").toEqual([]);
   }, 120_000);
 
-  test("Q7 inherit_context with rewritten model", async () => {
+  test("Q7 inherit_context with rewritten model and thinking", async () => {
     // WG-02 Q7: observed 2026-11-05, see docs/evidence/2026-11-05-host-seams.md#q7
-    const EXPECTED = { childModel: "fixture-fast", markerInChild: true } as const;
+    const EXPECTED = {
+      childModel: "fixture-fast",
+      childEffort: "high",
+      markerInChild: true,
+    } as const;
     const { fixture, session, child } = await run({ inherit_context: true }, MAIN_PROMPT);
     const has = JSON.stringify(child?.body.messages).includes(MARKER);
-    observe(`Q7: model=${child?.model} marker=${has} (Q7 inherit_context)`);
+    observe(
+      `Q7: model=${child?.model} effort=${child?.reasoningEffort} marker=${has} (Q7 inherit_context)`,
+    );
     expect(child?.model, "WG-02 Q7 model").toBe(EXPECTED.childModel);
+    expect(child?.reasoningEffort, "WG-02 Q7 effort").toBe(EXPECTED.childEffort);
     expect(has, "WG-02 Q7 marker in child").toBe(EXPECTED.markerInChild);
     expect(JSON.stringify(session.probeRecords()), "WG-02 Q7 marker not in probes").not.toContain(
       MARKER,
