@@ -131,13 +131,15 @@ Set a default:
 /jev cli-review codex default
 ```
 
+The choice is kept in `state.json`; `config.json` is not changed. `default` clears the model or effort.
+
 ## Switches
 
 ```text
 /jev                     status and session tally
 /jev skills off          one feature
 /jev all off             everything
-/jev reset               back to config defaults
+/jev reset               switches, mode and CLI review default back to config defaults
 ```
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. Switches persist across sessions and apply from the next prompt or launch.
@@ -175,12 +177,12 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev                                         status and tally
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off
-/jev reset                                   switches back to config defaults
+/jev reset                                   switches, mode and CLI review default back to config defaults
 /jev mode budget|standard|premium
 /jev <slot> <provider/model> [when <text>]   add or replace a slot
 /jev <slot>                                  show it
 /jev remove <slot>
-/jev cli-review <codex|opencode> [model] [effort]
+/jev cli-review <codex|opencode> [model] [effort]   kept in state.json
 /jev tune | /jev tune undo | /jev tune reset | /jev tune off
 ```
 
