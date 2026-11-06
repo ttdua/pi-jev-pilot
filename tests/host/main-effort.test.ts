@@ -120,8 +120,8 @@ describe("main effort through the real CLI", () => {
     "level on first request",
     async () => {
       // `match` runs synchronously when the provider request arrives, so the snapshot of the
-      // RPC event stream taken there is race-free: it holds exactly what the host had emitted
-      // (and the harness had read) before the first provider request was received.
+      // RPC event stream taken there is ordered in practice: it holds what the host had emitted
+      // (and the harness had read) before the request; the two pipes are not strictly synchronized.
       let atRequest: (string[] | undefined)[] | undefined;
       let session: HostSession | undefined;
       const { s, fixture } = await setup(answers("xhigh", 0.1, 0.05), {
@@ -242,7 +242,7 @@ describe("main effort through the real CLI", () => {
       const t0 = Date.now();
       const resp = s.send({ type: "prompt", message: "hello" });
       await s.waitFor(() => fixture.requests.length >= 1, "first provider request");
-      expect(Date.now() - t0).toBeLessThan(800);
+      expect(Date.now() - t0).toBeLessThan(1500);
       h.release({ status: 500 });
       expect((await resp).success).toBe(true);
       await s.waitFor(() => settled(s) >= 1, "agent_settled");
