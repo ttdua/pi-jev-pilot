@@ -7,7 +7,7 @@
 
 **Change**: `wg-06-status-line-jev-base`
 **Finalized at**: `2026-11-06T09:00Z`
-**Outcome**: `pr-updated` (git-side closeout done locally; push and PR held, see Deviations)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `WG-06`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` pending push. `wg-06-status-line-jev-base` was fast-forwarded into `WG-06` at `233279e`. `WG-06` has no upstream yet and is not pushed.
-- **PR URL**: `N/A` (`gh pr view WG-06` reports no pull request)
+- **Final state**: `pr-open`. `wg-06-status-line-jev-base` was fast-forwarded into `WG-06` at `233279e`, and `WG-06` was pushed to `origin` with upstream set.
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/25
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/25#issuecomment-6681251036)
 
 ---
 
@@ -49,11 +49,12 @@
 
 ## Deviations
 
-- Steps 10 and 11 (push `WG-06`, offer to open a PR) are held. The project AGENTS.md says: "không push, merge hay mở PR nếu chưa được user cho phép rõ trong chat" (no push, merge or PR without the user's explicit permission). The roadmap's working agreements say the same. The operator is asked separately.
-- Step 3 `git pull` was skipped: `WG-06` has no upstream configured.
+- Steps 10 and 11 (push `WG-06`, open the PR) ran only after the operator explicitly allowed them in the Inbox thread. The roadmap's working agreements require the same. Superseded note from the first receipt: "không push, merge hay mở PR nếu chưa được user cho phép rõ trong chat" (no push, merge or PR without the user's explicit permission). The roadmap's working agreements say the same. The operator is asked separately.
+- Step 3 `git pull` was skipped: `WG-06` had no upstream configured.
+- `origin/main` moved after this branch was cut: `bc36ff5`, add-ledger (#24), is not in `WG-06`. `git merge-tree` between `WG-06` and `origin/main` reports no conflicts. The branch was not rebased, so the PR may show it as behind `main`.
 
 ---
 
 ## Next step
 
-Once the operator allows it: push `WG-06` and open a PR against `main` (suggested title `feat(status-line): wg-06-status-line-jev-base`), then post the code-reviewer orientation comment. Wait for PR review, then run `/opsx-archive` on `WG-06`, push the archive commits, and merge the PR. After archive, do task 7.4 (the `package-loading` Purpose line).
+Wait for PR review. After approval, run `/opsx-archive` on `WG-06` (commits land here) and do task 7.4 (the `package-loading` Purpose line). Push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands both the implementation and the archive in `main`.
