@@ -14,8 +14,8 @@
 
 ## 4. /jev command
 
-- [ ] 4.1 Add `src/host/commands.ts`: pure `parseJevArgs(text)` returning `status`, `set`, `all`, `reset` or `usage`; `usageText()`; `formatStatus(snapshot)` (mode, nine switches, key variable name, executor, config and state problems). Unit tests in `tests/host/commands.test.ts`, including the usage cases and that the key value never appears.
-- [ ] 4.2 Add `runJev(args, ctx, deps)`: child guard; apply the change through `updateState`/`resetState`; one `updateState` for `all`; report refused changes as `error` only; refresh the status line after a change; notify only with `ctx.hasUI`; catch every error. Unit tests against a temporary jev directory, including `EACCES` (skipped as root) and the malformed-state recovery.
+- [x] 4.1 Add `src/host/commands.ts`: pure `parseJevArgs(text)` returning `status`, `set`, `all`, `reset` or `usage`; `usageText()`; `formatStatus(snapshot)` (mode, nine switches, key variable name, executor, config and state problems). Unit tests in `tests/host/commands.test.ts`, including the usage cases and that the key value never appears.
+- [x] 4.2 Add `runJev(args, ctx, deps)`: child guard; apply the change through `updateState`/`resetState`; one `updateState` for `all`; report refused changes as `error` only; refresh the status line after a change; notify only with `ctx.hasUI`; catch every error. Unit tests against a temporary jev directory, including `EACCES` (skipped as root) and the malformed-state recovery.
 
 ## 5. Wiring
 
