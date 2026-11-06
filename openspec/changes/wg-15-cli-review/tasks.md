@@ -20,9 +20,9 @@
 
 ## 4. `/jev cli-review` (`src/host/commands.ts`)
 
-- [ ] 4.1 Parse `cli-review` forms (arity, case-sensitive reviewer, `default` placeholders); usage text line
-- [ ] 4.2 Run the catalog check through an injected `exec`, store through `updateState`, report warnings and errors, then status and status line
-- [ ] 4.3 Status report line for the CLI review default
+- [x] 4.1 Parse `cli-review` forms (arity, case-sensitive reviewer, `default` placeholders); usage text line
+- [x] 4.2 Run the catalog check through an injected `exec`, store through `updateState`, report warnings and errors, then status and status line
+- [x] 4.3 Status report line for the CLI review default
 
 ## 5. Host and load tests
 
