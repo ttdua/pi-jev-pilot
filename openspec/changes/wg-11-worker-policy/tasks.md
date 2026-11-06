@@ -14,7 +14,7 @@
 
 - [x] 3.1 Add `decideTier` in `src/policy/tier.ts` with the decision order and its fall-through rules (Decision order, Fable rule, Risk floor rule, Expert denied rule, Unsure fast rule, Partial answers in the decision, Rules without a qualifying tier, Decision on Jev failure)
 - [x] 3.2 Add `chooseFallback` in `src/policy/tier.ts` (Fallback choice)
-- [ ] 3.3 Add `workerEffort` in `src/policy/effort.ts` (Worker effort, Effort after fallback)
+- [x] 3.3 Add `workerEffort` in `src/policy/effort.ts` (Worker effort, Effort after fallback)
 
 ## 4. Docs
 
