@@ -6,9 +6,9 @@
 
 ## 2. Append and rotation
 
-- [ ] 2.1 Add `appendLedger(dir, entry)` in `src/store/ledger.ts`: validate, serialize, ensure the `0700` directory, open with `O_APPEND`/`O_CREAT`/`0600`, single write, short-write check, return a `WriteResult` and never throw
-- [ ] 2.2 Add rotation after an append: a size gate, then a line count, then `ledger.rotate.lock` (exclusive, `0600`, 60 s staleness, stale lock cleared by a unique rename), a recount under the lock, a rename over `ledger.1.jsonl`, and lock removal; failures never fail the append
-- [ ] 2.3 Tests in `tests/store/ledger.test.ts` for append, retention, rotator lock, failures and modes
+- [x] 2.1 Add `appendLedger(dir, entry)` in `src/store/ledger.ts`: validate, serialize, ensure the `0700` directory, open with `O_APPEND`/`O_CREAT`/`0600`, single write, short-write check, return a `WriteResult` and never throw
+- [x] 2.2 Add rotation after an append: a size gate, then a line count, then `ledger.rotate.lock` (exclusive, `0600`, 60 s staleness, stale lock cleared by a unique rename), a recount under the lock, a rename over `ledger.1.jsonl`, and lock removal; failures never fail the append
+- [x] 2.3 Tests in `tests/store/ledger.test.ts` for append, retention, rotator lock, failures and modes
 
 ## 3. Read
 
