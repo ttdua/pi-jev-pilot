@@ -17,6 +17,8 @@ import {
 } from "../policy/launch.ts";
 import { launchKind, routeLaunch, type LaunchKind, type Route } from "../policy/route.ts";
 import { readWorkerOutcome, type WorkerAnswers } from "../policy/worker.ts";
+import type { Answer } from "../policy/answers.ts";
+import { appendLedger } from "../store/ledger.ts";
 import { readAgent } from "./agents.ts";
 import { isChild } from "./child.ts";
 import { loadSnapshot, type Snapshot } from "./readiness.ts";
@@ -33,7 +35,7 @@ export type WorkerDeps = {
 export type WorkerRouting = {
   off(): void;
   clearWarnings(): void;
-  /** Number of launches kept by tool call id. */
+  /** Launches, joined drafts and buffered outcomes still held. */
   pending(): number;
 };
 
@@ -47,7 +49,26 @@ export type LaunchEntry = {
   specs: Record<string, QuestionSpec>;
   route?: Route;
   answers?: WorkerAnswers | undefined;
+  /** Set by `route()`: what the ledger line needs besides the route. */
+  jev?: JevOutcome | undefined;
+  session?: string;
+  mode?: string;
+  callerModel?: string;
+  briefChars?: number;
+  write?: { model?: string };
 };
+
+type Executor = {
+  status?: unknown;
+  durationMs?: unknown;
+  toolUses?: unknown;
+  tokens?: unknown;
+};
+
+const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
+const STATUSES = ["completed", "aborted", "stopped", "error"] as const;
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+const EVENTS = ["subagents:completed", "subagents:failed", "subagents:resumed"] as const;
 
 const CACHE_MAX = 256;
 
@@ -55,6 +76,29 @@ type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function count(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : undefined;
+}
+
+function probs(
+  answer: Answer | undefined,
+  keys?: readonly string[],
+): Record<string, number> | undefined {
+  if (answer?.type !== "choice") return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(answer.probabilities)) {
+    if (keys === undefined || keys.includes(k)) {
+      Object.defineProperty(out, k, {
+        value: v,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+  }
+  return out;
 }
 
 function textOf(content: unknown): string {
@@ -102,7 +146,79 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   const agentDir = (): string => deps.agentDir ?? getAgentDir();
   const cache = new Map<string, LaunchEntry>();
   const warned = new Set<string>();
+  const append = deps.append ?? ((entry: unknown): void => void appendLedger(jevDir(), entry));
+  const now = deps.now ?? Date.now;
+  /** Launches whose tool result arrived, by executor agent id. */
+  const byAgent = new Map<string, LaunchEntry>();
+  /** Executor outcomes that arrived before their tool result, by agent id. */
+  const outcomes = new Map<string, Executor>();
   let active = true;
+
+  const put = <T>(map: Map<string, T>, key: string, value: T): void => {
+    map.delete(key);
+    map.set(key, value);
+    while (map.size > CACHE_MAX) {
+      const oldest = map.keys().next().value;
+      if (oldest === undefined) break;
+      map.delete(oldest);
+    }
+  };
+
+  /** One `worker` line; never throws. */
+  const write = (entry: LaunchEntry, outcome: Executor | undefined): void => {
+    try {
+      const { route: r, answers, jev, facts } = entry;
+      if (r === undefined || r.kind === "skip") return;
+      const line: Record<string, unknown> = {
+        v: 1,
+        at: now(),
+        kind: "worker",
+        session: entry.session,
+        mode: entry.mode,
+        answered: jev?.kind === "ok" && answers?.kind === "read",
+        agent: facts.name,
+        briefChars: entry.briefChars ?? 0,
+      };
+      if (jev !== undefined && jev.kind !== "cancelled") line["ms"] = count(jev.ms);
+      if (answers?.kind === "miss") line["miss"] = answers.miss;
+      if (answers?.kind === "read") {
+        const a = answers.answers;
+        const risky = a["risky"];
+        if (risky?.type === "noul") line["risky"] = risky.noul;
+        const expert = a["expert_needed"];
+        if (expert?.type === "noul") line["expertNeeded"] = expert.noul;
+        const tierP = probs(a["tier"]);
+        if (tierP !== undefined) line["tierP"] = tierP;
+        const effortP = probs(a["effort"], EFFORTS);
+        if (effortP !== undefined) line["effortP"] = effortP;
+      }
+      if (r.kind === "untouched") {
+        line["reason"] = "untouched";
+        if (r.locked === true) line["locked"] = true;
+      } else {
+        const { record } = r;
+        line["reason"] = record.reason;
+        if (record.tier !== undefined) line["tier"] = record.tier;
+        if (record.fallback !== undefined) line["fallback"] = record.fallback;
+        if (record.effort !== undefined) line["effort"] = record.effort;
+        if (record.locked === true) line["locked"] = true;
+        if (r.write.model !== undefined) line["model"] = r.write.model;
+      }
+      if (entry.callerModel !== undefined) line["callerModel"] = entry.callerModel;
+      const status = STATUSES.find((s) => s === outcome?.status);
+      line["status"] = outcome === undefined ? "error" : (status ?? "error");
+      const durationMs = count(outcome?.durationMs);
+      if (durationMs !== undefined) line["durationMs"] = durationMs;
+      const toolUses = count(outcome?.toolUses);
+      if (toolUses !== undefined) line["toolUses"] = toolUses;
+      const t = outcome?.tokens;
+      const tokens = isRecord(t) ? count(t["total"]) : undefined;
+      if (tokens !== undefined) line["tokens"] = tokens;
+      append(line);
+    } catch {
+      /* a failed ledger line never affects the launch */
+    }
+  };
 
   const remember = (id: string, entry: LaunchEntry): void => {
     cache.delete(id);
@@ -198,8 +314,14 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       entry = classify(input, ctx, snap);
       remember(id, entry);
     }
+    const caller = input["model"];
+    if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
+    entry.session = ctx.sessionManager.getSessionId();
+    entry.mode = snap.settings.mode;
+    entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
     const outcome = entry.outcome === undefined ? undefined : await entry.outcome;
     const answers = outcome === undefined ? undefined : readWorkerOutcome(outcome, entry.specs);
+    entry.jev = outcome;
     const { settings } = snap;
     const checks = new Map<TierName, Check>();
     const checkOf = (tier: TierName): Check => {
@@ -293,6 +415,56 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     }),
   );
 
+  offs.push(
+    pi.on("tool_result", (event) => {
+      try {
+        if (!active || event.toolName !== "subagent") return;
+        const entry = cache.get(event.toolCallId);
+        if (entry?.route === undefined || entry.route.kind === "skip") return;
+        cache.delete(event.toolCallId);
+        const details: unknown = event.details;
+        const agentId = isRecord(details) ? details["agentId"] : undefined;
+        if (typeof agentId !== "string" || agentId === "") {
+          write(entry, undefined);
+          return;
+        }
+        const outcome = outcomes.get(agentId);
+        if (outcome === undefined) {
+          put(byAgent, agentId, entry);
+          return;
+        }
+        outcomes.delete(agentId);
+        write(entry, outcome);
+      } catch {
+        /* fail open */
+      }
+    }),
+  );
+
+  for (const name of EVENTS) {
+    try {
+      offs.push(
+        pi.events.on(name, (data: unknown) => {
+          try {
+            if (!active || !isRecord(data) || typeof data["id"] !== "string") return;
+            const id = data["id"];
+            const entry = byAgent.get(id);
+            if (entry === undefined) {
+              put(outcomes, id, data);
+              return;
+            }
+            byAgent.delete(id);
+            write(entry, data);
+          } catch {
+            /* fail open */
+          }
+        }),
+      );
+    } catch {
+      /* a missing event bus leaves only the refused-launch lines */
+    }
+  }
+
   return {
     off() {
       active = false;
@@ -304,10 +476,12 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         }
       }
       cache.clear();
+      byAgent.clear();
+      outcomes.clear();
     },
     clearWarnings() {
       warned.clear();
     },
-    pending: () => cache.size,
+    pending: () => cache.size + byAgent.size + outcomes.size,
   };
 }
