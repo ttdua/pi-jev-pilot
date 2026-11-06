@@ -9,9 +9,9 @@
 ## 2. Questions and state (pure, `jev/`)
 
 - [x] 2.1 Add `src/jev/questions.ts`: `mainQuestions({ askEffort })` returning the wire `questions` (`effort`, `risky`, `corrects`, wording from `docs/jev-questions.md`) and the matching `QuestionSpec` map for `readAnswers` (specs/main-effort: Main questions, Question wire format). Unit tests in `tests/jev/questions.test.ts`.
-- [ ] 2.2 Add `src/jev/state.ts`: `requestSignals(prompt)` (specs/main-state: Request signals). Unit tests in `tests/jev/state.test.ts`.
-- [ ] 2.3 Add `recentMessages(items)` with the 4-message, 2000-character budget, newest-assistant share and oldest-first dropping (specs/main-state: Recent conversation, Recent conversation budget).
-- [ ] 2.4 Add `recentTools(items)` and `turnIndex(items)` (specs/main-state: Recent tool counts and turn index), and `mainState({ prompt, items, platforms })` with the exact field set (Minimal main state).
+- [x] 2.2 Add `src/jev/state.ts`: `requestSignals(prompt)` (specs/main-state: Request signals). Unit tests in `tests/jev/state.test.ts`.
+- [x] 2.3 Add `recentMessages(items)` with the 4-message, 2000-character budget, newest-assistant share and oldest-first dropping (specs/main-state: Recent conversation, Recent conversation budget).
+- [x] 2.4 Add `recentTools(items)` and `turnIndex(items)` (specs/main-state: Recent tool counts and turn index), and `mainState({ prompt, items, platforms })` with the exact field set (Minimal main state).
 
 ## 3. Host context
 
