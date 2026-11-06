@@ -3,7 +3,7 @@ import { askJev } from "../../src/jev/client.ts";
 import { startJevFixture } from "./fixture.ts";
 
 const f = await startJevFixture({ "/ok": { json: { answers: {} } } });
-await askJev({
+const out = await askJev({
   url: f.url("/ok"),
   apiKey: "test-key-123",
   model: "jev-latest",
@@ -12,3 +12,4 @@ await askJev({
   questions: {},
 });
 await f.stop();
+if (out.kind !== "ok") process.exit(1);

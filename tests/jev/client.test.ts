@@ -248,6 +248,11 @@ describe("askJev timeout and cancellation", () => {
     expect(f.requests.length).toBe(0);
   });
 
+  test("Already cancelled with invalid input", async () => {
+    const out = await askJev(base("ftp://nope", { signal: AbortSignal.abort() }));
+    expect(out).toEqual({ kind: "cancelled" });
+  });
+
   test("Cancelled while waiting", async () => {
     const f = await fixture({ "/hang": { hang: true } });
     const ctl = new AbortController();

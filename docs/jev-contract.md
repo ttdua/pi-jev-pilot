@@ -265,7 +265,7 @@ User and project instructions keep authority over this advice. On the ledger it 
 - A noul answer counts only when `type` is `noul` and `noul` is a finite number from 0 to 1.
 - Otherwise that question is unanswered, and other answers still count. The reason is `missing`, `type`, `choice`, `probabilities` or `range`, per question. Keys that were not asked are ignored.
 - A response without `answers`: the whole request is a miss.
-- `confidence` is kept for logging only when it is a finite number from 0 to 1. It is never read by policy, and a missing or invalid one never makes an answer unanswered.
+- On a choice answer, `confidence` is kept for logging only when it is a finite number from 0 to 1. It is never read by policy, and a missing or invalid one never makes an answer unanswered.
 
 ## Known limits of Jev
 

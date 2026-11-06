@@ -5,7 +5,7 @@ import {
   type ReadResult,
   type QuestionSpec,
   type UnansweredReason,
-} from "../../src/policy/answers";
+} from "../../src/policy/answers.ts";
 
 const EFFORT: QuestionSpec = { type: "choice", options: ["low", "medium", "high", "xhigh", "max"] };
 const STRATEGY: QuestionSpec = {

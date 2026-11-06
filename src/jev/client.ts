@@ -79,7 +79,11 @@ async function readCapped(res: Response): Promise<Uint8Array | "too large" | "un
 export async function askJev(req: JevRequest): Promise<JevOutcome> {
   const timer = new AbortController();
   let handle: ReturnType<typeof setTimeout> | undefined;
+  // The caller's signal wins over every miss, whatever its cause.
+  const settle = (outcome: JevOutcome): JevOutcome =>
+    req.signal?.aborted === true ? { kind: "cancelled" } : outcome;
   try {
+    if (req.signal?.aborted === true) return { kind: "cancelled" };
     // Pre-I/O step: every input check happens before the clock starts.
     if (!isAllowedJevUrl(req.url)) return miss("error", "bad url", 0);
     if (
@@ -104,9 +108,6 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
       return miss("error", "bad request", 0);
     }
 
-    // The caller's signal wins over the internal timeout in every classification.
-    if (req.signal?.aborted === true) return { kind: "cancelled" };
-
     // Fetch step.
     const started = performance.now();
     const elapsed = () => Math.round(performance.now() - started);
@@ -114,9 +115,10 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
     const combined =
       req.signal === undefined ? timer.signal : AbortSignal.any([timer.signal, req.signal]);
     const aborted = (fallback: JevOutcome): JevOutcome => {
-      if (req.signal?.aborted === true) return { kind: "cancelled" };
-      if (timer.signal.aborted) return miss("timeout", "timeout", elapsed());
-      return fallback;
+      if (timer.signal.aborted && req.signal?.aborted !== true) {
+        return miss("timeout", "timeout", elapsed());
+      }
+      return settle(fallback);
     };
     let res: Response;
     try {
@@ -134,27 +136,27 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
     // Status step.
     if (res.status >= 300 && res.status < 400) {
       await discard(res);
-      return miss("error", "redirect", elapsed());
+      return settle(miss("error", "redirect", elapsed()));
     }
     if (res.status < 200 || res.status >= 300) {
       await discard(res);
-      return miss("error", `http ${res.status}`, elapsed());
+      return settle(miss("error", `http ${res.status}`, elapsed()));
     }
 
     // Body step.
     const declared = res.headers.get("content-length");
     if (declared !== null && Number(declared) > MAX_RESPONSE_BYTES) {
       await discard(res);
-      return miss("error", "too large", elapsed());
+      return settle(miss("error", "too large", elapsed()));
     }
     const bytes = await readCapped(res);
-    if (bytes === "too large") return miss("error", "too large", elapsed());
+    if (bytes === "too large") return settle(miss("error", "too large", elapsed()));
     if (bytes === "unreadable") return aborted(miss("error", "connection", elapsed()));
     let body: unknown;
     try {
       body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
     } catch {
-      return miss("schema", "invalid json", elapsed());
+      return settle(miss("schema", "invalid json", elapsed()));
     }
     const model = (body as { model?: unknown } | null)?.model;
     const ms = elapsed();
