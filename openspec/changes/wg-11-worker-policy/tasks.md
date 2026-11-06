@@ -1,6 +1,6 @@
 ## 1. Agent metadata
 
-- [ ] 1.1 Add `TierName`, `TIER_LADDER`, `AgentFacts`, `LockDeclaration` and the pure lock and effective-field functions in `src/policy/launch.ts`, with a test that `TierName` matches `store/defaults.ts` `TIERS` (Locked fields, Effective launch fields)
+- [x] 1.1 Add `TierName`, `TIER_LADDER`, `AgentFacts`, `LockDeclaration` and the pure lock and effective-field functions in `src/policy/launch.ts`, with a test that `TierName` matches `store/defaults.ts` `TIERS` (Locked fields, Effective launch fields)
 - [ ] 1.2 Add `cutCodePoints` in `src/shared/text.ts`, and the built-in agent table and the file reader in `src/host/agents.ts`: listing-based lookup, precedence, case-insensitive pass, `general-purpose` fallback, field parsing with Pi's `parseFrontmatter`, never throwing (Agent lookup order, Agent files are found by listing, Lookup never throws, Built-in agents, Agent identity fields, Declared tools, Launch fields in the agent file, Lock declaration)
 
 ## 2. Worker request
