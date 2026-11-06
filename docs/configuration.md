@@ -10,10 +10,12 @@ All under `<agentDir>/jev/`, by default `~/.pi/agent/jev/`.
 | `state.json` | `/jev` | Switches, mode, CLI review default |
 | `tuning.json` | Automatic tuning | Applied changes and history |
 | `ledger.jsonl` | The package | Decisions and outcomes |
+| `ledger.1.jsonl` | The package | The previous ledger segment |
+| `ledger.rotate.lock` | The package | Present only during a rotation |
 
 Precedence for a value: `tuning.json`, then `state.json`, then `config.json`, then the default.
 
-The directory is created with mode `0700` and new files with `0600`. Writes go to a temporary file in the same directory and are renamed over the target, so a reader sees the old file or the new one. An existing `config.json` keeps its mode.
+The directory is created with mode `0700` and new files with `0600`. Writes go to a temporary file in the same directory and are renamed over the target, so a reader sees the old file or the new one. The ledger is the exception: it appends lines instead of replacing the file. An existing `config.json` keeps its mode.
 
 ### Missing and malformed files
 

@@ -83,7 +83,8 @@ src/
     defaults.ts          Default values and feature and mode names
     atomic.ts            Atomic write: owner-only directory and file
     validate.ts          Small validators that collect issues with field paths
-    ledger.ts            ledger.jsonl: append, trim, read
+    ledger-schema.ts     Ledger line schema and field lists
+    ledger.ts            ledger.jsonl: append, rotate, read
     tuning-file.ts       tuning.json: changes, history
 
 scripts/
