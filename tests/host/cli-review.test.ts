@@ -149,6 +149,7 @@ describe("cli-review through the real CLI", () => {
       const child = s.fixture.requests.find(isChild)!;
       expect(child.toolNames).toContain("read");
       expect(child.toolNames).not.toContain("jev_review");
+      expect(JSON.stringify(child.body)).not.toContain("jev_review");
       const main = s.fixture.requests.find((r) => r.matched === "main-call")!;
       expect(main.toolNames).toContain("jev_review");
     },

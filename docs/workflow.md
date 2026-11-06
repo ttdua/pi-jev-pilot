@@ -158,7 +158,7 @@ Only when the operator asks, such as "have Codex review this".
    - Codex: `codex exec [-m <model>] [-c model_reasoning_effort="<effort>"] -s read-only --skip-git-repo-check --ephemeral -C <cwd> -o <temp file> <prompt>`. The result is read from the temp file, or from stdout when the file is empty. The file is removed after each run.
    - OpenCode: `opencode run [-m <provider/model>[#<effort>]] --agent plan <prompt>`, run in the session's directory. The result is read from stdout.
 3. The tool returns findings and a verdict. On failure, the result says the review did not run, gives the reason (not found, exit code, timeout, cancelled, output over 8 MiB or could not start) and the last lines of the CLI's error output. It does not switch to the other reviewer.
-4. Timeout is 10 minutes per attempt, with one retry on timeout only. A failure is not retried.
+4. Timeout is 10 minutes per attempt, with one retry on timeout only. A failure is not retried. A review cancelled before any CLI starts reports one attempt with outcome `cancelled`.
 
 The review needs no Jev key and ignores the `review` switch and `/jev all off`: it runs whenever the operator asks.
 

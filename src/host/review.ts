@@ -183,7 +183,7 @@ export function registerReviewTool(
   pi: Pick<ExtensionAPI, "registerTool" | "exec" | "getAllTools">,
   deps: { load?: () => Snapshot; exec?: Exec } = {},
 ): void {
-  const exec: Exec = deps.exec ?? ((c, a, o) => pi.exec(c, a, o) as ReturnType<Exec>);
+  const exec: Exec = deps.exec ?? ((c, a, o) => pi.exec(c, a, o));
   const load = deps.load ?? (() => loadSnapshot(pi));
   pi.registerTool({
     name: REVIEW_TOOL,

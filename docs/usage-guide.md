@@ -133,7 +133,7 @@ A slot offers Jev another model, with a description of when to choose it.
 have Codex review this change
 ```
 
-Say `with Codex` or `with OpenCode`, and name a model or effort, to override the default for one request.
+Say `with Codex` or `with OpenCode`, and name a model or effort, to override the default for one request. Per-request values are not checked in advance; a wrong name fails the review with the CLI's own error.
 
 Set a default:
 
