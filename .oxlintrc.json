@@ -8,7 +8,24 @@
           "error",
           {
             "patterns": [
-              { "group": ["../**"], "message": "policy/ imports nothing outside itself." },
+              {
+                "group": ["../**", "!../shared/**", "!../../shared/**"],
+                "message": "policy/ imports only itself and shared/."
+              },
+              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/shared/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../**"], "message": "shared/ imports nothing outside itself." },
               { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
             ]
           }
@@ -86,6 +103,7 @@
               { "group": ["./policy/**"], "message": "The entry point wires only host/." },
               { "group": ["./jev/**"], "message": "The entry point wires only host/." },
               { "group": ["./store/**"], "message": "The entry point wires only host/." },
+              { "group": ["./shared/**"], "message": "The entry point wires only host/." },
               { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
             ]
           }
