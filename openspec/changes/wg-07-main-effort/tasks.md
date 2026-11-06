@@ -4,7 +4,7 @@
 
 ## 1. Effort policy (pure)
 
-- [ ] 1.1 Add `src/policy/effort.ts`: `EFFORT_LEVELS`, `RISK_FLOOR` (0.7), `EFFORT_CEILING` (`xhigh`), `CORRECTION_THRESHOLD` (0.7); `supportedLevels({ reasoning, thinkingLevelMap })`; `decideEffort({ choice, risky, supported })` → `{ requested, target }` with floor, ceiling and clamp (nearest above, else below) (specs/main-effort: Supported levels, Effort rule). Unit tests in `tests/policy/effort.test.ts`, one per scenario, plus a table pinned from Pi 1.5.0's `getSupportedThinkingLevels`/`clampThinkingLevel`.
+- [x] 1.1 Add `src/policy/effort.ts`: `EFFORT_LEVELS`, `RISK_FLOOR` (0.7), `EFFORT_CEILING` (`xhigh`), `CORRECTION_THRESHOLD` (0.7); `supportedLevels({ reasoning, thinkingLevelMap })`; `decideEffort({ choice, risky, supported })` → `{ requested, target }` with floor, ceiling and clamp (nearest above, else below) (specs/main-effort: Supported levels, Effort rule). Unit tests in `tests/policy/effort.test.ts`, one per scenario, plus a table pinned from Pi 1.5.0's `getSupportedThinkingLevels`/`clampThinkingLevel`.
 
 ## 2. Questions and state (pure, `jev/`)
 
