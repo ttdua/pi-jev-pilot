@@ -12,8 +12,8 @@
 
 ## 3. state.json
 
-- [ ] 3.1 Add `readState(dir)` in `src/store/state-file.ts`: ok, missing, malformed (no salvage), unreadable; schema per `specs/state-file`
-- [ ] 3.2 Add `updateState(dir, mutate)` and `resetState(dir)`: refuse on unreadable, move a malformed file to `state.json.bad` (`0600`), validate the result, write atomically, return write failures as issues
+- [x] 3.1 Add `readState(dir)` in `src/store/state-file.ts`: ok, missing, malformed (no salvage), unreadable; schema per `specs/state-file`
+- [x] 3.2 Add `updateState(dir, mutate)` and `resetState(dir)`: refuse on unreadable, move a malformed file to `state.json.bad` (`0600`), validate the result, write atomically, return write failures as issues
 
 ## 4. Effective settings
 
