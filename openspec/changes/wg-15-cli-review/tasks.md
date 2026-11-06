@@ -9,8 +9,8 @@
 - [x] 2.3 `parseCodexCatalog` (visible models, slugs, names, efforts) and `parseOpencodeModels`
 - [x] 2.4 `isTier`, `resolveTier` (newest by digit groups, case-insensitive)
 - [x] 2.5 `checkCodexChoice` and `checkOpencodeChoice` with suggestions (at most five)
-- [ ] 2.6 `effectiveChoice(defaults, call)` override rules
-- [ ] 2.7 `classifyAttempt` (success, timeout, truncated, cancelled, not found, exit error) and `formatResult` / `formatFailure` (header, stderr tail of 20 lines / 4000 chars, no exit code when killed)
+- [x] 2.6 `effectiveChoice(defaults, call)` override rules
+- [x] 2.7 `classifyAttempt` (success, timeout, truncated, cancelled, not found, exit error) and `formatResult` / `formatFailure` (header, stderr tail of 20 lines / 4000 chars, no exit code when killed)
 
 ## 3. Tool (`src/host/review.ts`)
 
