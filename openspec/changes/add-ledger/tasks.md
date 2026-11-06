@@ -12,8 +12,8 @@
 
 ## 3. Read
 
-- [ ] 3.1 Add `readLedger(dir)`: read both segments in order, skip and count invalid or torn lines, return the latest 2000, repeat once on a rotation during the read, treat missing files as empty, and return `unreadable` with the code otherwise
-- [ ] 3.2 Tests for tolerant and consistent reads in `tests/store/ledger.test.ts`
+- [x] 3.1 Add `readLedger(dir)`: read both segments in order, skip and count invalid or torn lines, return the latest 2000, repeat once on a rotation during the read, treat missing files as empty, and return `unreadable` with the code otherwise
+- [x] 3.2 Tests for tolerant and consistent reads in `tests/store/ledger.test.ts`
 
 ## 4. Concurrency
 
