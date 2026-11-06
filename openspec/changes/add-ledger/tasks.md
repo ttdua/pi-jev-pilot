@@ -22,5 +22,5 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Update `docs/domain-model.md` (Ledger entry: `v`, `turnId`, `correction` kind replacing `corrected`, `outcome`/`reason`/`status` values, `risky` typo, retention), `docs/privacy.md`, `docs/architecture.md`, `docs/configuration.md`, `docs/usage-guide.md`, `docs/roadmap.md` and `docs/testing.md`
-- [ ] 5.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
+- [x] 5.1 Update `docs/domain-model.md` (Ledger entry: `v`, `turnId`, `correction` kind replacing `corrected`, `outcome`/`reason`/`status` values, `risky` typo, retention), `docs/privacy.md`, `docs/architecture.md`, `docs/configuration.md`, `docs/usage-guide.md`, `docs/roadmap.md` and `docs/testing.md`
+- [x] 5.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
