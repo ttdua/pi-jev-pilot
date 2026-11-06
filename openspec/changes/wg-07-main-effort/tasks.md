@@ -1,6 +1,6 @@
 ## 0. Setup
 
-- [ ] 0.1 Run `bun install` in the worktree (its `node_modules` lacks `.bin/pi` and most of `pi-coding-agent/dist/core`), then confirm `bun test tests/load.test.ts` passes before any change.
+- [x] 0.1 Run `bun install` in the worktree (its `node_modules` lacks `.bin/pi` and most of `pi-coding-agent/dist/core`), then confirm `bun test tests/load.test.ts` passes before any change.
 
 ## 1. Effort policy (pure)
 
