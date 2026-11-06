@@ -108,7 +108,20 @@ type PrepareOpts = {
   agentDir?: string;
   /** Reuse a working directory. */
   cwd?: string;
+  /** Classifier endpoint written to jev/config.json; defaults to a refused loopback port. */
+  jevConfig?: { url: string; timeoutMs: number };
 };
+
+const DEFAULT_JEV_CONFIG = { url: "http://127.0.0.1:9/v1/systemone", timeoutMs: 300 };
+
+/** Writes jev/config.json so no host test reaches beyond loopback; an existing file is kept. */
+function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): void {
+  const file = join(agentDir, "jev", "config.json");
+  if (existsSync(file)) return;
+  const { url, timeoutMs } = jevConfig ?? DEFAULT_JEV_CONFIG;
+  mkdirSync(join(agentDir, "jev"), { recursive: true });
+  writeFileSync(file, JSON.stringify({ classifier: { url, timeoutMs } }));
+}
 
 /** Shared setup: temp dirs, models.json, agents and installs. */
 function prepare(opts: PrepareOpts): Prepared {
@@ -128,6 +141,7 @@ function prepare(opts: PrepareOpts): Prepared {
       join(agentDir, "models.json"),
       JSON.stringify(fixtureModelsJson(opts.fixture.baseUrl)),
     );
+    writeJevConfig(agentDir, opts.jevConfig);
     if (opts.agents) {
       mkdirSync(join(agentDir, "agents"), { recursive: true });
       for (const [stem, text] of Object.entries(opts.agents)) {
@@ -226,12 +240,14 @@ export async function runOnce(opts: {
   agentDir?: string;
   cwd?: string;
   env?: Record<string, string>;
+  jevConfig?: { url: string; timeoutMs: number };
 }): Promise<{ code: number; stdout: string; stderr: string; agentDir: string; cwd: string }> {
   const { dirs, cleanDirs } = prepare({
     fixture: opts.fixture,
     self: opts.self,
     agentDir: opts.agentDir,
     cwd: opts.cwd,
+    jevConfig: opts.jevConfig,
   });
   const created = { agentDir: opts.agentDir === undefined, cwd: opts.cwd === undefined };
   const flags = opts.mode === "print" ? ["-p"] : ["--mode", "json"];

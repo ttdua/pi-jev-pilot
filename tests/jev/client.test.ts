@@ -241,6 +241,26 @@ describe("askJev timeout and cancellation", () => {
     expect(out).toMatchObject({ kind: "miss", miss: "timeout", reason: "timeout" });
   });
 
+  test("Held route answers only after release", async () => {
+    let release!: (route: { json: unknown }) => void;
+    const held = new Promise<{ json: unknown }>((resolve) => {
+      release = resolve;
+    });
+    const f = await fixture({ "/held": { held } });
+    let done = false;
+    const pending = askJev(base(f.url("/held"), { timeoutMs: 5000 })).then((out) => {
+      done = true;
+      return out;
+    });
+    while (f.requests.length === 0) await Bun.sleep(10);
+    await Bun.sleep(100);
+    expect(done).toBe(false);
+    release({ json: { answers: { risky: { type: "noul", noul: 0.1 } } } });
+    const out = await pending;
+    expect(done).toBe(true);
+    expect(out.kind).toBe("ok");
+  });
+
   test("Already cancelled", async () => {
     const f = await fixture({ "/ok": { json: {} } });
     const out = await askJev(base(f.url("/ok"), { signal: AbortSignal.abort() }));

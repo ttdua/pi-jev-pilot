@@ -4,6 +4,10 @@ The exact wording sent to Jev, and the exact text added to the model's context. 
 
 Wording decides routing, so a change here needs a [replay](testing.md#replay-rules). Attribution is in [NOTICE.md](../NOTICE.md).
 
+## Wire format
+
+Questions follow the documented Choice and Noul shapes. A choice has `type`, `instructions` and `criteria`, a map from each option to its description. A noul has `type`, `instructions` and `criteria` with the keys `true` and `false`. The package always sends `criteria`; TypeSafe treats it as optional.
+
 ## Tier rubrics
 
 Instruction, in every mode:

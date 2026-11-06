@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
+import { toolNames, withoutReview } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
 import type { RpcEvent } from "./rpc";
@@ -225,31 +226,8 @@ describe("status line and /jev through the real CLI", () => {
   );
 });
 
-function toolNames(body: unknown): string[] {
-  const tools = (body as { tools?: { function?: { name?: string } }[] }).tools ?? [];
-  return tools.map((t) => t.function?.name ?? "");
-}
-
 function noReview(f: Fixture): boolean {
   return f.requests.every((r: RecordedRequest) => !toolNames(r.body).includes("jev_review"));
-}
-
-/** Drops the jev_review tool entry and the system-prompt lines that mention it. */
-function withoutReview(body: unknown): unknown {
-  const b = structuredClone(body) as {
-    tools?: { function?: { name?: string } }[];
-    messages?: { content?: unknown }[];
-  };
-  if (b.tools) b.tools = b.tools.filter((t) => t.function?.name !== "jev_review");
-  for (const m of b.messages ?? []) {
-    if (typeof m.content === "string") {
-      m.content = m.content
-        .split("\n")
-        .filter((l) => !l.includes("jev_review"))
-        .join("\n");
-    }
-  }
-  return b;
 }
 
 describe("print and JSON mode", () => {
@@ -418,7 +396,9 @@ describe("executor child", () => {
       () => fixture.requests.some((r) => r.matched === "main-after"),
       "main resumes after child",
     );
-    expect(jevWidgets(s).length).toBe(1);
+    // Start draw + one redraw for the main run's decision; the child session adds none.
+    const lines = jevWidgets(s).map((w) => w.widgetLines);
+    expect(lines).toEqual([["Jev · standard"], ["Jev · standard · no answer"]]);
     expect(fixture.unmatched).toEqual([]);
   }, 120_000);
 });

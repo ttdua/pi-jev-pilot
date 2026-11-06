@@ -69,6 +69,20 @@ describe("host session harness", () => {
     expect(existsSync(s.cwd)).toBe(false);
   }, 60_000);
 
+  test("agent dir holds a loopback jev config; a given one wins", async () => {
+    const fixture = await fixtureWith([]);
+    const s = await sessionWith(fixture);
+    const file = join(s.agentDir, "jev", "config.json");
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({
+      classifier: { url: "http://127.0.0.1:9/v1/systemone", timeoutMs: 300 },
+    });
+    const custom = { url: "http://127.0.0.1:1/v1/systemone", timeoutMs: 50 };
+    const t = await sessionWith(fixture, { jevConfig: custom });
+    expect(JSON.parse(readFileSync(join(t.agentDir, "jev", "config.json"), "utf8"))).toEqual({
+      classifier: custom,
+    });
+  }, 60_000);
+
   test("installs executor offline", async () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },

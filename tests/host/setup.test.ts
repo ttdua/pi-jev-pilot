@@ -81,9 +81,12 @@ describe("setup", () => {
     expect(f.order.indexOf("on:session_start")).toBeGreaterThan(1);
     expect([...f.commands.keys()]).toEqual(["jev"]);
     expect([...f.handlers.keys()].sort()).toEqual([
+      "agent_settled",
       "before_agent_start",
+      "before_provider_request",
       "session_shutdown",
       "session_start",
+      "turn_end",
     ]);
   });
 
@@ -96,6 +99,18 @@ describe("setup", () => {
       fakeCtx("main", () => calls++),
     );
     expect(calls).toBeGreaterThan(0);
+  });
+
+  test("turn_end and before_provider_request return undefined", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    const ctx = fakeCtx("main", () => {});
+    const payload = { a: 1 };
+    expect(await f.handlers.get("before_provider_request")![0]!({ payload }, ctx)).toBeUndefined();
+    expect(payload).toEqual({ a: 1 });
+    expect(
+      await f.handlers.get("turn_end")![0]!({ message: {}, toolResults: [] }, ctx),
+    ).toBeUndefined();
   });
 
   test("session_start with a throwing setWidget returns normally", async () => {
