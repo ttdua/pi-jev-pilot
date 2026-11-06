@@ -16,7 +16,7 @@
 - **Branch**: `WG-03-loopback`
 - **Base branch**: `main`
 - **Final state**: `pr-updated`
-- **PR URL**: `pending (filled in after step 11)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/23` (opened against `main`, body `Closes #4`)
 
 Closeout notes:
 - `WG-03-loopback` is checked out in its own worktree, `/Users/naicoi/Projects/oss/pi-jev-pilot.WG-03-loopback`, so the merge ran there.
@@ -38,7 +38,7 @@ The worktree was removed with `wt remove`. The branch `unify-loopback-rule` was 
 
 ## PR comment
 
-- **PR comment status**: `pending (filled in after step 12)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/23#issuecomment-6679471880)
 
 ---
 
