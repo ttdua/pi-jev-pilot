@@ -1,7 +1,7 @@
 ## 1. Foundations
 
 - [x] 1.1 Add `src/store/validate.ts`: issue type, path formatting, and combinators (known-key object, string pattern, integer range, enum, boolean, bounded array) that collect every issue without echoing values
-- [ ] 1.2 Add `src/store/atomic.ts`: create the jev dir `0700`, write temp `0600` + fsync + rename, keep an existing file's mode on request, remove the temp file on failure and return the error code
+- [x] 1.2 Add `src/store/atomic.ts`: create the jev dir `0700`, write temp `0600` + fsync + rename, keep an existing file's mode on request, remove the temp file on failure and return the error code
 - [x] 1.3 Add `src/store/defaults.ts`: code defaults for every setting, the feature list, modes and reserved slot names from `docs/configuration.md` and `docs/usage-guide.md`
 
 ## 2. config.json
