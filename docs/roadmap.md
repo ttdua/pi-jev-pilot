@@ -165,8 +165,9 @@ Replace assumptions with evidence before building on them. **This group may chan
 The pre-launch tier cascade moved here from WG-13.
 
 - **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` ([WG-02 Q2](evidence/2026-11-05-host-seams.md#q2)), input mutation with validation, `locked` handling, worker outcome in the ledger.
-- **Open option ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** on `inherit_context` launches, keep the model and change only thinking; currently skipped per the domain model.
-- **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` and `inherit_context` are untouched, and a Jev outage leaves launches unchanged.
+- **Decision ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** forked launches follow `subagents.forkedLaunch`, default `untouched`; `thinking` keeps the model and changes only thinking.
+- **Also includes:** launches issued by another tool (nested, `parentToolCallId`) are classified at `tool_call`; `resume` and `inherit_context` are read as effective values (launch input, else the agent file); the pre-launch tier cascade uses effort `xhigh` on every tier and warns with the failing tier, the tier used instead and the setting to fix.
+- **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` is untouched, a forked launch follows `subagents.forkedLaunch`, an unusable tier cascades down, never to `expert`, and a Jev outage leaves launches unchanged.
 
 ### WG-12: Modes and expert tier
 
