@@ -40,7 +40,7 @@ export type WorkerRouting = {
 };
 
 /** What a launch needs from `message_end` until its `tool_call` (and later, its ledger line). */
-export type LaunchEntry = {
+type LaunchEntry = {
   facts: AgentFacts;
   launch: EffectiveLaunch;
   kind: LaunchKind;
