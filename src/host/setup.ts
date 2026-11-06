@@ -39,6 +39,11 @@ export function setup(pi: ExtensionAPI): void {
 
   pi.registerCommand("jev", {
     description: "Show or change jev-pilot features",
-    handler: (args, ctx) => runJev(args, ctx, { dir: jevDir(), load: () => loadSnapshot(pi) }),
+    handler: (args, ctx) =>
+      runJev(args, ctx, {
+        dir: jevDir(),
+        load: () => loadSnapshot(pi),
+        exec: (c, a, o) => pi.exec(c, a, o),
+      }),
   });
 }

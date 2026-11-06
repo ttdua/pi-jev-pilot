@@ -3,6 +3,7 @@ import { DECISION_FEATURES, FEATURES, type Feature } from "../store/defaults.ts"
 import { resetState, updateState } from "../store/state-file.ts";
 import type { Issue } from "../store/validate.ts";
 import { isChild } from "./child.ts";
+import type { Exec } from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
 import { drawStatus, statusText } from "./status.ts";
 
@@ -11,14 +12,28 @@ export type JevArgs =
   | { kind: "set"; feature: Feature; on: boolean }
   | { kind: "all"; on: boolean }
   | { kind: "reset" }
+  | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
   | { kind: "usage" };
 
 const USAGE: JevArgs = { kind: "usage" };
+
+function parseCliReview(words: string[]): JevArgs {
+  const [, cli, model, effort] = words;
+  if (words.length < 2 || words.length > 4) return USAGE;
+  if (cli !== "codex" && cli !== "opencode") return USAGE;
+  return {
+    kind: "cli-review",
+    cli,
+    ...(model === undefined || model === "default" ? {} : { model }),
+    ...(effort === undefined || effort === "default" ? {} : { effort }),
+  };
+}
 
 /** Split on whitespace and match case-sensitively; only an empty argument is the status form. */
 export function parseJevArgs(text: string): JevArgs {
   const words = text.trim() === "" ? [] : text.trim().split(/\s+/);
   if (words.length === 0) return { kind: "status" };
+  if (words[0] === "cli-review") return parseCliReview(words);
   const [head, value, ...rest] = words;
   if (words.length === 1) return head === "reset" ? { kind: "reset" } : USAGE;
   if (rest.length > 0 || (value !== "on" && value !== "off")) return USAGE;
@@ -38,6 +53,7 @@ export function usageText(): string {
     `      features: ${FEATURES.join(", ")}`,
     "  /jev all on|off           switch the seven decision features",
     "  /jev reset                reset switches, mode and CLI review default",
+    "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
   ].join("\n");
 }
 
@@ -45,9 +61,18 @@ function issueLines(label: string, issues: Issue[]): string[] {
   return issues.map((i) => `  ${label} ${i.path === "" ? "(file)" : i.path}: ${i.message}`);
 }
 
+function reviewLine(r: Snapshot["settings"]["review"]): string {
+  const parts = [
+    ...(r.model ? [`model ${r.model}`] : []),
+    ...(r.effort ? [`effort ${r.effort}`] : []),
+  ];
+  return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
+}
+
 export function formatStatus(s: Snapshot): string {
   const lines = [statusText(s), `mode: ${s.settings.mode}`, "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
+  lines.push(reviewLine(s.settings.review));
   lines.push(`key: ${s.keyVar} ${s.keySet ? "set" : "not set"}`);
   lines.push(
     s.executor
@@ -70,7 +95,7 @@ function describeError(err: unknown): string {
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
-  deps: { dir: string; load: () => Snapshot },
+  deps: { dir: string; load: () => Snapshot; exec: Exec },
 ): Promise<void> {
   try {
     if (isChild(ctx.sessionManager.getSessionId())) return;
@@ -78,7 +103,7 @@ export async function runJev(
       if (ctx.hasUI) ctx.ui.notify(message, type);
     };
     const parsed = parseJevArgs(args);
-    if (parsed.kind === "usage") {
+    if (parsed.kind === "usage" || parsed.kind === "cli-review") {
       notify(usageText(), "warning");
       return;
     }

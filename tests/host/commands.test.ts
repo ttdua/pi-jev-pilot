@@ -10,6 +10,7 @@ import {
   usageText,
   type JevArgs,
 } from "../../src/host/commands.ts";
+import type { Exec } from "../../src/host/review-cli.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
@@ -48,7 +49,24 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("all on")).toEqual({ kind: "all", on: true });
     expect(parseJevArgs("reset")).toEqual({ kind: "reset" });
   });
+  test("cli-review", () => {
+    expect(parseJevArgs("cli-review opencode")).toEqual({ kind: "cli-review", cli: "opencode" });
+    expect(parseJevArgs("cli-review codex default high")).toEqual({
+      kind: "cli-review",
+      cli: "codex",
+      effort: "high",
+    });
+    expect(parseJevArgs("cli-review codex luna default")).toEqual({
+      kind: "cli-review",
+      cli: "codex",
+      model: "luna",
+    });
+  });
   for (const bad of [
+    "cli-review",
+    "cli-review claude",
+    "cli-review Codex",
+    "cli-review codex luna high now",
     "mode premium",
     "colors off",
     "skills maybe",
@@ -71,8 +89,11 @@ describe("usageText", () => {
   });
   test("lists no later forms", () => {
     for (const line of text.split("\n"))
-      for (const p of ["/jev mode", "/jev cli-review", "/jev tune", "/jev remove"])
+      for (const p of ["/jev mode", "/jev tune", "/jev remove", "/jev slot"])
         expect(line.trimStart().startsWith(p)).toBe(false);
+  });
+  test("lists the cli-review form", () => {
+    expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
   });
 });
 
@@ -87,6 +108,19 @@ describe("formatStatus", () => {
     expect(text).toMatch(/TYPESAFE_API_KEY[^\n]*\bset\b/);
     expect(text).not.toContain("not set");
     expect(text).not.toContain("no executor");
+  });
+  test("cli review default and set values", () => {
+    expect(formatStatus(snap())).toContain("cli review: codex (CLI defaults)");
+    const state: State = { cliReview: { cli: "codex", model: "luna", effort: "high" } };
+    const lines = formatStatus(snap({ state })).split("\n");
+    expect(lines).toContain("cli review: codex (model luna, effort high)");
+    expect(lines.indexOf("cli review: codex (model luna, effort high)")).toBe(
+      lines.findIndex((l) => l.startsWith("  verbose:")) + 1,
+    );
+    const m = formatStatus(snap({ state: { cliReview: { cli: "opencode", model: "p/m" } } }));
+    expect(m).toContain("cli review: opencode (model p/m)");
+    const e = formatStatus(snap({ state: { cliReview: { cli: "opencode", effort: "high" } } }));
+    expect(e).toContain("cli review: opencode (effort high)");
   });
   test("key not set", () => {
     expect(formatStatus(snap({ env: {} }))).toContain("not set");
@@ -170,8 +204,12 @@ const load = (dir: string) => () =>
     toolNames: ["subagent"],
   });
 
-async function run(args: string, dir: string, c = fakeCtx()) {
-  await runJev(args, c.ctx, { dir, load: load(dir) });
+const noExec: Exec = async () => {
+  throw new Error("exec must not be called");
+};
+
+async function run(args: string, dir: string, c = fakeCtx(), exec: Exec = noExec) {
+  await runJev(args, c.ctx, { dir, load: load(dir), exec });
   return c.rec;
 }
 
@@ -279,6 +317,7 @@ describe("runJev", () => {
     const c = fakeCtx();
     await runJev("", c.ctx, {
       dir,
+      exec: noExec,
       load: () => {
         throw new TypeError("boom");
       },
@@ -294,10 +333,11 @@ describe("runJev", () => {
     };
     await runJev("", c.ctx, {
       dir,
+      exec: noExec,
       load: () => {
         throw new TypeError("boom");
       },
     });
-    await runJev("mode premium", c.ctx, { dir, load: load(dir) });
+    await runJev("mode premium", c.ctx, { dir, load: load(dir), exec: noExec });
   });
 });
