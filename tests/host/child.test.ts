@@ -54,6 +54,14 @@ describe("child registry", () => {
     expect(registry()?.size ?? 0).toBe(0);
   });
 
+  test("bad disposed payloads keep recorded ids", () => {
+    const bus = fakeBus();
+    subscribeChildren(bus);
+    bus.emit(CREATED, { sessionId: "c1" });
+    for (const p of [{}, null, { sessionId: 7 }]) bus.emit(DISPOSED, p);
+    expect(isChild("c1")).toBe(true);
+  });
+
   test("shared across instances", () => {
     const a = fakeBus();
     const b = fakeBus();
