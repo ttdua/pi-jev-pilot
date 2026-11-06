@@ -17,7 +17,7 @@
 
 ## 4. Effective settings
 
-- [ ] 4.1 Add `resolveSettings({ config, state, tuning? })` in `src/store/settings.ts`: pure, complete result, `tuning > state > config > default`, tuning limited to an integer `classifier.timeoutMs` in 300–5000
+- [x] 4.1 Add `resolveSettings({ config, state, tuning? })` in `src/store/settings.ts`: pure, complete result, `tuning > state > config > default`, tuning limited to an integer `classifier.timeoutMs` in 300–5000
 
 ## 5. Host adapter
 
