@@ -5,7 +5,7 @@
 
 ## 2. Boundaries
 
-- [ ] 2.1 Add the `src/shared/**` lint override, the `policy/` negated exception, the `extension.ts` `./shared/**` ban, and the boundary fixtures for every new forbidden and allowed edge
+- [x] 2.1 Add the `src/shared/**` lint override, the `policy/` negated exception, the `extension.ts` `./shared/**` ban, and the boundary fixtures for every new forbidden and allowed edge
 
 ## 3. Docs
 
