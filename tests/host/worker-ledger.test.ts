@@ -94,9 +94,19 @@ describe("One line per launch", () => {
     const h = harness();
     h.setScript(() => ok(body("fast")));
     for (let i = 0; i < 300; i++) await h.fire("tool_call", h.call(`c${i}`, base()));
-    expect(h.routing.pending()).toBeLessThanOrEqual(256);
+    expect(h.routing.pending()).toBe(256); // cache only
     for (let i = 0; i < 300; i++) await h.emit("subagents:completed", done(`x${i}`));
-    expect(h.routing.pending()).toBeLessThanOrEqual(256 * 2);
+    expect(h.routing.pending()).toBe(256 + 256); // cache + outcomes
+  });
+
+  test("Launch drafts awaiting an outcome are bounded", async () => {
+    const h = harness();
+    h.setScript(() => ok(body("fast")));
+    for (let i = 0; i < 300; i++) {
+      await h.fire("tool_call", h.call(`c${i}`, base()));
+      await h.fire("tool_result", h.result(`c${i}`, `ag-${i}`));
+    }
+    expect(h.routing.pending()).toBe(256); // byAgent only; cache emptied by each result
   });
 
   test("off() clears everything", async () => {
@@ -142,6 +152,43 @@ describe("Outcome joined from the executor", () => {
     await h.fire("tool_result", h.result("t1", "ag-t1"));
     await h.emit("subagents:failed", done("ag-t1", { status: "error" }));
     expect(h.lines[0]).toMatchObject({ status: "error" });
+  });
+
+  test("Stale outcome not joined to a resume", async () => {
+    const h = harness();
+    await launch(h, "t1"); // routed launch A
+    await h.fire("tool_result", h.result("t1", "ag"));
+    await h.emit("subagents:completed", done("ag", { durationMs: 111, toolUses: 1 }));
+    expect(h.lines).toHaveLength(1);
+    // Jev outage / cancel: the launch is skipped; its event arrives after its tool_result.
+    h.setScript(() => ({ kind: "cancelled" }));
+    await launch(h, "t2");
+    await h.fire("tool_result", h.result("t2", "ag"));
+    await h.emit("subagents:completed", done("ag", { durationMs: 222, toolUses: 2 }));
+    expect(h.lines).toHaveLength(1);
+    // A resume of the same id gets its own event, not the stale one.
+    await h.fire("tool_call", h.call("t3", { ...base(), resume: "ag" }));
+    await h.fire("tool_result", h.result("t3", "ag"));
+    expect(h.lines).toHaveLength(1);
+    const resumed = done("ag", { durationMs: 333, toolUses: 3, tokens: { total: 99 } });
+    await h.emit("subagents:resumed", resumed);
+    expect(h.lines).toHaveLength(2);
+    expect(h.lines[1]).toMatchObject({
+      reason: "untouched",
+      durationMs: 333,
+      toolUses: 3,
+      tokens: 99,
+    });
+  });
+
+  test("Unrouted launch outcome dropped", async () => {
+    const h = harness({ switches: { subagents: false } });
+    await h.fire("tool_call", h.call("t1", base()));
+    await h.emit("subagents:completed", done("ag-t1")); // buffered: nothing waits for it
+    expect(h.routing.pending()).toBeGreaterThan(0);
+    await h.fire("tool_result", h.result("t1", "ag-t1"));
+    expect(h.routing.pending()).toBe(0);
+    expect(h.lines).toHaveLength(0);
   });
 
   test("Refused launch", async () => {

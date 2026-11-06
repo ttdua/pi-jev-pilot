@@ -56,6 +56,8 @@ export type LaunchEntry = {
   callerModel?: string;
   briefChars?: number;
   write?: { model?: string };
+  /** Order stamp taken when `route()` last ran for this launch's `tool_call`. */
+  seq?: number;
 };
 
 type Executor = {
@@ -64,6 +66,19 @@ type Executor = {
   toolUses?: unknown;
   tokens?: unknown;
 };
+
+/** The only executor fields a ledger line needs, stamped with arrival order. */
+type Buffered = { seq: number; outcome: Executor };
+
+function slim(data: Record<string, unknown>): Executor {
+  const tokens = data["tokens"];
+  return {
+    status: data["status"],
+    durationMs: data["durationMs"],
+    toolUses: data["toolUses"],
+    tokens: { total: isRecord(tokens) ? tokens["total"] : undefined },
+  };
+}
 
 const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
 const STATUSES = ["completed", "aborted", "stopped", "error"] as const;
@@ -151,7 +166,9 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   /** Launches whose tool result arrived, by executor agent id. */
   const byAgent = new Map<string, LaunchEntry>();
   /** Executor outcomes that arrived before their tool result, by agent id. */
-  const outcomes = new Map<string, Executor>();
+  const outcomes = new Map<string, Buffered>();
+  /** Monotonic order of tool calls and buffered outcomes (the clock is not strictly increasing). */
+  let seq = 0;
   let active = true;
 
   const put = <T>(map: Map<string, T>, key: string, value: T): void => {
@@ -316,6 +333,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     }
     const caller = input["model"];
     if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
+    entry.seq = ++seq;
     entry.session = ctx.sessionManager.getSessionId();
     entry.mode = snap.settings.mode;
     entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
@@ -420,21 +438,28 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       try {
         if (!active || event.toolName !== "subagent") return;
         const entry = cache.get(event.toolCallId);
-        if (entry?.route === undefined || entry.route.kind === "skip") return;
         cache.delete(event.toolCallId);
         const details: unknown = event.details;
         const agentId = isRecord(details) ? details["agentId"] : undefined;
-        if (typeof agentId !== "string" || agentId === "") {
+        const named = typeof agentId === "string" && agentId !== "";
+        if (entry?.route === undefined || entry.route.kind === "skip") {
+          // Nothing will be written for this launch: an outcome buffered for its agent
+          // belongs to an earlier run or to this unwritten launch, so drop it.
+          if (named) outcomes.delete(agentId);
+          return;
+        }
+        if (!named) {
           write(entry, undefined);
           return;
         }
-        const outcome = outcomes.get(agentId);
-        if (outcome === undefined) {
+        const buffered = outcomes.get(agentId);
+        outcomes.delete(agentId);
+        // Only an outcome that arrived after this launch's tool_call can be its own.
+        if (buffered === undefined || buffered.seq < (entry.seq ?? 0)) {
           put(byAgent, agentId, entry);
           return;
         }
-        outcomes.delete(agentId);
-        write(entry, outcome);
+        write(entry, buffered.outcome);
       } catch {
         /* fail open */
       }
@@ -450,11 +475,11 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
             const id = data["id"];
             const entry = byAgent.get(id);
             if (entry === undefined) {
-              put(outcomes, id, data);
+              put(outcomes, id, { seq: ++seq, outcome: slim(data) });
               return;
             }
             byAgent.delete(id);
-            write(entry, data);
+            write(entry, slim(data));
           } catch {
             /* fail open */
           }
