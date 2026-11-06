@@ -10,7 +10,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 |---|---|---|---|---|
 | WG-01 | Repository scaffold | S | | Done |
 | WG-02 | Host seam verification | M | WG-01 | Done |
-| WG-03 | Config and state stores | M | WG-01 | Planned |
+| WG-03 | Config and state stores | M | WG-01 | Done |
 | WG-04 | Jev client and answer reading | M | WG-01 | Done |
 | WG-05 | Ledger | M | WG-03 | Planned |
 | WG-06 | Status line and `/jev` base | M | WG-03 | Planned |
@@ -109,6 +109,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 - **Includes:** schema and validation of `config.json`; `state.json`; path handling through `PI_CODING_AGENT_DIR`; atomic writes.
 - **Done when:** malformed input reports the field and leaves the package inert; a key found in config is rejected; nothing rewrites `config.json` except `/jev` slot commands.
+- **Note:** the CLI review override from `/jev cli-review` lives in `state.json`, not `config.json`.
 
 ### WG-04: Jev client and answer reading
 

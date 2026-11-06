@@ -7,13 +7,26 @@ All under `<agentDir>/jev/`, by default `~/.pi/agent/jev/`.
 | File | Written by | Holds |
 |---|---|---|
 | `config.json` | You, and `/jev` for slots | Settings below |
-| `state.json` | `/jev` | Switches, mode, reviewer default |
+| `state.json` | `/jev` | Switches, mode, CLI review default |
 | `tuning.json` | Automatic tuning | Applied changes and history |
 | `ledger.jsonl` | The package | Decisions and outcomes |
 
-A malformed `config.json` makes the package inert, with an error naming the field. It is never overwritten.
-
 Precedence for a value: `tuning.json`, then `state.json`, then `config.json`, then the default.
+
+The directory is created with mode `0700` and new files with `0600`. Writes go to a temporary file in the same directory and are renamed over the target, so a reader sees the old file or the new one. An existing `config.json` keeps its mode.
+
+### Missing and malformed files
+
+| Case | Result |
+|---|---|
+| No `config.json` | Defaults apply |
+| Unknown key in `config.json` | An error naming the key by path, such as `crew.slotz` |
+| Malformed or unreadable `config.json` | The package is inert, with every problem listed by field path. The file is never overwritten |
+| No `state.json` | Defaults apply |
+| Malformed `state.json` | Defaults apply. The problem is reported to `/jev` for display. On the next change the bad file moves to `state.json.bad` (mode `0600`, replacing any earlier one) and a fresh file is written |
+| Unreadable `state.json` | Defaults apply. The file is left alone and changes are refused until it can be read |
+
+Error messages name the field and what was expected, never the value found, so a secret pasted into the wrong key stays out of logs. A `state.json` is valid or rejected whole: nothing is salvaged from a partly valid file.
 
 ## Full example
 
@@ -54,14 +67,14 @@ Precedence for a value: `tuning.json`, then `state.json`, then `config.json`, th
 
 | Key | Default | Notes |
 |---|---|---|
-| `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS, or HTTP to loopback (`localhost`, `127.0.0.0/8`, `[::1]`). No credentials in the URL. Redirects are rejected |
-| `model` | `jev-latest` | Pin a version with `jev-1.14.0` |
-| `apiKeyEnv` | `TYPESAFE_API_KEY` | The variable's name. Never put the key in this file |
+| `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS, or HTTP only for `127.0.0.1`, `localhost` or `[::1]`. No username or password. Redirects are rejected |
+| `model` | `jev-latest` | `^[A-Za-z0-9._-]{1,64}$`. Pin a version with `jev-1.14.0` |
+| `apiKeyEnv` | `TYPESAFE_API_KEY` | The variable's name, `^[A-Z_][A-Z0-9_]{0,63}$`, so a pasted key is rejected. Never put the key in this file |
 | `timeoutMs` | `1500` | Range 300–5000. Tuning may change it |
 
 ### `tiers`
 
-Each is optional: an exact `provider/id`. An unset tier is never offered. With no tier and no slot, workers keep their model.
+Each is optional: an exact `provider/id`, at most 128 characters. An unset tier is never offered. With no tier and no slot, workers keep their model.
 
 | Key | Role |
 |---|---|
@@ -72,13 +85,13 @@ Each is optional: an exact `provider/id`. An unset tier is never offered. With n
 
 ### `crew.slots`
 
-Up to 8 entries.
+Up to 8 entries. Slot commands rewrite `config.json` as plain JSON with 2-space indentation and a final newline. Every other key and its order are kept, but comments and custom formatting are lost. A slot command refuses to run while the file is invalid. Removing the last slot removes `crew.slots`, and `crew` if it is then empty.
 
 | Key | Required | Notes |
 |---|---|---|
 | `name` | Yes | `^[a-z][a-z0-9-]{0,23}$`, not a reserved word |
-| `model` | Yes | Exact `provider/id` with credentials |
-| `when` | No | When Jev should choose it. Defaults to read-only bulk work |
+| `model` | Yes | Exact `provider/id` with credentials, at most 128 characters |
+| `when` | No | When Jev should choose it, 1–500 characters after trim. Defaults to read-only bulk work |
 
 Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `mode`, `off`, `on`, `premium`, `remove`, `reset`, `review`, `skills`, `standard`, `status`, `strategy`, `subagents`, `tools`, `tune`, `verbose`.
 
@@ -86,7 +99,7 @@ Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `m
 
 | Key | Default | Notes |
 |---|---|---|
-| `holdProviders` | `["9router"]` | Providers that keep the first effort until a compaction. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
+| `holdProviders` | `["9router"]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the first effort until a compaction. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
 
 Check for yourself by watching for cache misses after thinking-level changes on your provider.
 
@@ -114,7 +127,7 @@ Content that leaves the machine with its own switch.
 
 | Key | Default | Values |
 |---|---|---|
-| `cli` | `codex` | `codex` or `opencode`. Change with `/jev cli-review` |
+| `cli` | `codex` | `codex` or `opencode`. `/jev cli-review` stores an override in `state.json` and leaves this file alone |
 
 ## Fixed, not configurable
 

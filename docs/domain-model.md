@@ -14,7 +14,7 @@ classDiagram
     class Switches {
       feature on or off
       mode
-      reviewer default
+      CLI review default
     }
     class Mode {
       name

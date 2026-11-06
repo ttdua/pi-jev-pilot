@@ -74,8 +74,12 @@ src/
     status.ts            Status line, tally, log entries
 
   store/                 Files under <agentDir>/jev/.
-    config.ts            config.json: validated, read-only here
-    state-file.ts        state.json: switches, mode, reviewer
+    config.ts            config.json: reads and validates; writes only crew.slots
+    state-file.ts        state.json: switches, mode, CLI review default
+    settings.ts          Effective settings: tuning > state > config > default
+    defaults.ts          Default values and feature and mode names
+    atomic.ts            Atomic write: owner-only directory and file
+    validate.ts          Small validators that collect issues with field paths
     ledger.ts            ledger.jsonl: append, trim, read
     tuning-file.ts       tuning.json: changes, history
 
@@ -162,6 +166,8 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | One invalid answer in a response | Other answers still count | Verbose log |
 | User cancels (Esc) | Everything stops; no fallback runs | Normal Pi behavior |
 | Malformed `config.json` | Package inert; file untouched | Error naming the field |
+| Malformed `state.json` | Defaults apply; file moved to `state.json.bad` on the next change | Problem reported to `/jev` |
+| Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
 | Tier model unavailable | Next lower tier, with a warning | Warning; ledger `fallback` |
 | Slot model unavailable | `balanced`, with a warning | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |

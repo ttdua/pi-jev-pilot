@@ -1,0 +1,127 @@
+import { describe, expect, test } from "bun:test";
+import { DEFAULTS } from "../../src/store/defaults.ts";
+import { resolveSettings } from "../../src/store/settings.ts";
+
+describe("resolveSettings", () => {
+  test("Everything defaulted", () => {
+    expect(resolveSettings({ config: {}, state: {} })).toEqual({
+      classifier: {
+        url: "https://api.typesafe.ai/v1/systemone",
+        model: "jev-latest",
+        apiKeyEnv: "TYPESAFE_API_KEY",
+        timeoutMs: 1500,
+      },
+      tiers: {},
+      crew: { slots: [] },
+      effort: { holdProviders: ["9router"] },
+      skills: { inject: "content" },
+      tools: { mode: "observe" },
+      state: { parentRequest: false },
+      review: { cli: "codex" },
+      mode: "standard",
+      switches: {
+        effort: true,
+        subagents: true,
+        skills: true,
+        strategy: true,
+        tools: true,
+        expert: true,
+        review: true,
+        status: true,
+        verbose: false,
+      },
+    });
+  });
+
+  test("Config over default", () => {
+    const s = resolveSettings({ config: { classifier: { timeoutMs: 2000 } }, state: {} });
+    expect(s.classifier.timeoutMs).toBe(2000);
+    expect(s.classifier.model).toBe("jev-latest");
+  });
+
+  test("Tuning over config", () => {
+    const s = resolveSettings({
+      config: { classifier: { timeoutMs: 2000 } },
+      state: {},
+      tuning: { classifier: { timeoutMs: 1800 } },
+    });
+    expect(s.classifier.timeoutMs).toBe(1800);
+  });
+
+  test("Switch off", () => {
+    const s = resolveSettings({ config: {}, state: { switches: { skills: false } } });
+    expect(s.switches).toEqual({ ...DEFAULTS.switches, skills: false });
+  });
+
+  test("Mode from state", () => {
+    expect(resolveSettings({ config: {}, state: { mode: "premium" } }).mode).toBe("premium");
+  });
+
+  test("CLI review default from state", () => {
+    const s = resolveSettings({
+      config: { review: { cli: "codex" } },
+      state: { cliReview: { cli: "opencode" } },
+    });
+    expect(s.review).toEqual({ cli: "opencode" });
+    expect(Object.hasOwn(s.review, "model")).toBe(false);
+    expect(Object.hasOwn(s.review, "effort")).toBe(false);
+  });
+
+  test("Config review without state", () => {
+    const s = resolveSettings({ config: { review: { cli: "opencode" } }, state: {} });
+    expect(s.review.cli).toBe("opencode");
+  });
+
+  test("Non-integer tuning ignored", () => {
+    const s = resolveSettings({
+      config: { classifier: { timeoutMs: 2000 } },
+      state: {},
+      tuning: { classifier: { timeoutMs: 1800.5 } },
+    });
+    expect(s.classifier.timeoutMs).toBe(2000);
+    expect(
+      resolveSettings({ config: {}, state: {}, tuning: { classifier: { timeoutMs: 1800.5 } } })
+        .classifier.timeoutMs,
+    ).toBe(1500);
+  });
+
+  test("Out-of-range tuning ignored", () => {
+    for (const v of [9000, 299, 5001, "1800", Number.NaN]) {
+      const s = resolveSettings({
+        config: {},
+        state: {},
+        tuning: { classifier: { timeoutMs: v } },
+      });
+      expect(s.classifier.timeoutMs).toBe(1500);
+    }
+    const edge = resolveSettings({
+      config: {},
+      state: {},
+      tuning: { classifier: { timeoutMs: 300 } },
+    });
+    expect(edge.classifier.timeoutMs).toBe(300);
+  });
+
+  test("result is fresh: mutation does not leak", () => {
+    const config = {
+      effort: { holdProviders: ["x"] },
+      tiers: { fast: "m" },
+      crew: { slots: [{ name: "a", model: "b" }] },
+    };
+    const s = resolveSettings({ config, state: {} });
+    s.effort.holdProviders.push("y");
+    s.tiers.deep = "z";
+    s.crew.slots[0]!.name = "changed";
+    s.crew.slots.push({ name: "n", model: "m" });
+    expect(config.effort.holdProviders).toEqual(["x"]);
+    expect(config.tiers).toEqual({ fast: "m" });
+    expect(config.crew.slots).toEqual([{ name: "a", model: "b" }]);
+
+    const d = resolveSettings({ config: {}, state: {} });
+    d.effort.holdProviders.push("y");
+    d.switches.verbose = true;
+    expect(DEFAULTS.effort.holdProviders).toEqual(["9router"]);
+    expect(DEFAULTS.switches.verbose).toBe(false);
+    expect(resolveSettings({ config: {}, state: {} }).effort.holdProviders).toEqual(["9router"]);
+  });
+});
