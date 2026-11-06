@@ -8,6 +8,7 @@ import type {
 import type { askJev } from "../jev/client.ts";
 import { mainQuestions } from "../jev/questions.ts";
 import { mainState } from "../jev/state.ts";
+import { CORRECTION_THRESHOLD } from "../policy/effort.ts";
 import { readAnswers } from "../policy/answers.ts";
 import {
   canAskEffort,
@@ -32,7 +33,7 @@ export type MainDeps = {
   env: () => Record<string, string | undefined>;
 };
 
-/** Per-turn bookkeeping. Internal; Task 7 writes the ledger lines from it. */
+/** Per-turn bookkeeping. Internal; the ledger lines are written from it when the run settles. */
 export type TurnRecord = {
   turnId: string;
   at: number;
@@ -54,6 +55,8 @@ export type TurnRecord = {
   failures: number;
   inputTokens: number;
   outputTokens: number;
+  /** Stop reason of the last assistant message seen in `turn_end`. */
+  lastStop?: string;
 };
 
 type Ctx = Pick<
@@ -225,6 +228,77 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       const usage = (event.message as { usage?: { input?: unknown; output?: unknown } }).usage;
       if (typeof usage?.input === "number") record.inputTokens += usage.input;
       if (typeof usage?.output === "number") record.outputTokens += usage.output;
+      const stop = (event.message as { stopReason?: unknown }).stopReason;
+      if (typeof stop === "string") record.lastStop = stop;
+    } catch {
+      /* swallow */
+    }
+  }
+
+  function lastBranchStop(ctx: Ctx | undefined): string | undefined {
+    try {
+      const entries = ctx?.sessionManager.getBranch() ?? [];
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const e = entries[i]!;
+        if (e.type !== "message") continue;
+        const m = e.message as { role?: string; stopReason?: unknown };
+        if (m.role === "assistant")
+          return typeof m.stopReason === "string" ? m.stopReason : undefined;
+      }
+    } catch {
+      /* no fallback */
+    }
+    return undefined;
+  }
+
+  /** Correction line, `main` line, then the `jev-turn` entry. A failed ledger write never skips the entry. */
+  function write(rec: TurnRecord, aborted: boolean, ctx: Ctx | undefined): void {
+    const base = { v: 1, at: rec.at, session: rec.sessionId };
+    try {
+      if (
+        rec.corrects !== undefined &&
+        rec.corrects >= CORRECTION_THRESHOLD &&
+        rec.previousTurnId !== undefined
+      ) {
+        deps.append({
+          ...base,
+          kind: "correction",
+          turnId: rec.previousTurnId,
+          corrects: rec.corrects,
+        });
+      }
+    } catch {
+      /* the main line still goes */
+    }
+    try {
+      const stop = rec.lastStop ?? lastBranchStop(ctx);
+      const outcome = aborted ? "aborted" : stop === "error" ? "error" : "ok";
+      deps.append({
+        ...base,
+        kind: "main",
+        mode: rec.mode,
+        answered: rec.answered,
+        turnId: rec.turnId,
+        ...(rec.answered || rec.miss !== undefined ? { ms: rec.ms } : {}),
+        ...(rec.miss === undefined ? {} : { miss: rec.miss }),
+        ...(rec.effortP === undefined ? {} : { effortP: rec.effortP }),
+        ...(rec.risky === undefined ? {} : { risky: rec.risky }),
+        ...(rec.corrects === undefined ? {} : { corrects: rec.corrects }),
+        ...(rec.requested === undefined ? {} : { requested: rec.requested }),
+        ...(rec.effective === undefined ? {} : { effective: rec.effective }),
+        from: rec.from,
+        toolCalls: rec.toolCalls,
+        failures: rec.failures,
+        inputTokens: rec.inputTokens,
+        outputTokens: rec.outputTokens,
+        durationMs: Math.max(0, deps.now() - rec.at),
+        outcome,
+      });
+    } catch {
+      /* ledger failure never affects the turn */
+    }
+    try {
+      pi.appendEntry("jev-turn", { turnId: rec.turnId });
     } catch {
       /* swallow */
     }
@@ -248,9 +322,10 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         undo = undefined;
         return;
       }
-      // Task 7: write the correction and `main` ledger lines and the `jev-turn` entry from `rec` here.
+      const ctx = undo?.rec === rec ? undo.ctx : undefined;
       record = undefined;
       undo = undefined;
+      write(rec, event.aborted, ctx);
     } catch {
       record = undefined;
       undo = undefined;

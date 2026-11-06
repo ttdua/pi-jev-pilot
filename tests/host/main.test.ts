@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import { createMain, type MainDeps } from "../../src/host/main.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import { mainQuestions } from "../../src/jev/questions.ts";
@@ -38,8 +39,13 @@ function setup(
     branchThrows?: boolean;
     outcomes?: (JevOutcome | Promise<JevOutcome>)[];
     id?: string;
+    branch?: unknown[];
+    appendResult?: { ok: false; reason?: string } | { ok: true };
   } = {},
 ) {
+  const appended: unknown[] = [];
+  const custom: { type: string; data: unknown }[] = [];
+  const clock = { t: 1000 };
   let lvl: ThinkingLevel = o.start ?? "low";
   let supported: ThinkingLevel[] = o.supported ?? [
     "off",
@@ -56,7 +62,7 @@ function setup(
       sets.push(l);
       lvl = supported.includes(l) ? l : (supported[supported.length - 1] ?? "off");
     },
-    appendEntry: () => {},
+    appendEntry: (type: string, data: unknown) => custom.push({ type, data }),
     getAllTools: () => [],
   };
   const widgets: unknown[] = [];
@@ -65,7 +71,7 @@ function setup(
       getSessionId: () => o.id ?? sessionId,
       getBranch: () => {
         if (o.branchThrows) throw new Error("boom");
-        return [];
+        return o.branch ?? [];
       },
     },
     model: "model" in o ? o.model : { reasoning: true, thinkingLevelMap: { xhigh: "xhigh" } },
@@ -89,8 +95,11 @@ function setup(
       requests.push(req);
       return queue.shift() ?? answer("low");
     },
-    append: () => ({ ok: true }),
-    now: () => 1000,
+    append: (entry) => {
+      appended.push(entry);
+      return (o.appendResult ?? { ok: true }) as never;
+    },
+    now: () => clock.t,
     newId: () => "11111111-1111-1111-1111-111111111111",
     platforms: () => ["none found"],
     env: () => o.env ?? { TYPESAFE_API_KEY: "test-key" },
@@ -104,6 +113,9 @@ function setup(
     ctx: ctx as never,
     ctxRaw: ctx,
     sets,
+    appended,
+    custom,
+    clock,
     widgets,
     requests,
     event,
@@ -381,5 +393,204 @@ describe("errors", () => {
     );
     await expect(m.beforeAgentStart(t.event(), t.ctx)).resolves.toBeUndefined();
     expect(t.sets).toEqual([]);
+  });
+});
+
+describe("ledger", () => {
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const msg = (stopReason = "stop", usage: unknown = { input: 10, output: 5 }) => ({
+    role: "assistant",
+    stopReason,
+    usage,
+  });
+  const turnEnd = (t: ReturnType<typeof setup>, results: boolean[], m = msg()) =>
+    t.main.turnEnd({
+      type: "turn_end",
+      message: m,
+      toolResults: results.map((isError) => ({ isError })),
+    } as never);
+  const lines = (t: ReturnType<typeof setup>) =>
+    t.appended.map((e) => {
+      const v = validateLedgerEntry(e);
+      expect(v.ok).toBe(true);
+      return e as Record<string, unknown>;
+    });
+  const jevTurn = (id: string) => ({
+    type: "custom",
+    customType: "jev-turn",
+    data: { turnId: id },
+  });
+
+  test("applied turn", async () => {
+    const t = setup({ outcomes: [answer("high", 0.1, 0.05)] });
+    await run(t);
+    t.clock.t = 1750;
+    await t.main.beforeProviderRequest();
+    await turnEnd(t, [false, true]);
+    await turnEnd(t, []);
+    await t.main.agentSettled(settled(false));
+    const [main] = lines(t);
+    expect(t.appended).toHaveLength(1);
+    expect(main).toEqual({
+      v: 1,
+      at: 1000,
+      kind: "main",
+      session: sessionId,
+      mode: "standard",
+      answered: true,
+      turnId: "11111111-1111-1111-1111-111111111111",
+      ms: 7,
+      effortP: { low: 0.1, medium: 0.1, high: 0.6, xhigh: 0.1, max: 0.1 },
+      risky: 0.1,
+      corrects: 0.05,
+      requested: "high",
+      effective: "high",
+      from: "low",
+      toolCalls: 2,
+      failures: 1,
+      inputTokens: 20,
+      outputTokens: 10,
+      durationMs: 750,
+      outcome: "ok",
+    });
+    expect(t.custom).toEqual([
+      { type: "jev-turn", data: { turnId: "11111111-1111-1111-1111-111111111111" } },
+    ]);
+  });
+
+  test("effective is read back from Pi", async () => {
+    const t = setup({ outcomes: [answer("xhigh")] });
+    t.setSupported(["off", "minimal", "low", "medium", "high"]);
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(false));
+    const [main] = lines(t);
+    expect(main!["requested"]).toBe("xhigh");
+    expect(main!["effective"]).toBe("high");
+  });
+
+  test("miss", async () => {
+    const t = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "x", ms: 3 }] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(false));
+    const [main] = lines(t);
+    expect(main).toMatchObject({ answered: false, miss: "timeout", from: "low", ms: 3 });
+    for (const k of ["requested", "effective", "effortP"]) expect(k in main!).toBe(false);
+  });
+
+  test("discarded", async () => {
+    let release!: (o: JevOutcome) => void;
+    const held = new Promise<JevOutcome>((r) => (release = r));
+    const t = setup({ outcomes: [held] });
+    const pending = run(t);
+    t.setLevel("medium");
+    release(answer("xhigh"));
+    await pending;
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(false));
+    const [main] = lines(t);
+    expect(main).toMatchObject({ requested: "xhigh", answered: true });
+    expect(main!["effortP"]).toBeDefined();
+    expect("effective" in main!).toBe(false);
+  });
+
+  test("aborted after a provider request", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(true));
+    expect(lines(t)[0]!["outcome"]).toBe("aborted");
+    expect(t.custom).toHaveLength(1);
+  });
+
+  test("error stop reason without a request", async () => {
+    const t = setup({
+      outcomes: [answer("high")],
+      branch: [
+        { type: "message", message: { role: "assistant", content: [], stopReason: "error" } },
+      ],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(t.appended).toHaveLength(1);
+    expect(lines(t)[0]!["outcome"]).toBe("error");
+  });
+
+  test("error stop reason seen in turnEnd", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await turnEnd(t, [], msg("error"));
+    await t.main.agentSettled(settled(false));
+    expect(lines(t)[0]!["outcome"]).toBe("error");
+  });
+
+  test("correction before main", async () => {
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(false));
+    const out = lines(t);
+    expect(out.map((l) => l["kind"])).toEqual(["correction", "main"]);
+    expect(out[0]).toMatchObject({ turnId: "T1", corrects: 0.9, session: sessionId, at: 1000 });
+  });
+
+  test("correction at the threshold", async () => {
+    const t = setup({ outcomes: [answer("high", 0.1, 0.7)], branch: [jevTurn("T1")] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(false));
+    expect(lines(t).map((l) => l["kind"])).toEqual(["correction", "main"]);
+  });
+
+  test("no correction below the threshold or without a previous turn", async () => {
+    const a = setup({ outcomes: [answer("high", 0.1, 0.69)], branch: [jevTurn("T1")] });
+    await run(a);
+    await a.main.agentSettled(settled(false));
+    expect(lines(a).map((l) => l["kind"])).toEqual(["main"]);
+    const b = setup({ outcomes: [answer("high", 0.1, 0.95)] });
+    await run(b);
+    await b.main.agentSettled(settled(false));
+    expect(lines(b).map((l) => l["kind"])).toEqual(["main"]);
+  });
+
+  test("aborted before any provider request writes nothing", async () => {
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
+    await run(t);
+    await t.main.agentSettled(settled(true));
+    expect(t.appended).toEqual([]);
+    expect(t.custom).toEqual([]);
+  });
+
+  test("forbidden fields are absent", async () => {
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    const text = JSON.stringify(t.appended);
+    for (const k of ["held", "advised", "strategy", "strategyP", "skill", "skillP", "gate"])
+      expect(text).not.toContain(`"${k}"`);
+  });
+
+  test("privacy", async () => {
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
+    await run(t, "JEV-MARKER-PROMPT");
+    await t.main.agentSettled(settled(false));
+    expect(JSON.stringify([t.appended, t.custom])).not.toContain("JEV-MARKER-PROMPT");
+  });
+
+  test("a failed ledger write still records the turn id", async () => {
+    const t = setup({ outcomes: [answer("high")], appendResult: { ok: false } });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(t.custom).toHaveLength(1);
+  });
+
+  test("the record is dropped after writing", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    await t.main.agentSettled(settled(false));
+    expect(t.appended).toHaveLength(1);
   });
 });
