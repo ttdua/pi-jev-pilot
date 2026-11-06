@@ -15,8 +15,8 @@
 
 ## 3. Host context
 
-- [ ] 3.1 Add `src/host/context.ts`: `branchItems(entries)` turning `getBranch()` entries into plain items (user and assistant text, tool calls joined with results by id, custom messages skipped); `previousTurnId(entries)` (newest valid `jev-turn` custom entry). Unit tests in `tests/host/context.test.ts` with hand-built entries.
-- [ ] 3.2 Add `scanPlatforms(cwd)` (marker table, one level down, skips, symlinks, unreadable directories) (specs/main-state: Workspace platforms). Unit tests against temporary directories.
+- [x] 3.1 Add `src/host/context.ts`: `branchItems(entries)` turning `getBranch()` entries into plain items (user and assistant text, tool calls joined with results by id, custom messages skipped); `previousTurnId(entries)` (newest valid `jev-turn` custom entry). Unit tests in `tests/host/context.test.ts` with hand-built entries.
+- [x] 3.2 Add `scanPlatforms(cwd)` (marker table, one level down, skips, symlinks, unreadable directories) (specs/main-state: Workspace platforms). Unit tests against temporary directories.
 
 ## 4. Main decision handlers
 
