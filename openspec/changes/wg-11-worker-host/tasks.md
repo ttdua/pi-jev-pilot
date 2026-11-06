@@ -20,9 +20,9 @@
 
 ## 5. Host tests
 
-- [ ] 5.1 Extend `tests/host/fixture.ts` (function replies, a provider without credentials). Host test with a loopback Jev fixture and the real executor: foreground and background launches run on the routed model and thinking; `resume` untouched; forked launch under both `forkedLaunch` values; Jev timeout and HTTP 500 leave input unchanged; switch off and no key send nothing
-- [ ] 5.2 Host test: unusable `deep` (no credentials) cascades to `balanced` with one warning for two launches; ledger lines carry `fallback`, outcome fields, and no prompt marker
-- [ ] 5.3 Host test: a nested `subagent` call through a tool that uses `ctx.executeTool` is classified at its `tool_call`
+- [x] 5.1 Extend `tests/host/fixture.ts` (function replies, a provider without credentials). Host test with a loopback Jev fixture and the real executor: foreground and background launches run on the routed model and thinking; `resume` untouched; forked launch under both `forkedLaunch` values; Jev timeout and HTTP 500 leave input unchanged; switch off and no key send nothing
+- [x] 5.2 Host test: unusable `deep` (no credentials) cascades to `balanced` with one warning for two launches; ledger lines carry `fallback`, outcome fields, and no prompt marker
+- [x] 5.3 Host test: a nested `subagent` call through a tool that uses `ctx.executeTool` is classified at its `tool_call`
 
 ## 6. Docs
 
