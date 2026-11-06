@@ -22,11 +22,14 @@ export const RISK_FLOOR = 0.7;
 export const EFFORT_CEILING: EffortLevel = "xhigh";
 export const CORRECTION_THRESHOLD = 0.7;
 
-/** Pi's rule for the levels a model supports, without importing Pi. */
-export function supportedLevels(m: {
+/** The subset of a Pi model that the clamp reads. */
+export type ModelThinking = {
   reasoning: boolean;
   thinkingLevelMap?: Partial<Record<ThinkingLevel, string | null>>;
-}): ThinkingLevel[] {
+};
+
+/** Pi's rule for the levels a model supports, without importing Pi. */
+export function supportedLevels(m: ModelThinking): ThinkingLevel[] {
   if (!m.reasoning) return ["off"];
   return LEVELS.filter((level) => {
     const mapped = m.thinkingLevelMap?.[level];

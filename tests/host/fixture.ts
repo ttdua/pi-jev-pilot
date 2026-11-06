@@ -14,7 +14,7 @@ export type FixtureReply =
 export type ScriptEntry = {
   name: string;
   match: (req: RecordedRequest) => boolean;
-  reply: FixtureReply;
+  reply: FixtureReply | ((req: RecordedRequest) => FixtureReply);
   times?: number;
   /** Wait this long before the reply streams. */
   delayMs?: number;
@@ -71,6 +71,7 @@ export async function startFixture(script: ScriptEntry[]): Promise<Fixture> {
 
       if (entry.delayMs) await Bun.sleep(entry.delayMs);
 
+      const reply = typeof entry.reply === "function" ? entry.reply(recorded) : entry.reply;
       const id = `chatcmpl-fixture-${recorded.seq}`;
       const chunk = (choice: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
         `data: ${JSON.stringify({
@@ -85,11 +86,11 @@ export async function startFixture(script: ScriptEntry[]): Promise<Fixture> {
         chunk({ delta: { role: "assistant", content: "" }, finish_reason: null }),
       ];
       let finish: "stop" | "tool_calls";
-      if ("text" in entry.reply) {
-        parts.push(chunk({ delta: { content: entry.reply.text }, finish_reason: null }));
+      if ("text" in reply) {
+        parts.push(chunk({ delta: { content: reply.text }, finish_reason: null }));
         finish = "stop";
       } else {
-        entry.reply.toolCalls.forEach((call, i) => {
+        reply.toolCalls.forEach((call, i) => {
           parts.push(
             chunk({
               delta: {
@@ -137,24 +138,31 @@ export async function startFixture(script: ScriptEntry[]): Promise<Fixture> {
   };
 }
 
-export function fixtureModelsJson(baseUrl: string): object {
-  return {
-    providers: {
-      fixture: {
-        baseUrl,
-        api: "openai-completions",
-        apiKey: "fixture",
-        compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
-        models: [
-          {
-            id: "fixture-main",
-            reasoning: true,
-            thinkingLevelMap: { xhigh: "xhigh", max: "max" },
-          },
-          { id: "fixture-balanced", reasoning: true },
-          { id: "fixture-fast", reasoning: true },
-        ],
-      },
+export function fixtureModelsJson(baseUrl: string, opts: { keyless?: boolean } = {}): object {
+  const providers: Record<string, object> = {
+    fixture: {
+      baseUrl,
+      api: "openai-completions",
+      apiKey: "fixture",
+      compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
+      models: [
+        {
+          id: "fixture-main",
+          reasoning: true,
+          thinkingLevelMap: { xhigh: "xhigh", max: "max" },
+        },
+        { id: "fixture-balanced", reasoning: true },
+        { id: "fixture-fast", reasoning: true },
+      ],
     },
   };
+  if (opts.keyless) {
+    providers["fixture2"] = {
+      baseUrl,
+      api: "openai-completions",
+      compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
+      models: [{ id: "fixture-deep", reasoning: true }],
+    };
+  }
+  return { providers };
 }

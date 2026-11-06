@@ -228,7 +228,7 @@ No command calls Jev. An unknown model in a slot command gets the three closest 
 | Symptom | Likely cause | Try |
 |---|---|---|
 | Nothing happens | No key, or malformed config | `/jev` shows which |
-| Workers keep their model | Agent file uses `locked`, the launch uses `resume` or `inherit_context`, or there is no executor | `/jev verbose on` |
+| Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a forked launch has `subagents.forkedLaunch` at its default `untouched`, or there is no executor | `/jev verbose on` |
 | Almost nothing uses the fast tier | Few bounded tasks reach subagents, since the main session does its own lookups | Try `/jev mode budget`, or delegate lookups to a read-only agent |
 | Worker effort is nearly always `high` | That is how the effort rubric currently reads delegated work | Known; a rubric revision is on the [roadmap](roadmap.md) |
 | Fable never runs | Its rule is strict outside `premium` | `/jev mode premium` |

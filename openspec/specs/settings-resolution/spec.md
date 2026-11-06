@@ -10,7 +10,7 @@ Effective settings SHALL come from one pure function of a valid config, the stat
 
 #### Scenario: Everything defaulted
 - **WHEN** the config is empty, the state has no fields and there is no tuning layer
-- **THEN** the result has `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`, no tiers, no slots, `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `state.parentRequest` `false`, `review.cli` `codex`, mode `standard`, and every feature on except `verbose`
+- **THEN** the result has `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`, no tiers, no slots, `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `state.parentRequest` `false`, `review.cli` `codex`, `subagents.forkedLaunch` `untouched`, mode `standard`, and every feature on except `verbose`
 
 #### Scenario: Config over default
 - **WHEN** the config sets `classifier.timeoutMs` to `2000`
@@ -19,6 +19,10 @@ Effective settings SHALL come from one pure function of a valid config, the stat
 #### Scenario: Tuning over config
 - **WHEN** the config sets `classifier.timeoutMs` to `2000` and the tuning layer sets it to `1800`
 - **THEN** the result's `classifier.timeoutMs` is `1800`
+
+#### Scenario: Forked launch from config
+- **WHEN** the config sets `subagents.forkedLaunch` to `thinking`
+- **THEN** the result's `subagents.forkedLaunch` is `thinking`
 
 ### Requirement: State overrides
 The state SHALL override the switches and mode defaults, and its CLI review default SHALL replace the config's `review` setting as a whole.

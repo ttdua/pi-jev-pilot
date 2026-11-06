@@ -57,6 +57,7 @@ Error messages name the field and what was expected, never the value found, so a
   },
   "effort": { "holdProviders": ["9router"] },
   "skills": { "inject": "content" },
+  "subagents": { "forkedLaunch": "untouched" },
   "tools": { "mode": "observe" },
   "state": { "parentRequest": false },
   "review": { "cli": "codex" }
@@ -110,6 +111,12 @@ Check for yourself by watching for cache misses after thinking-level changes on 
 | Key | Default | Values |
 |---|---|---|
 | `inject` | `content` | `content` attaches the whole body; `suggest` only names it |
+
+### `subagents`
+
+| Key | Default | Values |
+|---|---|---|
+| `forkedLaunch` | `untouched` | `untouched` leaves a forked launch (`inherit_context`) alone; `thinking` keeps its model and changes only thinking. A `resume` launch is always untouched |
 
 ### `tools`
 

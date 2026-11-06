@@ -147,7 +147,14 @@ A main request is sent when `messageType` is `user`, the text is not empty, and 
 
 Non-reasoning models, and models with one supported level, skip `effort` and `risky`. While effort is held, they are skipped too.
 
-A worker request is skipped when the launch has `resume` or `inherit_context` set, or `subagents` is off.
+A worker request is skipped when:
+
+- `subagents` is off;
+- the launch has `resume` set;
+- the launch is forked (`inherit_context`) and `subagents.forkedLaunch` is `untouched`;
+- both the model and the thinking level are locked by the agent file.
+
+A forked launch with `subagents.forkedLaunch` set to `thinking`, or a launch with no tier configured, asks only `effort` and `risky`. When no tier is decided, only thinking is written (the request still asks `tier`). A launch whose agent file locks the model is asked the full questions, but only thinking is written.
 
 ## Main questions
 

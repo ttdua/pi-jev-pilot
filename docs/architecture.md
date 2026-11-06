@@ -53,6 +53,7 @@ src/
     launch.ts            Effective launch fields and locks
     worker.ts            Reads worker answers
     tier.ts              Model decision order
+    route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
     modes.ts             Mode names, Fable rules
     skill.ts             Skill pick from choice and gate answers
     strategy.ts          Advice gates and advice text
@@ -71,7 +72,7 @@ src/
 
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice
-    worker.ts            message_end and tool_call: model and thinking
+    worker.ts            message_end batch; tool_call route and mutation; warnings; ledger join
     child.ts             Child registry; tool assessment in children
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
@@ -190,10 +191,10 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Malformed `config.json` | Package inert; file untouched | Error naming the field |
 | Malformed `state.json` | Defaults apply; file moved to `state.json.bad` on the next change | Problem reported to `/jev` |
 | Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
-| Tier model unavailable | Next lower tier, with a warning | Warning; ledger `fallback` |
+| Tier model unavailable | Next lower tier, with a warning shown once per tier and model per session | Warning; ledger `fallback` |
 | Slot model unavailable | `balanced`, with a warning | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
-| Agent file locks the model | Executor ignores the change | Ledger `locked` |
+| Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
 | Tool assessment fails | Worker keeps all tools | Verbose log |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
 | CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |

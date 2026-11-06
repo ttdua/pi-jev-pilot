@@ -18,7 +18,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-08 | Effort hold | S | WG-07 | Planned |
 | WG-09 | Skill pick and delivery | L | WG-07 | Planned |
 | WG-10 | Strategy advice | S | WG-07 | Planned |
-| WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Planned |
+| WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
 | WG-12 | Modes and expert tier | M | WG-11 | Planned |
 | WG-13 | Slots and fallback | M | WG-11 | Planned |
 | WG-14 | Tool assessment, observe only | M | WG-11 | Planned |
@@ -157,7 +157,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-11: Worker routing core
 
-**B1, B2.** The largest group; it depends most on WG-02. It ships as two changes:
+**B1, B2.** The largest group; it depends most on WG-02. It shipped as two changes, both landed:
 
 - `wg-11-worker-policy`: agent reader, worker request, pure decision, effort and fallback.
 - `wg-11-worker-host`: host wiring, `subagents.forkedLaunch`, registry and credential check, pre-launch tier cascade with a warning naming the setting, ledger outcome.

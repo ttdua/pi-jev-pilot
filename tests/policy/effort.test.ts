@@ -169,3 +169,40 @@ describe("Effort after fallback", () => {
     expect(workerEffort({ movedByFallback: false })).toBe(undefined);
   });
 });
+
+describe("Supported thinking levels", () => {
+  test("Non-reasoning model", () => {
+    expect(supportedLevels({ reasoning: false })).toEqual(["off"]);
+  });
+  test("Reasoning model without map", () => {
+    expect(supportedLevels({ reasoning: true })).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+    ]);
+  });
+});
+
+describe("Thinking clamp", () => {
+  test("Supported level kept", () => {
+    expect(clampLevel("high", supportedLevels({ reasoning: true }))).toBe("high");
+  });
+  test("xhigh clamped down", () => {
+    expect(clampLevel("xhigh", supportedLevels({ reasoning: true }))).toBe("high");
+  });
+  test("xhigh kept when mapped", () => {
+    expect(
+      clampLevel("xhigh", supportedLevels({ reasoning: true, thinkingLevelMap: { xhigh: "x" } })),
+    ).toBe("xhigh");
+  });
+  test("Unsupported level moves up", () => {
+    expect(
+      clampLevel("low", supportedLevels({ reasoning: true, thinkingLevelMap: { low: null } })),
+    ).toBe("medium");
+  });
+  test("Non-reasoning model gives off", () => {
+    expect(clampLevel("high", supportedLevels({ reasoning: false }))).toBe("off");
+  });
+});

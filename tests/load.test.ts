@@ -57,8 +57,11 @@ describe("package loading", () => {
       "agent_settled",
       "before_agent_start",
       "before_provider_request",
+      "message_end",
       "session_shutdown",
       "session_start",
+      "tool_call",
+      "tool_result",
       "turn_end",
     ]);
     expect([...(ext?.tools.keys() ?? [])]).toEqual(["jev_review"]);

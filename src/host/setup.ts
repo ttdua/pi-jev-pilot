@@ -9,10 +9,12 @@ import { loadSnapshot } from "./readiness.ts";
 import { hideReviewInChild, registerReviewTool } from "./review.ts";
 import { drawStatus } from "./status.ts";
 import { jevDir } from "./stores.ts";
+import { registerWorkerRouting } from "./worker.ts";
 
 /** Register the status line, the /jev command and the child registry on one extension instance. */
 export function setup(pi: ExtensionAPI): void {
   const off = subscribeChildren(pi.events);
+  const routing = registerWorkerRouting(pi);
   const main = createMain(pi, {
     load: () => loadSnapshot(pi),
     ask: askJev,
@@ -82,16 +84,23 @@ export function setup(pi: ExtensionAPI): void {
     } catch {
       /* keep shutdown clean */
     }
+    try {
+      routing.off();
+    } catch {
+      /* keep shutdown clean */
+    }
   });
 
   pi.registerCommand("jev", {
     description: "Show or change jev-pilot features",
-    handler: (args, ctx) =>
-      runJev(args, ctx, {
+    handler: (args, ctx) => {
+      routing.clearWarnings();
+      return runJev(args, ctx, {
         dir: jevDir(),
         load: () => loadSnapshot(pi),
         decision: main.decision,
         exec: (c, a, o) => pi.exec(c, a, o),
-      }),
+      });
+    },
   });
 }
