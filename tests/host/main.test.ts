@@ -308,6 +308,28 @@ describe("discard and failure", () => {
     t.main.sessionStart();
     expect(t.main.decision()).toBeUndefined();
   });
+
+  test("a run settled aborted after sessionStart touches nothing", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    t.main.sessionStart();
+    t.sets.length = 0;
+    const widgetsBefore = t.widgets.length;
+    await t.main.agentSettled({ type: "agent_settled", aborted: true } as never);
+    expect(t.widgets.length).toBe(widgetsBefore);
+    expect(t.sets).toEqual([]);
+    expect(t.appended).toEqual([]);
+    expect(t.custom).toEqual([]);
+  });
+
+  test("a run settled normally after sessionStart writes nothing", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    t.main.sessionStart();
+    await t.main.agentSettled({ type: "agent_settled", aborted: false } as never);
+    expect(t.appended).toEqual([]);
+    expect(t.custom).toEqual([]);
+  });
 });
 
 describe("Esc", () => {

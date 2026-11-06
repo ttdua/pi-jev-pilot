@@ -8,9 +8,9 @@ import type {
 import type { askJev } from "../jev/client.ts";
 import { mainQuestions } from "../jev/questions.ts";
 import { mainState } from "../jev/state.ts";
-import { CORRECTION_THRESHOLD } from "../policy/effort.ts";
 import { readAnswers } from "../policy/answers.ts";
 import {
+  CORRECTION_THRESHOLD,
   canAskEffort,
   decideEffort,
   supportedLevels,
@@ -338,7 +338,10 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     turnEnd,
     agentSettled,
     sessionStart: (): void => {
+      // A run from the replaced session may still settle; it must not touch the new one.
       current = undefined;
+      record = undefined;
+      undo = undefined;
     },
     decision: (): Decision | undefined => current,
   };
