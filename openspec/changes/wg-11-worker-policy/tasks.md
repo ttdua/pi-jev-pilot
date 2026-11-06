@@ -18,5 +18,5 @@
 
 ## 4. Docs
 
-- [ ] 4.1 Update `docs/domain-model.md` (fallback effort `xhigh` on every tier; expert-denied and risk floor without `deep`), `docs/jev-contract.md` (worker state field rules), `docs/architecture.md` (module layout: `policy/launch.ts`, `policy/worker.ts`) and `docs/roadmap.md` (WG-11 two changes; tier cascade moved from WG-13; status table for WG-04 to WG-06)
-- [ ] 4.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 4.1 Update `docs/domain-model.md` (fallback effort `xhigh` on every tier; expert-denied and risk floor without `deep`), `docs/jev-contract.md` (worker state field rules), `docs/architecture.md` (module layout: `policy/launch.ts`, `policy/worker.ts`) and `docs/roadmap.md` (WG-11 two changes; tier cascade moved from WG-13; status table for WG-04 to WG-06)
+- [x] 4.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
