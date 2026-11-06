@@ -26,7 +26,11 @@ async function installAndLoad(pkgDir: string): Promise<LoadExtensionsResult> {
   expect(installed.code).toBe(0);
   process.env.PI_OFFLINE = "1";
   const settingsManager = SettingsManager.create(tmpCwd, agentDir);
-  const loader = new DefaultResourceLoader({ cwd: tmpCwd, agentDir, settingsManager });
+  const loader = new DefaultResourceLoader({
+    cwd: tmpCwd,
+    agentDir,
+    settingsManager,
+  });
   await loader.reload();
   return loader.getExtensions();
 }
@@ -53,7 +57,14 @@ describe("package loading", () => {
     const result = await installAndLoad(REPO_ROOT);
     const ext = result.extensions.find((e) => resolvesTo(e.resolvedPath, entry));
     expect(ext).toBeDefined();
-    expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual(["session_shutdown", "session_start"]);
+    expect([...(ext?.handlers.keys() ?? [])].sort()).toEqual([
+      "agent_settled",
+      "before_agent_start",
+      "before_provider_request",
+      "session_shutdown",
+      "session_start",
+      "turn_end",
+    ]);
     expect(ext?.tools.size).toBe(0);
     expect([...(ext?.commands.keys() ?? [])]).toEqual(["jev"]);
     expect(ext?.flags.size).toBe(0);

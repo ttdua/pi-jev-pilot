@@ -10,7 +10,11 @@ type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
 function fakePi(opts: { throwOnOff?: boolean } = {}) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
-  const subs: { channel: string; live: boolean; handler: (d: unknown) => void }[] = [];
+  const subs: {
+    channel: string;
+    live: boolean;
+    handler: (d: unknown) => void;
+  }[] = [];
   const order: string[] = [];
   const pi = {
     on: (name: string, h: Handler) => {
@@ -34,7 +38,14 @@ function fakePi(opts: { throwOnOff?: boolean } = {}) {
   const emit = (channel: string, data: unknown) => {
     for (const s of subs) if (s.live && s.channel === channel) s.handler(data);
   };
-  return { pi: pi as unknown as ExtensionAPI, handlers, commands, subs, order, emit };
+  return {
+    pi: pi as unknown as ExtensionAPI,
+    handlers,
+    commands,
+    subs,
+    order,
+    emit,
+  };
 }
 
 function fakeCtx(sessionId: string, setWidget: () => void) {
@@ -48,7 +59,10 @@ function fakeCtx(sessionId: string, setWidget: () => void) {
 
 const CREATED = "subagents:child:session-created";
 const DISPOSED = "subagents:child:disposed";
-const saved = { dir: process.env.PI_CODING_AGENT_DIR, key: process.env.TYPESAFE_API_KEY };
+const saved = {
+  dir: process.env.PI_CODING_AGENT_DIR,
+  key: process.env.TYPESAFE_API_KEY,
+};
 let agentDir = "";
 
 beforeEach(() => {
@@ -78,7 +92,14 @@ describe("setup", () => {
     expect(f.order.slice(0, 2).sort()).toEqual([`events:${CREATED}`, `events:${DISPOSED}`].sort());
     expect(f.order.indexOf("on:session_start")).toBeGreaterThan(1);
     expect([...f.commands.keys()]).toEqual(["jev"]);
-    expect([...f.handlers.keys()].sort()).toEqual(["session_shutdown", "session_start"]);
+    expect([...f.handlers.keys()].sort()).toEqual([
+      "agent_settled",
+      "before_agent_start",
+      "before_provider_request",
+      "session_shutdown",
+      "session_start",
+      "turn_end",
+    ]);
   });
 
   test("session_start draws the line on a main session", async () => {
@@ -90,6 +111,18 @@ describe("setup", () => {
       fakeCtx("main", () => calls++),
     );
     expect(calls).toBeGreaterThan(0);
+  });
+
+  test("turn_end and before_provider_request return undefined", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    const ctx = fakeCtx("main", () => {});
+    const payload = { a: 1 };
+    expect(await f.handlers.get("before_provider_request")![0]!({ payload }, ctx)).toBeUndefined();
+    expect(payload).toEqual({ a: 1 });
+    expect(
+      await f.handlers.get("turn_end")![0]!({ message: {}, toolResults: [] }, ctx),
+    ).toBeUndefined();
   });
 
   test("session_start with a throwing setWidget returns normally", async () => {

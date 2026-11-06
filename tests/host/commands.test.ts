@@ -10,6 +10,7 @@ import {
   usageText,
   type JevArgs,
 } from "../../src/host/commands.ts";
+import type { Decision } from "../../src/host/status.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
@@ -40,8 +41,16 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("   ")).toEqual({ kind: "status" });
   });
   test("set", () => {
-    expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
-    expect(parseJevArgs("status on")).toEqual({ kind: "set", feature: "status", on: true });
+    expect(parseJevArgs("skills off")).toEqual({
+      kind: "set",
+      feature: "skills",
+      on: false,
+    });
+    expect(parseJevArgs("status on")).toEqual({
+      kind: "set",
+      feature: "status",
+      on: true,
+    });
   });
   test("all and reset", () => {
     expect(parseJevArgs("all off")).toEqual({ kind: "all", on: false });
@@ -170,8 +179,13 @@ const load = (dir: string) => () =>
     toolNames: ["subagent"],
   });
 
-async function run(args: string, dir: string, c = fakeCtx()) {
-  await runJev(args, c.ctx, { dir, load: load(dir) });
+async function run(
+  args: string,
+  dir: string,
+  c = fakeCtx(),
+  decision: () => Decision | undefined = () => undefined,
+) {
+  await runJev(args, c.ctx, { dir, load: load(dir), decision });
   return c.rec;
 }
 
@@ -187,6 +201,15 @@ describe("runJev", () => {
     expect(rec.widgets).toHaveLength(1);
     await run("skills on", dir);
     expect(switches(dir)?.skills).toBe(true);
+  });
+
+  test("redraw keeps the decision suffix; effort off drops it", async () => {
+    const dir = jevDir();
+    const decision = (): Decision => ({ kind: "level", level: "high" });
+    const a = await run("skills off", dir, fakeCtx(), decision);
+    expect(a.widgets[0]![1]).toEqual(["Jev · standard · high"]);
+    const b = await run("effort off", dir, fakeCtx(), decision);
+    expect(b.widgets[0]![1]).toEqual(["Jev · standard"]);
   });
 
   test("plain status writes nothing, notifies and redraws", async () => {
@@ -235,7 +258,10 @@ describe("runJev", () => {
     writeFileSync(join(dir, "state.json"), "{nope");
     await run("skills off", dir);
     expect(existsSync(join(dir, "state.json.bad"))).toBe(true);
-    expect(readState(dir)).toEqual({ kind: "ok", state: { switches: { skills: false } } });
+    expect(readState(dir)).toEqual({
+      kind: "ok",
+      state: { switches: { skills: false } },
+    });
   });
 
   test.skipIf(process.getuid?.() === 0)("unreadable state is refused", async () => {
@@ -279,6 +305,7 @@ describe("runJev", () => {
     const c = fakeCtx();
     await runJev("", c.ctx, {
       dir,
+      decision: () => undefined,
       load: () => {
         throw new TypeError("boom");
       },
@@ -294,10 +321,15 @@ describe("runJev", () => {
     };
     await runJev("", c.ctx, {
       dir,
+      decision: () => undefined,
       load: () => {
         throw new TypeError("boom");
       },
     });
-    await runJev("mode premium", c.ctx, { dir, load: load(dir) });
+    await runJev("mode premium", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: () => undefined,
+    });
   });
 });

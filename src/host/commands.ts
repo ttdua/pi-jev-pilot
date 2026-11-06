@@ -4,7 +4,7 @@ import { resetState, updateState } from "../store/state-file.ts";
 import type { Issue } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import type { Snapshot } from "./readiness.ts";
-import { drawStatus, statusText } from "./status.ts";
+import { drawStatus, statusText, type Decision } from "./status.ts";
 
 export type JevArgs =
   | { kind: "status" }
@@ -70,7 +70,11 @@ function describeError(err: unknown): string {
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
-  deps: { dir: string; load: () => Snapshot },
+  deps: {
+    dir: string;
+    load: () => Snapshot;
+    decision: () => Decision | undefined;
+  },
 ): Promise<void> {
   try {
     if (isChild(ctx.sessionManager.getSessionId())) return;
@@ -101,7 +105,7 @@ export async function runJev(
       }
     }
     const snapshot = deps.load();
-    drawStatus(ctx, snapshot);
+    drawStatus(ctx, snapshot, deps.decision());
     notify(formatStatus(snapshot), "info");
   } catch (err) {
     try {

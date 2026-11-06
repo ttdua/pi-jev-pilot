@@ -385,7 +385,9 @@ describe("executor child", () => {
       () => fixture.requests.some((r) => r.matched === "main-after"),
       "main resumes after child",
     );
-    expect(jevWidgets(s).length).toBe(1);
+    // Start draw + one redraw for the main run's decision; the child session adds none.
+    const lines = jevWidgets(s).map((w) => w.widgetLines);
+    expect(lines).toEqual([["Jev · standard"], ["Jev · standard · no answer"]]);
     expect(fixture.unmatched).toEqual([]);
   }, 120_000);
 });
