@@ -7,12 +7,15 @@ The requests sent to Jev and how answers become decisions. The exact wording is 
 Rules:
 
 - Bearer token from the environment variable named by `classifier.apiKeyEnv`.
-- The URL must be HTTPS or loopback. Redirects are rejected.
-- No retry, since a retry cannot fit the latency budget.
-- Timeout (1500 ms by default) aborts the request, and the turn continues as if unclassified.
-- Cancellation (`ctx.signal`) stops everything, and starts nothing.
+- The URL must be HTTPS or loopback. Loopback means `localhost`, an address in `127.0.0.0/8`, or `[::1]`, checked on the parsed host name. A URL with a user name or password is rejected. A rejected URL is an `error` miss and nothing is sent.
+- Redirects are not followed. A `3xx` response is an `error` miss.
+- No retry, since a retry cannot fit the latency budget. One call sends at most one request.
+- Timeout (1500 ms by default) aborts the request, including a stalled body, and the turn continues as if unclassified. It is a `timeout` miss.
+- Cancellation (`ctx.signal`) stops everything, and starts nothing. It is `cancelled`, never a miss.
+- The response body is capped at 256 KB (262 144 bytes), by `Content-Length` or while reading. A larger body is an `error` miss.
+- Any status outside 200–299 is an `error` miss. A body that is not valid JSON is a `schema` miss.
+- The outcome is always a value: `ok`, `miss` (`timeout`, `error` or `schema`) or `cancelled`. The client never throws, and a miss reason never holds the key, headers or body.
 - No key: the package is inert.
-
 
 ```text
 POST https://api.typesafe.ai/v1/systemone
@@ -258,9 +261,11 @@ User and project instructions keep authority over this advice. On the ledger it 
 
 ## Validation
 
-- Unknown choice, or a probability outside 0–1: that question counts as unanswered. Other answers still count.
+- A choice answer counts only when `type` is `choice`, `choice` is one of the question's options, `probabilities` has exactly the options as keys, and every probability is a finite number from 0 to 1.
+- A noul answer counts only when `type` is `noul` and `noul` is a finite number from 0 to 1.
+- Otherwise that question is unanswered, and other answers still count. The reason is `missing`, `type`, `choice`, `probabilities` or `range`, per question. Keys that were not asked are ignored.
 - A response without `answers`: the whole request is a miss.
-- `confidence` may be logged and is never read by policy.
+- `confidence` is kept for logging only when it is a finite number from 0 to 1. It is never read by policy, and a missing or invalid one never makes an answer unanswered.
 
 ## Known limits of Jev
 
