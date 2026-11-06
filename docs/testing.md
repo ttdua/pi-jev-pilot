@@ -28,7 +28,7 @@ Expected values come from this documentation, not from running the code. Each [i
 
 ### Host
 
-The manual Q8 run is the only Host evidence that uses a real provider and login. It is run by hand and is never part of CI.
+The manual Q8 run and the manual CLI review run are the only Host evidence that uses real providers and logins. They are run by hand and are never part of CI.
 
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
 - Jev down: identical provider requests to a run without the package, apart from a status line and the `jev_review` tool declaration with its prompt lines (the only other difference).
@@ -43,7 +43,7 @@ The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent 
 
 **Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
 
-**Manual CLI review procedure** (not in CI): `bun tests/host/manual/cli-review-real.ts`. Needs `codex` and `opencode` logins (each is skipped when not installed). It reviews a throwaway repository and prints counts only: outcome, attempts, exit code and output length, never the text. Set `JEV_REVIEW_CODEX_MODEL` or `JEV_REVIEW_OPENCODE_MODEL` to pick a model. Run it by hand after each CLI upgrade.
+**Manual CLI review procedure** (not in CI): `bun tests/host/manual/cli-review-real.ts`. Needs `codex` and `opencode` logins (each is skipped when not installed). It reviews a throwaway repository and prints counts only: outcome, attempts, exit code and output length, never the text. Set `JEV_REVIEW_CODEX_MODEL` or `JEV_REVIEW_OPENCODE_MODEL` to pick a model. Run it by hand after each CLI upgrade. Last run: [CLI review evidence](evidence/2026-11-06-cli-review.md).
 
 ### Privacy
 
