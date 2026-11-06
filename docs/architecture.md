@@ -189,10 +189,10 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Malformed `config.json` | Package inert; file untouched | Error naming the field |
 | Malformed `state.json` | Defaults apply; file moved to `state.json.bad` on the next change | Problem reported to `/jev` |
 | Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
-| Tier model unavailable | Next lower tier, with a warning | Warning; ledger `fallback` |
+| Tier model unavailable | Next lower tier, with a warning shown once per tier and model per session | Warning; ledger `fallback` |
 | Slot model unavailable | `balanced`, with a warning | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
-| Agent file locks the model | Executor ignores the change | Ledger `locked` |
+| Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
 | Tool assessment fails | Worker keeps all tools | Verbose log |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
 | CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |

@@ -169,7 +169,7 @@ This keeps the tier distribution measurable even for locked agents.
 **On `subagents:completed`, `subagents:failed` and `subagents:resumed`** (on `pi.events`):
 
 - Look up the draft by `id`, fill `status`, `durationMs`, `tokens.total` and `toolUses`, and append.
-- Events can arrive before the tool result (foreground runs finish first). Outcomes are therefore buffered by id too, and whichever side arrives second writes.
+- Events can arrive before the tool result (foreground runs finish first). Outcomes are therefore buffered by id too, and whichever side arrives second writes. A buffered outcome keeps only `status`, `durationMs`, `toolUses` and `tokens.total`, and is joined only if it arrived after that launch's `tool_call` (order counter); a `tool_result` with a skipped or missing route drops any buffered outcome for its agent id.
 
 **Lifetime:**
 
