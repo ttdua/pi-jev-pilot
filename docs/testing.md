@@ -28,12 +28,18 @@ Expected values come from this documentation, not from running the code. Each [i
 
 ### Host
 
+The manual Q8 run is the only Host evidence that uses a real provider and login. It is run by hand and is never part of CI.
+
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
 - Jev down: identical provider requests to a run without the package, apart from a status line.
 - Esc during classification: no provider request follows.
 - A worker's actual model and thinking at the child's first request, foreground and background.
 - Nothing from a hidden log line reaches a provider.
 - Installation from a packed tarball, not only a checkout.
+
+The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md).
+
+**Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
 
 ### Privacy
 

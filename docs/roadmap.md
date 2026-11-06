@@ -9,7 +9,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | Group | Title | Size | Depends on | Status |
 |---|---|---|---|---|
 | WG-01 | Repository scaffold | S | | Done |
-| WG-02 | Host seam verification | M | WG-01 | Planned |
+| WG-02 | Host seam verification | M | WG-01 | Done |
 | WG-03 | Config and state stores | M | WG-01 | Planned |
 | WG-04 | Jev client and answer reading | M | WG-01 | Planned |
 | WG-05 | Ledger | M | WG-03 | Planned |
@@ -137,12 +137,14 @@ Replace assumptions with evidence before building on them. **This group may chan
 **A5.** First decision kept for the session on listed providers; one new decision after a compaction; questions omitted while held.
 
 - **Done when:** a host test shows no thinking change after the first decision on a held provider, and exactly one after a compaction.
+- **Note:** in the [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run, `claude-code` kept the prompt cache across a thinking change, so it is not in the default hold list.
 
 ### WG-09: Skill pick and delivery
 
 **C1, C2, C5.**
 
 - **Includes:** catalog from `getCommands`, batching over 254, gates, pick logic, platform scan, injection and suggestion through a hidden message, no duplicates on a branch, explicit `/skill:name` skips.
+- **After a compaction:** a hidden message injected earlier is gone ([WG-02 Q5](evidence/2026-11-05-host-seams.md#q5)), so delivery must not assume a skill or advice injected before a compaction is still present.
 - **Done when:** a host test proves the body reaches the provider exactly once across repeated picks, and the `(none)` and gate paths attach nothing.
 
 ### WG-10: Strategy advice
@@ -155,7 +157,8 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 **B1, B2.** The largest group; it depends most on WG-02.
 
-- **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` or per-call per WG-02, input mutation with validation, `locked` handling, worker outcome in the ledger.
+- **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` ([WG-02 Q2](evidence/2026-11-05-host-seams.md#q2)), input mutation with validation, `locked` handling, worker outcome in the ledger.
+- **Open option ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** on `inherit_context` launches, keep the model and change only thinking; currently skipped per the domain model.
 - **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` and `inherit_context` are untouched, and a Jev outage leaves launches unchanged.
 
 ### WG-12: Modes and expert tier

@@ -105,7 +105,7 @@ Lint rules enforce these boundaries where possible.
 
 ## Host seams
 
-Each row is a public contract the package relies on. Rows marked **verify** are assumptions the first work group must confirm. See [WG-02](roadmap.md#wg-02-host-seam-verification).
+Each row is a public contract the package relies on. Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md).
 
 | Purpose | Seam | Status |
 |---|---|---|
@@ -115,10 +115,10 @@ Each row is a public contract the package relies on. Rows marked **verify** are 
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
 | Know context usage | `ctx.getContextUsage()` | Documented |
 | Skill catalog | `pi.getCommands()` with `sourceInfo.path` | Documented |
-| Pre-classify sibling launches | `pi.on("message_end")` before `tool_call` preflight | **Verify** |
-| Set worker model and thinking | `pi.on("tool_call")` mutating `event.input` | Documented; **verify** it reaches the child |
-| Detect a child session | `subagents:child:session-created` on `pi.events` | **Verify** visibility |
-| Remove tools in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` | **Verify** |
+| Pre-classify sibling launches | `pi.on("message_end")` before `tool_call` preflight | Verified: yes ([Q2](evidence/2026-11-05-host-seams.md#q2)) |
+| Set worker model and thinking | `pi.on("tool_call")` mutating `event.input` | Documented. Verified: yes, it reaches the child ([Q1](evidence/2026-11-05-host-seams.md#q1)) |
+| Detect a child session | `subagents:child:session-created` on `pi.events` | Verified: yes ([Q4](evidence/2026-11-05-host-seams.md#q4)) |
+| Remove tools in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` | Verified: yes ([Q3](evidence/2026-11-05-host-seams.md#q3)) |
 | Worker outcome | `subagents:completed`, `subagents:failed` | Documented by the executor |
 | Tool metadata | `pi.getAllTools()` | Documented |
 | Model existence and credentials | `ctx.modelRegistry` | Documented |
@@ -139,7 +139,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Status line, tally | Yes | No |
 | Review tool | Yes | Not offered |
 
-**Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern, and is the reference to read in WG-02.
+**Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
 
 Without the executor installed, nothing counts as a child, and worker routing and tool assessment are off with a note in `/jev`.
 

@@ -86,7 +86,7 @@ Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `m
 
 | Key | Default | Notes |
 |---|---|---|
-| `holdProviders` | `["9router"]` | Providers that keep the first effort until a compaction |
+| `holdProviders` | `["9router"]` | Providers that keep the first effort until a compaction. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
 
 Check for yourself by watching for cache misses after thinking-level changes on your provider.
 
