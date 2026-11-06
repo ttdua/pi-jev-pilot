@@ -1,6 +1,6 @@
 ## 1. State rule
 
-- [ ] 1.1 Widen `cliReview.model` in `src/store/state-file.ts` to `^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$` (not `default`); keep `effort` unchanged; tests in `tests/store/` for an OpenCode id, `-m`, and the existing cases
+- [x] 1.1 Widen `cliReview.model` in `src/store/state-file.ts` to `^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$` (not `default`); keep `effort` unchanged; tests in `tests/store/` for an OpenCode id, `-m`, and the existing cases
 
 ## 2. Pure review logic (`src/host/review-cli.ts`)
 
