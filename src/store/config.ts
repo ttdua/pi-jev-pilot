@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { writeFileAtomic } from "./atomic.ts";
 import { join } from "node:path";
+import { isAllowedJevUrl } from "../shared/urls.ts";
 import { RESERVED_SLOT_NAMES, TIERS } from "./defaults.ts";
 import {
   array,
@@ -32,24 +33,10 @@ export type ConfigRead =
   | { kind: "ok"; present: boolean; config: Config }
   | { kind: "invalid"; issues: Issue[] };
 
-const LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
-
-function urlAllowed(text: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(text);
-  } catch {
-    return false;
-  }
-  if (url.username !== "" || url.password !== "") return false;
-  if (url.protocol === "https:") return true;
-  return url.protocol === "http:" && LOOPBACK_HOSTS.includes(url.hostname);
-}
-
 const modelId = string({ pattern: /^[A-Za-z0-9._-]+\/[^\s]+$/, max: 128 });
 const url = refine(
   string({}),
-  urlAllowed,
+  isAllowedJevUrl,
   "expected an https URL, or http on a loopback host, without credentials",
 );
 

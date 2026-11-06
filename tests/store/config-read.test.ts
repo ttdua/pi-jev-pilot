@@ -2,7 +2,8 @@ import { chmodSync, readFileSync, rmSync, statSync, writeFileSync } from "node:f
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { readConfig, type ConfigRead } from "../../src/store/config.ts";
-import { tempDir } from "../helpers.ts";
+import { isAllowedJevUrl } from "../../src/shared/urls.ts";
+import { REPO_ROOT, tempDir } from "../helpers.ts";
 
 const FULL = `{
   "classifier": {
@@ -258,5 +259,44 @@ describe("readConfig", () => {
       expect(readFileSync(file).equals(bytes)).toBe(true);
       expect(statSync(file).mtimeMs).toBe(mtime);
     });
+  });
+});
+
+describe("classifier.url shared rule", () => {
+  const cfg = (url: string) => ({ classifier: { url } });
+
+  test("Whole loopback range accepted", () => {
+    expectValid(readJson(cfg("http://127.5.6.7/v1")));
+    expectValid(readJson(cfg("http://127.1/v1")));
+  });
+
+  test("Config and client agree", () => {
+    const urls = [
+      "http://127.0.0.1:1/",
+      "http://127.5.6.7/",
+      "http://127.1/",
+      "http://[::1]:1/",
+      "http://localhost:1/",
+      "https://api.typesafe.ai/v1/systemone",
+      "ftp://127.0.0.1/",
+      "http://10.0.0.1/",
+      "http://user:pw@127.0.0.1/",
+      "https://user:pw@api.typesafe.ai/",
+      "not a url",
+      "http://example.com/v1",
+    ];
+    const outcomes = urls.map((url) => isAllowedJevUrl(url));
+    expect(outcomes).toContain(true);
+    expect(outcomes).toContain(false);
+    for (const url of urls) {
+      expect([url, readJson(cfg(url)).kind === "ok"]).toEqual([url, isAllowedJevUrl(url)]);
+    }
+  });
+
+  test("config uses the shared rule", () => {
+    const source = readFileSync(join(REPO_ROOT, "src/store/config.ts"), "utf8");
+    expect(source).toContain('from "../shared/urls.ts"');
+    expect(source).not.toContain("LOOPBACK_HOSTS");
+    expect(source).not.toContain("function urlAllowed");
   });
 });
