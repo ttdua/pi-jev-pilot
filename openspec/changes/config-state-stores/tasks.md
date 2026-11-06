@@ -6,9 +6,9 @@
 
 ## 2. config.json
 
-- [ ] 2.1 Add `readConfig(dir)` in `src/store/config.ts`: missing → ok not present; I/O error → invalid at `""`; bad JSON or non-object → invalid at `""`; unknown keys and field rules per `specs/config-file`; invalid carries no values
+- [x] 2.1 Add `readConfig(dir)` in `src/store/config.ts`: missing → ok not present; I/O error → invalid at `""`; bad JSON or non-object → invalid at `""`; unknown keys and field rules per `specs/config-file`; invalid carries no values
 - [ ] 2.2 Add `writeSlots(dir, slots)`: refuse while invalid, validate the new list, replace only `crew.slots` keeping key order, add `crew` last, drop empty `crew`, create when missing, keep file mode
-- [ ] 2.3 Add a source test that `src/store/` has no `process.env` reference and that `readConfig` never writes
+- [x] 2.3 Add a source test that `src/store/` has no `process.env` reference and that `readConfig` never writes
 
 ## 3. state.json
 
