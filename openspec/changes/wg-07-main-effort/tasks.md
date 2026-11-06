@@ -20,10 +20,10 @@
 
 ## 4. Main decision handlers
 
-- [ ] 4.1 Add `src/host/main.ts` with an injectable `MainDeps` (snapshot loader, `askJev`, `appendLedger`, clock, id source, branch reader, platform scan) and the `before_agent_start` handler: eligibility, `from`, request, answer reading, discard check, `max` kept, apply and read back (specs/main-effort: Eligible main prompts, Level applied before the first request, Max is kept, Discarded on a manual change, Jev failure changes nothing). Unit tests in `tests/host/main.test.ts` with a fake `pi` and `ctx`.
-- [ ] 4.2 Add `before_provider_request` (marks `sawRequest`) and the Esc restore at `agent_settled` with the restore guard; `cancelled` from the client changes nothing (specs/main-effort: Cancelled turn starts nothing). Unit tests.
+- [x] 4.1 Add `src/host/main.ts` with an injectable `MainDeps` (snapshot loader, `askJev`, `appendLedger`, clock, id source, branch reader, platform scan) and the `before_agent_start` handler: eligibility, `from`, request, answer reading, discard check, `max` kept, apply and read back (specs/main-effort: Eligible main prompts, Level applied before the first request, Max is kept, Discarded on a manual change, Jev failure changes nothing). Unit tests in `tests/host/main.test.ts` with a fake `pi` and `ctx`.
+- [x] 4.2 Add `before_provider_request` (marks `sawRequest`) and the Esc restore at `agent_settled` with the restore guard; `cancelled` from the client changes nothing (specs/main-effort: Cancelled turn starts nothing). Unit tests.
 - [ ] 4.3 Add `turn_end` counting and the `agent_settled` ledger path: `outcome`, `durationMs`, `correction` line before `main`, then `appendEntry("jev-turn", { turnId })` (specs/main-ledger). Unit tests that validate every written line with `validateLedgerEntry`.
-- [ ] 4.4 Wrap every handler in `try`/`catch`; add the unit test with a throwing branch reader (specs/main-effort: Handler failures stay inside the package).
+- [x] 4.4 Wrap every handler in `try`/`catch`; add the unit test with a throwing branch reader (specs/main-effort: Handler failures stay inside the package).
 
 ## 5. Status line and wiring
 
