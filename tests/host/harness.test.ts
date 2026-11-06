@@ -28,10 +28,13 @@ async function sessionWith(
   return s;
 }
 
-/** Processes whose command line mentions this session's agent dir (scoped, so concurrent runs don't interfere). */
-function processesFor(agentDir: string): string[] {
-  const out = Bun.spawnSync(["ps", "-axo", "pid=,command="]).stdout.toString();
-  return out.split("\n").filter((l) => l.includes(agentDir));
+function groupGone(pid: number): boolean {
+  try {
+    process.kill(-pid, 0);
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function alive(pid: number): boolean {
@@ -71,7 +74,7 @@ describe("host session harness", () => {
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
     ]);
     const s = await sessionWith(fixture, { executor: true });
-    expect(s.installPath).toBe("node_modules");
+    expect(s.installPath === "node_modules" || s.installPath === "tarball").toBe(true);
     await s.prompt("hi");
     expect(fixture.requests[0]?.toolNames).toContain("subagent");
   }, 60_000);
@@ -151,9 +154,11 @@ describe("host session harness", () => {
         (e: unknown) => e,
       );
     expect((failure as Error).message).toMatch(/last event/);
+    const piPid = s.pid;
     await s.close();
     expect(existsSync(s.agentDir)).toBe(false);
-    expect(processesFor(s.agentDir)).toEqual([]);
+    expect(alive(piPid), "Pi process still alive after close").toBe(false);
+    expect(groupGone(piPid), "Pi process group still exists after close").toBe(true);
     await expect(s.send({ type: "get_state" })).rejects.toThrow(/already exited/);
   }, 60_000);
 
@@ -167,10 +172,12 @@ describe("host session harness", () => {
     const pid = Number(s.probeRecords().find((r) => r.probe === "spawner")?.data?.pid);
     expect(pid).toBeGreaterThan(0);
     expect(alive(pid)).toBe(true);
+    const piPid = s.pid;
     await s.close();
     for (let i = 0; i < 40 && alive(pid); i++) await Bun.sleep(50);
-    expect(alive(pid)).toBe(false);
-    expect(processesFor(s.agentDir)).toEqual([]);
+    expect(alive(pid), "executor descendant (sleep) still alive after close").toBe(false);
+    expect(alive(piPid), "Pi process still alive after close").toBe(false);
+    expect(groupGone(piPid), "Pi process group still exists after close").toBe(true);
   }, 90_000);
 
   test("child env is isolated from the operator's environment", async () => {

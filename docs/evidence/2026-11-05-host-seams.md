@@ -59,7 +59,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 **Observed.** A `before_agent_start` message with `display: false` reaches the provider on that turn and stays in history on the next turn. After a compaction it is absent.
 
-**Documents changed.** [architecture.md](../architecture.md#host-seams) rows marked as documented are unchanged.
+**Documents changed.** [roadmap.md](../roadmap.md#wg-09-skill-pick-and-delivery) WG-09 (a line about injections lost after a compaction). No other document.
 
 **Work groups affected.** WG-09 gets a note: skills and advice injected before a compaction are gone after it ([roadmap](../roadmap.md#wg-09-skill-pick-and-delivery)).
 

@@ -6,6 +6,7 @@
  * `--preflight-only` runs just the login check (no install, no model call).
  *
  * The real HOME is used so `claude` finds its login; `claude` may therefore write under ~/.claude.
+ * `pi install` of pi-claude-code also runs with the real HOME, so git/npm caches under ~ may be touched.
  * Pi's own state stays in a temp agent dir. The reported `level` is read back from Pi (`get_state`).
  *
  * Prints one `turn=...` line per prompt and a final versions line. No prompt or response text,
@@ -164,7 +165,7 @@ async function main(): Promise<void> {
     });
     if (install.exitCode !== 0) {
       throw new Error(
-        `pi install failed (exit ${install.exitCode}): ${install.stderr.toString().slice(-500)}`,
+        `pi install failed (exit ${install.exitCode}): ${install.stderr.toString().split("\n")[0] ?? ""}`,
       );
     }
 

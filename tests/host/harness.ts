@@ -32,8 +32,28 @@ const EXECUTOR_DIR = join(REPO_ROOT, "node_modules", "@gotgenes", "pi-subagents"
 
 type Dirs = { agentDir: string; home: string; cwd: string };
 
+const SPAWN_TIMEOUT_MS = 60_000;
+
+/** Bun.spawnSync with a hard timeout; a timeout throws an error naming the command. */
+function runSync(
+  cmd: string[],
+  opts: { cwd: string; env?: Record<string, string> },
+): Bun.SyncSubprocess<"pipe", "pipe"> {
+  const r = Bun.spawnSync(cmd, {
+    ...opts,
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: SPAWN_TIMEOUT_MS,
+    killSignal: "SIGKILL",
+  });
+  if (r.exitedDueToTimeout) {
+    throw new Error(`command timed out after ${SPAWN_TIMEOUT_MS} ms: ${cmd.join(" ")}`);
+  }
+  return r;
+}
+
 function install(source: string, dirs: Dirs): { code: number; out: string } {
-  const r = Bun.spawnSync([PI_BIN, "install", source], {
+  const r = runSync([PI_BIN, "install", source], {
     cwd: dirs.cwd,
     env: isolatedEnv(dirs.agentDir, dirs.home, { PI_OFFLINE: "1" }),
   });
@@ -45,7 +65,7 @@ function installExecutor(dirs: Dirs): "node_modules" | "tarball" {
   if (primary.code === 0) return "node_modules";
   const packDir = tempDir("jev-pack-");
   try {
-    const packed = Bun.spawnSync(["bun", "pm", "pack", "--destination", packDir], {
+    const packed = runSync(["bun", "pm", "pack", "--destination", packDir], {
       cwd: EXECUTOR_DIR,
     });
     if (packed.exitCode !== 0) throw new Error(`bun pm pack failed: ${packed.stderr.toString()}`);
