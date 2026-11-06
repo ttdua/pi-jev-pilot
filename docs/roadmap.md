@@ -124,7 +124,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-06: Status line and `/jev` base
 
-- **Includes:** widget, `/jev` status, feature switches, `reset`, usage text; child registry stub; key and executor presence checks.
+- **Includes:** widget, `/jev` status, feature switches, `reset`, usage text; child registry; key and executor presence checks.
 - **Done when:** the real CLI shows the status, switches persist across a restart, and print and JSON modes draw nothing.
 
 ### WG-07: Main effort

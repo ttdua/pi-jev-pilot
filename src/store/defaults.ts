@@ -66,3 +66,14 @@ export const DEFAULTS = {
     verbose: false,
   } as Readonly<Record<Feature, boolean>>,
 } as const;
+
+/** The seven decision features, in display order; excludes `status` and `verbose`. */
+export const DECISION_FEATURES: readonly Feature[] = [
+  "effort",
+  "subagents",
+  "skills",
+  "strategy",
+  "tools",
+  "expert",
+  "review",
+];

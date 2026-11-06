@@ -75,6 +75,9 @@ src/
     agents.ts            Reads agent files and the built-in agent table
     commands.ts          /jev
     status.ts            Status line, tally, log entries
+    readiness.ts         Key and executor checks; snapshot of config and state
+    setup.ts             Wires the handlers and /jev; the entry point delegates to it,
+                         because lint keeps Pi imports in host/
 
   store/                 Files under <agentDir>/jev/.
     config.ts            config.json: reads and validates; writes only crew.slots
@@ -153,7 +156,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Status line, tally | Yes | No |
 | Review tool | Yes | Not offered |
 
-**Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
+**Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. The registry also drops an id on `subagents:child:disposed`, and each instance unsubscribes on `session_shutdown`. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
 
 Without the executor installed, nothing counts as a child, and worker routing and tool assessment are off with a note in `/jev`.
 
@@ -161,7 +164,9 @@ Without the executor installed, nothing counts as a child, and worker routing an
 
 | Surface | How | Content |
 |---|---|---|
-| Status line | `ctx.ui.setWidget` above the editor, right-aligned, only when `ctx.hasUI`. Separate from the executor's agents widget | `Jev · standard · high · parallel 72% · 2 workers` |
+| Status line | `ctx.ui.setWidget` above the editor, right-aligned in the terminal UI, only when `ctx.hasUI`. Separate from the executor's agents widget | `Jev · standard · high · parallel 72% · 2 workers` |
+| Base states | Drawn from WG-06 as `Jev · <mode>`, `Jev · no key`, `Jev · config error` or `Jev · off`. First that applies: config error > no key > off > mode. `/jev status off` clears the line. Nothing is drawn in print or JSON mode | `Jev · standard` |
+| `/jev` output | `ctx.ui.notify` only, so nothing is printed without a UI | Status, features, key, executor, problems |
 | Tally | At the end of `/jev`, and on the status line every 10th prompt | Prompts, workers by model, tokens on workers, tools flagged, fallbacks. Counts only, no dollars |
 | Log | Off by default. `pi.appendEntry` with `registerEntryRenderer`, not sent to the model | `jev · general-purpose → balanced · high · 0.5s` |
 | Verbose | Adds raw probabilities, and why something was skipped | Errors always show |
@@ -171,7 +176,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 
 | Failure | Effect on work | Visible as |
 |---|---|---|
-| No API key | None; package inert | Status line: `no key` |
+| No API key | None; package inert | Status line: `Jev · no key` |
 | Jev timeout, HTTP error, unreadable response | None; turn or launch proceeds unchanged | Status line; ledger `miss` |
 | One invalid answer in a response | Other answers still count | Verbose log |
 | User cancels (Esc) | Everything stops; no fallback runs | Normal Pi behavior |
