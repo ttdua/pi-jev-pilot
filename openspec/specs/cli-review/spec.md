@@ -1,7 +1,7 @@
 # cli-review Specification
 
 ## Purpose
-TBD
+On request, the `jev_review` tool runs the operator's own Codex or OpenCode CLI once, read-only, and returns its findings and verdict or a plain "did not run" failure; it is offered only in the main session, never calls Jev, and stores nothing.
 
 ## Requirements
 
