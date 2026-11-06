@@ -16,13 +16,14 @@
 - **Branch**: `WG-03`
 - **Base branch**: `main`
 - **Final state**: `pr-updated`
-- **PR URL**: `pending (filled in after step 11)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/22`
 
 Closeout notes:
 - `WG-03` was checked out in its own worktree (`/Users/naicoi/Projects/oss/pi-jev-pilot.WG-03`), so the merge ran there and not in the main checkout.
 - `git pull` was skipped: `WG-03` had no upstream and did not exist on the remote yet.
 - The merge was a fast-forward `config-state-stores` → `WG-03` at `dc2fea7`.
 - The operator approved the push and the PR in the Inbox, as `AGENTS.md` requires for any push or PR.
+- No PR existed before finalize. `WG-03` was pushed with `git push -u origin WG-03`, and PR #22 was opened against `main` with the title `feat(store): config-state-stores`.
 
 ---
 
@@ -37,7 +38,7 @@ Removal used `wt remove` (Worktrunk), because project rules require it instead o
 
 ## PR comment
 
-- **PR comment status**: `pending (filled in after step 12)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/22#issuecomment-6676452260)
 
 ---
 
