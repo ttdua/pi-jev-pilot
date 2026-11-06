@@ -9,7 +9,7 @@
 **Finalized at**: `2026-11-06 03:51` (UTC)
 **Outcome**: `pr-updated`
 
-The worktree branch is merged into the feature branch locally. Push and PR are pending: the project `AGENTS.md` forbids push, merge or opening a PR without the operator's explicit go-ahead in chat. `WG-04` has no remote branch and no PR yet.
+The worktree branch was merged into the feature branch locally. Under the project `AGENTS.md`, push and PR need the operator's explicit go-ahead. The operator approved both in the Inbox, so `WG-04` was pushed and the PR was opened by finalize step 11, because no spec pre-review PR existed.
 
 ---
 
@@ -17,8 +17,8 @@ The worktree branch is merged into the feature branch locally. Push and PR are p
 
 - **Branch**: `WG-04`
 - **Base branch**: `main`
-- **Final state**: `pr-updated`. The fast-forward merge is local, and the push is pending the operator's approval.
-- **PR URL**: N/A (no PR yet for `WG-04`)
+- **Final state**: `pr-updated` (`WG-04` pushed to `origin`, PR open)
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/21
 
 ---
 
@@ -31,7 +31,7 @@ The worktree branch is merged into the feature branch locally. Push and PR are p
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/21#issuecomment-6676420778)
 
 ---
 
@@ -51,4 +51,4 @@ The worktree branch is merged into the feature branch locally. Push and PR are p
 
 ## Next step
 
-Push `WG-04` and open a PR once the operator approves it in chat. Then wait for the PR code review. After approval, run `/opsx-archive` on `WG-04`, push the archive commits to update the PR, and merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands both the implementation and the archive in `main`.
+Wait for the PR code review on #21. After approval, run `/opsx-archive` on `WG-04`, push the archive commits to update the PR, and merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands both the implementation and the archive in `main`.
