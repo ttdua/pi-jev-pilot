@@ -5,7 +5,7 @@ Each level proves something different. A claim must name the level that supports
 | Level | Runs | Proves | Cannot prove |
 |---|---|---|---|
 | **Unit** | Pure policy, stores, state builders, no network | The rules do what they say | That Pi calls them, or that Jev answers that way |
-| **Contract** | Jev client against a local HTTP fixture | Transport and parsing, including failures | Real Jev behavior |
+| **Contract** | Jev client against a local HTTP fixture (`tests/jev/fixture.ts`) | Transport and parsing, including failures | Real Jev behavior |
 | **Host** | The real Pi CLI in RPC mode, local Jev and provider fixtures, real executor children, isolated `PI_CODING_AGENT_DIR` | The whole path through Pi, at a tested version | Real model quality, or other Pi versions |
 | **Replay** | Real prompts through real Jev, offline from Pi | How Jev routes real work | Whether the routed model does well |
 | **Field** | Real use, read from the ledger | What actually happens, and outcomes | Causes, without an experiment |

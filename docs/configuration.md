@@ -54,7 +54,7 @@ Precedence for a value: `tuning.json`, then `state.json`, then `config.json`, th
 
 | Key | Default | Notes |
 |---|---|---|
-| `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS or loopback only. Redirects are rejected |
+| `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS, or HTTP to loopback (`localhost`, `127.0.0.0/8`, `[::1]`). No credentials in the URL. Redirects are rejected |
 | `model` | `jev-latest` | Pin a version with `jev-1.14.0` |
 | `apiKeyEnv` | `TYPESAFE_API_KEY` | The variable's name. Never put the key in this file |
 | `timeoutMs` | `1500` | Range 300–5000. Tuning may change it |
