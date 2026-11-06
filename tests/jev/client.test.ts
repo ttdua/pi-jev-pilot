@@ -145,3 +145,83 @@ describe("askJev request and status", () => {
     expect(out).toMatchObject({ kind: "miss", miss: "error", reason: "http 500" });
   });
 });
+
+describe("askJev body", () => {
+  test("Successful request", async () => {
+    const f = await fixture({ "/ok": { json: { model: "jev-1.14.0", answers: {} } } });
+    const out = await askJev(base(f.url("/ok")));
+    expect(out.kind).toBe("ok");
+    if (out.kind === "ok") {
+      expect(out.body).toEqual({ model: "jev-1.14.0", answers: {} });
+      expect(out.model).toBe("jev-1.14.0");
+      expect(typeof out.ms).toBe("number");
+    }
+  });
+
+  test("Response without a model string", async () => {
+    const f = await fixture({
+      "/none": { json: { answers: {} } },
+      "/num": { json: { model: 5, answers: {} } },
+    });
+    for (const path of ["/none", "/num"]) {
+      const out = await askJev(base(f.url(path)));
+      expect(out.kind).toBe("ok");
+      if (out.kind === "ok") expect("model" in out).toBe(false);
+    }
+  });
+
+  test("Declared too large", async () => {
+    const f = await fixture({ "/big": { raw: " ".repeat(262_145) } });
+    const out = await askJev(base(f.url("/big")));
+    expect(out).toMatchObject({ kind: "miss", miss: "error", reason: "too large" });
+  });
+
+  test("Streamed too large", async () => {
+    const f = await fixture({ "/stream": { streamBytes: 300_000 } });
+    const out = await askJev(base(f.url("/stream")));
+    expect(out).toMatchObject({ kind: "miss", miss: "error", reason: "too large" });
+  });
+
+  test("Body at the cap", async () => {
+    const prefix = '{"pad":"';
+    const suffix = '"}';
+    const pad = "x".repeat(262_144 - prefix.length - suffix.length);
+    const raw = `${prefix}${pad}${suffix}`;
+    expect(new TextEncoder().encode(raw).length).toBe(262_144);
+    const f = await fixture({ "/cap": { raw } });
+    const out = await askJev(base(f.url("/cap")));
+    expect(out.kind).toBe("ok");
+  });
+
+  test("Malformed JSON", async () => {
+    const f = await fixture({ "/bad": { raw: '{"answers":' } });
+    const out = await askJev(base(f.url("/bad")));
+    expect(out).toMatchObject({ kind: "miss", miss: "schema", reason: "invalid json" });
+  });
+
+  test("Empty body", async () => {
+    const f = await fixture({ "/empty": { raw: "" } });
+    const out = await askJev(base(f.url("/empty")));
+    expect(out).toMatchObject({ kind: "miss", miss: "schema", reason: "invalid json" });
+  });
+
+  test("Multi-byte character split across chunks", async () => {
+    const bytes = new TextEncoder().encode('{"model":"é"}');
+    const cut = bytes.indexOf(0xc3) + 1;
+    const f = await fixture({
+      "/split": { chunks: [bytes.slice(0, cut), bytes.slice(cut)] },
+    });
+    const out = await askJev(base(f.url("/split")));
+    expect(out.kind).toBe("ok");
+    if (out.kind === "ok") {
+      expect(out.body).toEqual({ model: "é" });
+      expect(out.model).toBe("é");
+    }
+  });
+
+  test("Invalid UTF-8 is a schema miss", async () => {
+    const f = await fixture({ "/latin": { raw: new Uint8Array([0x7b, 0xff, 0x7d]) } });
+    const out = await askJev(base(f.url("/latin")));
+    expect(out).toMatchObject({ kind: "miss", miss: "schema", reason: "invalid json" });
+  });
+});

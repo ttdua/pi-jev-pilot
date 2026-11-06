@@ -41,6 +41,40 @@ function miss(kind: MissKind, reason: string, ms: number): JevOutcome {
   return { kind: "miss", miss: kind, reason, ms };
 }
 
+// Releases an unread body; failures are irrelevant.
+async function discard(res: Response): Promise<void> {
+  await res.body?.cancel().catch(() => {});
+}
+
+// Reads the body up to MAX_RESPONSE_BYTES. A null body reads as empty.
+async function readCapped(res: Response): Promise<Uint8Array | "too large" | "unreadable"> {
+  if (res.body === null) return new Uint8Array(0);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > MAX_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => {});
+        return "too large";
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return "unreadable";
+  }
+  const joined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return joined;
+}
+
 export async function askJev(req: JevRequest): Promise<JevOutcome> {
   try {
     // Pre-I/O step: every input check happens before the clock starts.
@@ -78,15 +112,27 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
     }
 
     // Status step.
-    if (res.status >= 300 && res.status < 400) return miss("error", "redirect", elapsed());
+    if (res.status >= 300 && res.status < 400) {
+      await discard(res);
+      return miss("error", "redirect", elapsed());
+    }
     if (res.status < 200 || res.status >= 300) {
+      await discard(res);
       return miss("error", `http ${res.status}`, elapsed());
     }
 
-    // Body step (Task 4 replaces this with bounded reading).
+    // Body step.
+    const declared = res.headers.get("content-length");
+    if (declared !== null && Number(declared) > MAX_RESPONSE_BYTES) {
+      await discard(res);
+      return miss("error", "too large", elapsed());
+    }
+    const bytes = await readCapped(res);
+    if (bytes === "too large") return miss("error", "too large", elapsed());
+    if (bytes === "unreadable") return miss("error", "connection", elapsed());
     let body: unknown;
     try {
-      body = await res.json();
+      body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
     } catch {
       return miss("schema", "invalid json", elapsed());
     }

@@ -6,7 +6,9 @@ export type FixtureRoute =
   | { raw: string | Uint8Array; headers?: Record<string, string> }
   | { hang: true }
   | { stallAfterHeaders: true }
-  | { streamBytes: number };
+  | { streamBytes: number }
+  // Streams the given chunks as-is, one per read, so a test can split a multi-byte character.
+  | { chunks: Uint8Array[] };
 
 export type RecordedJevRequest = {
   method: string;
@@ -46,6 +48,18 @@ function respond(route: FixtureRoute): Response | Promise<Response> {
         const size = Math.min(CHUNK_BYTES, total - sent);
         controller.enqueue(new Uint8Array(size).fill(0x20));
         sent += size;
+      },
+    });
+    return new Response(body, { status: 200 });
+  }
+  if ("chunks" in route) {
+    const parts = route.chunks;
+    let index = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const part = parts[index++];
+        if (part === undefined) controller.close();
+        else controller.enqueue(part);
       },
     });
     return new Response(body, { status: 200 });
