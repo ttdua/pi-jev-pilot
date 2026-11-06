@@ -1,7 +1,7 @@
 ## 1. Answer reading
 
-- [ ] 1.1 Add `src/policy/answers.ts` with the shared types (`MissKind`, `QuestionSpec`, `Answer`, `UnansweredReason`, `ReadResult`) and `readAnswers`, covering the envelope check, unasked and missing keys, and strict choice and noul rules with confidence carried (specs/answer-reading)
-- [ ] 1.2 Unit tests in `tests/policy/answers.test.ts` for every answer-reading scenario, including mixed good and bad answers and purity
+- [x] 1.1 Add `src/policy/answers.ts` with the shared types (`MissKind`, `QuestionSpec`, `Answer`, `UnansweredReason`, `ReadResult`) and `readAnswers`, covering the envelope check, unasked and missing keys, and strict choice and noul rules with confidence carried (specs/answer-reading)
+- [x] 1.2 Unit tests in `tests/policy/answers.test.ts` for every answer-reading scenario, including mixed good and bad answers and purity
 
 ## 2. Contract fixture
 
