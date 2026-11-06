@@ -40,3 +40,48 @@ export function workerEffort(input: EffortInput): EffortLevel | undefined {
   if (input.tier === "fast") level = atMost(level, "medium");
   return level;
 }
+
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+export const THINKING_LADDER: readonly ThinkingLevel[] = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
+
+// The subset of a Pi model that the clamp reads.
+export type ModelThinking = {
+  reasoning: boolean;
+  thinkingLevelMap?: Partial<Record<ThinkingLevel, string | null>>;
+};
+
+// Mirrors Pi's getSupportedThinkingLevels (pi-ai models.js).
+export function supportedLevels(model: ModelThinking): ThinkingLevel[] {
+  if (!model.reasoning) return ["off"];
+  return THINKING_LADDER.filter((level) => {
+    const mapped = model.thinkingLevelMap?.[level];
+    if (mapped === null) return false;
+    if (level === "xhigh" || level === "max") return mapped !== undefined;
+    return true;
+  });
+}
+
+// Mirrors Pi's clampThinkingLevel: up from the request, then down, then the first level.
+export function clampLevel(model: ModelThinking, level: ThinkingLevel): ThinkingLevel {
+  const available = supportedLevels(model);
+  if (available.includes(level)) return level;
+  const requested = THINKING_LADDER.indexOf(level);
+  for (let i = requested; i < THINKING_LADDER.length; i++) {
+    const candidate = THINKING_LADDER[i];
+    if (candidate !== undefined && available.includes(candidate)) return candidate;
+  }
+  for (let i = requested - 1; i >= 0; i--) {
+    const candidate = THINKING_LADDER[i];
+    if (candidate !== undefined && available.includes(candidate)) return candidate;
+  }
+  return available[0] ?? "off";
+}

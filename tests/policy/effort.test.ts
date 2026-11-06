@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import type { ChoiceAnswer } from "../../src/policy/answers.ts";
 import type { EffortLevel as LedgerEffortLevel } from "../../src/store/ledger-schema.ts";
-import { EFFORT_LADDER, type EffortLevel, workerEffort } from "../../src/policy/effort.ts";
+import {
+  clampLevel,
+  EFFORT_LADDER,
+  type EffortLevel,
+  supportedLevels,
+  workerEffort,
+} from "../../src/policy/effort.ts";
 
 function choice(value: string): ChoiceAnswer {
   return { type: "choice", choice: value, probabilities: { [value]: 1 } };
@@ -68,5 +74,40 @@ describe("Effort after fallback", () => {
 
   test("No effort answer", () => {
     expect(workerEffort({ movedByFallback: false })).toBe(undefined);
+  });
+});
+
+describe("Supported thinking levels", () => {
+  test("Non-reasoning model", () => {
+    expect(supportedLevels({ reasoning: false })).toEqual(["off"]);
+  });
+  test("Reasoning model without map", () => {
+    expect(supportedLevels({ reasoning: true })).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+    ]);
+  });
+});
+
+describe("Thinking clamp", () => {
+  test("Supported level kept", () => {
+    expect(clampLevel({ reasoning: true }, "high")).toBe("high");
+  });
+  test("xhigh clamped down", () => {
+    expect(clampLevel({ reasoning: true }, "xhigh")).toBe("high");
+  });
+  test("xhigh kept when mapped", () => {
+    expect(clampLevel({ reasoning: true, thinkingLevelMap: { xhigh: "x" } }, "xhigh")).toBe(
+      "xhigh",
+    );
+  });
+  test("Unsupported level moves up", () => {
+    expect(clampLevel({ reasoning: true, thinkingLevelMap: { low: null } }, "low")).toBe("medium");
+  });
+  test("Non-reasoning model gives off", () => {
+    expect(clampLevel({ reasoning: false }, "high")).toBe("off");
   });
 });
