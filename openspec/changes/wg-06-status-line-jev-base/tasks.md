@@ -32,9 +32,9 @@
 
 ## 7. Documentation
 
-- [ ] 7.1 Update `docs/usage-guide.md`: `/jev all on|off` leaves `status` and `verbose` alone; mark which `/jev` forms exist from WG-06 and which arrive later; base status texts.
-- [ ] 7.2 Update `docs/architecture.md`: add `host/readiness.ts` and `host/setup.ts` to the module layout; the status line base states and precedence; `/jev` output through notifications.
-- [ ] 7.3 Update `docs/roadmap.md`: WG-06 status, and the child registry being real rather than a stub.
+- [x] 7.1 Update `docs/usage-guide.md`: `/jev all on|off` leaves `status` and `verbose` alone; mark which `/jev` forms exist from WG-06 and which arrive later; base status texts.
+- [x] 7.2 Update `docs/architecture.md`: add `host/readiness.ts` and `host/setup.ts` to the module layout; the status line base states and precedence; `/jev` output through notifications.
+- [x] 7.3 Update `docs/roadmap.md`: WG-06 status, and the child registry being real rather than a stub.
 - [ ] 7.4 After archive, update the Purpose line of `openspec/specs/package-loading/spec.md`, which still says the extension has no effect.
 
 ## 8. Checks
