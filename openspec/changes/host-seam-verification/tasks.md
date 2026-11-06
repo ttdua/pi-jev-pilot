@@ -33,7 +33,7 @@
 
 - [x] 5.1 Write `tests/host/manual/q8-claude-code.ts`: isolated agent dir, install `pi-claude-code` at commit `47f9e2b`, scripted synthetic session on `claude-code/claude-haiku-5-5` with a mid-session level change, per-turn output of level, events and cache counts, plus date and versions
 - [x] 5.2 Confirm `bun run test` does not pick up the script
-- [ ] 5.3 Run the script once by hand with the operator's login and keep its printed output for the report
+- [x] 5.3 Run the script once by hand with the operator's login and keep its printed output for the report
 
 ## 6. Evidence and documents
 
