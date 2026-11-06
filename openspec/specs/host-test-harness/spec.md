@@ -1,7 +1,7 @@
 # host-test-harness Specification
 
 ## Purpose
-TBD
+Real Pi CLI sessions in an isolated agent directory, with the pinned executor and a recording loopback provider, so host tests can assert what reaches the provider.
 
 ## Requirements
 

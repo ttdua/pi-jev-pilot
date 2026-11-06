@@ -1,7 +1,7 @@
 # host-seam-evidence Specification
 
 ## Purpose
-TBD
+Evidence from real runs for each WG-02 host-seam question, pinned by host tests and recorded in the evidence report, with documents kept in agreement.
 
 ## Requirements
 
