@@ -9,4 +9,4 @@
 
 ## 3. Docs
 
-- [ ] 3.1 Update `docs/architecture.md` (layout, rules, diagram), `docs/configuration.md` (`classifier.url` row) and `docs/roadmap.md` (WG-03 note)
+- [x] 3.1 Update `docs/architecture.md` (layout, rules, diagram), `docs/configuration.md` (`classifier.url` row) and `docs/roadmap.md` (WG-03 note)
