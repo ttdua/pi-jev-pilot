@@ -41,6 +41,10 @@ sequenceDiagram
 
 **If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again.
 
+**If the operator presses Esc before the first provider request**, Pi aborts the run. When the run settles aborted with no provider request, the package puts back the level it replaced, only if the current level is still the one it set. No ledger line is written. Esc after a provider request started is a normal turn with `outcome: aborted`.
+
+**Ledger and status:** one `main` line per decided turn, written when the turn settles, and a `correction` line for the previous turn when `corrects` is at least .7. A `jev-turn` entry holding only the turn id is added to the session so the next correction finds it. The status line shows the decided level (`Jev · standard · high`) or `Jev · no answer`.
+
 **Effect on the session:**
 
 - A `thinking_level_change` entry when the level changes, and the footer shows the new level.

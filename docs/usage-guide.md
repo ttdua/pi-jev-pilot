@@ -63,14 +63,17 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
 
-Later work groups add the decision to the line, once Jev classifies prompts:
+After each decided prompt the line shows the level that was set or kept:
 
 ```text
-Jev · standard · low · no skill
+Jev · standard · high
 ```
+
+Later work groups add skill and advice to the line.
 
 | You see | Meaning |
 |---|---|
+| `Jev · standard · high` | Jev chose the level for the last prompt (`high` here) |
 | `Jev · no answer` | Jev timed out or failed. Work continues normally |
 
 ## What changes in your sessions

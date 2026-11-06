@@ -14,7 +14,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-04 | Jev client and answer reading | M | WG-01 | Done |
 | WG-05 | Ledger | M | WG-03 | Planned |
 | WG-06 | Status line and `/jev` base | M | WG-03 | Planned |
-| WG-07 | Main effort | M | WG-02, 04, 05, 06 | Planned |
+| WG-07 | Main effort | M | WG-02, 04, 05, 06 | Done |
 | WG-08 | Effort hold | S | WG-07 | Planned |
 | WG-09 | Skill pick and delivery | L | WG-07 | Planned |
 | WG-10 | Strategy advice | S | WG-07 | Planned |

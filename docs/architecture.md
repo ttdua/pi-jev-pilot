@@ -139,7 +139,8 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | Worker outcome | `subagents:completed`, `subagents:failed` | Documented by the executor |
 | Tool metadata | `pi.getAllTools()` | Documented |
 | Model existence and credentials | `ctx.modelRegistry` | Documented |
-| Idle moment for tuning | `pi.on("agent_settled")` | Documented |
+| Know whether a provider request started | `pi.on("before_provider_request")` | Documented. A run that settles aborted with no request restores the replaced thinking level on Esc ([evidence](evidence/2026-11-05-host-seams.md#before_agent_start-signal-wg-07)) |
+| Idle moment for tuning; end of a turn (ledger line, Esc restore) | `pi.on("agent_settled")` | Documented |
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
 | CLI review | `pi.registerTool`, `pi.exec` | Documented |
@@ -180,6 +181,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Jev timeout, HTTP error, unreadable response | None; turn or launch proceeds unchanged | Status line; ledger `miss` |
 | One invalid answer in a response | Other answers still count | Verbose log |
 | User cancels (Esc) | Everything stops; no fallback runs | Normal Pi behavior |
+| Esc before the first provider request | Pi aborts the run; the package puts back the replaced thinking level (if still the one it set) | No ledger line |
 | Malformed `config.json` | Package inert; file untouched | Error naming the field |
 | Malformed `state.json` | Defaults apply; file moved to `state.json.bad` on the next change | Problem reported to `/jev` |
 | Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
