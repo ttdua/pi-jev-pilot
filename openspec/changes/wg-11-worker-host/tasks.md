@@ -16,7 +16,7 @@
 
 ## 4. Ledger
 
-- [ ] 4.1 Build the worker ledger draft from the route and request, and join it to the executor outcome through `tool_result.details.agentId` and `subagents:completed`, `subagents:failed`, `subagents:resumed` in either order; refused launches written as `error` (One line per launch, Outcome joined from the executor, Decision fields, Caller model field, Ledger failures do not affect the launch)
+- [x] 4.1 Build the worker ledger draft from the route and request, and join it to the executor outcome through `tool_result.details.agentId` and `subagents:completed`, `subagents:failed`, `subagents:resumed` in either order; refused launches written as `error` (One line per launch, Outcome joined from the executor, Decision fields, Caller model field, Ledger failures do not affect the launch)
 
 ## 5. Host tests
 
