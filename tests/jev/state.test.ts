@@ -1,0 +1,164 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  mainState,
+  recentMessages,
+  recentTools,
+  requestSignals,
+  turnIndex,
+  type BranchItem,
+} from "../../src/jev/state.ts";
+
+const user = (text: string): BranchItem => ({ role: "user", text, tools: [] });
+const asst = (text: string, tools: BranchItem["tools"] = []): BranchItem => ({
+  role: "assistant",
+  text,
+  tools,
+});
+const result = (isError?: boolean): BranchItem =>
+  isError === undefined
+    ? { role: "toolResult", text: "", tools: [] }
+    : { role: "toolResult", text: "", tools: [], isError };
+
+describe("requestSignals", () => {
+  test("why does src/a.ts fail", () => {
+    expect(requestSignals("  why does src/a.ts fail?  ")).toEqual({
+      text: "  why does src/a.ts fail?  ",
+      prompt_chars: 23,
+      files_mentioned: 1,
+      has_code_or_error: false,
+      is_question: true,
+    });
+  });
+  test("failed with TypeError is an error", () => {
+    expect(requestSignals("the build failed with TypeError").has_code_or_error).toBe(true);
+  });
+  test("same file twice counts once", () => {
+    expect(requestSignals("see README.md and README.md").files_mentioned).toBe(1);
+  });
+  test("plain instruction", () => {
+    const s = requestSignals("rename foo to bar");
+    expect([s.files_mentioned, s.has_code_or_error, s.is_question]).toEqual([0, false, false]);
+  });
+  test("at file:line is an error", () => {
+    expect(requestSignals("at src/x.ts:12").has_code_or_error).toBe(true);
+  });
+  test("other error patterns", () => {
+    for (const p of ["```x```", "Traceback (most", "NullException", "an Error here", "stack trace"])
+      expect(requestSignals(p).has_code_or_error).toBe(true);
+    expect(requestSignals("terrorist").has_code_or_error).toBe(false);
+  });
+  test("question forms", () => {
+    expect(requestSignals("Should we?").is_question).toBe(true);
+    expect(requestSignals("fix it?").is_question).toBe(true);
+    expect(requestSignals("how to fix it").is_question).toBe(true);
+    expect(requestSignals("whatever happens").is_question).toBe(false);
+  });
+  test("100000-character prompts finish under 50 ms", () => {
+    for (const p of [
+      "a".repeat(100_000),
+      "a/".repeat(50_000),
+      "at ".repeat(33_333),
+      "x.ts ".repeat(20_000),
+    ]) {
+      const t = performance.now();
+      requestSignals(p);
+      expect(performance.now() - t).toBeLessThan(50);
+    }
+  });
+});
+
+describe("recentMessages", () => {
+  test("short history", () => {
+    expect(recentMessages([user("hi"), asst("hello")])).toEqual([
+      { role: "user", text: "hi", tools: [] },
+      { role: "assistant", text: "hello", tools: [] },
+    ]);
+  });
+  test("long newest assistant keeps both ends", () => {
+    const text = "START" + "x".repeat(4991) + "END?";
+    const out = recentMessages([user("q"), asst(text)]);
+    const m = out[1]!.text;
+    expect(m.length).toBeLessThanOrEqual(1100);
+    expect(m).toContain("START");
+    expect(m).toContain("END?");
+    expect(m).toContain(" … ");
+  });
+  test("six 900-character messages", () => {
+    const items = [1, 2, 3, 4, 5, 6].map((i) => (i % 2 ? user : asst)(String(i).repeat(900)));
+    const out = recentMessages(items);
+    expect(out.length).toBeLessThanOrEqual(4);
+    expect(out.reduce((n, m) => n + m.text.length, 0)).toBeLessThanOrEqual(2000);
+    expect(out[out.length - 1]!.text.startsWith("6")).toBe(true);
+    for (const m of out) expect(m.text.length >= 200 || m.text.length === 900).toBe(true);
+  });
+  test("tool arguments never appear, failures flagged", () => {
+    const items: BranchItem[] = [
+      user("run it"),
+      asst("ok", [{ name: "bash", failed: true }]),
+      result(true),
+    ];
+    const out = recentMessages(items);
+    expect(out[1]!.tools).toEqual([{ name: "bash", failed: true }]);
+    expect(JSON.stringify(mainState({ prompt: "x", items, platforms: [] }))).not.toContain(
+      "JEV-MARKER-ARG",
+    );
+  });
+  test("toolResult items are never messages", () => {
+    const out = recentMessages([user("a"), result(false), asst("b")]);
+    expect(out.map((m) => m.role)).toEqual(["user", "assistant"]);
+  });
+  test("empty items", () => {
+    expect(recentMessages([])).toEqual([]);
+  });
+});
+
+describe("recentTools / turnIndex / mainState", () => {
+  test("recentTools counts", () => {
+    const items = [
+      user("go"),
+      asst("", [{ name: "edit" }, { name: "bash" }]),
+      result(false),
+      asst("", [{ name: "bash" }, { name: "read" }]),
+      result(true),
+    ];
+    expect(recentTools(items)).toEqual({
+      edits: 1,
+      commands: 2,
+      reads: 1,
+      subagents: 0,
+      failed: 1,
+    });
+  });
+  test("web tools, write and subagent", () => {
+    const t = recentTools([
+      asst("", [{ name: "web_search" }, { name: "write" }, { name: "subagent" }]),
+    ]);
+    expect(t).toEqual({ edits: 1, commands: 0, reads: 1, subagents: 1, failed: 0 });
+  });
+  test("only the last 10 items count", () => {
+    const items = [asst("", [{ name: "bash" }]), ...Array.from({ length: 10 }, () => user("x"))];
+    expect(recentTools(items).commands).toBe(0);
+    expect(turnIndex(items)).toBe(10);
+  });
+  test("empty items", () => {
+    expect(turnIndex([])).toBe(0);
+    expect(
+      mainState({ prompt: "hi", items: [], platforms: ["none found"] }).conversation.recent,
+    ).toEqual([]);
+  });
+  test("mainState keys", () => {
+    const s = mainState({ prompt: "hi", items: [user("a")], platforms: ["Docker"] });
+    expect(Object.keys(s)).toEqual(["request", "conversation", "workspace"]);
+    expect(Object.keys(s.conversation)).toEqual(["recent", "recent_tools", "turn_index"]);
+    expect(Object.keys(s.workspace)).toEqual(["platforms"]);
+    expect(Object.keys(s.conversation.recent_tools)).toEqual([
+      "edits",
+      "commands",
+      "reads",
+      "subagents",
+      "failed",
+    ]);
+    expect(s.workspace.platforms).toEqual(["Docker"]);
+  });
+});
