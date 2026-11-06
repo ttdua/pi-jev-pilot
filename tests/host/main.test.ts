@@ -309,6 +309,39 @@ describe("Esc", () => {
     expect(t.sets).toEqual(["low"]);
   });
 
+  test("restores the previous status, none before", async () => {
+    // second turn draws xhigh, then Esc
+    const t2 = setup({ outcomes: [answer("high"), answer("xhigh")] });
+    await run(t2);
+    await t2.main.agentSettled(settled(false));
+    await run(t2);
+    expect(t2.widgets.at(-1)).toEqual(["Jev · standard · xhigh"]);
+    await t2.main.agentSettled(settled(true));
+    expect(t2.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t2.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    const t3 = setup({ outcomes: [answer("high")] });
+    await run(t3);
+    await t3.main.agentSettled(settled(true));
+    expect(t3.main.decision()).toBeUndefined();
+    expect(t3.widgets.at(-1)).toEqual(["Jev · standard"]);
+  });
+
+  test("an older cancelled run leaves the newer record and decision", async () => {
+    let release: (o: JevOutcome) => void = () => {};
+    const held = new Promise<JevOutcome>((res) => (release = res));
+    const t = setup({ outcomes: [held, answer("high")] });
+    const first = run(t);
+    await run(t);
+    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    release({ kind: "cancelled" });
+    await first;
+    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    // the newer record still exists: Esc restores its level
+    t.sets.length = 0;
+    await t.main.agentSettled(settled(true));
+    expect(t.sets).toEqual(["low"]);
+  });
+
   test("no restore after operator change", async () => {
     const t = setup({ outcomes: [answer("high")] });
     await run(t);

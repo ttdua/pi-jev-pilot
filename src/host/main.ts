@@ -64,25 +64,45 @@ type Ctx = Pick<
 export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   let record: TurnRecord | undefined;
   let current: Decision | undefined;
+  /** What an aborted start needs to put the status back. Belongs to `record`. */
+  let undo:
+    | {
+        rec: TurnRecord;
+        ctx: Ctx;
+        snapshot: Snapshot;
+        previous: Decision | undefined;
+        drew: boolean;
+      }
+    | undefined;
 
   const level = (): ThinkingLevel => pi.getThinkingLevel() as ThinkingLevel;
 
-  function setDecision(ctx: Ctx, snapshot: Snapshot, decision: Decision): void {
+  function setDecision(rec: TurnRecord, ctx: Ctx, snapshot: Snapshot, decision: Decision): void {
+    if (undo?.rec === rec) undo.drew = true;
     current = decision;
     drawStatus(ctx, snapshot, decision);
   }
 
   async function beforeAgentStart(event: BeforeAgentStartEvent, ctx: Ctx): Promise<undefined> {
+    const mine: { rec?: TurnRecord } = {};
     try {
-      await decide(event, ctx);
+      await decide(event, ctx, mine);
     } catch {
       // A failure before the apply leaves the level unchanged; after it the applied level stays.
-      if (record !== undefined && record.applied === undefined) record = undefined;
+      // Only this run's own record is dropped, never a newer one.
+      if (mine.rec !== undefined && record === mine.rec && mine.rec.applied === undefined) {
+        record = undefined;
+        undo = undefined;
+      }
     }
     return undefined;
   }
 
-  async function decide(event: BeforeAgentStartEvent, ctx: Ctx): Promise<void> {
+  async function decide(
+    event: BeforeAgentStartEvent,
+    ctx: Ctx,
+    mine: { rec?: TurnRecord },
+  ): Promise<void> {
     if (event.messageType !== "user" || event.prompt.trim() === "") return;
     const sessionId = ctx.sessionManager.getSessionId();
     if (isChild(sessionId)) return;
@@ -124,6 +144,8 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       outputTokens: 0,
     };
     record = rec;
+    mine.rec = rec;
+    undo = { rec, ctx, snapshot, previous: current, drew: false };
 
     const outcome = await deps.ask({
       url: snapshot.settings.classifier.url,
@@ -136,19 +158,22 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     });
 
     if (outcome.kind === "cancelled") {
-      record = undefined;
+      if (record === rec) {
+        record = undefined;
+        undo = undefined;
+      }
       return;
     }
     rec.ms = outcome.ms;
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
-      setDecision(ctx, snapshot, { kind: "no-answer" });
+      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
       return;
     }
     const read = readAnswers(questions.specs, outcome.body);
     if (read.kind === "miss") {
       rec.miss = read.miss;
-      setDecision(ctx, snapshot, { kind: "no-answer" });
+      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
       return;
     }
     rec.answered = true;
@@ -158,7 +183,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (risky?.type === "noul") rec.risky = risky.noul;
     if (corrects?.type === "noul") rec.corrects = corrects.noul;
     if (effort?.type !== "choice") {
-      if (askEffort) setDecision(ctx, snapshot, { kind: "no-answer" });
+      if (askEffort) setDecision(rec, ctx, snapshot, { kind: "no-answer" });
       return;
     }
     rec.effortP = effort.probabilities;
@@ -173,13 +198,13 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (level() !== from) return;
     if (from === "max") {
       rec.effective = "max";
-      setDecision(ctx, snapshot, { kind: "level", level: "max" });
+      setDecision(rec, ctx, snapshot, { kind: "level", level: "max" });
       return;
     }
     if (target !== from) pi.setThinkingLevel(target as never);
     rec.effective = level();
     rec.applied = rec.effective;
-    setDecision(ctx, snapshot, { kind: "level", level: rec.effective });
+    setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
   }
 
   async function beforeProviderRequest(): Promise<undefined> {
@@ -214,13 +239,21 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         if (rec.applied !== undefined && rec.applied !== rec.from && level() === rec.applied) {
           pi.setThinkingLevel(rec.from as never);
         }
+        // Nothing ran: put the status back as it was before this turn.
+        if (undo?.rec === rec && undo.drew) {
+          current = undo.previous;
+          drawStatus(undo.ctx, undo.snapshot, undo.previous);
+        }
         record = undefined;
+        undo = undefined;
         return;
       }
       // Task 7: write the correction and `main` ledger lines and the `jev-turn` entry from `rec` here.
       record = undefined;
+      undo = undefined;
     } catch {
       record = undefined;
+      undo = undefined;
     }
   }
 
