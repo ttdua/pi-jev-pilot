@@ -40,12 +40,12 @@
 
 ## 7. Upstream issue
 
-- [ ] 7.1 Draft `openspec/changes/wg-07-main-effort/upstream-issue.md` for Pi: `ctx.signal` is undefined in `before_agent_start`, why that matters, and the requested change (a signal that aborts when the starting run is aborted). Do not post it; the operator decides.
+- [x] 7.1 Draft `openspec/changes/wg-07-main-effort/upstream-issue.md` for Pi: `ctx.signal` is undefined in `before_agent_start`, why that matters, and the requested change (a signal that aborts when the starting run is aborted). Do not post it; the operator decides.
 
 ## 8. Documentation
 
-- [ ] 8.1 Update `docs/evidence/2026-11-05-host-seams.md` with the `before_agent_start` signal finding (source reading at Pi 1.5.0, and the host test from 6.4).
-- [ ] 8.2 Update `docs/architecture.md` (host seams rows for `before_provider_request` and `agent_settled`; failure model row for Esc), `docs/workflow.md` (main prompt flow: restore on Esc, status line), `docs/usage-guide.md` (decision text on the status line), `docs/jev-questions.md` (wire format `instructions` and `criteria`), `docs/roadmap.md` (WG-07 status).
+- [x] 8.1 Update `docs/evidence/2026-11-05-host-seams.md` with the `before_agent_start` signal finding (source reading at Pi 1.5.0, and the host test from 6.4).
+- [x] 8.2 Update `docs/architecture.md` (host seams rows for `before_provider_request` and `agent_settled`; failure model row for Esc), `docs/workflow.md` (main prompt flow: restore on Esc, status line), `docs/usage-guide.md` (decision text on the status line), `docs/jev-questions.md` (wire format `instructions` and `criteria`), `docs/roadmap.md` (WG-07 status).
 - [ ] 8.3 After archive, update the Purpose lines of `openspec/specs/package-loading/spec.md` and `openspec/specs/status-line/spec.md`.
 
 ## 9. Checks
