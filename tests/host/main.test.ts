@@ -58,6 +58,8 @@ function setup(
     branch?: unknown[];
     appendResult?: { ok: false; reason?: string } | { ok: true };
     holdProviders?: string[];
+    /** Per-prompt `tallyText` results, consumed in order. */
+    tally?: (string | undefined | Error)[];
   } = {},
 ) {
   let branch: unknown[] = o.branch ?? [];
@@ -123,7 +125,15 @@ function setup(
       toolNames: [],
     });
   let snapshot = snap(o.state);
+  const tallyQueue = [...(o.tally ?? [])];
+  const tallyCalls = { n: 0 };
   const deps: MainDeps = {
+    tallyText: () => {
+      tallyCalls.n++;
+      const next = tallyQueue.shift();
+      if (next instanceof Error) throw next;
+      return next;
+    },
     load: () => snapshot,
     ask: async (req) => {
       requests.push(req);
@@ -151,6 +161,7 @@ function setup(
     custom,
     clock,
     widgets,
+    tallyCalls,
     requests,
     event,
     setState: (state: State) => (snapshot = snap(state)),
@@ -1166,5 +1177,187 @@ describe("anchor", () => {
     };
     await t.main.agentSettled(settled(false));
     expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+});
+
+describe("tally overlay", () => {
+  const TALLY = "10 prompts · 2 workers · 1 fallbacks";
+  const TALLY_LINE = [`Jev · standard · ${TALLY}`];
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const miss: JevOutcome = {
+    kind: "miss",
+    miss: "timeout",
+    reason: "x",
+    ms: 3,
+  };
+
+  test("Ninth prompt shows the level", async () => {
+    const t = setup({ outcomes: [answer("high")], tally: [undefined] });
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    expect(t.main.overlay()).toBeUndefined();
+  });
+
+  test("Tally on the 10th prompt", async () => {
+    const t = setup({ outcomes: [answer("high")], tally: [TALLY] });
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+    expect(t.main.overlay()).toBe(TALLY);
+  });
+
+  test("Eleventh prompt shows the level again", async () => {
+    const t = setup({
+      outcomes: [answer("high"), answer("medium")],
+      tally: [TALLY, undefined],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · medium"]);
+    expect(t.main.overlay()).toBeUndefined();
+  });
+
+  test("Tally on a miss", async () => {
+    const t = setup({ outcomes: [miss], tally: [TALLY] });
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+  });
+
+  test("Tally on a held 10th prompt", async () => {
+    const decided = {
+      provider: "fixture",
+      model: "fixture-main",
+      level: "high",
+    };
+    const t = setup({
+      branch: [
+        {
+          type: "custom",
+          customType: "jev-turn",
+          data: { turnId: "T1", decided },
+        },
+      ],
+      holdProviders: ["fixture"],
+      start: "high",
+      outcomes: [answer("xhigh")],
+      tally: [TALLY],
+    });
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+  });
+
+  test("Tally on a discarded 10th prompt", async () => {
+    let release!: (o: JevOutcome) => void;
+    const pendingAnswer = new Promise<JevOutcome>((r) => (release = r));
+    const t = setup({
+      outcomes: [answer("high"), pendingAnswer, answer("low")],
+      tally: [undefined, TALLY, undefined],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    const pending = run(t);
+    t.setLevel("medium");
+    release(answer("xhigh"));
+    await pending;
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+    await t.main.agentSettled(settled(false));
+    t.ctxRaw.model = { reasoning: false };
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    expect(t.main.overlay()).toBeUndefined();
+  });
+
+  test("cancelled 10th prompt shows no tally", async () => {
+    const t = setup({ outcomes: [{ kind: "cancelled" }], tally: [TALLY] });
+    await run(t);
+    expect(t.tallyCalls.n).toBe(0);
+    expect(t.main.overlay()).toBeUndefined();
+    expect(JSON.stringify(t.widgets)).not.toContain(TALLY);
+  });
+
+  test("cancelled 11th prompt keeps the overlay", async () => {
+    const t = setup({
+      outcomes: [answer("high"), { kind: "cancelled" }],
+      tally: [TALLY],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    const drawn = t.widgets.length;
+    await run(t);
+    expect(t.main.overlay()).toBe(TALLY);
+    expect(t.widgets).toHaveLength(drawn);
+  });
+
+  test("Esc before the request restores the overlay", async () => {
+    const t = setup({
+      outcomes: [answer("high"), answer("xhigh")],
+      tally: [undefined, TALLY],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+    await t.main.agentSettled(settled(true));
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    expect(t.main.overlay()).toBeUndefined();
+  });
+
+  test("a throwing tallyText keeps the old overlay and the turn", async () => {
+    const t = setup({
+      outcomes: [answer("high"), answer("medium")],
+      tally: [TALLY, new Error("boom")],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.main.overlay()).toBe(TALLY);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · " + TALLY]);
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "medium" } });
+  });
+
+  test("Nothing decided never shows the tally", async () => {
+    const t = setup({
+      state: { switches: { effort: false, strategy: false } },
+      tally: [TALLY],
+    });
+    await run(t);
+    expect(t.tallyCalls.n).toBe(0);
+    expect(t.main.overlay()).toBeUndefined();
+  });
+
+  test("Strategy-only session shows the tally on the 10th prompt", async () => {
+    const t = setup({
+      state: { switches: { effort: false } },
+      outcomes: [advised("direct", 0.9)],
+      tally: [TALLY],
+    });
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+  });
+
+  test("Tally replaces both suffixes", async () => {
+    const t = setup({
+      outcomes: [
+        advised("delegate", 0.9),
+        advised("delegate", 0.9),
+        answer("medium", 0.1, 0.05, { strategy: ["delegate", 0.9] }),
+      ],
+      tally: [undefined, TALLY, undefined],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high · delegate"]);
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(TALLY_LINE);
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · medium · delegate"]);
+  });
+
+  test("session start clears overlay", async () => {
+    const t = setup({ outcomes: [answer("high")], tally: [TALLY] });
+    await run(t);
+    t.main.sessionStart();
+    expect(t.main.overlay()).toBeUndefined();
   });
 });
