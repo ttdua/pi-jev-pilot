@@ -1,6 +1,9 @@
 import { deliveryText } from "../../src/policy/skill.ts";
 import { fingerprint, skillBlock } from "../../src/host/skills.ts";
 import { describe, expect, test } from "bun:test";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import { createMain, type MainDeps } from "../../src/host/main.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
@@ -67,6 +70,7 @@ function setup(
     projection?: unknown[];
     batchOutcomes?: (JevOutcome | Promise<JevOutcome>)[];
     rich?: MainDeps["rich"];
+    record?: MainDeps["record"];
   } = {},
 ) {
   let branch: unknown[] = o.branch ?? [];
@@ -175,6 +179,7 @@ function setup(
     platforms: () => ["none found"],
     env: () => o.env ?? { TYPESAFE_API_KEY: "test-key" },
     ...(o.rich === undefined ? {} : { rich: o.rich }),
+    ...(o.record === undefined ? {} : { record: o.record }),
   };
   const main = createMain(pi as never, deps);
   const event = (prompt = "do the thing", messageType = "user") =>
@@ -2066,5 +2071,84 @@ describe("rich state inputs", () => {
     await run(t);
     expect(t.requests).toHaveLength(1);
     expect(t.level()).toBe("low");
+  });
+});
+
+describe("git count recorder", () => {
+  const noRich = { git: async () => undefined, tools: () => [], agents: () => [] };
+  const tmp = (): string => mkdtempSync(join(tmpdir(), "jev-main-rec-"));
+  const recorder = (dir: string, on: boolean, calls: { n: number }): MainDeps["record"] => ({
+    on: () => on,
+    dir: () => dir,
+    git: async () => (calls.n++, { changed_files: 2, diff_lines: 9 }),
+  });
+  const settle = () => new Promise((r) => setTimeout(r, 20));
+
+  test("off by default", async () => {
+    const dir = tmp();
+    const calls = { n: 0 };
+    const t = setup({ record: recorder(dir, false, calls) });
+    await run(t);
+    await settle();
+    expect(calls.n).toBe(0);
+    expect(existsSync(join(dir, "replay-git.jsonl"))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("line written once, sharing the shipped git promise", async () => {
+    const dir = tmp();
+    const calls = { n: 0 };
+    const rich = {
+      ...noRich,
+      groups: ["git"] as const,
+      git: async () => (calls.n++, { changed_files: 2, diff_lines: 9 }),
+    };
+    const t = setup({ rich, record: recorder(dir, true, { n: 0 }) });
+    await run(t);
+    await settle();
+    expect(calls.n).toBe(1);
+    const line = JSON.parse(readFileSync(join(dir, "replay-git.jsonl"), "utf8")) as object;
+    expect(line).toMatchObject({ v: 1, at: 1000, changedFiles: 2, diffLines: 9 });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("no line without a request", async () => {
+    const dir = tmp();
+    const calls = { n: 0 };
+    const t = setup({ id: "child-1", record: recorder(dir, true, calls) });
+    await run(t);
+    await settle();
+    expect(t.requests).toHaveLength(0);
+    expect(existsSync(join(dir, "replay-git.jsonl"))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("write failure keeps the decision", async () => {
+    const root = tmp();
+    const dir = join(root, "jev");
+    mkdirSync(dir);
+    chmodSync(dir, 0o500);
+    const plain = setup({ outcomes: [answer("high")] });
+    await run(plain);
+    const t = setup({ outcomes: [answer("high")], record: recorder(dir, true, { n: 0 }) });
+    await run(t);
+    await settle();
+    expect(t.level()).toBe(plain.level());
+    chmodSync(dir, 0o700);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("session is the opaque id", async () => {
+    const dir = tmp();
+    const t = setup({ id: "opaque-id-7", record: recorder(dir, true, { n: 0 }) });
+    await run(t);
+    await settle();
+    const text = readFileSync(join(dir, "replay-git.jsonl"), "utf8");
+    expect(JSON.parse(text)).toMatchObject({
+      session: "opaque-id-7",
+      turnId: "11111111-1111-1111-1111-111111111111",
+    });
+    expect(text).not.toContain("/");
+    rmSync(dir, { recursive: true, force: true });
   });
 });

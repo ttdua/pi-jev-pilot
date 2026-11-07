@@ -69,6 +69,11 @@ export function setup(pi: ExtensionAPI): void {
       tools: () => activeTools(pi),
       agents: (cwd) => listAgents({ cwd, agentDir: getAgentDir() }),
     },
+    record: {
+      on: () => process.env["JEV_REPLAY_GIT"] === "1",
+      dir: jevDir,
+      git: (cwd) => gitCounts((c, a, o) => pi.exec(c, a, o), cwd),
+    },
   });
 
   pi.on("session_start", async (_event, ctx) => {
