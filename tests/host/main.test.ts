@@ -183,10 +183,7 @@ describe("eligibility", () => {
   untouched("key unset", { env: {} });
   untouched("whitespace", {}, "   ");
   untouched("invalid config", {
-    config: {
-      kind: "invalid",
-      issues: [{ path: "x", message: "bad" }],
-    } as ConfigRead,
+    config: { kind: "invalid", issues: [{ path: "x", message: "bad" }] } as ConfigRead,
   });
   untouched("model undefined", { model: undefined });
 });
@@ -219,11 +216,7 @@ describe("decision", () => {
   });
 
   test("non-reasoning model asks corrects only", async () => {
-    const t = setup({
-      start: "off",
-      model: { reasoning: false },
-      outcomes: [answer("high")],
-    });
+    const t = setup({ start: "off", model: { reasoning: false }, outcomes: [answer("high")] });
     await run(t);
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["corrects"]);
     expect(t.sets).toEqual([]);
@@ -237,11 +230,7 @@ describe("decision", () => {
     const req = t.requests[0]!;
     expect(req.questions).toEqual(mainQuestions({ askEffort: true }).wire);
     expect(req.state).toEqual(
-      mainState({
-        prompt: "why does src/a.ts fail?",
-        items: [],
-        platforms: ["none found"],
-      }),
+      mainState({ prompt: "why does src/a.ts fail?", items: [], platforms: ["none found"] }),
     );
     expect(req.signal).toBe(ac.signal);
     expect(req.apiKey).toBe("test-key");
@@ -293,9 +282,7 @@ describe("discard and failure", () => {
 
   for (const miss of ["error", "timeout"] as const) {
     test(`miss ${miss}`, async () => {
-      const t = setup({
-        outcomes: [{ kind: "miss", miss, reason: "x", ms: 3 }],
-      });
+      const t = setup({ outcomes: [{ kind: "miss", miss, reason: "x", ms: 3 }] });
       await run(t);
       expect(t.sets).toEqual([]);
       expect(t.widgets.at(-1)).toEqual(["Jev · standard · no answer"]);
@@ -339,10 +326,7 @@ describe("discard and failure", () => {
     expect(t.sets).toEqual([]);
     expect(t.widgets).toEqual([]);
     expect(t.main.decision()).toBeUndefined();
-    await t.main.agentSettled({
-      type: "agent_settled",
-      aborted: true,
-    } as never);
+    await t.main.agentSettled({ type: "agent_settled", aborted: true } as never);
     expect(t.sets).toEqual([]);
   });
 
@@ -359,10 +343,7 @@ describe("discard and failure", () => {
     t.main.sessionStart();
     t.sets.length = 0;
     const widgetsBefore = t.widgets.length;
-    await t.main.agentSettled({
-      type: "agent_settled",
-      aborted: true,
-    } as never);
+    await t.main.agentSettled({ type: "agent_settled", aborted: true } as never);
     expect(t.widgets.length).toBe(widgetsBefore);
     expect(t.sets).toEqual([]);
     expect(t.appended).toEqual([]);
@@ -373,10 +354,7 @@ describe("discard and failure", () => {
     const t = setup({ outcomes: [answer("high")] });
     await run(t);
     t.main.sessionStart();
-    await t.main.agentSettled({
-      type: "agent_settled",
-      aborted: false,
-    } as never);
+    await t.main.agentSettled({ type: "agent_settled", aborted: false } as never);
     expect(t.appended).toEqual([]);
     expect(t.custom).toEqual([]);
   });
@@ -530,11 +508,7 @@ describe("ledger", () => {
         type: "jev-turn",
         data: {
           turnId: "11111111-1111-1111-1111-111111111111",
-          decided: {
-            provider: "fixture",
-            model: "fixture-main",
-            level: "high",
-          },
+          decided: { provider: "fixture", model: "fixture-main", level: "high" },
         },
       },
     ]);
@@ -552,19 +526,12 @@ describe("ledger", () => {
   });
 
   test("miss", async () => {
-    const t = setup({
-      outcomes: [{ kind: "miss", miss: "timeout", reason: "x", ms: 3 }],
-    });
+    const t = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "x", ms: 3 }] });
     await run(t);
     await t.main.beforeProviderRequest();
     await t.main.agentSettled(settled(false));
     const [main] = lines(t);
-    expect(main).toMatchObject({
-      answered: false,
-      miss: "timeout",
-      from: "low",
-      ms: 3,
-    });
+    expect(main).toMatchObject({ answered: false, miss: "timeout", from: "low", ms: 3 });
     for (const k of ["requested", "effective", "effortP"]) expect(k in main!).toBe(false);
   });
 
@@ -597,10 +564,7 @@ describe("ledger", () => {
     const t = setup({
       outcomes: [answer("high")],
       branch: [
-        {
-          type: "message",
-          message: { role: "assistant", content: [], stopReason: "error" },
-        },
+        { type: "message", message: { role: "assistant", content: [], stopReason: "error" } },
       ],
     });
     await run(t);
@@ -619,28 +583,17 @@ describe("ledger", () => {
   });
 
   test("correction before main", async () => {
-    const t = setup({
-      outcomes: [answer("high", 0.1, 0.9)],
-      branch: [jevTurn("T1")],
-    });
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
     await run(t);
     await t.main.beforeProviderRequest();
     await t.main.agentSettled(settled(false));
     const out = lines(t);
     expect(out.map((l) => l["kind"])).toEqual(["correction", "main"]);
-    expect(out[0]).toMatchObject({
-      turnId: "T1",
-      corrects: 0.9,
-      session: sessionId,
-      at: 1000,
-    });
+    expect(out[0]).toMatchObject({ turnId: "T1", corrects: 0.9, session: sessionId, at: 1000 });
   });
 
   test("correction at the threshold", async () => {
-    const t = setup({
-      outcomes: [answer("high", 0.1, 0.7)],
-      branch: [jevTurn("T1")],
-    });
+    const t = setup({ outcomes: [answer("high", 0.1, 0.7)], branch: [jevTurn("T1")] });
     await run(t);
     await t.main.beforeProviderRequest();
     await t.main.agentSettled(settled(false));
@@ -648,10 +601,7 @@ describe("ledger", () => {
   });
 
   test("no correction below the threshold or without a previous turn", async () => {
-    const a = setup({
-      outcomes: [answer("high", 0.1, 0.69)],
-      branch: [jevTurn("T1")],
-    });
+    const a = setup({ outcomes: [answer("high", 0.1, 0.69)], branch: [jevTurn("T1")] });
     await run(a);
     await a.main.agentSettled(settled(false));
     expect(lines(a).map((l) => l["kind"])).toEqual(["main"]);
@@ -662,10 +612,7 @@ describe("ledger", () => {
   });
 
   test("aborted before any provider request writes nothing", async () => {
-    const t = setup({
-      outcomes: [answer("high", 0.1, 0.9)],
-      branch: [jevTurn("T1")],
-    });
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
     await run(t);
     await t.main.agentSettled(settled(true));
     expect(t.appended).toEqual([]);
@@ -673,10 +620,7 @@ describe("ledger", () => {
   });
 
   test("forbidden fields are absent", async () => {
-    const t = setup({
-      outcomes: [answer("high", 0.1, 0.9)],
-      branch: [jevTurn("T1")],
-    });
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
     await run(t);
     await t.main.agentSettled(settled(false));
     const text = JSON.stringify(t.appended);
@@ -685,20 +629,14 @@ describe("ledger", () => {
   });
 
   test("privacy", async () => {
-    const t = setup({
-      outcomes: [answer("high", 0.1, 0.9)],
-      branch: [jevTurn("T1")],
-    });
+    const t = setup({ outcomes: [answer("high", 0.1, 0.9)], branch: [jevTurn("T1")] });
     await run(t, "JEV-MARKER-PROMPT");
     await t.main.agentSettled(settled(false));
     expect(JSON.stringify([t.appended, t.custom])).not.toContain("JEV-MARKER-PROMPT");
   });
 
   test("a failed ledger write still records the turn id", async () => {
-    const t = setup({
-      outcomes: [answer("high")],
-      appendResult: { ok: false },
-    });
+    const t = setup({ outcomes: [answer("high")], appendResult: { ok: false } });
     await run(t);
     await t.main.agentSettled(settled(false));
     expect(t.custom).toHaveLength(1);
@@ -722,12 +660,7 @@ describe("hold", () => {
     data: { turnId, decided },
   });
   const heldSetup = (o: Parameters<typeof setup>[0] = {}) =>
-    setup({
-      branch: [heldTurn()],
-      holdProviders: ["fixture"],
-      start: "high",
-      ...o,
-    });
+    setup({ branch: [heldTurn()], holdProviders: ["fixture"], start: "high", ...o });
   const lines = (t: ReturnType<typeof setup>) =>
     t.appended.map((e) => {
       expect(validateLedgerEntry(e).ok).toBe(true);
@@ -759,9 +692,7 @@ describe("hold", () => {
   });
 
   test("held miss", async () => {
-    const t = heldSetup({
-      outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }],
-    });
+    const t = heldSetup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
     await run(t);
     expect(t.sets).toEqual([]);
     expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
@@ -780,11 +711,7 @@ describe("hold", () => {
     expect(t.sets).toEqual([]);
     expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
     await t.main.agentSettled(settled(false));
-    expect(mainLine(t)).toMatchObject({
-      held: true,
-      miss: "schema",
-      effective: "high",
-    });
+    expect(mainLine(t)).toMatchObject({ held: true, miss: "schema", effective: "high" });
   });
 
   test("manual change while held", async () => {
@@ -792,11 +719,7 @@ describe("hold", () => {
     await run(t);
     expect(t.sets).toEqual([]);
     await t.main.agentSettled(settled(false));
-    expect(mainLine(t)).toMatchObject({
-      held: true,
-      from: "low",
-      effective: "low",
-    });
+    expect(mainLine(t)).toMatchObject({ held: true, from: "low", effective: "low" });
   });
 
   test("held line fields", async () => {
@@ -804,12 +727,7 @@ describe("hold", () => {
     await run(t);
     await t.main.agentSettled(settled(false));
     const line = mainLine(t);
-    expect(line).toMatchObject({
-      held: true,
-      effective: "high",
-      from: "high",
-      corrects: 0.1,
-    });
+    expect(line).toMatchObject({ held: true, effective: "high", from: "high", corrects: 0.1 });
     for (const k of ["effortP", "risky", "requested"]) expect(line).not.toHaveProperty(k);
   });
 
@@ -817,9 +735,7 @@ describe("hold", () => {
     const t = heldSetup({ outcomes: [correctsOnly(0.9)] });
     await run(t);
     await t.main.agentSettled(settled(false));
-    expect(lines(t).find((l) => l["kind"] === "correction")).toMatchObject({
-      turnId: "T1",
-    });
+    expect(lines(t).find((l) => l["kind"] === "correction")).toMatchObject({ turnId: "T1" });
   });
 
   test("miss right after a compaction keeps the release", async () => {
@@ -837,9 +753,7 @@ describe("hold", () => {
     ]);
     await t.main.agentSettled(settled(false));
     const entry = t.custom.find((c) => c.type === "jev-turn")!;
-    expect(entry.data).toEqual({
-      turnId: "11111111-1111-1111-1111-111111111111",
-    });
+    expect(entry.data).toEqual({ turnId: "11111111-1111-1111-1111-111111111111" });
     t.setBranch([
       heldTurn(),
       { type: "compaction", id: "c1" },
@@ -883,11 +797,7 @@ describe("hold", () => {
 describe("anchor", () => {
   const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
   const id = "11111111-1111-1111-1111-111111111111";
-  const decided = (level: string) => ({
-    provider: "fixture",
-    model: "fixture-main",
-    level,
-  });
+  const decided = (level: string) => ({ provider: "fixture", model: "fixture-main", level });
   const lastTurn = (t: ReturnType<typeof setup>) => t.custom.at(-1);
   const heldTurn = {
     type: "custom",
@@ -909,10 +819,7 @@ describe("anchor", () => {
     const t = setup({ start: "medium", outcomes: [answer("medium")] });
     await run(t);
     await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({
-      turnId: id,
-      decided: decided("medium"),
-    });
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("medium") });
   });
 
   test("max anchors", async () => {
@@ -943,9 +850,7 @@ describe("anchor", () => {
 
   test("discarded turn writes no decided", async () => {
     let release: (o: JevOutcome) => void = () => {};
-    const t = setup({
-      outcomes: [new Promise<JevOutcome>((r) => (release = r))],
-    });
+    const t = setup({ outcomes: [new Promise<JevOutcome>((r) => (release = r))] });
     const p = run(t);
     t.setLevel("medium");
     release(answer("high"));
@@ -955,9 +860,7 @@ describe("anchor", () => {
   });
 
   test("miss writes no decided", async () => {
-    const t = setup({
-      outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }],
-    });
+    const t = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
     await run(t);
     await t.main.agentSettled(settled(false));
     expect(lastTurn(t)?.data).toEqual({ turnId: id });

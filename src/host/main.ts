@@ -192,14 +192,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     };
     record = rec;
     mine.rec = rec;
-    undo = {
-      rec,
-      ctx,
-      snapshot,
-      previous: current,
-      previousOverlay: overlay,
-      drew: false,
-    };
+    undo = { rec, ctx, snapshot, previous: current, previousOverlay: overlay, drew: false };
 
     const outcome = await deps.ask({
       url: snapshot.settings.classifier.url,
@@ -383,11 +376,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       if (compactionId !== rec.compactionId) return plain;
       return {
         ...plain,
-        decided: {
-          provider: rec.provider,
-          model: rec.model,
-          level: rec.effective,
-        },
+        decided: { provider: rec.provider, model: rec.model, level: rec.effective },
       };
     } catch {
       return plain;
