@@ -1,7 +1,6 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DECISION_FEATURES, FEATURES, MODES, type Feature, type Mode } from "../store/defaults.ts";
 import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
-import type { Issue } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import {
   checkCodexChoice,
@@ -13,6 +12,7 @@ import {
 } from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
 import { parseSlotArgs, runSlot, type SlotArgs } from "./slots.ts";
+import { issueLines } from "./tuning-text.ts";
 import {
   EMPTY_TALLY,
   drawStatus,
@@ -83,10 +83,6 @@ export function usageText(): string {
     "  /jev <slot>",
     "  /jev remove <slot>",
   ].join("\n");
-}
-
-function issueLines(label: string, issues: Issue[]): string[] {
-  return issues.map((i) => `  ${label} ${i.path === "" ? "(file)" : i.path}: ${i.message}`);
 }
 
 function reviewLine(r: Snapshot["settings"]["review"]): string {
