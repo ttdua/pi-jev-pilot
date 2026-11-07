@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { join } from "node:path";
 import { run, tempDir } from "../helpers";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
-import { toolNames, withoutReview } from "./bodies";
+import { toolNames } from "./bodies";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
 import type { RpcEvent } from "./rpc";
@@ -227,12 +227,11 @@ describe("main effort through the real CLI", () => {
       expect(lines.length).toBe(1);
       expect(lines[0]).toMatchObject({ answered: false, miss: "error" });
       expect(jev.requests.length).toBe(1);
-      // The package adds only the jev_review tool (WG-15); compare everything else.
+      // jev_review is off by default, so the bodies are compared raw.
       // Raw equality is valid: the provider body carries no id or timestamp field today.
-      const bodies = (f: Fixture): string[] =>
-        f.requests.map((r) => JSON.stringify(withoutReview(r.body)));
+      const bodies = (f: Fixture): string[] => f.requests.map((r) => JSON.stringify(r.body));
       expect(bodies(fixture).length).toBeGreaterThan(0);
-      expect(fixture.requests.every((r) => toolNames(r.body).includes("jev_review"))).toBe(true);
+      expect(fixture.requests.every((r) => !toolNames(r.body).includes("jev_review"))).toBe(true);
       expect(plain.requests.every((r) => !toolNames(r.body).includes("jev_review"))).toBe(true);
       expect(bodies(fixture)).toEqual(bodies(plain));
       expect(fixture.requests[0]?.reasoningEffort).toBe(plain.requests[0]?.reasoningEffort);
