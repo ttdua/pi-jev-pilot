@@ -56,7 +56,8 @@ src/
     route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
     modes.ts             Mode names, target tables
     score.ts             Difficulty score
-    cutpoints.ts         Cut points from a window, seed cut points
+    cutpoints.ts         Cut points from a window
+    seed.ts              Seed cut points (data)
     cut-window.ts        Which ledger lines are eligible; window size
     skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
     strategy.ts          Advice gates and advice text

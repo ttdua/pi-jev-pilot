@@ -66,7 +66,7 @@ classDiagram
     Operator --> Config : edits
     Operator --> Switches : /jev
     Switches --> Mode : selects one
-    Mode "1" --> "1..4" Tier : describes
+    Mode "1" --> "1..4" Tier : targets
     Config "1" --> "0..8" Slot
     JevRequest --> JevAnswers : returns
     JevAnswers --> MainDecision : policy
@@ -154,6 +154,8 @@ A launch with `resume` is always left untouched. A forked launch (`inherit_conte
 `score = Σ rank(t) · P̂(t) + effortRank / 8`, rounded to 3 decimals. Tier ranks are `fast` 0, `balanced` 1, `deep` 2, `expert` 3. `P̂` is the worker `tier` probabilities restricted to tier keys and renormalised, so slots and unconfigured tiers do not shift the scale. Effort ranks are `low` 0 to `max` 4; an unanswered effort counts as `high`. The range is 0–3.5.
 
 Cut points come from a window of the latest 200 eligible `worker` ledger lines: rubric version 2, with a `score`, with `expertOffered`, and with reason `expert`, `risky` or `cut`. The window is pooled across modes, loaded from the ledger at session start and grown in memory as this session writes lines. It is recomputed before each batch of sibling launches, using each launch's mode.
+
+Each window entry's effort is the most likely level of its `effortP`; ties go to the higher level, and `high` when there is no `effortP`.
 
 - `fastMax` and `balancedMax` sit at the score where the cumulative target share ends (rounded half up in integers); equal scores go to the lower tier.
 - `expertMin` is the lowest score above `balancedMax` where entries at or above it with effort `xhigh` or `max` stay within the expert cap. It is infinite when the cap is 0.

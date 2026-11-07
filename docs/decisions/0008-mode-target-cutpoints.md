@@ -30,7 +30,7 @@ Each share is meant to stay within ±10 points over recent tier-routed launches.
 ## Consequences
 
 - Same request count and latency in every mode, and no extra Jev request. A mode affects workers only.
-- A mode now says what mix to expect. `/jev status` shows the recent mix beside the target, and `cut points: seed` while the seed applies.
+- A mode now says what mix to expect. `/jev` shows the recent mix beside the target, and `cut points: seed` while the seed applies.
 - Editing the worker wording needs a new `RUBRIC_VERSION` and a new seed. Lines from older rubrics are ignored by the window.
 - A short session can drift from target, since the target is judged over the window, not per session.
 - Without a reviewer slot, review launches count in the mix, so `budget` sends implementation work to cheaper tiers than its table suggests.
