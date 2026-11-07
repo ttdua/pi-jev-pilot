@@ -109,18 +109,20 @@ function setup(
   };
   const requests: JevRequest[] = [];
   const queue = [...(o.outcomes ?? [])];
-  const snapshot: Snapshot = buildSnapshot({
-    configRead: o.config ?? {
-      kind: "ok",
-      present: true,
-      config: (o.holdProviders === undefined
-        ? {}
-        : { effort: { holdProviders: o.holdProviders } }) as Config,
-    },
-    stateRead: { kind: "ok", state: o.state ?? {} },
-    env: o.env ?? { TYPESAFE_API_KEY: "test-key" },
-    toolNames: [],
-  });
+  const snap = (state: State | undefined): Snapshot =>
+    buildSnapshot({
+      configRead: o.config ?? {
+        kind: "ok",
+        present: true,
+        config: (o.holdProviders === undefined
+          ? {}
+          : { effort: { holdProviders: o.holdProviders } }) as Config,
+      },
+      stateRead: { kind: "ok", state: state ?? {} },
+      env: o.env ?? { TYPESAFE_API_KEY: "test-key" },
+      toolNames: [],
+    });
+  let snapshot = snap(o.state);
   const deps: MainDeps = {
     load: () => snapshot,
     ask: async (req) => {
@@ -151,6 +153,7 @@ function setup(
     widgets,
     requests,
     event,
+    setState: (state: State) => (snapshot = snap(state)),
     setBranch: (entries: unknown[]) => (branch = entries),
     setLevel: (l: ThinkingLevel) => (lvl = l),
     setSupported: (s: ThinkingLevel[]) => (supported = s),
@@ -1081,15 +1084,16 @@ describe("strategy advice", () => {
   });
 
   test("a turn with strategy off leaves the advice", async () => {
-    const t = setup({ outcomes: [advised("delegate", 0.9)] });
+    const t = setup({ outcomes: [advised("delegate", 0.9), answer("high")] });
     await run(t);
-    const off = setup({
-      state: { switches: { strategy: false } },
-      outcomes: [answer("high")],
-    });
-    // same main instance cannot switch settings; assert via a fresh instance without advice
-    await run(off);
-    expect(off.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     expect(t.main.decision()?.advice).toBe("delegate");
+    await t.main.agentSettled(settled(false));
+    t.setState({ switches: { strategy: false } });
+    await run(t);
+    expect("strategy" in (t.requests[1]!.questions as object)).toBe(false);
+    expect(t.main.decision()).toEqual({
+      effort: { kind: "level", level: "high" },
+      advice: "delegate",
+    });
   });
 });
