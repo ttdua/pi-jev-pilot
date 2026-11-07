@@ -50,9 +50,9 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Update the docs:
+- [x] 5.1 Update the docs:
   - `docs/jev-questions.md`: the main `tier` has no display-name prefix.
   - `docs/jev-contract.md`: eligibility ("effort or strategy"), questions per switch, and the gate note that an unanswered `tier` attaches nothing for `parallel` and `graph`. In the precedence line, add a loaded skill.
   - `docs/domain-model.md`: the Advice row.
   - `docs/usage-guide.md`: the status line with advice; remove "Later work groups add skill and advice".
-- [ ] 5.2 Add tests that the docs state precedence and the unprefixed main `tier`. Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. All must pass.
+- [x] 5.2 Add tests that the docs state precedence and the unprefixed main `tier`. Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. All must pass.
