@@ -74,6 +74,22 @@ Options: `--pass 1` (the only value; pass 2 was removed), `--seed N` (1), `--mai
 
 Outputs go under `<agentDir>/jev/replay/<run-id>/`: `aggregates.json` (counts only) and `cases.md` (the differing prompts and briefs). They are private and owner-only. Copy only aggregates into evidence, and delete the directory after the decision.
 
+### Release report
+
+A manual procedure (not in CI) that measures where the shipped Jev questions send real prompts and briefs, for the release notes. It sends every sampled prompt twice (`report` and a plain `rerun`) so that the difference between the two is the noise floor. Run it only after the operator approves the data and the cost.
+
+1. Save the capabilities snapshot: `bun tests/host/manual/capabilities-snapshot.ts <scratch>/capabilities.json`. Without a snapshot the worker part is skipped and only main prompts are replayed.
+2. Do a dry run (no request is sent): `bun scripts/replay/cli.ts --pass report --capabilities <scratch>/capabilities.json`. It prints sample counts, exclusions, the request count and the estimated cost. Retries are not in the estimate.
+3. Get the operator's approval, then run the same command plus `--send`.
+
+Samples default to 100 main prompts and 200 worker briefs (`--main N`, `--workers N`; pass 1 keeps 46 workers). `--only` is not accepted with `--pass report`.
+
+Outputs go under `<agentDir>/jev/replay/<run-id>-report/`. `aggregates.json` holds counts only: effort per run against the start effort and against the fixed level, worker targets and reasons for each mode (`budget`, `standard`, `premium`) under both routings, the number of misses, and the noise (samples whose decision differs between the run and its rerun). `cases.md` holds the differing prompts and briefs, so it stays private and owner-only: never copy it, and delete the directory after the decision.
+
+Read it with care. It shows routing, not quality: it says where Jev sent a sample, not that the target was better. A difference smaller than the noise is not a result.
+
+The `tiers` routing is an approximation (design D3). It shows the mix with no slot configured, built from the same answers: the slot is dropped from the offered targets and its probability is ignored, rather than asking Jev again without the slot. The `slots` routing applies the configured slots and is the closer picture of a real launch.
+
 ## Not in CI, deliberately
 
 Live Jev calls, paid models, and CLI reviews with real logins. They would add cost and flakiness, and would need secrets.
