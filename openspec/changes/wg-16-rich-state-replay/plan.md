@@ -45,7 +45,8 @@
 | `mainState` | modified | `(i: { prompt: string; items: BranchItem[]; platforms: string[]; rich?: RichInputs }) => MainState` (rich keys optional in `MainState`) | no |
 | `pickRich` | new, `src/jev/state.ts` | `(all: RichInputs, groups: readonly RichGroup[]) => RichInputs` | no |
 | `listAgents` | new, `src/host/agents.ts` | `(dirs: { cwd: string; agentDir: string }) => AgentFacts[]` | no |
-| `gitCounts` | new, `src/host/git.ts` | `(exec, cwd: string) => Promise<GitCounts \| undefined>` (see Task 5) | no |
+| `gitCounts` | new, `src/host/git.ts` | `(exec: GitExec, cwd: string) => Promise<GitCounts \| undefined>` (see Task 5) | no |
+| `GitExec` | new, `src/host/git.ts` (deviation: exported in Task 6 so tests can type `exec` without a cast) | `(cmd: string, args: string[], o: { cwd: string; timeout: number }) => Promise<{ stdout: string; code: number; killed?: boolean; truncated?: boolean }>` | no |
 | `--pass 2 --kept <groups>` | new CLI flag | comma-separated `RichGroup` names shipped after pass 1 | yes (operator tool) |
 | `buildRichInputs` | new, `src/host/rich.ts` | see Task 5 | no |
 | `MainDeps.rich`, `MainDeps.record` | new (optional) | see Tasks 5 and 6 | no |
