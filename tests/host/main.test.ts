@@ -691,249 +691,6 @@ describe("ledger", () => {
   });
 });
 
-describe("hold", () => {
-  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
-  const decided = { provider: "fixture", model: "fixture-main", level: "high" };
-  const heldTurn = (turnId = "T1") => ({
-    type: "custom",
-    customType: "jev-turn",
-    data: { turnId, decided },
-  });
-  const heldSetup = (o: Parameters<typeof setup>[0] = {}) =>
-    setup({ branch: [heldTurn()], holdProviders: ["fixture"], start: "high", ...o });
-  const lines = (t: ReturnType<typeof setup>) =>
-    t.appended.map((e) => {
-      expect(validateLedgerEntry(e).ok).toBe(true);
-      return e as Record<string, unknown>;
-    });
-  const mainLine = (t: ReturnType<typeof setup>) => lines(t).find((l) => l["kind"] === "main")!;
-  /** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
-  const keys = (t: ReturnType<typeof setup>, i: number): string[] =>
-    Object.keys(t.requests[i]!.questions as object).filter((k) => k !== "tier" && k !== "strategy");
-  const correctsOnly = (corrects: number): JevOutcome => ({
-    kind: "ok",
-    ms: 7,
-    body: { answers: { corrects: { type: "noul", noul: corrects } } },
-  });
-
-  test("second prompt held", async () => {
-    const t = heldSetup({ outcomes: [answer("xhigh")] });
-    await run(t);
-    expect(keys(t, 0)).toEqual(["corrects"]);
-    expect(t.sets).toEqual([]);
-    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
-  });
-
-  test("provider not listed", async () => {
-    const t = heldSetup({ holdProviders: ["other"] });
-    await run(t);
-    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
-  });
-
-  test("held miss", async () => {
-    const t = heldSetup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
-    await run(t);
-    expect(t.sets).toEqual([]);
-    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
-    await t.main.agentSettled(settled(false));
-    expect(mainLine(t)).toMatchObject({
-      held: true,
-      answered: false,
-      miss: "timeout",
-      effective: "high",
-    });
-  });
-
-  test("held schema miss", async () => {
-    const t = heldSetup({ outcomes: [{ kind: "ok", ms: 7, body: {} }] });
-    await run(t);
-    expect(t.sets).toEqual([]);
-    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
-    await t.main.agentSettled(settled(false));
-    expect(mainLine(t)).toMatchObject({ held: true, miss: "schema", effective: "high" });
-  });
-
-  test("manual change while held", async () => {
-    const t = heldSetup({ start: "low", outcomes: [correctsOnly(0.1)] });
-    await run(t);
-    expect(t.sets).toEqual([]);
-    await t.main.agentSettled(settled(false));
-    expect(mainLine(t)).toMatchObject({ held: true, from: "low", effective: "low" });
-  });
-
-  test("held line fields", async () => {
-    const t = heldSetup({ outcomes: [correctsOnly(0.1)] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    const line = mainLine(t);
-    expect(line).toMatchObject({ held: true, effective: "high", from: "high", corrects: 0.1 });
-    for (const k of ["effortP", "risky", "requested"]) expect(line).not.toHaveProperty(k);
-  });
-
-  test("correction while held", async () => {
-    const t = heldSetup({ outcomes: [correctsOnly(0.9)] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lines(t).find((l) => l["kind"] === "correction")).toMatchObject({ turnId: "T1" });
-  });
-
-  test("miss right after a compaction keeps the release", async () => {
-    const t = setup({
-      branch: [heldTurn(), { type: "compaction", id: "c1" }],
-      holdProviders: ["fixture"],
-      start: "high",
-      outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }, answer("high")],
-    });
-    await run(t);
-    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
-    await t.main.agentSettled(settled(false));
-    const entry = t.custom.find((c) => c.type === "jev-turn")!;
-    expect(entry.data).toEqual({ turnId: "11111111-1111-1111-1111-111111111111" });
-    t.setBranch([
-      heldTurn(),
-      { type: "compaction", id: "c1" },
-      { type: "custom", customType: "jev-turn", data: entry.data },
-    ]);
-    await run(t);
-    expect(keys(t, 1)).toEqual(["effort", "risky", "corrects"]);
-  });
-
-  test("model switch decides once and anchors the new model", async () => {
-    const t = heldSetup({
-      model: { provider: "fixture", id: "fixture-balanced", reasoning: true },
-      outcomes: [answer("medium"), correctsOnly(0.1)],
-    });
-    await run(t);
-    expect(keys(t, 0)).toContain("effort");
-    await t.main.agentSettled(settled(false));
-    const entry = t.custom.find((c) => c.type === "jev-turn")!;
-    expect((entry.data as { decided?: unknown }).decided).toEqual({
-      provider: "fixture",
-      model: "fixture-balanced",
-      level: "medium",
-    });
-    t.setBranch([heldTurn(), { type: "custom", customType: "jev-turn", data: entry.data }]);
-    await run(t);
-    expect(keys(t, 1)).toEqual(["corrects"]);
-  });
-
-  test("decided turn on listed provider has no held", async () => {
-    const t = setup({ holdProviders: ["fixture"], outcomes: [answer("high")] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(mainLine(t)).not.toHaveProperty("held");
-  });
-});
-
-describe("anchor", () => {
-  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
-  const id = "11111111-1111-1111-1111-111111111111";
-  const decided = (level: string) => ({ provider: "fixture", model: "fixture-main", level });
-  const lastTurn = (t: ReturnType<typeof setup>) => t.custom.at(-1);
-  const heldTurn = {
-    type: "custom",
-    customType: "jev-turn",
-    data: { turnId: "T1", decided: decided("high") },
-  };
-
-  test("applied turn anchors", async () => {
-    const t = setup({ outcomes: [answer("high")] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)).toEqual({
-      type: "jev-turn",
-      data: { turnId: id, decided: decided("high") },
-    });
-  });
-
-  test("same level anchors", async () => {
-    const t = setup({ start: "medium", outcomes: [answer("medium")] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("medium") });
-  });
-
-  test("max anchors", async () => {
-    const t = setup({ start: "max", outcomes: [answer("low")] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("max") });
-  });
-
-  test("unlisted provider anchors", async () => {
-    const t = setup({ holdProviders: [], outcomes: [answer("high")] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("high") });
-  });
-
-  test("held turn writes no decided", async () => {
-    const t = setup({
-      branch: [heldTurn],
-      holdProviders: ["fixture"],
-      start: "high",
-      outcomes: [answer("xhigh")],
-    });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id });
-  });
-
-  test("discarded turn writes no decided", async () => {
-    let release: (o: JevOutcome) => void = () => {};
-    const t = setup({ outcomes: [new Promise<JevOutcome>((r) => (release = r))] });
-    const p = run(t);
-    t.setLevel("medium");
-    release(answer("high"));
-    await p;
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id });
-  });
-
-  test("miss writes no decided", async () => {
-    const t = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id });
-  });
-
-  test("non-reasoning model writes no decided", async () => {
-    const t = setup({
-      model: { provider: "fixture", id: "fixture-main", reasoning: false },
-      outcomes: [answer("high")],
-    });
-    await run(t);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id });
-  });
-
-  test("aborted after the provider request anchors", async () => {
-    const t = setup({ outcomes: [answer("high")] });
-    await run(t);
-    await t.main.beforeProviderRequest();
-    await t.main.agentSettled(settled(true));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("high") });
-  });
-
-  test("compaction during the turn writes no decided", async () => {
-    const t = setup({ outcomes: [answer("high")] });
-    await run(t);
-    t.setBranch([{ type: "compaction", id: "c1" }]);
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id });
-  });
-
-  test("branch read failure at settle writes turn id only", async () => {
-    const t = setup({ outcomes: [answer("high")] });
-    await run(t);
-    t.ctxRaw.sessionManager.getBranch = () => {
-      throw new Error("boom");
-    };
-    await t.main.agentSettled(settled(false));
-    expect(lastTurn(t)?.data).toEqual({ turnId: id });
-  });
-});
-
 describe("strategy advice", () => {
   const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
   const msg = {
@@ -1095,5 +852,319 @@ describe("strategy advice", () => {
       effort: { kind: "level", level: "high" },
       advice: "delegate",
     });
+  });
+});
+
+describe("hold", () => {
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const decided = { provider: "fixture", model: "fixture-main", level: "high" };
+  const heldTurn = (turnId = "T1") => ({
+    type: "custom",
+    customType: "jev-turn",
+    data: { turnId, decided },
+  });
+  const heldSetup = (o: Parameters<typeof setup>[0] = {}) =>
+    setup({ branch: [heldTurn()], holdProviders: ["fixture"], start: "high", ...o });
+  const lines = (t: ReturnType<typeof setup>) =>
+    t.appended.map((e) => {
+      expect(validateLedgerEntry(e).ok).toBe(true);
+      return e as Record<string, unknown>;
+    });
+  const mainLine = (t: ReturnType<typeof setup>) => lines(t).find((l) => l["kind"] === "main")!;
+  /** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
+  const keys = (t: ReturnType<typeof setup>, i: number): string[] =>
+    Object.keys(t.requests[i]!.questions as object).filter((k) => k !== "tier" && k !== "strategy");
+  const correctsOnly = (corrects: number): JevOutcome => ({
+    kind: "ok",
+    ms: 7,
+    body: { answers: { corrects: { type: "noul", noul: corrects } } },
+  });
+
+  test("second prompt held", async () => {
+    const t = heldSetup({ outcomes: [answer("xhigh")] });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["corrects"]);
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+  });
+
+  test("provider not listed", async () => {
+    const t = heldSetup({ holdProviders: ["other"] });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
+  });
+
+  test("held miss", async () => {
+    const t = heldSetup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
+    await run(t);
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).toMatchObject({
+      held: true,
+      answered: false,
+      miss: "timeout",
+      effective: "high",
+    });
+  });
+
+  test("held schema miss", async () => {
+    const t = heldSetup({ outcomes: [{ kind: "ok", ms: 7, body: {} }] });
+    await run(t);
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).toMatchObject({ held: true, miss: "schema", effective: "high" });
+  });
+
+  test("manual change while held", async () => {
+    const t = heldSetup({ start: "low", outcomes: [correctsOnly(0.1)] });
+    await run(t);
+    expect(t.sets).toEqual([]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).toMatchObject({ held: true, from: "low", effective: "low" });
+  });
+
+  test("held line fields", async () => {
+    const t = heldSetup({ outcomes: [correctsOnly(0.1)] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    const line = mainLine(t);
+    expect(line).toMatchObject({ held: true, effective: "high", from: "high", corrects: 0.1 });
+    for (const k of ["effortP", "risky", "requested"]) expect(line).not.toHaveProperty(k);
+  });
+
+  test("correction while held", async () => {
+    const t = heldSetup({ outcomes: [correctsOnly(0.9)] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lines(t).find((l) => l["kind"] === "correction")).toMatchObject({ turnId: "T1" });
+  });
+
+  test("miss right after a compaction keeps the release", async () => {
+    const t = setup({
+      branch: [heldTurn(), { type: "compaction", id: "c1" }],
+      holdProviders: ["fixture"],
+      start: "high",
+      outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }, answer("high")],
+    });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
+    await t.main.agentSettled(settled(false));
+    const entry = t.custom.find((c) => c.type === "jev-turn")!;
+    expect(entry.data).toEqual({ turnId: "11111111-1111-1111-1111-111111111111" });
+    t.setBranch([
+      heldTurn(),
+      { type: "compaction", id: "c1" },
+      { type: "custom", customType: "jev-turn", data: entry.data },
+    ]);
+    await run(t);
+    expect(keys(t, 1)).toEqual(["effort", "risky", "corrects"]);
+  });
+
+  test("model switch decides once and anchors the new model", async () => {
+    const t = heldSetup({
+      model: { provider: "fixture", id: "fixture-balanced", reasoning: true },
+      outcomes: [answer("medium"), correctsOnly(0.1)],
+    });
+    await run(t);
+    expect(keys(t, 0)).toContain("effort");
+    await t.main.agentSettled(settled(false));
+    const entry = t.custom.find((c) => c.type === "jev-turn")!;
+    expect((entry.data as { decided?: unknown }).decided).toEqual({
+      provider: "fixture",
+      model: "fixture-balanced",
+      level: "medium",
+    });
+    t.setBranch([heldTurn(), { type: "custom", customType: "jev-turn", data: entry.data }]);
+    await run(t);
+    expect(keys(t, 1)).toEqual(["corrects"]);
+  });
+
+  test("held with strategy off asks only corrects", async () => {
+    const t = heldSetup({
+      state: { switches: { strategy: false } },
+      outcomes: [correctsOnly(0.1)],
+    });
+    expect(await run(t)).toBeUndefined();
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["corrects"]);
+  });
+
+  test("held with strategy on asks tier, strategy and corrects and attaches advice", async () => {
+    const t = heldSetup({ outcomes: [advised("delegate", 0.9)] });
+    const result = await run(t);
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "tier",
+      "strategy",
+      "corrects",
+    ]);
+    expect(result).toEqual({
+      message: { customType: "jev-advice", content: strategyBlock("delegate"), display: false },
+    });
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high · delegate"]);
+    await t.main.agentSettled(settled(false));
+    const line = mainLine(t);
+    expect(line).toMatchObject({
+      held: true,
+      effective: "high",
+      strategy: "delegate",
+      strategyP: 0.9,
+      advised: true,
+    });
+    expect(line).not.toHaveProperty("effortP");
+    expect(line).not.toHaveProperty("risky");
+    expect(line).not.toHaveProperty("requested");
+  });
+
+  test("held turn that attaches no advice clears the advice suffix", async () => {
+    const t = heldSetup({ outcomes: [advised("delegate", 0.9), advised("direct", 0.9)] });
+    await run(t);
+    expect(t.main.decision()?.advice).toBe("delegate");
+    await t.main.agentSettled(settled(false));
+    expect(await run(t)).toBeUndefined();
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
+  });
+
+  test("held miss clears the advice suffix and shows the level", async () => {
+    const t = heldSetup({
+      outcomes: [advised("delegate", 0.9), { kind: "miss", miss: "timeout", reason: "x", ms: 3 }],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(await run(t)).toBeUndefined();
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+  });
+
+  test("effort off is not held: no hold fields and the level is untouched", async () => {
+    const t = heldSetup({
+      state: { switches: { effort: false } },
+      outcomes: [advised("delegate", 0.9)],
+    });
+    expect(await run(t)).toBeDefined();
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "tier",
+      "strategy",
+      "corrects",
+    ]);
+    expect(t.sets).toEqual([]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).not.toHaveProperty("held");
+  });
+
+  test("decided turn on listed provider has no held", async () => {
+    const t = setup({ holdProviders: ["fixture"], outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).not.toHaveProperty("held");
+  });
+});
+
+describe("anchor", () => {
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const id = "11111111-1111-1111-1111-111111111111";
+  const decided = (level: string) => ({ provider: "fixture", model: "fixture-main", level });
+  const lastTurn = (t: ReturnType<typeof setup>) => t.custom.at(-1);
+  const heldTurn = {
+    type: "custom",
+    customType: "jev-turn",
+    data: { turnId: "T1", decided: decided("high") },
+  };
+
+  test("applied turn anchors", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)).toEqual({
+      type: "jev-turn",
+      data: { turnId: id, decided: decided("high") },
+    });
+  });
+
+  test("same level anchors", async () => {
+    const t = setup({ start: "medium", outcomes: [answer("medium")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("medium") });
+  });
+
+  test("max anchors", async () => {
+    const t = setup({ start: "max", outcomes: [answer("low")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("max") });
+  });
+
+  test("unlisted provider anchors", async () => {
+    const t = setup({ holdProviders: [], outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("high") });
+  });
+
+  test("held turn writes no decided", async () => {
+    const t = setup({
+      branch: [heldTurn],
+      holdProviders: ["fixture"],
+      start: "high",
+      outcomes: [answer("xhigh")],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("discarded turn writes no decided", async () => {
+    let release: (o: JevOutcome) => void = () => {};
+    const t = setup({ outcomes: [new Promise<JevOutcome>((r) => (release = r))] });
+    const p = run(t);
+    t.setLevel("medium");
+    release(answer("high"));
+    await p;
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("miss writes no decided", async () => {
+    const t = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("non-reasoning model writes no decided", async () => {
+    const t = setup({
+      model: { provider: "fixture", id: "fixture-main", reasoning: false },
+      outcomes: [answer("high")],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("aborted after the provider request anchors", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(true));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("high") });
+  });
+
+  test("compaction during the turn writes no decided", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    t.setBranch([{ type: "compaction", id: "c1" }]);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("branch read failure at settle writes turn id only", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    t.ctxRaw.sessionManager.getBranch = () => {
+      throw new Error("boom");
+    };
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
   });
 });

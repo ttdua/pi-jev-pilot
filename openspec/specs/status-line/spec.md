@@ -94,6 +94,10 @@ A session start MUST clear both suffixes. Drawing the line MUST make no network 
 - **WHEN** a session resumed on a listed provider with an anchor at `high`, with no suffix yet, and the next prompt is held
 - **THEN** the status line reads `Jev · standard · high`
 
+#### Scenario: Held turn with advice
+- **WHEN** a prompt is held at `high` and Jev answers `strategy` `delegate` with probability 0.9
+- **THEN** the status line reads `Jev · standard · high · delegate`
+
 #### Scenario: Held miss shows the level
 - **WHEN** a prompt is held at `high` and its Jev request times out
 - **THEN** the status line reads `Jev · standard · high`
