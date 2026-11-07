@@ -5,8 +5,12 @@
 > Overwritten on each apply iteration; iteration counter grows.
 
 **Change**: `wg-16-rich-state-replay`
-**Iteration**: `2`
-**Applied at**: `2026-11-07 11:40` (UTC). Iteration 1 was at 10:56, and iteration 2 fixes verify warning W1.
+**Iteration**: `3`
+**Applied at**: `2026-11-07 13:35` (UTC).
+
+- Iteration 1 was at 10:56.
+- Iteration 2, at 11:40, fixed verify warning W1.
+- Iteration 3 applies the pass 1 decisions (design D9) and adds the `effort-order` replay variant.
 **Executor**: `subagent-driven-development`. Each task had a `superspec.implementer`, followed by a combined spec and quality review by `superspec.task-reviewer`. A final whole-branch review by `superspec.task-reviewer` covered `3ebb2e0..f91258a`. A fix wave followed, then a scoped re-review.
 
 ---
@@ -22,24 +26,30 @@
 
 ## Commits
 
-- **Range**: `3ebb2e0..53121b0`. `3ebb2e0` is the scaffold commit on `WG-16`.
+- **Range**: `3ebb2e0..1b160b4`. `3ebb2e0` is the scaffold commit on `WG-16`.
+  - Iteration 3 is `a17b2a6..1b160b4`:
+    - `a17b2a6` and `60f5a59`: decisions, evidence and artifact updates;
+    - `fbb26e0`: ship `last_decision` and `capabilities`, and remove the context and languages fields;
+    - `9ad4611`: the `effort-order` variant and `--only`;
+    - `1b160b4`: review fixes.
+  - Finalize (code part) merged `bc55c49` into `WG-16`, and the worktree branch was fast-forwarded to `fba404b` after it.
   - Iteration 1 ran `3ebb2e0..ce33b74` plus the receipts `5f85935` and `f466b98`.
   - Iteration 2 is `53121b0` (`fix(jev): context_used_percent is never null on the wire`), a type-only narrowing tested by a type-level assertion.
-- **Count**: `33`
+- **Count**: `41`
 
 ---
 
 ## Tasks
 
 - **Completed**: `18 of 27` checkboxes in tasks.md are flipped to `- [x]`. These are groups 1–4, which cover plan Tasks 1–11: all of the code, tests and docs.
-- **Remaining**: `5.1`, `5.2`, `5.3`, `5.4`, `5.5`, `6.1`, `6.2`, `6.3`, `6.4`.
+- **Remaining**: `5.6` (send the effort-order replay, which needs operator approval), `5.7` (apply the order after the operator rules), and `6.1`–`6.4` (pass 2, git). Done in iteration 3: 5.1–5.5.
   - These are plan Tasks 12–14, the operator-gated replay passes and the decisions that follow them.
   - Each `--send` needs the operator's approval at that moment, stating the data and the cost (`docs/testing.md` Replay rules).
   - Pass 2 also needs a few days of `JEV_REPLAY_GIT=1` recording first.
   - They are deliberately outside this apply run.
 
-**Verification at `53121b0`:**
-- `bun test`: 1566 pass, 0 fail.
+**Verification at `1b160b4`:**
+- `bun test`: 1557 pass, 0 fail. There are fewer tests than before because the tests for the removed builders are gone.
 - `bun run typecheck`, `bun run lint` and `bun run fmt:check`: clean.
 
 **E2E check:** `bun scripts/replay/cli.ts --pass 1 --models <saved pi --list-models>` was run against the real `~/.pi/agent/sessions` as a dry run, with no `--send` and no network request.
@@ -60,6 +70,9 @@ All of these are internal, and each is recorded in `plan.md` Contracts.
 - `aggregates.json`: variants are keyed by `variantKey` (`worker:<id>` for workers). Base variants are listed too, and `kind` and `incomparable` were added. This came out of the Task 10 fix round, which found exclusion counts colliding across kinds.
 - `variantKey`: a new shared helper, introduced in the same Task 10 fix round.
 - `writeOutputs`: moved into `scripts/replay/outputs.ts`, so that `compare.ts` stays pure.
+- `RichGroup` and `RICH_GROUPS` (iteration 3): `context_used_percent` and `languages` are removed, per the D9 decision, and `SHIPPED_MAIN_GROUPS` is `last_decision` and `capabilities`. `scanLanguages` and the `getContextUsage` use are deleted.
+- `scripts/replay` CLI (public, iteration 3): an additive optional `--only VARIANTS` flag was added. The operator approved a confirming replay of the effort order, and this flag runs just that variant. `--models` is still accepted, but it is a no-op now that the context group is gone.
+- `listAgents` (iteration 3): it now lists each directory once and resolves from those maps. The output is unchanged.
 - `RICH_GROUPS`: a new `as const` array in `src/jev/state.ts`. `RichGroup` is now derived from it, so the CLI's group list cannot drift. Final-review M4.
 
 The public contracts (the `scripts/replay` CLI, `replay-git.jsonl` and `JEV_REPLAY_GIT`) are unchanged. Final-review M3 tightened `--kept` validation: `git` is rejected, and `capabilities` requires `--capabilities`. Both are stricter input checks inside the documented flags.
@@ -68,4 +81,4 @@ The public contracts (the `scripts/replay` CLI, `replay-git.jsonl` and `JEV_REPL
 
 ## Next step
 
-Run `/opsx-verify` for iteration 2. After verify and finalize, plan Tasks 12–14 run only with the operator's explicit approval for each `--send`.
+Run `/opsx-verify` for iteration 3. After verify and finalize, plan Tasks 12–14 run only with the operator's explicit approval for each `--send`.
