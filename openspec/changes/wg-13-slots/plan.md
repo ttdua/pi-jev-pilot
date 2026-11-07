@@ -52,7 +52,7 @@
 | `RouteInput` (`src/policy/route.ts`) | modified | adds `slots: readonly string[]`; `canRun`, `thinkingOf`, `modelOf` take `Target` | no |
 | `Route.record` | modified | `tier?: Target; fallback?: Target` | no |
 | `launchKind(launch, offered, forkedLaunch, slotCount = 0)` | modified | "no tier" means `offered.length === 0 && slotCount === 0` | no |
-| `WorkerEffortInput.tier` (`src/policy/effort.ts`) | modified | `Target`; the `fast` cap applies only to `"fast"` | no |
+| `EffortInput.tier` (`src/policy/effort.ts`) | modified | `Target`; the `fast` cap applies only to `"fast"`. Deviation (internal): the plan named it `WorkerEffortInput`; the existing type is `EffortInput` | no |
 | `SlotOption` (`src/jev/questions.ts`) | new | `{ name: string; model: string; when: string; displayName?: string }` | no |
 | `buildWorkerQuestions(offered, displayNames, mode, slots: readonly SlotOption[] = [])` | modified | appends `slot::<name>` criteria and options after tiers | no |
 | `SLOT_CRITERION_INFIX` (`src/jev/rubrics.ts`) | new | `" (a custom model). "` | no |
@@ -86,7 +86,7 @@
   - "Slot fell back to fast": `effort` `low`, `tier: "fast"`, `movedByFallback: true` → `"xhigh"`.
   - `isSlot("slot::a") === true`, `isSlot("fast") === false`, `slotTarget("a") === "slot::a"`.
 - [ ] **Step 2: Run** `bun test tests/policy/effort.test.ts tests/policy/launch.test.ts`. Expect FAIL (no export, type error).
-- [ ] **Step 3: Implement** the types in `launch.ts` and widen `WorkerEffortInput.tier` to `Target`. The cap check stays `tier === "fast"`.
+- [ ] **Step 3: Implement** the types in `launch.ts` and widen `EffortInput.tier` to `Target`. The cap check stays `tier === "fast"`.
 - [ ] **Step 4: Run** the tests and `bun run typecheck`. Expect PASS.
 - [ ] **Step 5: Commit** `feat(policy): slot targets`.
 
