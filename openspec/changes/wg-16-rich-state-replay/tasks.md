@@ -1,8 +1,8 @@
 ## 1. Shared readers in jev/
 
-- [ ] 1.1 Move `branchItems` into a new `src/jev/branch.ts`, with a structural entry type and no Pi import. `src/host/context.ts` re-exports it, and the existing context tests pass unchanged.
-- [ ] 1.2 Move `scanPlatforms` and its marker table into a new `src/jev/workspace.ts`. `src/host/context.ts` re-exports it, and the existing tests pass unchanged.
-- [ ] 1.3 Update `docs/architecture.md` (module tree) for the moved readers.
+- [x] 1.1 Move `branchItems` into a new `src/jev/branch.ts`, with a structural entry type and no Pi import. `src/host/context.ts` re-exports it, and the existing context tests pass unchanged.
+- [x] 1.2 Move `scanPlatforms` and its marker table into a new `src/jev/workspace.ts`. `src/host/context.ts` re-exports it, and the existing tests pass unchanged.
+- [x] 1.3 Update `docs/architecture.md` (module tree) for the moved readers.
 
 ## 2. Rich field builders
 
