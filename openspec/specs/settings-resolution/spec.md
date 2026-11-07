@@ -10,7 +10,7 @@ Effective settings SHALL come from one pure function of a valid config, the stat
 
 #### Scenario: Everything defaulted
 - **WHEN** the config is empty, the state has no fields and there is no tuning layer
-- **THEN** the result has `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`, no tiers, no slots, `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `state.parentRequest` `false`, `review.cli` `codex`, `subagents.forkedLaunch` `untouched`, mode `standard`, and every feature on except `verbose`
+- **THEN** the result has `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`, no tiers, no slots, `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `state.parentRequest` `false`, `review.cli` `codex`, `review.enabled` `false`, `subagents.forkedLaunch` `untouched`, mode `standard`, and every feature on except `verbose`
 
 #### Scenario: Config over default
 - **WHEN** the config sets `classifier.timeoutMs` to `2000`
@@ -25,7 +25,7 @@ Effective settings SHALL come from one pure function of a valid config, the stat
 - **THEN** the result's `subagents.forkedLaunch` is `thinking`
 
 ### Requirement: State overrides
-The state SHALL override the switches and mode defaults, and its CLI review default SHALL replace the config's `review` setting as a whole.
+The state SHALL override the switches and mode defaults. Its CLI review default SHALL replace the config's `review.cli` together with any model and effort, and its `cliReviewEnabled` SHALL override the config's `review.enabled`. Each of the two MUST resolve independently of the other.
 
 #### Scenario: Switch off
 - **WHEN** the state turns `skills` off
@@ -38,6 +38,18 @@ The state SHALL override the switches and mode defaults, and its CLI review defa
 #### Scenario: CLI review default from state
 - **WHEN** the config sets `review.cli` to `codex` and the state sets the CLI review default to `opencode` with no model
 - **THEN** the result's `review.cli` is `opencode`, with no model and no effort
+
+#### Scenario: CLI review on from the config
+- **WHEN** the config sets `review.enabled` to `true` and the state has no `cliReviewEnabled`
+- **THEN** the result's `review.enabled` is `true`
+
+#### Scenario: CLI review off from the state
+- **WHEN** the config sets `review.enabled` to `true` and the state sets `cliReviewEnabled` to `false`
+- **THEN** the result's `review.enabled` is `false`
+
+#### Scenario: Reviewer from state keeps the config's enabled
+- **WHEN** the config sets `review` to `{"cli":"codex","enabled":true}` and the state sets the CLI review default to `opencode` with no `cliReviewEnabled`
+- **THEN** the result's `review` is `opencode` with `enabled` `true`
 
 #### Scenario: Config review without state
 - **WHEN** the config sets `review.cli` to `opencode` and the state has no CLI review default

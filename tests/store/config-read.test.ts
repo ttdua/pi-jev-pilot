@@ -130,6 +130,20 @@ describe("readConfig", () => {
     });
   });
 
+  test("CLI review enabled accepted", () => {
+    const r = readJson({ review: { cli: "opencode", enabled: true } });
+    expectValid(r);
+    expect(r).toEqual({
+      kind: "ok",
+      present: true,
+      config: { review: { cli: "opencode", enabled: true } },
+    });
+  });
+
+  test("Non-boolean review.enabled", () => {
+    expect(paths(readJson({ review: { enabled: "on" } }))).toEqual(["review.enabled"]);
+  });
+
   test("Secret-like key", () => {
     expect(paths(readJson({ classifier: { apiKey: "x" } }))).toEqual(["classifier.apiKey"]);
   });

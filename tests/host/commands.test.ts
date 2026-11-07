@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
@@ -82,7 +82,14 @@ describe("parseJevArgs", () => {
       model: "luna",
     });
   });
+  test("cli-review switch", () => {
+    expect(parseJevArgs("cli-review on")).toEqual({ kind: "cli-review-switch", on: true });
+    expect(parseJevArgs("cli-review off")).toEqual({ kind: "cli-review-switch", on: false });
+  });
   for (const bad of [
+    "cli-review off now",
+    "cli-review OFF",
+    "cli-review On",
     "cli-review",
     "cli-review claude",
     "cli-review Codex",
@@ -120,6 +127,9 @@ describe("usageText", () => {
   test("Usage lists the mode form", () => {
     expect(text).toContain("/jev mode budget|standard|premium");
   });
+  test("Usage lists the cli-review switch", () => {
+    expect(text).toContain("/jev cli-review on|off");
+  });
   test("lists the cli-review form", () => {
     expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
   });
@@ -145,17 +155,20 @@ describe("formatStatus", () => {
     expect(text).not.toContain("no executor");
   });
   test("cli review default and set values", () => {
-    expect(formatStatus(snap())).toContain("cli review: codex (CLI defaults)");
-    const state: State = { cliReview: { cli: "codex", model: "luna", effort: "high" } };
+    expect(formatStatus(snap())).toContain("cli review: off (codex, CLI defaults)");
+    const state: State = {
+      cliReview: { cli: "codex", model: "luna", effort: "high" },
+      cliReviewEnabled: true,
+    };
     const lines = formatStatus(snap({ state })).split("\n");
-    expect(lines).toContain("cli review: codex (model luna, effort high)");
-    expect(lines.indexOf("cli review: codex (model luna, effort high)")).toBe(
+    expect(lines).toContain("cli review: on (codex, model luna, effort high)");
+    expect(lines.indexOf("cli review: on (codex, model luna, effort high)")).toBe(
       lines.findIndex((l) => l.startsWith("  verbose:")) + 1,
     );
     const m = formatStatus(snap({ state: { cliReview: { cli: "opencode", model: "p/m" } } }));
-    expect(m).toContain("cli review: opencode (model p/m)");
+    expect(m).toContain("cli review: off (opencode, model p/m)");
     const e = formatStatus(snap({ state: { cliReview: { cli: "opencode", effort: "high" } } }));
-    expect(e).toContain("cli review: opencode (effort high)");
+    expect(e).toContain("cli review: off (opencode, effort high)");
   });
   test("key not set", () => {
     expect(formatStatus(snap({ env: {} }))).toContain("not set");
@@ -404,10 +417,43 @@ describe("runJev", () => {
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
   });
 
+  test("review is not a feature switch", async () => {
+    for (const a of ["review off", "review on"]) expect(parseJevArgs(a)).toEqual({ kind: "usage" });
+    const dir = jevDir();
+    await run("skills off", dir);
+    const before = readFileSync(join(dir, "state.json"), "utf8");
+    const rec = await run("review off", dir);
+    expect(rec.notes.map((n) => n[1])).toEqual(["warning"]);
+    expect(rec.notes[0]![0]).toContain("/jev <feature> on|off");
+    expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(before);
+  });
+
+  test("status lists exactly eight features", async () => {
+    const dir = jevDir();
+    const rec = await run("", dir);
+    const text = rec.notes[0]![0];
+    const lines = text.split("\n");
+    const start = lines.indexOf("features:") + 1;
+    const names = lines.slice(start, start + 8).map((l) => l.trim().split(":")[0]);
+    expect(lines[start + 8]).toMatch(/^cli review:/);
+    expect(names).toEqual([
+      "effort",
+      "subagents",
+      "skills",
+      "strategy",
+      "tools",
+      "expert",
+      "status",
+      "verbose",
+    ]);
+    expect(text).not.toContain("  review:");
+  });
+
   test("all off then all on", async () => {
     const dir = jevDir();
     await run("all off", dir);
     const sw = switches(dir)!;
+    expect(DECISION_FEATURES).toHaveLength(6);
     for (const f of DECISION_FEATURES) expect(sw[f]).toBe(false);
     expect("status" in sw).toBe(false);
     expect("verbose" in sw).toBe(false);
@@ -640,6 +686,114 @@ describe("runJev mode", () => {
   });
 });
 
+describe("runJev sync", () => {
+  test("sync runs after a change, not after status or usage", async () => {
+    const dir = jevDir();
+    const seen: boolean[] = [];
+    const go = async (args: string) => {
+      const c = fakeCtx();
+      await runJev(args, c.ctx, {
+        dir,
+        load: load(dir),
+        decision: noDecision,
+        exec: noExec,
+        sync: (s) => seen.push(s.settings.review.enabled),
+      });
+    };
+    await go("");
+    await go("bogus words here");
+    expect(seen).toEqual([]);
+    await go("cli-review on");
+    expect(seen).toEqual([true]);
+    await go("reset");
+    expect(seen).toEqual([true, false]);
+  });
+
+  test("sync sees the one loaded snapshot before draw and notify", async () => {
+    const dir = jevDir();
+    const events: string[] = [];
+    const marker = snap({ state: { mode: "premium" } });
+    let loads = 0;
+    let synced: Snapshot | undefined;
+    const c = fakeCtx();
+    const ui = c.ctx.ui as unknown as Record<string, (...a: unknown[]) => void>;
+    const notify = ui.notify!;
+    const setWidget = ui.setWidget!;
+    ui.notify = (...a) => {
+      events.push("notify");
+      notify(...a);
+    };
+    ui.setWidget = (...a) => {
+      events.push("draw");
+      setWidget(...a);
+    };
+    await runJev("cli-review on", c.ctx, {
+      dir,
+      load: () => {
+        loads++;
+        return marker;
+      },
+      decision: noDecision,
+      exec: noExec,
+      sync: (sn) => {
+        events.push("sync");
+        synced = sn;
+      },
+    });
+    expect(loads).toBe(1);
+    expect(synced).toBe(marker);
+    expect(events).toEqual(["sync", "draw", "notify"]);
+    expect(c.rec.widgets[0]![1]).toEqual(["Jev · premium"]);
+    expect(c.rec.notes[0]![0]).toContain("mode: premium");
+  });
+
+  test("refused changes never sync", async () => {
+    const dir = jevDir();
+    let syncs = 0;
+    const attempt = async (args: string) => {
+      const c = fakeCtx();
+      await runJev(args, c.ctx, {
+        dir,
+        load: load(dir),
+        decision: noDecision,
+        exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false, truncated: false }),
+        sync: () => void syncs++,
+      });
+      return c.rec;
+    };
+    // refused model: the CLI list parses to nothing usable, value outside state rules
+    const bad = await attempt("cli-review codex " + "x".repeat(300));
+    expect(bad.notes[0]![1]).toBe("error");
+    if (process.getuid?.() !== 0) {
+      await attempt("cli-review on");
+      expect(syncs).toBe(1);
+      chmodSync(join(dir, "state.json"), 0o000);
+      const rec = await attempt("cli-review off");
+      chmodSync(join(dir, "state.json"), 0o600);
+      expect(rec.notes[0]![1]).toBe("error");
+      expect(rec.notes[0]![0]).toContain("EACCES");
+      expect(rec.widgets).toHaveLength(0);
+    }
+    expect(syncs).toBe(process.getuid?.() === 0 ? 0 : 1);
+  });
+
+  test("a throwing sync still draws and notifies", async () => {
+    const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("cli-review on", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      sync: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(c.rec.widgets).toHaveLength(1);
+    expect(c.rec.notes.map((n) => n[1])).toEqual(["info"]);
+  });
+});
+
 describe("runJev cli-review", () => {
   const catalog = JSON.stringify({
     models: [
@@ -690,10 +844,106 @@ describe("runJev cli-review", () => {
     const f = fake(ok(""));
     const { rec, dir } = await go("cli-review opencode", f);
     expect(review(dir)).toEqual({ cli: "opencode" });
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
     expect(f.calls).toHaveLength(0);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
-    expect(rec.notes[0]![0]).toContain("cli review: opencode (CLI defaults)");
+    expect(rec.notes[0]![0]).toContain("cli review: on (opencode, CLI defaults)");
     expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("Turn the CLI review off", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "state.json"),
+      JSON.stringify({
+        version: 1,
+        cliReview: { cli: "opencode", model: "p/m" },
+        cliReviewEnabled: true,
+      }),
+    );
+    const f = fake(ok(""));
+    const { rec } = await go("cli-review off", f, dir);
+    expect(f.calls).toHaveLength(0);
+    expect(rec.notes[0]![0]).toContain("cli review: off (opencode, model p/m)");
+    const st = readState(dir).state as State;
+    expect(st.cliReviewEnabled).toBe(false);
+    expect(st.cliReview).toEqual({ cli: "opencode", model: "p/m" });
+    expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("Turn the CLI review on", async () => {
+    const f = fake(ok(""));
+    const { dir, rec } = await go("cli-review on", f);
+    expect(readState(dir).state).toEqual({ cliReviewEnabled: true });
+    expect(f.calls).toHaveLength(0);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, CLI defaults)");
+  });
+
+  test("Switch survives a restart", async () => {
+    const { dir } = await go("cli-review on", fake(ok("")));
+    expect(load(dir)().settings.review.enabled).toBe(true);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Refused switch", async () => {
+    const dir = jevDir();
+    await go("cli-review on", fake(ok("")), dir);
+    const before = readFileSync(join(dir, "state.json"));
+    chmodSync(join(dir, "state.json"), 0o000);
+    const { rec } = await go("cli-review off", fake(ok("")), dir);
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("EACCES");
+    expect(readFileSync(join(dir, "state.json"))).toEqual(before);
+  });
+
+  function seed(dir: string, body: object) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "state.json"), JSON.stringify({ version: 1, ...body }));
+  }
+
+  test("Choosing a reviewer turns the review on", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    const { rec } = await go("cli-review codex", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, CLI defaults)");
+  });
+
+  test("Refused model leaves the review off", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    const { rec } = await go("cli-review codex nova", fake(ok(catalog)), dir);
+    expect(rec.notes[0]![1]).toBe("error");
+    const st = readState(dir).state as State;
+    expect(st.cliReviewEnabled).toBe(false);
+    expect(st.cliReview).toBeUndefined();
+  });
+
+  test("All leaves the CLI review alone", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: true });
+    await go("all off", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
+  });
+
+  test("Reset turns the CLI review off", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: true });
+    const { rec } = await go("reset", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBeUndefined();
+    expect(rec.notes[0]![0]).toContain("cli review: off");
+  });
+
+  test("Reset falls back to config review.enabled", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ review: { enabled: true } }));
+    const { rec } = await go("reset", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBeUndefined();
+    expect(rec.notes[0]![0]).toContain("cli review: on");
   });
 
   test("tier stored as typed, list read once with the right command", async () => {
@@ -704,7 +954,7 @@ describe("runJev cli-review", () => {
     expect(f.calls[0]![0]).toBe("codex");
     expect(f.calls[0]![1]).toEqual(["debug", "models"]);
     expect(f.calls[0]![2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
-    expect(rec.notes[0]![0]).toContain("cli review: codex (model luna, effort high)");
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, model luna, effort high)");
   });
 
   test("tier in another case stored as typed", async () => {
@@ -828,6 +1078,17 @@ describe("runJev cli-review", () => {
       const { rec, dir } = await go(a, f);
       expect(rec.notes).toEqual([[usageText(), "warning"]]);
       expect(existsSync(join(dir, "state.json"))).toBe(false);
+    }
+  });
+
+  test("malformed switch forms report usage and leave state.json unchanged", async () => {
+    for (const a of ["cli-review OFF", "cli-review On", "cli-review off now"]) {
+      const dir = jevDir();
+      seed(dir, { cliReviewEnabled: true });
+      const before = readFileSync(join(dir, "state.json"));
+      const { rec } = await go(a, fake(ok(catalog)), dir);
+      expect(rec.notes).toEqual([[usageText(), "warning"]]);
+      expect(readFileSync(join(dir, "state.json"))).toEqual(before);
     }
   });
 

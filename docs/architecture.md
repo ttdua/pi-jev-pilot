@@ -92,7 +92,7 @@ src/
     tuning-seen.ts       Session-start line for unseen changes, `seenAt`
     tune-command.ts      /jev tune: report, undo, reset, on, off
     tuning-text.ts       Pure texts: change lines, session-start line, report
-    review.ts            jev_review tool, runs the CLI, hides the tool in children
+    review.ts            jev_review tool, runs the CLI, hides the tool in children and while off
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
     context.ts           Previous turn id and hold context from the branch; re-exports
                          branchItems and scanPlatforms from jev/
@@ -107,7 +107,7 @@ src/
 
   store/                 Files under <agentDir>/jev/.
     config.ts            config.json: reads and validates; writes only crew.slots
-    state-file.ts        state.json: switches, mode, CLI review default
+    state-file.ts        state.json: switches, mode, CLI review default and on/off
     settings.ts          Effective settings: tuning > state > config > default
     defaults.ts          Default values and feature and mode names
     atomic.ts            Atomic write: owner-only directory and file

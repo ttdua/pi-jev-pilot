@@ -23,7 +23,7 @@ describe("resolveSettings", () => {
       tools: { mode: "observe" },
       state: { parentRequest: false },
       subagents: { forkedLaunch: "untouched" },
-      review: { cli: "codex" },
+      review: { cli: "codex", enabled: false },
       mode: "standard",
       switches: {
         effort: true,
@@ -32,7 +32,6 @@ describe("resolveSettings", () => {
         strategy: true,
         tools: true,
         expert: true,
-        review: true,
         status: true,
         verbose: false,
       },
@@ -68,9 +67,30 @@ describe("resolveSettings", () => {
       config: { review: { cli: "codex" } },
       state: { cliReview: { cli: "opencode" } },
     });
-    expect(s.review).toEqual({ cli: "opencode" });
+    expect(s.review).toEqual({ cli: "opencode", enabled: false });
     expect(Object.hasOwn(s.review, "model")).toBe(false);
     expect(Object.hasOwn(s.review, "effort")).toBe(false);
+  });
+
+  test("CLI review on from the config", () => {
+    const s = resolveSettings({ config: { review: { enabled: true } }, state: {} });
+    expect(s.review.enabled).toBe(true);
+  });
+
+  test("CLI review off from the state", () => {
+    const s = resolveSettings({
+      config: { review: { enabled: true } },
+      state: { cliReviewEnabled: false },
+    });
+    expect(s.review.enabled).toBe(false);
+  });
+
+  test("Reviewer from state keeps the config's enabled", () => {
+    const s = resolveSettings({
+      config: { review: { cli: "codex", enabled: true } },
+      state: { cliReview: { cli: "opencode" } },
+    });
+    expect(s.review).toEqual({ cli: "opencode", enabled: true });
   });
 
   test("Config review without state", () => {

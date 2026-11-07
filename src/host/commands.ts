@@ -33,6 +33,7 @@ export type JevArgs =
   | { kind: "all"; on: boolean }
   | { kind: "mode"; mode: Mode }
   | { kind: "reset" }
+  | { kind: "cli-review-switch"; on: boolean }
   | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
   | { kind: "slot"; args: SlotArgs }
   | { kind: "tune"; sub: TuneSub }
@@ -42,6 +43,9 @@ const USAGE: JevArgs = { kind: "usage" };
 
 function parseCliReview(words: string[]): JevArgs {
   const [, cli, model, effort] = words;
+  if (words.length === 2 && (cli === "on" || cli === "off")) {
+    return { kind: "cli-review-switch", on: cli === "on" };
+  }
   if (words.length < 2 || words.length > 4) return USAGE;
   if (cli !== "codex" && cli !== "opencode") return USAGE;
   return {
@@ -92,9 +96,10 @@ export function usageText(): string {
     "  /jev                      show the status",
     "  /jev <feature> on|off     switch one feature",
     `      features: ${FEATURES.join(", ")}`,
-    "  /jev all on|off           switch the seven decision features",
+    "  /jev all on|off           switch the six decision features",
     "  /jev mode budget|standard|premium  choose the worker mode",
     "  /jev reset                reset switches, mode and CLI review default",
+    "  /jev cli-review on|off    turn the CLI review on or off",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
     "  /jev <slot> <provider/model> [when <text>]",
     "  /jev <slot>",
@@ -108,7 +113,8 @@ function reviewLine(r: Snapshot["settings"]["review"]): string {
     ...(r.model ? [`model ${r.model}`] : []),
     ...(r.effort ? [`effort ${r.effort}`] : []),
   ];
-  return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
+  const detail = parts.length > 0 ? parts : ["CLI defaults"];
+  return `cli review: ${r.enabled ? "on" : "off"} (${[r.cli, ...detail].join(", ")})`;
 }
 
 function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
@@ -193,9 +199,12 @@ function applyChange(
       return resetState(dir);
     case "mode":
       return updateState(dir, (st) => ({ ...st, mode: parsed.mode }));
+    case "cli-review-switch":
+      return updateState(dir, (st) => ({ ...st, cliReviewEnabled: parsed.on }));
     case "cli-review":
       return updateState(dir, (st) => ({
         ...st,
+        cliReviewEnabled: true,
         cliReview: {
           cli: parsed.cli,
           ...(cliReview?.model ? { model: cliReview.model } : {}),
@@ -225,6 +234,7 @@ export async function runJev(
     window?: () => readonly WindowEntry[];
     overlay?: () => string | undefined;
     tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
+    sync?: (snapshot: Snapshot) => void;
   },
 ): Promise<void> {
   try {
@@ -298,6 +308,13 @@ export async function runJev(
       }
     }
     const snapshot = deps.load();
+    if (parsed.kind !== "status") {
+      try {
+        deps.sync?.(snapshot);
+      } catch {
+        /* a failed tool sync must not hide the status */
+      }
+    }
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
     notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.()), "info");
   } catch (err) {

@@ -6,15 +6,15 @@ The `/jev` command reports the status and changes feature switches through `stat
 ## Requirements
 
 ### Requirement: Status report
-`/jev` with no argument SHALL report the status: the status line text, the effective mode, each of the nine feature switches with `on` or `off`, the effective CLI review default (the CLI, and the model and effort when set, or that the CLI's defaults apply), whether the API key is set (naming the environment variable, never its value), whether the executor is present, every config, state and `tuning.json` problem with its field path, the recent worker mix when the executor is present, and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): fast <a>% / balanced <b>% / deep <c>% / expert <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. Without the executor, the report MUST say `no executor` and that worker routing and tool assessment are off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
+`/jev` with no argument SHALL report the status: the status line text, the effective mode, each of the eight feature switches with `on` or `off`, the CLI review on one line `cli review: <on|off> (<cli>, <details>)` where `<details>` is `model <m>` and `effort <e>` when set, joined by `, `, or `CLI defaults` when neither is set, whether the API key is set (naming the environment variable, never its value), whether the executor is present, every config, state and `tuning.json` problem with its field path, the recent worker mix when the executor is present, and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): fast <a>% / balanced <b>% / deep <c>% / expert <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. Without the executor, the report MUST say `no executor` and that worker routing and tool assessment are off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
 
 #### Scenario: Default status
 - **WHEN** the config is valid, the key is set, the executor is installed, and `/jev` runs
-- **THEN** the report names mode `standard`, lists every feature `on` except `verbose`, shows the CLI review default as `codex` with the CLI's defaults, says the key in `TYPESAFE_API_KEY` is set, and reports the executor as present
+- **THEN** the report names mode `standard`, lists every feature `on` except `verbose`, contains `cli review: off (codex, CLI defaults)`, says the key in `TYPESAFE_API_KEY` is set, and reports the executor as present
 
 #### Scenario: CLI review default shown
-- **WHEN** the state holds `cliReview` `{"cli":"codex","model":"luna","effort":"high"}` and `/jev` runs
-- **THEN** the report shows the CLI review default as `codex` with model `luna` and effort `high`
+- **WHEN** the state holds `cliReview` `{"cli":"codex","model":"luna","effort":"high"}` and `cliReviewEnabled` `true`, and `/jev` runs
+- **THEN** the report contains `cli review: on (codex, model luna, effort high)`
 
 #### Scenario: No executor
 - **WHEN** the executor is not installed and `/jev` runs
@@ -65,7 +65,7 @@ The `/jev` command reports the status and changes feature switches through `stat
 - **THEN** the report has no `mix` line
 
 ### Requirement: Feature switches
-`/jev <feature> on|off`, where `<feature>` is one of `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`, SHALL set that switch in `state.json` through the state store, leaving other fields unchanged, then report the new status and refresh the status line. A switch set this way MUST still apply after Pi restarts.
+`/jev <feature> on|off`, where `<feature>` is one of `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`, SHALL set that switch in `state.json` through the state store, leaving other fields unchanged, then report the new status and refresh the status line. A switch set this way MUST still apply after Pi restarts. `review` is not a feature.
 
 #### Scenario: Turn a feature off
 - **WHEN** the operator runs `/jev skills off`
@@ -79,23 +79,35 @@ The `/jev` command reports the status and changes feature switches through `stat
 - **WHEN** `skills` is off and the operator runs `/jev skills on`
 - **THEN** `state.json` holds `switches.skills` `true`
 
+#### Scenario: Status lists eight features
+- **WHEN** `/jev` runs
+- **THEN** the `features:` block lists exactly `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`, in that order, and no `review`
+
 ### Requirement: All features
-`/jev all on|off` SHALL set the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) in one state update, and MUST leave `status` and `verbose` unchanged.
+`/jev all on|off` SHALL set the six decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`) in one state update, and MUST leave `status`, `verbose` and the CLI review on/off setting unchanged.
 
 #### Scenario: All off
 - **WHEN** the operator runs `/jev all off`
-- **THEN** the seven decision features are `false` in `state.json`, `status` and `verbose` keep their values, and, with the key set and the config valid, the status line reads `Jev · off`
+- **THEN** the six decision features are `false` in `state.json`, `status` and `verbose` keep their values, and, with the key set and the config valid, the status line reads `Jev · off`
 
 #### Scenario: All on
 - **WHEN** every decision feature is off and the operator runs `/jev all on`
-- **THEN** the seven decision features are `true` in `state.json`
+- **THEN** the six decision features are `true` in `state.json`
+
+#### Scenario: All leaves the CLI review alone
+- **WHEN** the state holds `cliReviewEnabled` `true` and the operator runs `/jev all off`
+- **THEN** `state.json` still holds `cliReviewEnabled` `true`
 
 ### Requirement: Reset
-`/jev reset` SHALL reset the state through the state store, so switches, the mode and the CLI review default fall back to config or code defaults, then report the status and refresh the status line.
+`/jev reset` SHALL reset the state through the state store, so switches, the mode, the CLI review default and the CLI review on/off setting fall back to config or code defaults, then report the status and refresh the status line.
 
 #### Scenario: Reset after changes
 - **WHEN** `skills` is off, the mode is `premium`, and the operator runs `/jev reset`
 - **THEN** a new read of `state.json` has no switches, no mode and no CLI review default, and, with the key set and the config valid, the status line reads `Jev · standard`
+
+#### Scenario: Reset turns the CLI review off
+- **WHEN** the state holds `cliReviewEnabled` `true`, the config does not set `review.enabled`, and the operator runs `/jev reset`
+- **THEN** a new read of `state.json` has no `cliReviewEnabled` and the report contains `cli review: off`
 
 ### Requirement: Refused changes
 When the state store refuses a change (an unreadable `state.json`, or a write error), `/jev` SHALL report only the problem, as an error, and MUST NOT report the change as applied. The status line is not redrawn, since nothing changed.
@@ -109,7 +121,7 @@ When the state store refuses a change (an unreadable `state.json`, or a write er
 - **THEN** the old bytes move to `state.json.bad`, and `state.json` holds only `version` and `switches.skills` `false`
 
 ### Requirement: Usage text for other input
-Any other argument SHALL produce usage text as a warning and change nothing. The usage text MUST list exactly the forms `/jev`, `/jev <feature> on|off` with the nine feature names, `/jev all on|off`, `/jev mode budget|standard|premium`, `/jev reset`, `/jev cli-review <codex|opencode> [model|default] [effort|default]`, `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>`, `/jev remove <slot>` and `/jev tune [undo|reset|on|off]`. A first word that is `tune` MUST be handled by the tune forms (see `tune-command`). A first word that is a valid, non-reserved slot name, or `remove`, MUST be handled by the slot forms (see `slot-commands`), not by this requirement. Arguments are split on whitespace and matched case-sensitively; extra words make the input unknown, except the text after `when` in the slot add form.
+Any other argument SHALL produce usage text as a warning and change nothing. The usage text MUST list exactly the forms `/jev`, `/jev <feature> on|off` with the eight feature names, `/jev all on|off`, `/jev mode budget|standard|premium`, `/jev reset`, `/jev cli-review on|off`, `/jev cli-review <codex|opencode> [model|default] [effort|default]`, `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>`, `/jev remove <slot>` and `/jev tune [undo|reset|on|off]`. A first word that is `tune` MUST be handled by the tune forms (see `tune-command`). A first word that is a valid, non-reserved slot name, or `remove`, MUST be handled by the slot forms (see `slot-commands`), not by this requirement. Arguments are split on whitespace and matched case-sensitively; extra words make the input unknown, except the text after `when` in the slot add form.
 
 #### Scenario: Command from a later work group
 <!-- Intentional change: WG-18 adds the tune forms, so `/jev tune` is no longer usage. -->
@@ -145,6 +157,18 @@ Any other argument SHALL produce usage text as a warning and change nothing. The
 - **WHEN** the operator runs `/jev cli-review codex luna high now`
 - **THEN** usage text is reported and `state.json` is unchanged
 
+#### Scenario: Removed review switch
+- **WHEN** the operator runs `/jev review off` or `/jev review on`
+- **THEN** usage text is reported as a warning and `state.json` is unchanged
+
+#### Scenario: Extra words after cli-review off
+- **WHEN** the operator runs `/jev cli-review off now`
+- **THEN** usage text is reported and `state.json` is unchanged
+
+#### Scenario: Usage lists the cli-review switch
+- **WHEN** usage text is reported
+- **THEN** it contains `/jev cli-review on|off`
+
 #### Scenario: Whitespace only
 - **WHEN** the operator runs `/jev` followed only by spaces
 - **THEN** the status is reported, as with no argument
@@ -179,11 +203,15 @@ An unexpected error while running `/jev` MUST be caught inside the package. It S
 - **THEN** it returns without calling notify, writing state or setting a widget
 
 ### Requirement: CLI review default
-`/jev cli-review <codex|opencode> [<model>|default] [<effort>|default]` SHALL replace the CLI review default in `state.json` through the state store, leaving other state fields unchanged. A model or effort that is omitted or `default` MUST be left unset. After a change the command SHALL report the status and refresh the status line. A value outside the state rules MUST be refused with the store's problem. The command MUST NOT call Jev.
+`/jev cli-review <codex|opencode> [<model>|default] [<effort>|default]` SHALL replace the CLI review default in `state.json` and set `cliReviewEnabled` to `true`, in one update through the state store, leaving other state fields unchanged. A refused or failed change MUST write neither. A model or effort that is omitted or `default` MUST be left unset. After a change the command SHALL report the status and refresh the status line. A value outside the state rules MUST be refused with the store's problem. The command MUST NOT call Jev.
 
 #### Scenario: Bare reviewer
 - **WHEN** the operator runs `/jev cli-review opencode`
-- **THEN** `state.json` holds `cliReview` `{"cli":"opencode"}`
+- **THEN** `state.json` holds `cliReview` `{"cli":"opencode"}` and `cliReviewEnabled` `true`
+
+#### Scenario: Choosing a reviewer turns the review on
+- **WHEN** the state holds `cliReviewEnabled` `false` and the operator runs `/jev cli-review codex`
+- **THEN** `state.json` holds `cliReviewEnabled` `true` and the report contains `cli review: on (codex, CLI defaults)`
 
 #### Scenario: Default clears the model
 - **WHEN** the state holds `cliReview` `{"cli":"codex","model":"luna","effort":"high"}` and the operator runs `/jev cli-review codex default`
@@ -204,6 +232,10 @@ An unexpected error while running `/jev` MUST be caught inside the package. It S
 #### Scenario: Value outside the state rules
 - **WHEN** the operator runs `/jev cli-review codex -m`
 - **THEN** an error names `cliReview.model`, and `state.json` is unchanged
+
+#### Scenario: Refused model leaves the review off
+- **WHEN** the state holds `cliReviewEnabled` `false` and the operator runs `/jev cli-review codex nova`, which the Codex list does not hold
+- **THEN** an error is reported and `state.json` still holds `cliReviewEnabled` `false`
 
 ### Requirement: Codex model check
 Before storing a Codex model, `/jev cli-review` SHALL read `codex debug models` through `pi.exec` with a 30-second timeout. The model MUST match, ignoring case, a tier, slug or display name of a model whose `visibility` is `list` or absent; a tier is stored as typed, anything else as its slug. A given effort MUST be in that model's `supported_reasoning_levels`. A failed check SHALL be refused with up to five suggestions, and nothing is written.
@@ -276,3 +308,26 @@ When the model list cannot be read (non-zero exit, timeout, or nothing parsed), 
 #### Scenario: Refused mode change
 - **WHEN** `state.json` has mode `0000` and the operator runs `/jev mode premium`
 - **THEN** an error naming `EACCES` is reported and `state.json` is unchanged
+
+### Requirement: CLI review switch
+`/jev cli-review on|off` SHALL set `cliReviewEnabled` in `state.json` through the state store, leaving other state fields unchanged, including `cliReview`. It SHALL then report the status, refresh the status line, and bring the session's active tools in line with the new setting (see `cli-review`). The setting MUST still apply after Pi restarts. The command MUST NOT call Jev or read a model list. A refused change SHALL be reported as under "Refused changes".
+
+#### Scenario: Turn the CLI review off
+- **WHEN** the state holds `cliReview` `{"cli":"opencode","model":"p/m"}` and `cliReviewEnabled` `true`, and the operator runs `/jev cli-review off`
+- **THEN** `state.json` holds `cliReviewEnabled` `false` and the same `cliReview`, and the report contains `cli review: off (opencode, model p/m)`
+
+#### Scenario: Turn the CLI review on
+- **WHEN** the state has no `cliReviewEnabled` and the operator runs `/jev cli-review on`
+- **THEN** `state.json` holds `cliReviewEnabled` `true`, no `cliReview` is added, no process runs, and the report contains `cli review: on (codex, CLI defaults)`
+
+#### Scenario: Switch survives a restart
+- **WHEN** the operator runs `/jev cli-review on`, Pi exits, a new Pi process starts with the same agent directory and `/jev` runs
+- **THEN** the report contains `cli review: on`
+
+#### Scenario: Switch is case-sensitive
+- **WHEN** the operator runs `/jev cli-review OFF`
+- **THEN** usage text is reported as a warning and `state.json` is unchanged
+
+#### Scenario: Refused switch
+- **WHEN** `state.json` has mode `0000` and the operator runs `/jev cli-review on`
+- **THEN** an error naming `EACCES` is reported and `state.json` is unchanged (skipped when the test runs as root)
