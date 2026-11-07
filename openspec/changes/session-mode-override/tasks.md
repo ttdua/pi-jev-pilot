@@ -55,7 +55,7 @@
 
 ## 12. Visible text
 
-- [ ] 12.1 Status line `(local)` marker; `/jev` report `mode: <m> (this directory; global <g>)` and the `local mode (...)` problem lines (`status-line` "Status line text", `jev-command` "Status report"; design D6, D7)
+- [x] 12.1 Status line `(local)` marker; `/jev` report `mode: <m> (this directory; global <g>)` and the `local mode (...)` problem lines (`status-line` "Status line text", `jev-command` "Status report"; design D6, D7)
 
 ## 13. End-to-end host tests
 
