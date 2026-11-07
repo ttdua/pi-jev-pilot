@@ -12,10 +12,10 @@
 
 ## 3. `/jev` command
 
-- [ ] 3.1 Parse `/jev cli-review on|off` in `src/host/commands.ts`, apply it through `updateState`, and add the form to the usage text. Tests in `tests/host/commands.test.ts`
-- [ ] 3.2 Make the reviewer form write `cliReviewEnabled: true` in the same update. A refused change writes nothing. Tests in `tests/host/commands.test.ts`
-- [ ] 3.3 Change the status line to `cli review: <on|off> (<cli>, <details>)`. Tests in `tests/host/commands.test.ts`
-- [ ] 3.4 Sync the active tools after every successful `/jev` state change (a `sync` dependency of `runJev`, wired in `src/host/setup.ts`). Tests in `tests/host/commands.test.ts` and `tests/host/setup.test.ts`
+- [x] 3.1 Parse `/jev cli-review on|off` in `src/host/commands.ts`, apply it through `updateState`, and add the form to the usage text. Tests in `tests/host/commands.test.ts`
+- [x] 3.2 Make the reviewer form write `cliReviewEnabled: true` in the same update. A refused change writes nothing. Tests in `tests/host/commands.test.ts`
+- [x] 3.3 Change the status line to `cli review: <on|off> (<cli>, <details>)`. Tests in `tests/host/commands.test.ts`
+- [x] 3.4 Sync the active tools after every successful `/jev` state change (a `sync` dependency of `runJev`, wired in `src/host/setup.ts`). Tests in `tests/host/commands.test.ts` and `tests/host/setup.test.ts`
 
 ## 4. Host tests through the real Pi
 
