@@ -99,13 +99,15 @@ If you press Esc before any provider request, the status line also returns to it
 /jev mode premium     more work on the deep and expert tiers
 ```
 
-Measured routing on 45 real briefs, as an estimated share of launches:
+Measured routing on 1101 real worker briefs with four tiers and no slot, as a share of launches ([evidence](evidence/2026-11-07-replay.md)):
 
-| Mode | Haiku | Sonnet | Opus | Fable | Reviewer slot |
-|---|---|---|---|---|---|
-| `budget` | 18% | 36% | 0% | 0% | 46% |
-| `standard` | 4% | 43% | 7% | 0% | 46% |
-| `premium` | 0% | 14% | 33% | 7% | 46% |
+| Mode | `fast` | `balanced` | `deep` | `expert` |
+|---|---|---|---|---|
+| `budget` | 73% | 22% | 5% | 0% |
+| `standard` | 3% | 63% | 34% | 0% |
+| `premium` | 0% | 44% | 47% | 9% |
+
+A reviewer slot takes the review launches out of these columns. In the [earlier replay](evidence/2026-11-05-replay.md#routing-by-mode), that was 46% of launches.
 
 Your mix will differ. These figures show where Jev routes work, not how well each model does it.
 

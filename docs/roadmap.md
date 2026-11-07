@@ -19,7 +19,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-09 | Skill pick and delivery | L | WG-07 | Done |
 | WG-10 | Strategy advice | S | WG-07 | Done |
 | WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
-| WG-12 | Modes and expert tier | M | WG-11 | Planned |
+| WG-12 | Modes and expert tier | M | WG-11 | Done |
 | WG-13 | Slots and fallback | M | WG-11 | Planned |
 | WG-14 | Tool assessment, observe only | M | WG-11 | Done |
 | WG-15 | CLI review | M | WG-06 | Done |
@@ -175,6 +175,7 @@ The pre-launch tier cascade moved here from WG-13.
 **Modes, H1.** Rubrics as data, `/jev mode`, expert gates, softer `expert_needed` in `premium`, mode in the ledger.
 
 - **Done when:** the [decision order](domain-model.md#workerdecision) has a table test per mode, and a replay of real briefs reproduces the [recorded distribution](evidence/2026-11-05-replay.md#routing-by-mode) within noise. That replay needs approval at the time.
+- **Result:** the [2026-11-07 replay](evidence/2026-11-07-replay.md) reproduced `budget` and `premium`. `standard` shifted toward `deep`. The operator accepted this and set target mixes per mode in [#39](https://github.com/ttdua/pi-jev-pilot/issues/39).
 
 ### WG-13: Slots and fallback
 
