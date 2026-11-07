@@ -26,14 +26,14 @@
 
 ## 4. Main decision wiring
 
-- [ ] 4.1 In `src/host/main.ts`:
+- [x] 4.1 In `src/host/main.ts`:
   - Eligibility is `effort || strategy`.
   - `askEffort` also needs the `effort` switch.
   - Compute the advice before the effort block, and record `strategy`, `strategyP` and `advised` on `TurnRecord`.
   - Return the hidden `jev-advice` message.
   - Update the status parts per design decision 5.
   - Write the three ledger fields when `strategy` was answered.
-- [ ] 4.2 Extend `tests/host/main.test.ts` (unit, fake Pi):
+- [x] 4.2 Extend `tests/host/main.test.ts` (unit, fake Pi):
   - Eligibility with each switch combination.
   - The returned message for delegate, direct and a miss.
   - Advice kept on a manual change, on `max`, on an unanswered `effort`, and with `effort` off.
@@ -46,7 +46,7 @@
   - Jev 500 leaves requests equal to a run without the package.
   - `effort` off with `strategy` on sends one request and writes a `main` line with no `requested`.
   - RPC `setWidget` shows `Jev · standard · high · delegate`.
-- [ ] 4.4 Fix the existing tests broken by the new question set and the `strategy` default: `tests/host/main.test.ts` (effort-off eligibility, non-reasoning keys, `mainQuestions` comparison). Confirm `tests/host/main-effort.test.ts` still passes unchanged.
+- [x] 4.4 Fix the existing tests broken by the new question set and the `strategy` default: `tests/host/main.test.ts` (effort-off eligibility, non-reasoning keys, `mainQuestions` comparison). Confirm `tests/host/main-effort.test.ts` still passes unchanged.
 
 ## 5. Docs
 
