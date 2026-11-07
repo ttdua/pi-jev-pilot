@@ -2,18 +2,18 @@
 
 Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how [Pi](https://pi.dev) works on each prompt and each subagent: the main session's effort, each worker's model and effort, the one skill a prompt needs, and advice on how to split the work.
 
-> [!IMPORTANT]
-> **Status: design phase. There is no code yet.** These documents describe the target behavior. See the [roadmap](docs/roadmap.md) for what is planned and in which order.
+## What changes for you
 
-## What it does
+| Scenario | You no longer | Measured | Details |
+|---|---|---|---|
+| Thinking level | Change `/thinking` for each prompt | 74% of prompts stay `low`; vs a fixed `low`, 5 of 43 raised, 0 lowered | [Scenario](docs/scenarios.md#your-thinking-level-follows-the-prompt) |
+| Worker models | Pick a model for each worker | `budget` sends 49% of launches to `fast`; `premium` sends 0% | [Scenario](docs/scenarios.md#workers-get-a-model-and-effort-for-you) |
+| Reviews | Route reviews by hand | 100 of 100 review briefs reach your reviewer model | [Scenario](docs/scenarios.md#reviews-go-to-your-reviewer-model) |
+| Rules | Guess which setting applies | Ordered lists, no numbers | [Scenario](docs/scenarios.md#which-rule-wins) |
 
-| On each prompt | On each subagent launch | Always |
-|---|---|---|
-| Sets the session's thinking level | Picks a model tier or a custom slot | Fails open when Jev is unavailable |
-| Attaches at most one skill | Picks the worker's thinking level | Records decisions, never prompt text |
-| Advises on delegating or parallel work | Can flag tools the worker does not need | Tunes itself within strict limits |
+The numbers show routing, not quality, from one operator's sessions. See the [release report](docs/evidence/2026-11-08-release.md).
 
-One command shifts the whole distribution of models:
+One command shifts the whole tier mix:
 
 ```text
 /jev mode budget      more work goes to the fast tier
@@ -21,16 +21,33 @@ One command shifts the whole distribution of models:
 /jev mode premium     more work goes to the deep and expert tiers
 ```
 
+## Install
+
+```bash
+pi install npm:@gotgenes/pi-subagents
+```
+
+```bash
+pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0
+```
+
+```bash
+export TYPESAFE_API_KEY="…"
+```
+
+Then create `~/.pi/agent/jev/config.json` with your model tiers. The [configuration reference](docs/configuration.md) lists every setting.
+
+## Check it works
+
+Start Pi and type `/jev`. The status line should read `Jev · standard`. If it does not, see [troubleshooting](docs/usage-guide.md#troubleshooting).
+
 ## Documentation
 
-Start at the [documentation index](docs/README.md).
-
-| Read this | To learn |
-|---|---|
-| [Usage guide](docs/usage-guide.md) | How to install, configure and use it |
-| [Architecture](docs/architecture.md) | How the parts fit together |
-| [Workflows](docs/workflow.md) | What happens at each moment, step by step |
-| [Roadmap](docs/roadmap.md) | The work groups and their order |
+- [Usage guide](docs/usage-guide.md): install, modes, slots, reviews
+- [Scenarios](docs/scenarios.md): what changes for you, with numbers
+- [Configuration](docs/configuration.md): every setting and file
+- [Architecture](docs/architecture.md): how the parts fit together
+- [Changelog](CHANGELOG.md) and [roadmap](docs/roadmap.md)
 
 ## Relationship to other projects
 

@@ -59,13 +59,27 @@ function readDocs(): Record<string, string> {
 }
 
 describe("repository release metadata", () => {
-  // Enabled once the README and docs lose their pre-release banners.
-  test.todo("repository release metadata is consistent", () => {
+  test("repository release metadata is consistent", () => {
     const problems = checkRelease({
       pkg: readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
       changelog: readFileSync(join(REPO_ROOT, "CHANGELOG.md"), "utf8"),
       docs: readDocs(),
     });
     expect(problems).toEqual([]);
+  });
+});
+
+describe("scenario documentation", () => {
+  test("scenario documentation links its evidence", () => {
+    const text = readFileSync(join(REPO_ROOT, "docs/scenarios.md"), "utf8");
+    const sections = text.split(/^## /m).slice(1);
+    expect(sections.map((s) => s.split("\n")[0])).toEqual([
+      "Your thinking level follows the prompt",
+      "Workers get a model and effort for you",
+      "Reviews go to your reviewer model",
+      "Which rule wins",
+    ]);
+    for (const section of sections.slice(0, 3)) expect(section).toContain("](evidence/");
+    expect(readFileSync(join(REPO_ROOT, "README.md"), "utf8")).toContain("](docs/scenarios.md)");
   });
 });

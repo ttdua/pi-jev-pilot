@@ -1,13 +1,11 @@
 # Documentation
 
-> [!NOTE]
-> The project is in its design phase. Everything here describes target behavior until the [roadmap](roadmap.md) marks it done.
-
 ## By reader
 
 **Using the package**
 
 - [Usage guide](usage-guide.md): install, first run, modes, slots, reviews, troubleshooting
+- [Scenarios](scenarios.md): what changes for you, with measured numbers
 - [Configuration reference](configuration.md): every setting and file
 - [Privacy](privacy.md): what leaves the machine, and what is stored
 
@@ -30,7 +28,7 @@
 
 - [Project brief](project-brief.md): intent, goals, non-goals, scope, approaches considered
 - [Decision records](decisions/README.md): one decision per file
-- [Evidence](evidence/2026-11-05-replay.md): measurements behind the decisions; [routing by mode, 2026-11-07](evidence/2026-11-07-replay.md)
+- [Evidence](evidence/2026-11-05-replay.md): measurements behind the decisions; [routing by mode, 2026-11-07](evidence/2026-11-07-replay.md); [0.1 release report, 2026-11-08](evidence/2026-11-08-release.md)
 
 ## Which document wins
 
