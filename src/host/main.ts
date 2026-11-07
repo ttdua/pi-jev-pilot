@@ -297,6 +297,30 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     return undefined;
   }
 
+  /** `jev-turn` data: the hold anchor rides along only for a decided turn on an unchanged compaction. */
+  function turnData(rec: TurnRecord, ctx: Ctx | undefined): Record<string, unknown> {
+    const plain = { turnId: rec.turnId };
+    if (
+      rec.held === true ||
+      rec.effective === undefined ||
+      typeof rec.provider !== "string" ||
+      typeof rec.model !== "string" ||
+      ctx === undefined
+    ) {
+      return plain;
+    }
+    try {
+      const { compactionId } = holdContext(ctx.sessionManager.getBranch());
+      if (compactionId !== rec.compactionId) return plain;
+      return {
+        ...plain,
+        decided: { provider: rec.provider, model: rec.model, level: rec.effective },
+      };
+    } catch {
+      return plain;
+    }
+  }
+
   /** Correction line, `main` line, then the `jev-turn` entry. A failed ledger write never skips the entry. */
   function write(rec: TurnRecord, aborted: boolean, ctx: Ctx | undefined): void {
     const base = { v: 1, at: rec.at, session: rec.sessionId };
@@ -345,7 +369,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       /* ledger failure never affects the turn */
     }
     try {
-      pi.appendEntry("jev-turn", { turnId: rec.turnId });
+      pi.appendEntry("jev-turn", turnData(rec, ctx));
     } catch {
       /* swallow */
     }
