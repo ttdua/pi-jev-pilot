@@ -6,7 +6,7 @@ The line above the editor shows the package's base state (config error, no key, 
 ## Requirements
 
 ### Requirement: Status line text
-In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode. When the text is `Jev · <mode>`, `effort` is on, and a main decision has been made in this session, it MUST be followed by ` · <level>` with the effective level of the latest applied, kept or held decision, or by ` · no answer` when the latest request was not held and was a miss (whatever was asked) or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave the suffix as it was. A session start MUST clear the suffix. Drawing the line MUST make no network call.
+In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode. When the text is `Jev · <mode>`, `effort` is on, and a main decision has been made in this session, it MUST be followed by ` · <level>` with the effective level of the latest applied, kept or held decision, or by ` · no answer` when the latest request was not held and was a miss (whatever was asked) or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave the suffix as it was. When an eligible prompt's Jev request completes (answered, missed or held, not cancelled) while the session tally counts a number of prompts one short of a multiple of 10 (so this prompt is the 10th, 20th, ...), the suffix MUST read ` · <P> prompts · <W> workers · <F> fallbacks` instead, with `P` the tally's prompts plus one and `W`, `F` the tally's workers and fallbacks, whether or not the result changed the level suffix. The tally form MUST last only until the next eligible prompt's Jev request completes (not cancelled), which then shows the level suffix as the rules above set it; a cancelled prompt leaves the line as it was. Prompts with `effort` off are not eligible, so they never show the tally form. A session start MUST clear the suffix. Drawing the line MUST make no network call.
 
 #### Scenario: Ready with the default mode
 - **WHEN** the config is valid, the key is set, no switch is changed and no mode is set
@@ -83,6 +83,38 @@ In a main session, the status line SHALL show the first that applies of: `Jev ·
 #### Scenario: Base state wins
 - **WHEN** a decision applied `high` and the operator then runs `/jev all off`
 - **THEN** the status line reads `Jev · off`
+
+#### Scenario: Tally on the 10th prompt
+- **WHEN** nine decided prompts have settled, two workers were recorded, one of them a fallback, and the 10th prompt's decision applies `high`
+- **THEN** the status line reads `Jev · standard · 10 prompts · 2 workers · 1 fallbacks`
+
+#### Scenario: Ninth prompt shows the level
+- **WHEN** eight decided prompts have settled and the 9th prompt's decision applies `high`
+- **THEN** the status line reads `Jev · standard · high`
+
+#### Scenario: Eleventh prompt shows the level again
+- **WHEN** the 10th prompt showed the tally and the 11th prompt's decision applies `medium`
+- **THEN** the status line reads `Jev · standard · medium`
+
+#### Scenario: Tally kept across /jev
+- **WHEN** the 10th prompt showed the tally and the operator runs `/jev skills off`
+- **THEN** the redrawn status line still shows the tally form
+
+#### Scenario: Tally on a miss
+- **WHEN** nine decided prompts have settled and the 10th prompt's Jev request times out
+- **THEN** the status line reads `Jev · standard · 10 prompts · 0 workers · 0 fallbacks`
+
+#### Scenario: Tally on a discarded 10th prompt
+- **WHEN** nine decided prompts have settled with the last applying `high`, and the 10th prompt's result is discarded
+- **THEN** the status line reads `Jev · standard · 10 prompts · 0 workers · 0 fallbacks`, and when the 11th prompt is answered without `effort` it reads `Jev · standard · high`
+
+#### Scenario: Effort off never shows the tally
+- **WHEN** `effort` is off and the operator sends ten prompts
+- **THEN** the status line reads `Jev · standard` throughout
+
+#### Scenario: Cancelled 11th prompt keeps the tally
+- **WHEN** the 10th prompt showed the tally form and the 11th prompt's Jev request is cancelled
+- **THEN** the status line still shows the tally form
 
 ### Requirement: Status line placement and refresh
 The status line SHALL be a widget with key `jev` placed above the editor. It MUST be drawn when a main session starts, for every start reason, again after every `/jev` run, and again after every main decision that changes its text. In the terminal UI the text MUST be right-aligned to the widget width; in RPC mode it MUST be sent as a single-line string list.
