@@ -27,6 +27,8 @@ export type ToolAssessmentDeps = {
 
 export type ToolAssessment = {
   beforeAgentStart(event: BeforeAgentStartEvent, ctx: ExtensionContext): Promise<void>;
+  /** Forget a session's stored decision; its next first call assesses again. */
+  dispose(sessionId: string): void;
 };
 
 type ToolMode = "observe" | "enforce";
@@ -197,6 +199,9 @@ export function createToolAssessment(
       } catch {
         /* fail open: every tool stays */
       }
+    },
+    dispose(sessionId): void {
+      outcomes.delete(sessionId);
     },
   };
 }

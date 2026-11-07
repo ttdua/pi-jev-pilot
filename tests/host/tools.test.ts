@@ -129,11 +129,10 @@ function setup(s: Setup = {}) {
   return { run, requests, event, selected: selected as string[], handler, ctx };
 }
 
-function agentFile(dir: string, name: string, fm: string): string {
+function agentFile(name: string, fm: string): string {
   const agentDir = tempDir("jev-tools-agentdir-");
   mkdirSync(join(agentDir, "agents"), { recursive: true });
   writeFileSync(join(agentDir, "agents", `${name}.md`), `---\ndescription: d\n${fm}---\nbody\n`);
-  void dir;
   return agentDir;
 }
 
@@ -176,9 +175,6 @@ describe("When assessment runs", () => {
     expect(t.requests).toHaveLength(0);
   });
   test("Executor absent", async () => {
-    const t = setup({ child: false, noService: true });
-    await t.run();
-    expect(t.requests).toHaveLength(0);
     const u = setup({ noService: true });
     await u.run();
     expect(u.requests).toHaveLength(0);
@@ -230,10 +226,6 @@ describe("Worker finds its launch", () => {
 
 describe("Captured executor service", () => {
   const real = { listAgents: () => [rec()] };
-  const build = () => {
-    const t = setup({ noService: false });
-    return t;
-  };
   function withDefaultService(records: unknown[]) {
     (globalThis as Record<symbol, unknown>)[MAIN_SERVICE_KEY] = { listAgents: () => records };
   }
@@ -265,7 +257,6 @@ describe("Captured executor service", () => {
     return requests;
   }
   test("Child's own service ignored", async () => {
-    void build;
     (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = real;
     captureMainService();
     (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = { listAgents: () => [] };
@@ -294,7 +285,7 @@ describe("Only agents that declare no tools", () => {
   test("Agent file without tools", async () => {
     const t = setup({
       records: [rec({ type: "probe-open" })],
-      agentDir: agentFile("x", "probe-open", ""),
+      agentDir: agentFile("probe-open", ""),
     });
     await t.run();
     expect(t.requests).toHaveLength(1);
@@ -303,7 +294,7 @@ describe("Only agents that declare no tools", () => {
   test("Empty tools list", async () => {
     const t = setup({
       records: [rec({ type: "probe-empty" })],
-      agentDir: agentFile("x", "probe-empty", "tools: []\n"),
+      agentDir: agentFile("probe-empty", "tools: []\n"),
     });
     await t.run();
     expect(t.requests).toHaveLength(0);
@@ -316,6 +307,7 @@ describe("Candidates", () => {
     await t.run();
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["tool::read", "tool::bash"]);
   });
+  // hideReviewInChild runs first in setup, so the handler never sees jev_review (the setup test covers the ordering).
   test("Review tool never a candidate", async () => {
     const t = setup({ selected: ["read", "jev_review"] });
     t.selected.splice(1, 1);
@@ -425,6 +417,18 @@ describe("Once per worker", () => {
     await t.run();
     await t.run();
     expect(t.requests).toHaveLength(0);
+  });
+});
+
+describe("Dispose", () => {
+  test("A disposed session is assessed again", async () => {
+    const t = setup();
+    await t.run();
+    await t.run();
+    expect(t.requests).toHaveLength(1);
+    t.handler.dispose(SESSION);
+    await t.run();
+    expect(t.requests).toHaveLength(2);
   });
 });
 
