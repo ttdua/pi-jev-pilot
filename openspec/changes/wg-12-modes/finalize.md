@@ -7,7 +7,7 @@
 
 **Change**: `wg-12-modes`
 **Finalized at**: `2026-11-07 02:58` (UTC)
-**Outcome**: `pr-updated` (pending: the merge into the feature branch is done; the push and PR wait for operator approval)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,12 +15,13 @@
 
 - **Branch**: `WG-12`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` pending. `wg-12-modes` was fast-forwarded into `WG-12` (`3d6abb2..19af1df`), which is not pushed yet.
-- **PR URL**: N/A (no PR for `WG-12` yet)
+- **Final state**: `pr-open`. `wg-12-modes` was fast-forwarded into `WG-12` (`3d6abb2..19af1df`). `origin/main` was then merged in (`25b41ef`), and `WG-12` was pushed.
+- **PR URL**: see the PR comment section
 
-Deviation from the canonical steps, by project policy (`AGENTS.md`: "no push, merge or PR without explicit approval in chat"):
-- Steps 10 to 12 (push, PR, PR comment) are held until the operator approves.
-- `origin/main` gained `d012473` (WG-08) and `180f8c8` (WG-09) after `WG-12` branched. A trial `git merge-tree origin/main WG-12` shows content conflicts in `docs/architecture.md`, `src/jev/rubrics.ts` and `src/jev/questions.ts`. Each is an import or one-line union with the WG-09 skill changes. Resolving them is a separate operator decision, not done here.
+Deviations from the canonical steps:
+- Push and PR waited for the operator's explicit approval, as project policy (`AGENTS.md`) requires. The operator chose "merge origin/main into WG-12, resolve, test, push, open PR".
+- `origin/main` gained `d012473` (WG-08) and `180f8c8` (WG-09) after `WG-12` branched. The merge `25b41ef` resolved conflicts in `src/jev/rubrics.ts`, `src/jev/questions.ts`, `tests/jev/questions.test.ts` and `docs/architecture.md`. Each was an import list or a module-table line, and both sides were kept.
+- No PR existed before finalize, so the outcome is `pr-created`, not `pr-updated`.
 
 ---
 
@@ -49,10 +50,11 @@ Deviation from the canonical steps, by project policy (`AGENTS.md`: "no push, me
 
 - **Baseline status at finish**: `passing`
   - In the worktree: `bun test` gave 913 pass and 0 fail.
-  - On `WG-12` after the merge: `bun run typecheck` was clean and `bun test` gave 913 pass and 0 fail.
+  - On `WG-12` after the fast-forward: `bun run typecheck` was clean and `bun test` gave 913 pass and 0 fail.
+  - On `WG-12` after merging `origin/main` (`25b41ef`): typecheck, lint and fmt:check were clean, and `bun test` gave 1011 pass and 0 fail.
 
 ---
 
 ## Next step
 
-The operator decides how to integrate with the newer `main`, and whether to push `WG-12` and open a PR. Once the PR is reviewed, run `/opsx-archive` on this feature branch, push the archive commits, then merge the PR. Task 6.1 (replay) stays open; it gates only the roadmap Done mark.
+Wait for the PR code review. After approval, run `/opsx-archive` on this feature branch, push the archive commits, then merge the PR. Task 6.1 (replay) stays open; it gates only the roadmap Done mark.
