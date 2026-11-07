@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { cutPoints, type WindowEntry } from "../../src/policy/cutpoints.ts";
+import { cutPoints, cutPointsFor, type WindowEntry } from "../../src/policy/cutpoints.ts";
+import { WINDOW_MIN } from "../../src/policy/cut-window.ts";
 import type { EffortLevel } from "../../src/policy/effort.ts";
-import { MODE_TARGETS } from "../../src/policy/modes.ts";
+import { MODE_NAMES, MODE_TARGETS } from "../../src/policy/modes.ts";
+import { SEED_CUTPOINTS } from "../../src/policy/seed.ts";
 
 function entry(score: number, effort: EffortLevel = "high"): WindowEntry {
   return { score, effort, decided: "balanced" };
@@ -74,5 +76,30 @@ describe("cutPoints", () => {
     expect(cutPoints(shuffled, MODE_TARGETS.premium)).toEqual(
       cutPoints(window, MODE_TARGETS.premium),
     );
+  });
+});
+
+describe("cutPointsFor", () => {
+  const shortWindow = Array.from({ length: WINDOW_MIN - 1 }, (_, i) => entry(i / 100));
+  const fullWindow = Array.from({ length: WINDOW_MIN }, (_, i) => entry(i / 100));
+
+  test("short window uses the seed", () => {
+    expect(cutPointsFor(shortWindow, "standard")).toEqual(SEED_CUTPOINTS.standard);
+  });
+
+  test("full window computed", () => {
+    expect(cutPointsFor(fullWindow, "standard")).toEqual(
+      cutPoints(fullWindow, MODE_TARGETS.standard),
+    );
+  });
+
+  test("seed is a valid result", () => {
+    for (const mode of MODE_NAMES) {
+      const seed = SEED_CUTPOINTS[mode];
+      expect(seed.fastMax).toBeLessThanOrEqual(seed.balancedMax);
+      expect(seed.balancedMax).toBeLessThan(seed.expertMin);
+    }
+    expect(SEED_CUTPOINTS.premium.fastMax).toBe(-Infinity);
+    expect(SEED_CUTPOINTS.budget.expertMin).toBe(Infinity);
   });
 });

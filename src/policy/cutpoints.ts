@@ -1,8 +1,10 @@
 // Pure cut points from a window of scores and a mode target. Imports nothing outside src/policy/.
 
+import { WINDOW_MIN } from "./cut-window.ts";
 import type { EffortLevel } from "./effort.ts";
 import type { TierName } from "./launch.ts";
-import type { ModeTarget } from "./modes.ts";
+import { MODE_TARGETS, type ModeName, type ModeTarget } from "./modes.ts";
+import { SEED_CUTPOINTS } from "./seed.ts";
 
 export interface CutPoints {
   readonly fastMax: number;
@@ -46,4 +48,9 @@ export function cutPoints(entries: readonly WindowEntry[], target: ModeTarget): 
     balancedMax,
     expertMin: expertCut(entries, balancedMax, target.expertCap),
   };
+}
+
+// A window below WINDOW_MIN entries is too small to trust: use the shipped seed.
+export function cutPointsFor(window: readonly WindowEntry[], mode: ModeName): CutPoints {
+  return window.length < WINDOW_MIN ? SEED_CUTPOINTS[mode] : cutPoints(window, MODE_TARGETS[mode]);
 }
