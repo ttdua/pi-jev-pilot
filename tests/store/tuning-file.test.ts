@@ -208,3 +208,16 @@ describe("type parity", () => {
     void b;
   });
 });
+
+describe("tuning seen marker", () => {
+  test("Seen marker read", () => {
+    expect(read({ version: 1, seenAt: 1000 })).toEqual({ kind: "ok", record: { seenAt: 1000 } });
+  });
+  test("Bad seen marker", () => {
+    for (const seenAt of [-1, 1.5]) {
+      const r = read({ version: 1, seenAt });
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["seenAt"]);
+    }
+  });
+});

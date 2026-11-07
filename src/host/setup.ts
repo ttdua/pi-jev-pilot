@@ -2,14 +2,19 @@ import { readFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isChild, subscribeChildren } from "./child.ts";
 import { runJev } from "./commands.ts";
+import { updateTuning } from "../store/tuning-file.ts";
 import { askJev } from "../jev/client.ts";
-import { appendLedger } from "../store/ledger.ts";
+import { appendLedger, readLedger } from "../store/ledger.ts";
 import { scanPlatforms } from "./context.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
 import { hideReviewInChild, registerReviewTool } from "./review.ts";
 import { compactTally, drawStatus, logLine } from "./status.ts";
 import { jevDir } from "./stores.ts";
+import { runTune } from "./tune-command.ts";
+import type { TuningDeps } from "./tuning-deps.ts";
+import { showUnseenTuning } from "./tuning-seen.ts";
+import { settleTuning } from "./tuning-step.ts";
 import { createSessionLog } from "./tally.ts";
 import { captureMainService, clearMainService } from "./tool-service.ts";
 import { createToolAssessment } from "./tools.ts";
@@ -46,6 +51,13 @@ export function setup(pi: ExtensionAPI): void {
   };
   const routing = registerWorkerRouting(pi, { append });
   const tools = createToolAssessment(pi);
+  const tuningDeps = (): TuningDeps => ({
+    dir: jevDir(),
+    now: Date.now,
+    load: () => loadSnapshot(pi),
+    updateTuning,
+    readLedger,
+  });
   const main = createMain(pi, {
     load: () => loadSnapshot(pi),
     ask: askJev,
@@ -71,6 +83,11 @@ export function setup(pi: ExtensionAPI): void {
       drawStatus(ctx, loadSnapshot(pi), main.decision());
     } catch {
       /* swallow: the line stays as it was */
+    }
+    try {
+      showUnseenTuning(tuningDeps(), ctx);
+    } catch {
+      /* swallow */
     }
   });
 
@@ -117,6 +134,11 @@ export function setup(pi: ExtensionAPI): void {
     } catch {
       /* swallow */
     }
+    try {
+      settleTuning(tuningDeps(), ctx);
+    } catch {
+      /* swallow */
+    }
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
@@ -148,6 +170,7 @@ export function setup(pi: ExtensionAPI): void {
         tally: log.tally,
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
+        tune: (sub, c) => runTune(tuningDeps(), sub, c),
       });
     },
   });

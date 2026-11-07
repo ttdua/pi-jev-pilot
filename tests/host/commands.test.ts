@@ -18,6 +18,7 @@ import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
+import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
 
 function snap(
@@ -27,6 +28,7 @@ function snap(
     state?: State;
     env?: Record<string, string | undefined>;
     tools?: string[];
+    tuningRead?: TuningRead;
   } = {},
 ): Snapshot {
   return buildSnapshot({
@@ -34,6 +36,7 @@ function snap(
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
+    ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
   });
 }
 
@@ -42,6 +45,14 @@ describe("parseJevArgs", () => {
   test("empty and blank are status", () => {
     expect(parseJevArgs("")).toEqual({ kind: "status" });
     expect(parseJevArgs("   ")).toEqual({ kind: "status" });
+  });
+  test("tune forms", () => {
+    expect(parseJevArgs("tune")).toEqual({ kind: "tune", sub: "report" });
+    expect(parseJevArgs("tune off")).toEqual({ kind: "tune", sub: "off" });
+    for (const w of ["undo", "reset", "on"])
+      expect(parseJevArgs(`tune ${w}`)).toEqual({ kind: "tune", sub: w as "undo" });
+    for (const bad of ["tune apply", "tune Undo", "tune undo now"])
+      expect(parseJevArgs(bad)).toEqual(usage);
   });
   test("set", () => {
     expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
@@ -96,9 +107,8 @@ describe("usageText", () => {
     for (const f of ["/jev", "/jev <feature> on|off", "/jev all on|off", "/jev reset", ...FEATURES])
       expect(text).toContain(f);
   });
-  test("lists no later forms", () => {
-    for (const line of text.split("\n"))
-      expect(line.trimStart().startsWith("/jev tune")).toBe(false);
+  test("Usage lists the tune form", () => {
+    expect(text).toContain("/jev tune [undo|reset|on|off]");
   });
   test("Usage lists the slot forms", () => {
     expect(text).toContain("  /jev <slot> <provider/model> [when <text>]");
@@ -114,6 +124,13 @@ describe("usageText", () => {
 });
 
 describe("formatStatus", () => {
+  test("Malformed tuning reported", () => {
+    const issues = [{ path: "", message: "tuning.json is not valid JSON" }];
+    const text = formatStatus(snap({ tuningRead: { kind: "malformed", record: {}, issues } }));
+    expect(text).toContain("problems:");
+    expect(text).toContain("  tuning (malformed) (file): tuning.json is not valid JSON");
+  });
+
   test("default", () => {
     const text = formatStatus(snap());
     expect(text).toContain("Jev · standard");
@@ -381,11 +398,33 @@ describe("runJev", () => {
     expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
   });
 
-  test("Command from a later work group gets usage as warning", async () => {
+  test("Command from a later work group", async () => {
     const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("tune", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      tune: () => ({ ok: true, message: "R" }),
+    });
+    expect(c.rec.notes).toEqual([["R", "info"]]);
+    expect(existsSync(join(dir, "state.json"))).toBe(false);
+  });
+
+  test("tune error outcome is an error; no dep is usage", async () => {
+    const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("tune undo", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      tune: (sub) => ({ ok: false, message: `no ${sub}` }),
+    });
+    expect(c.rec.notes).toEqual([["no undo", "error"]]);
     const rec = await run("tune", dir);
     expect(rec.notes).toEqual([[usageText(), "warning"]]);
-    expect(existsSync(join(dir, "state.json"))).toBe(false);
   });
 
   test("no UI: silent but still writes", async () => {
