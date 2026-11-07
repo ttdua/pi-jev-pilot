@@ -5,7 +5,7 @@
 
 ## 2. Host skill helpers
 
-- [ ] 2.1 Add `fingerprint`, `explicitSkill` and `skillBlock` in new `src/host/skills.ts`, with tests in `tests/host/skills.test.ts` (Explicit skill skips the skill questions, Skill message)
+- [x] 2.1 Add `fingerprint`, `explicitSkill` and `skillBlock` in new `src/host/skills.ts`, with tests in `tests/host/skills.test.ts` (Explicit skill skips the skill questions, Skill message)
 - [ ] 2.2 Add `readCatalog` in `src/host/skills.ts` with an injected file reader, using `parseFrontmatter` and `stripFrontmatter` (Skill catalog, Catalog exclusions)
 - [ ] 2.3 Add `loadedSkills` over `buildSessionProjection().entries` in `src/host/skills.ts` (No duplicate body in context, Explicit skill counts as loaded)
 
