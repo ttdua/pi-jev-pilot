@@ -1,8 +1,8 @@
 ## 1. Store: state, config and settings
 
-- [ ] 1.1 Add the optional boolean `cliReviewEnabled` to `State` and its validator in `src/store/state-file.ts`, with tests in `tests/store/state-file.test.ts` (read, non-boolean rejected, reset clears it)
-- [ ] 1.2 Add the optional boolean `review.enabled` to `Config` and its validator in `src/store/config.ts`, with tests in `tests/store/config-read.test.ts`
-- [ ] 1.3 Add `enabled` to `Settings.review` in `src/store/settings.ts` (`state.cliReviewEnabled ?? config.review.enabled ?? false`) and add the code default `review.enabled: false` in `src/store/defaults.ts`. Make the state's `cliReview` replace only `cli`, `model` and `effort`. Tests in `tests/store/settings.test.ts`
+- [x] 1.1 Add the optional boolean `cliReviewEnabled` to `State` and its validator in `src/store/state-file.ts`, with tests in `tests/store/state-file.test.ts` (read, non-boolean rejected, reset clears it)
+- [x] 1.2 Add the optional boolean `review.enabled` to `Config` and its validator in `src/store/config.ts`, with tests in `tests/store/config-read.test.ts`
+- [x] 1.3 Add `enabled` to `Settings.review` in `src/store/settings.ts` (`state.cliReviewEnabled ?? config.review.enabled ?? false`) and add the code default `review.enabled: false` in `src/store/defaults.ts`. Make the state's `cliReview` replace only `cli`, `model` and `effort`. Tests in `tests/store/settings.test.ts`
 
 ## 2. Review tool availability
 
