@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { readAgent } from "../../src/host/agents.ts";
+import { listAgents, readAgent } from "../../src/host/agents.ts";
 import { tempDir } from "../helpers.ts";
 
 function setup() {
@@ -244,5 +244,44 @@ describe("Lock declaration", () => {
     const s = setup();
     s.project("w.md", fmFile('locked: "model, thinking"'));
     expect(readAgent("w", s.dirs).locked).toEqual(["model", "thinking"]);
+  });
+});
+
+describe("listAgents", () => {
+  test("listAgents merges project, global, builtin in name order", () => {
+    const s = setup();
+    s.project("zeta.md", fmFile("description: z"));
+    s.global("alpha.md", fmFile("description: a"));
+    const names = listAgents(s.dirs).map((a) => a.name);
+    expect(names).toEqual(["Explore", "Plan", "alpha", "general-purpose", "zeta"]);
+  });
+  test("project wins over global for the same name", () => {
+    const s = setup();
+    s.project("worker.md", fmFile("description: from project"));
+    s.global("worker.md", fmFile("description: from global"));
+    const hits = listAgents(s.dirs).filter((a) => a.name === "worker");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.description).toBe("from project");
+  });
+  test("single-pass listing matches per-name lookup across sources", () => {
+    const s = setup();
+    s.project("both.md", fmFile("description: p"));
+    s.global("both.md", fmFile("description: g"));
+    s.global("only-global.md", fmFile("description: og"));
+    s.project("Explore.md", fmFile("description: my explore"));
+    s.project("broken.md", fmFile("tools: [unterminated"));
+    s.global("broken.md", fmFile("description: fallback g"));
+    const listed = listAgents(s.dirs);
+    expect(listed.map((a) => a.name)).toEqual([
+      "Explore",
+      "Plan",
+      "both",
+      "broken",
+      "general-purpose",
+      "only-global",
+    ]);
+    for (const agent of listed) expect(agent).toEqual(readAgent(agent.name, s.dirs));
+    expect(listed.find((a) => a.name === "both")?.source).toBe("project");
+    expect(listed.find((a) => a.name === "only-global")?.source).toBe("global");
   });
 });

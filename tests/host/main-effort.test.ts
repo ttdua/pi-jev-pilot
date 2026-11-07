@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir } from "../helpers";
+import { run, tempDir } from "../helpers";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { toolNames, withoutReview } from "./bodies";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
@@ -57,6 +57,7 @@ async function setup(
     thinking?: string;
     persist?: boolean;
     script?: ScriptEntry[];
+    cwd?: string;
   } = {},
 ): Promise<{
   s: HostSession;
@@ -81,6 +82,7 @@ async function setup(
     jevConfig: { url: jev.url(ASK), timeoutMs: opts.timeoutMs ?? 5000 },
     ...(opts.thinking === undefined ? {} : { thinking: opts.thinking }),
     ...(opts.persist === undefined ? {} : { persist: opts.persist }),
+    ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
   });
   sessions.push(s);
   return { s, fixture, jev, routes };
@@ -390,6 +392,57 @@ describe("main effort through the real CLI", () => {
       await Bun.sleep(500);
       expect(jev.requests.length).toBe(1);
       expect(mainLines(s).length).toBe(1);
+    },
+    TIMEOUT,
+  );
+});
+
+describe("default request state", () => {
+  test(
+    "default request stays minimal",
+    async () => {
+      const cwd = tempDir("jev-rich-git-");
+      dirs.push(cwd);
+      const git = (...args: string[]) =>
+        run(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd });
+      git("init", "-q");
+      writeFileSync(join(cwd, "a.ts"), "one\n");
+      git("add", ".");
+      git("commit", "-q", "-m", "init");
+      writeFileSync(join(cwd, "a.ts"), "one\ntwo\n");
+      const { s, jev } = await setup(answers("high"), { cwd });
+      await s.prompt("first");
+      await s.waitFor(() => mainLines(s).length >= 1, "first main line");
+      await s.prompt("second");
+      await s.waitFor(() => jev.requests.length >= 2, "second jev request");
+      type Sent = { conversation: Record<string, unknown>; workspace: object };
+      const states = jev.requests.map((r) => (JSON.parse(r.body) as { state: Sent }).state);
+      const [first, second] = states as [Sent, Sent];
+      // Field set: the second answered turn carries the two shipped groups.
+      expect(Object.keys(second).sort()).toEqual([
+        "capabilities",
+        "conversation",
+        "request",
+        "workspace",
+      ]);
+      expect(second.conversation["last_decision"]).toMatchObject({ effort: "high" });
+      expect(Object.keys(second.conversation).sort()).toEqual([
+        "last_decision",
+        "recent",
+        "recent_tools",
+        "turn_index",
+      ]);
+      expect(Object.keys(second.workspace)).toEqual(["platforms"]);
+      // First turn has capabilities but no last decision.
+      expect(first).toHaveProperty("capabilities");
+      expect(first.conversation).not.toHaveProperty("last_decision");
+      // Unshipped groups are never sent.
+      for (const state of states) {
+        const text = JSON.stringify(state);
+        for (const key of ["context_used_percent", "git", "languages"]) {
+          expect(text).not.toContain(`"${key}"`);
+        }
+      }
     },
     TIMEOUT,
   );

@@ -7,6 +7,9 @@ import {
   buildToolState,
   buildWorkerState,
   mainState,
+  pickRich,
+  SHIPPED_MAIN_GROUPS,
+  type RichInputs,
   recentMessages,
   recentTools,
   requestSignals,
@@ -330,5 +333,107 @@ describe("Tool state", () => {
     });
     expect(Object.keys(state.tools)).toEqual(["__proto__"]);
     expect(Object.getPrototypeOf(state.tools)).toBe(Object.prototype);
+  });
+});
+
+describe("mainState rich groups", () => {
+  const base = { prompt: "hi", items: [user("a")], platforms: ["Docker"] };
+  const all: RichInputs = {
+    lastDecision: { effort: "low", strategy: "direct" },
+    capabilities: {
+      tools: [{ name: "read", description: "Read files" }],
+      agents: [{ name: "scout", description: "Recon", tools: ["read"] }],
+    },
+  };
+  test("one group alone: last_decision", () => {
+    const s = mainState({ ...base, rich: { lastDecision: { effort: "high" } } });
+    expect(s).toEqual({
+      ...mainState(base),
+      conversation: { ...mainState(base).conversation, last_decision: { effort: "high" } },
+    });
+  });
+  test("every group", () => {
+    const s = mainState({ ...base, rich: all });
+    expect(s.conversation.last_decision).toEqual({ effort: "low", strategy: "direct" });
+    expect(s.workspace).toEqual({ platforms: ["Docker"] });
+    expect(s.capabilities).toEqual({
+      tools: [{ name: "read", summary: "Read files" }],
+      subagents: [{ name: "scout", description: "Recon", tools: ["read"] }],
+    });
+  });
+  test("absent rich keeps the output identical", () => {
+    expect(JSON.stringify(mainState({ ...base, rich: {} }))).toBe(JSON.stringify(mainState(base)));
+  });
+  test("pickRich keeps only listed groups", () => {
+    expect(pickRich(all, ["last_decision"])).toEqual({ lastDecision: all.lastDecision });
+    expect(pickRich(all, [])).toEqual({});
+  });
+  test("shipped list holds last_decision and capabilities", () => {
+    expect(SHIPPED_MAIN_GROUPS).toEqual(["last_decision", "capabilities"]);
+  });
+});
+
+describe("mainState rich shaping", () => {
+  const base = { prompt: "hi", items: [user("a")], platforms: [] as string[] };
+  const shaped = (rich: RichInputs) => mainState({ ...base, rich });
+  const descr = (n: number) => "x".repeat(n);
+
+  test("last decision kept", () => {
+    expect(
+      shaped({ lastDecision: { effort: "high", strategy: "direct" } }).conversation,
+    ).toMatchObject({
+      last_decision: { effort: "high", strategy: "direct" },
+    });
+  });
+  test("last decision key omitted", () => {
+    const s = shaped({ lastDecision: { effort: "high" } });
+    expect(s.conversation.last_decision).toEqual({ effort: "high" });
+    expect(Object.keys(s.conversation.last_decision!)).toEqual(["effort"]);
+  });
+  test("last decision empty omitted", () => {
+    expect("last_decision" in shaped({ lastDecision: {} }).conversation).toBe(false);
+  });
+  test("first sentence", () => {
+    const s = shaped({
+      capabilities: {
+        tools: [
+          { name: "read", description: "Read a file. Supports images." },
+          { name: "web", description: "Fetch v1.2 now! Then stop" },
+          { name: "none", description: descr(250) },
+        ],
+        agents: [],
+      },
+    });
+    expect(s.capabilities!.tools.map((t) => t.summary)).toEqual([
+      descr(200),
+      "Read a file.",
+      "Fetch v1.2 now!",
+    ]);
+  });
+  test("tool cap 40 by name", () => {
+    const tools = Array.from({ length: 45 }, (_, i) => ({
+      name: `t${String(44 - i).padStart(2, "0")}`,
+      description: "d",
+    }));
+    const out = shaped({ capabilities: { tools, agents: [] } }).capabilities!.tools;
+    expect(out).toHaveLength(40);
+    expect(out[0]!.name).toBe("t00");
+    expect(out[39]!.name).toBe("t39");
+  });
+  test("agent cap 30 by name, description 200 code points", () => {
+    const agents = Array.from({ length: 35 }, (_, i) => ({
+      name: `a${String(34 - i).padStart(2, "0")}`,
+      description: "😀".repeat(250),
+      tools: null,
+    }));
+    const out = shaped({ capabilities: { tools: [], agents } }).capabilities!.subagents;
+    expect(out).toHaveLength(30);
+    expect(out[0]!.name).toBe("a00");
+    expect(Array.from(out[0]!.description)).toHaveLength(200);
+  });
+  test("no model or thinking in subagents", () => {
+    const agent = { name: "a", description: "d", tools: ["read"], model: "m", thinking: "high" };
+    const out = shaped({ capabilities: { tools: [], agents: [agent] } }).capabilities!.subagents;
+    expect(Object.keys(out[0]!)).toEqual(["name", "description", "tools"]);
   });
 });

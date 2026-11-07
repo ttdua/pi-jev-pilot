@@ -11,13 +11,13 @@ To TypeSafe, on every eligible prompt and launch:
 | Facts about the request | Counts and flags computed locally | Part of the same switch |
 | Project platforms | Names inferred from file names, such as `Docker` | `/jev skills off` |
 | Skill catalog | Each skill's name, description, first 300 code points of the body | `/jev skills off` |
+| Your previous decision | Effort level and strategy of the last turn | `/jev all off` |
+| Tools and agents available | Each tool's name and the first sentence of its description; each agent's name, description up to 200 characters, and tool names; no model or thinking | `/jev all off` |
 | Worker briefs | First 4000 characters | `/jev subagents off` |
 | Agent details | Name, description, first 500 characters of instructions, tool names | `/jev subagents off` |
 | Slot details | Model id and your `when` text | Remove the slot |
 | Tool descriptions | For workers under assessment | `/jev tools off` |
 | Your latest prompt with worker requests | Up to 500 characters; **off by default** | `state.parentRequest` |
-
-Pending [validation](roadmap.md#wg-16-rich-state-replay), the first release also may send: git change counts, language names, tool summaries, available agents, your last decision and context percentage. They contain no code. This table is updated when that is decided.
 
 **Never sent:** tool arguments and results, file contents, diffs, thinking blocks, images, your API keys, the full transcript, an agent's `model` or `thinking`.
 
@@ -45,6 +45,8 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 With `verbose` on, the same labels and numbers as the ledger are also saved as `jev-log` entries in your Pi session files, which travel with session exports.
 
 Hidden skill and advice messages are saved in your Pi session files, as any context is. A skill message holds the skill's own text (its body, or only its path for `suggest`), and its details hold the skill name, a SHA-256 of the body and the form. No prompt text.
+
+`<agentDir>/jev/replay/<run-id>/`, written only when you run the replay tool by hand with `--send` (see [Testing](testing.md#rich-state-replay)): private and owner-only. It holds counts and the prompts and briefs of differing pairs. It never leaves your machine unless you copy it; delete it after the decision.
 
 Delete the ledger at any time (both files); nothing depends on it except tuning signals.
 

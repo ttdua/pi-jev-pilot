@@ -63,13 +63,10 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
     "recent": [{ "role": "user", "text": "…", "tools": [{ "name": "bash", "failed": true }] }],
     "recent_tools": { "edits": 0, "commands": 1, "reads": 2, "subagents": 0, "failed": 1 },
     "turn_index": 7,
-    "last_decision": { "effort": "high", "strategy": "direct" },
-    "context_used_percent": 34
+    "last_decision": { "effort": "high", "strategy": "direct" }
   },
   "workspace": {
-    "platforms": ["Docker", "GitHub Actions"],
-    "languages": ["TypeScript"],
-    "git": { "changed_files": 3, "diff_lines": 84 }
+    "platforms": ["Docker", "GitHub Actions"]
   },
   "capabilities": {
     "tools": [{ "name": "read", "summary": "<first sentence of the description>" }],
@@ -79,7 +76,7 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
 ```
 
 > [!IMPORTANT]
-> Until replay validates them ([WG-16](roadmap.md#wg-16-rich-state-replay)), these ship off: `last_decision`, `context_used_percent`, `workspace.git`, `workspace.languages`, `capabilities`. The first release's main state is `request`, `conversation.recent`, `conversation.recent_tools`, `conversation.turn_index` and `workspace.platforms`.
+> `last_decision` and `capabilities` ship, as decided by the [replay](evidence/2026-11-07-state-replay.md). `context_used_percent`, `workspace.languages` and `workspace.git` were removed after the [replay](evidence/2026-11-07-state-replay.md). Every other field is always sent.
 
 ### How the fields are built
 
@@ -137,7 +134,7 @@ These patterns are English. Add Vietnamese only with replay evidence.
 
 Nothing found sends `none found`.
 
-**`workspace.git`** holds numbers only, from `git diff --shortstat`. **`capabilities.tools`** holds active tools with the first sentence of each description. **`capabilities.subagents`** holds each available agent's name, description and tools.
+**`conversation.last_decision`** holds the effort level and strategy of the previous turn. **`capabilities.tools`** holds active tools with the first sentence of each description. **`capabilities.subagents`** holds each available agent's name, description and tools.
 
 **Never sent:** the current model or effort, diffs, file contents.
 
@@ -160,7 +157,7 @@ A forked launch with `subagents.forkedLaunch` set to `thinking`, or a launch wit
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
-| `effort` | choice | `low`, `medium`, `high`, `xhigh`, `max` | Main thinking level |
+| `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max` | Main thinking level |
 | `risky` | noul | | Risk floor |
 | `tier` | choice | `fast`, `balanced`, `deep` (main wording) | Strategy gates. **Never a model** |
 | `strategy` | choice | `direct`, `delegate`, `parallel`, `graph` | Advice |
@@ -198,12 +195,14 @@ The 4000-character cap covers about 90% of real briefs. Replay at 2000 versus fu
 
 The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/agents/`, and otherwise from a table of the executor's built-in agents (`general-purpose`, `Explore`, `Plan`).
 
+The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.md), because Jev leans toward the first option. Policy still ranks `low` to `max`.
+
 ## Worker questions
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
 | `tier` | choice | Configured tiers (one worker rubric for every mode) and `slot::<name>` | Worker model, through the difficulty score |
-| `effort` | choice | Five levels, worker wording | Worker thinking level |
+| `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max`, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
 
 ## Tool assessment
@@ -295,4 +294,4 @@ From [TypeSafe's documentation](https://docs.typesafe.ai/model-jaggedness.md):
 - It reads instructions literally, so boundary cases belong in the criteria.
 - It does not count reliably, so counts are computed in code.
 - Irrelevant state lowers accuracy, so each field must serve a question.
-- It can lean toward the first option of a choice. `effort` lists `low` first; [WG-16](roadmap.md#wg-16-rich-state-replay) tests this.
+- It can lean toward the first option of a choice. The `effort` options are ordered `high, medium, xhigh, low, max` for this reason, following the [replay](evidence/2026-11-07-state-replay.md). Policy still ranks `low` to `max`.

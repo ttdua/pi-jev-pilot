@@ -1,0 +1,5 @@
+{"type":"session","version":3,"id":"s-fork","cwd":"/work/beta"}
+{"type":"message","id":"p1","parentId":null,"message":{"role":"user","content":"Fork branch one"}}
+{"type":"message","id":"p2","parentId":null,"message":{"role":"user","content":"Fork branch two"}}
+{"type":"custom","id":"es","parentId":"p1","customType":"jev-pilot:effort","data":{"requested":"xhigh"}}
+{"type":"custom","id":"e2","parentId":"p2","customType":"jev-pilot:effort","data":{"requested":"low"}}

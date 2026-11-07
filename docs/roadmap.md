@@ -23,7 +23,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-13 | Slots and fallback | M | WG-11 | Done |
 | WG-14 | Tool assessment, observe only | M | WG-11 | Done |
 | WG-15 | CLI review | M | WG-06 | Done |
-| WG-16 | Rich state replay | M | WG-09, 13 | Planned |
+| WG-16 | Rich state replay | M | WG-09, 13 | Done |
 | WG-17 | Tally and log | S | WG-11 | Done |
 | WG-18 | Auto-tuning | M | WG-05, 07 | Done |
 | WG-19 | Release and migration guide | S | All above | Planned |
@@ -205,7 +205,7 @@ Decide which [state fields](jev-contract.md#main-state) ship. **Sends real promp
 - **Corpus:** about 100 main prompts and about 46 worker briefs, resampled from current sessions.
 - **Variants:** full state against minimal state, one field group at a time, a noise rerun, and `effort` with reversed options, since TypeSafe documents a lean toward the first option.
 - **Rule:** there is no ground truth, so a metric alone cannot decide. A field group stays only if it changes more decisions than noise and the operator, reading the changed cases, prefers the new answers. Otherwise it is removed. Agent `description` and instructions, and tool metadata, stay unless they clearly harm, since the operator asked for them explicitly. If reversed options shift answers beyond noise, the operator chooses a fixed order.
-- **Done when:** each field group is decided under this rule, and results are in `docs/evidence/`.
+- **Done when:** each field group is decided under this rule, or dropped by the operator without measurement (`workspace.git`), and results are in `docs/evidence/`.
 
 ### WG-17: Tally and log
 
@@ -247,4 +247,4 @@ Not committed. Each needs evidence or a decision first.
 - Stop and ask before adding a dependency, changing a public command or file format, or any decision whose cost, if wrong, exceeds one work group.
 - Nothing is pushed, merged or published without the operator's explicit go-ahead.
 - If WG-02 contradicts these documents, update them and this roadmap before continuing.
-- Routing and effort are on by default from their first release, since rubrics, slots and modes are already measured. Rich state fields stay off until WG-16.
+- Routing and effort are on by default from their first release, since rubrics, slots and modes are already measured. Rich state fields were decided by WG-16; see the replay evidence.

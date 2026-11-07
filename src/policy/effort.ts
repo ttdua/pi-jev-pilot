@@ -18,6 +18,14 @@ export const LEVELS: readonly ThinkingLevel[] = [
 ];
 
 export const EFFORT_LEVELS: readonly EffortLevel[] = ["low", "medium", "high", "xhigh", "max"];
+/** Option order shown to Jev (not rank): it leans toward the first option; see docs/evidence/2026-11-07-state-replay.md. */
+export const EFFORT_OPTION_ORDER: readonly EffortLevel[] = [
+  "high",
+  "medium",
+  "xhigh",
+  "low",
+  "max",
+];
 export const RISK_FLOOR = 0.7;
 export const EFFORT_CEILING: EffortLevel = "xhigh";
 export const CORRECTION_THRESHOLD = 0.7;

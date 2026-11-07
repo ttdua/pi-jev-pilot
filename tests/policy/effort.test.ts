@@ -7,6 +7,7 @@ import {
   clampLevel,
   decideEffort,
   EFFORT_LADDER,
+  EFFORT_OPTION_ORDER,
   type EffortLevel,
   supportedLevels,
   type ThinkingLevel,
@@ -151,6 +152,28 @@ describe("Worker effort", () => {
     const toLedger: LedgerEffortLevel[] = EFFORT_LADDER.map((level: EffortLevel) => level);
     const fromLedger: EffortLevel[] = toLedger;
     expect(fromLedger).toEqual(["low", "medium", "high", "xhigh", "max"]);
+  });
+});
+
+describe("effort option order", () => {
+  test("options are shown high-first but policy still ranks low to max", () => {
+    expect(EFFORT_OPTION_ORDER).toEqual(["high", "medium", "xhigh", "low", "max"]);
+    expect([...EFFORT_OPTION_ORDER].sort()).toEqual([...EFFORT_LADDER].sort());
+    expect(EFFORT_LADDER).toEqual(["low", "medium", "high", "xhigh", "max"]);
+  });
+
+  test("decideEffort depends on the answer, not on the option order", () => {
+    for (const choice of EFFORT_LADDER) {
+      for (const risky of [0.2, 0.9]) {
+        const a = decideEffort({ choice, risky, supported: WITH_XHIGH });
+        const b = decideEffort({ choice, risky, supported: WITH_XHIGH });
+        expect(a).toEqual(b);
+      }
+    }
+    expect(decideEffort({ choice: "low", risky: 0.9, supported: WITH_XHIGH }).requested).toBe(
+      "high",
+    );
+    expect(decideEffort({ choice: "max", supported: WITH_XHIGH }).requested).toBe("xhigh");
   });
 });
 

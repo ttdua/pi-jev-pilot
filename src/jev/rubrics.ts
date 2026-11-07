@@ -1,4 +1,5 @@
 // Wording copied verbatim from docs/jev-questions.md. A change here needs a replay.
+import { EFFORT_OPTION_ORDER, type EffortLevel } from "../policy/effort.ts";
 import type { TierName } from "../policy/launch.ts";
 import type { GateKey } from "../policy/skill.ts";
 
@@ -32,11 +33,16 @@ export const MAIN_TIER_CRITERIA: Readonly<Record<"fast" | "balanced" | "deep", s
   deep: "For careful judgment or long work. Choose when the spec is open or nothing can check the result, the cause of a bug is unknown, the change spans many components or needs design decisions, or it touches security, data migrations, concurrency, production or money. A large cross-cutting review belongs here too.",
 };
 
+/** Puts the effort criteria in `EFFORT_OPTION_ORDER` key order, the order Jev sees. */
+function orderedEffortCriteria(byLevel: Record<EffortLevel, string>): Record<string, string> {
+  return Object.fromEntries(EFFORT_OPTION_ORDER.map((level) => [level, byLevel[level]]));
+}
+
 export const WORKER_EFFORT_QUESTION: WireQuestion = {
   type: "choice",
   instructions:
     "How much step-by-step reasoning does a subagent need to carry out this brief? A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, an unknown cause, or reasoning that is not already written out. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
-  criteria: {
+  criteria: orderedEffortCriteria({
     low: "Answered from what is already known, or mechanical work with nothing to work out: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, a one-line change.",
     medium:
       "An ordinary, well-specified change to one or a few files, or a direct question about code already in view.",
@@ -44,7 +50,7 @@ export const WORKER_EFFORT_QUESTION: WireQuestion = {
     xhigh:
       "Design across several components, a bug whose cause is unknown, a refactor with many dependents, or careful reasoning about concurrency, performance or failure modes.",
     max: "Novel architecture, a security or data-integrity question, a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo.",
-  },
+  }),
 };
 
 export const RISKY_QUESTION: WireQuestion = {

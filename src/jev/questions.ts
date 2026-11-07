@@ -1,6 +1,6 @@
 // Question sets for main and worker requests. Wording lives in ./rubrics.ts.
 import type { QuestionSpec } from "../policy/answers.ts";
-import { EFFORT_LEVELS } from "../policy/effort.ts";
+import { EFFORT_OPTION_ORDER } from "../policy/effort.ts";
 import { STRATEGIES } from "../policy/strategy.ts";
 import { slotTarget, TIER_LADDER, type TierName } from "../policy/launch.ts";
 import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
@@ -95,7 +95,7 @@ export function mainQuestions(o: {
       instructions: MAIN_EFFORT_INSTRUCTION,
       criteria: { ...WORKER_EFFORT_QUESTION.criteria },
     };
-    specs["effort"] = { type: "choice", options: EFFORT_LEVELS };
+    specs["effort"] = { type: "choice", options: EFFORT_OPTION_ORDER };
     wire["risky"] = copy(RISKY_QUESTION);
     specs["risky"] = { type: "noul" };
   }

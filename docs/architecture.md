@@ -75,6 +75,8 @@ src/
     rubrics.ts           Worker and main rubric text (data), RUBRIC_VERSION
     questions.ts         Builds the questions for each request kind
     state.ts             Builds main, worker and tool state from plain inputs
+    branch.ts            Reads Pi-shaped session entries into branch items
+    workspace.ts         Reads platform markers by file name
 
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice
@@ -92,7 +94,9 @@ src/
     tuning-text.ts       Pure texts: change lines, session-start line, report
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
-    context.ts           Reads the branch, tools, git counts, platforms
+    context.ts           Previous turn id and hold context from the branch; re-exports
+                         branchItems and scanPlatforms from jev/
+    rich.ts              Builds the optional rich state inputs for the shipped groups
     agents.ts            Reads agent files and the built-in agent table
     commands.ts          /jev
     skills.ts            Skill catalog, explicit skill, loaded-in-context scan
@@ -114,6 +118,15 @@ src/
 
 scripts/
   replay/                Offline measurement. Output stays outside the repository.
+    cli.ts               Entry point: dry run by default, --send to call Jev
+    config.ts            Argument parsing and plain-JSON config reading
+    corpus.ts            Main-turn and worker samples, seeded stratified sampler
+    sessions.ts          Reads Pi session files and ledger lines
+    inputs.ts            Rebuilds rich state inputs from local data
+    variants.ts          Plans the variants of each pass
+    run.ts               Sends planned requests, estimates cost
+    compare.ts           Aggregates flips against rerun noise
+    outputs.ts           Owner-only aggregates.json and cases.md
 ```
 
 ### Dependency rules
@@ -152,7 +165,6 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | Add skill and advice to context | `before_agent_start` returning `message` with `display: false` | Documented |
 | Set main effort | `pi.setThinkingLevel`, `clampThinkingLevel` | Documented |
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
-| Know context usage | `ctx.getContextUsage()` | Documented |
 | Skill catalog | `pi.getCommands()` with `sourceInfo.path`, `parseFrontmatter` / `stripFrontmatter` | Documented |
 | Skills already in context | `ctx.sessionManager.buildSessionProjection()` | Documented |
 | Pre-classify sibling launches | `pi.on("message_end")` before `tool_call` preflight | Verified: yes ([Q2](evidence/2026-11-05-host-seams.md#q2)) |

@@ -33,9 +33,45 @@ export type MainState = {
       failed: number;
     };
     turn_index: number;
+    last_decision?: { effort?: string; strategy?: string };
   };
   workspace: { platforms: string[] };
+  capabilities?: {
+    tools: { name: string; summary: string }[];
+    subagents: { name: string; description: string; tools: string[] | null }[];
+  };
 };
+
+export const RICH_GROUPS = ["last_decision", "capabilities"] as const;
+
+export type RichGroup = (typeof RICH_GROUPS)[number];
+
+export type RichInputs = {
+  lastDecision?: { effort?: string; strategy?: string };
+  capabilities?: {
+    tools: { name: string; description: string }[];
+    agents: { name: string; description: string; tools: string[] | null }[];
+  };
+};
+
+/** Groups shipped in the main state. */
+export const SHIPPED_MAIN_GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
+
+/** Keeps only the inputs whose group is listed. */
+export function pickRich(all: RichInputs, groups: readonly RichGroup[]): RichInputs {
+  const out: RichInputs = {};
+  for (const group of groups) {
+    switch (group) {
+      case "last_decision":
+        if (all.lastDecision !== undefined) out.lastDecision = all.lastDecision;
+        break;
+      case "capabilities":
+        if (all.capabilities !== undefined) out.capabilities = all.capabilities;
+        break;
+    }
+  }
+  return out;
+}
 
 const TOTAL_BUDGET = 2000;
 const MAX_MESSAGES = 4;
@@ -184,12 +220,64 @@ export function turnIndex(items: BranchItem[]): number {
   return items.filter((i) => i.role === "user").length;
 }
 
+const MAX_CAPABILITY_TOOLS = 40;
+const MAX_CAPABILITY_AGENTS = 30;
+const CAPABILITY_TEXT_MAX = 200;
+
+const byName = (a: { name: string }, b: { name: string }): number =>
+  a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+
+/** Keeps the keys the turn decided; undefined when neither is present. */
+function shapeLastDecision(
+  decision: NonNullable<RichInputs["lastDecision"]>,
+): MainState["conversation"]["last_decision"] {
+  const out: { effort?: string; strategy?: string } = {};
+  if (decision.effort !== undefined) out.effort = decision.effort;
+  if (decision.strategy !== undefined) out.strategy = decision.strategy;
+  return out.effort === undefined && out.strategy === undefined ? undefined : out;
+}
+
+/** Text up to the first `.`, `!` or `?` followed by whitespace or the end, cut to 200 code points. */
+function firstSentence(text: string): string {
+  const m = /^[\s\S]*?[.!?](?=\s|$)/.exec(text);
+  return cutCodePoints(m === null ? text : m[0], CAPABILITY_TEXT_MAX);
+}
+
+function shapeCapabilities(
+  capabilities: NonNullable<RichInputs["capabilities"]>,
+): NonNullable<MainState["capabilities"]> {
+  return {
+    tools: [...capabilities.tools]
+      .sort(byName)
+      .slice(0, MAX_CAPABILITY_TOOLS)
+      .map((t) => ({ name: t.name, summary: firstSentence(t.description) })),
+    subagents: [...capabilities.agents]
+      .sort(byName)
+      .slice(0, MAX_CAPABILITY_AGENTS)
+      .map((a) => ({
+        name: a.name,
+        description: cutCodePoints(a.description, CAPABILITY_TEXT_MAX),
+        tools: a.tools,
+      })),
+  };
+}
+
+/** Adds each rich input under its key, shaped, only when it has a value. */
+function addRich(state: MainState, rich: RichInputs): void {
+  if (rich.lastDecision !== undefined) {
+    const decision = shapeLastDecision(rich.lastDecision);
+    if (decision !== undefined) state.conversation.last_decision = decision;
+  }
+  if (rich.capabilities !== undefined) state.capabilities = shapeCapabilities(rich.capabilities);
+}
+
 export function mainState(i: {
   prompt: string;
   items: BranchItem[];
   platforms: string[];
+  rich?: RichInputs;
 }): MainState {
-  return {
+  const state: MainState = {
     request: requestSignals(i.prompt),
     conversation: {
       recent: recentMessages(i.items),
@@ -198,6 +286,8 @@ export function mainState(i: {
     },
     workspace: { platforms: i.platforms },
   };
+  if (i.rich !== undefined) addRich(state, i.rich);
+  return state;
 }
 
 // Worker state.
