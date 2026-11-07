@@ -31,8 +31,8 @@
 
 ## 7. Host tests
 
-- [ ] 7.1 Extract the private `command`, `uiRequests` and `notifies` helpers of `tests/host/jev-base.test.ts` into `tests/host/rpc-helpers.ts`, and add `writeConfigFile`, `seedLedger` and `seedCorrections`; add `tests/host/tuning-host.test.ts` (RPC, loopback Jev fixture): rule fires at settle with the applied line and `seenAt`; tuned value used by the next request; print mode writes the change silently; session-start line shown once; `/jev tune off` survives a restart and stops tuning; `config.json` and `state.json` untouched; no extra Jev request
-- [ ] 7.2 Cover the worker-routing reader of the tuned value in an existing worker host test or a new case
+- [x] 7.1 Extract the private `command`, `uiRequests` and `notifies` helpers of `tests/host/jev-base.test.ts` into `tests/host/rpc-helpers.ts`, and add `writeConfigFile`, `seedLedger` and `seedCorrections`; add `tests/host/tuning-host.test.ts` (RPC, loopback Jev fixture): rule fires at settle with the applied line and `seenAt`; tuned value used by the next request; print mode writes the change silently; session-start line shown once; `/jev tune off` survives a restart and stops tuning; `config.json` and `state.json` untouched; no extra Jev request
+- [x] 7.2 Cover the worker-routing reader of the tuned value in an existing worker host test or a new case
 
 ## 8. Docs
 
