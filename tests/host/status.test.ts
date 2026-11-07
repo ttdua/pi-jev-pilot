@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { alignRight, drawStatus, statusText } from "../../src/host/status.ts";
+import { alignRight, drawStatus, statusText, withDecision } from "../../src/host/status.ts";
 import { buildSnapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES } from "../../src/store/defaults.ts";
@@ -122,8 +122,9 @@ describe("drawStatus", () => {
 });
 
 describe("decision suffix", () => {
-  const high = { kind: "level", level: "high" } as const;
-  const none = { kind: "no-answer" } as const;
+  const high = { effort: { kind: "level", level: "high" } } as const;
+  const none = { effort: { kind: "no-answer" } } as const;
+  const both = { effort: { kind: "level", level: "high" }, advice: "delegate" } as const;
   test("level", () => expect(statusText(snap(), high)).toBe("Jev · standard · high"));
   test("no answer", () => expect(statusText(snap(), none)).toBe("Jev · standard · no answer"));
   test("effort off drops it", () =>
@@ -133,9 +134,35 @@ describe("decision suffix", () => {
   test("all off drops it", () =>
     expect(statusText(snap({ state: allOff() }), high)).toBe("Jev · off"));
   test("no key drops it", () => expect(statusText(snap({ env: {} }), high)).toBe("Jev · no key"));
+  test("effort and advice", () =>
+    expect(statusText(snap(), both)).toBe("Jev · standard · high · delegate"));
+  test("advice without effort part", () =>
+    expect(
+      statusText(snap({ state: { switches: { effort: false } } }), { advice: "parallel" }),
+    ).toBe("Jev · standard · parallel"));
+  test("strategy off hides advice, on restores it", () => {
+    expect(statusText(snap({ state: { switches: { strategy: false } } }), both)).toBe(
+      "Jev · standard · high",
+    );
+    expect(statusText(snap(), both)).toBe("Jev · standard · high · delegate");
+  });
+  test("config error", () =>
+    expect(
+      statusText(
+        snap({ config: { kind: "invalid", issues: [{ path: "x", message: "bad" }] } }),
+        both,
+      ),
+    ).toBe("Jev · config error"));
+  test("withDecision omits undefined keys", () => {
+    const lvl = { kind: "level", level: "high" } as const;
+    expect(withDecision(undefined, lvl, undefined)).toEqual({ effort: lvl });
+    expect("advice" in withDecision(undefined, lvl, undefined)).toBe(false);
+    expect("effort" in withDecision(undefined, undefined, "graph")).toBe(false);
+    expect(withDecision(undefined, lvl, "graph")).toEqual({ effort: lvl, advice: "graph" });
+  });
   test("rpc draw", () => {
     const { ctx, calls } = ctxFor(true, "rpc");
-    drawStatus(ctx, snap(), { kind: "level", level: "xhigh" });
+    drawStatus(ctx, snap(), { effort: { kind: "level", level: "xhigh" } });
     expect(calls).toEqual([["jev", ["Jev · standard · xhigh"], OPT]]);
   });
 });

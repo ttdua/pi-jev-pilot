@@ -54,8 +54,8 @@ src/
     worker.ts            Reads worker answers
     tier.ts              Model decision order
     route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
-    modes.ts             Mode names, Fable rules
-    skill.ts             Skill pick from choice and gate answers
+    modes.ts             Mode names, expert gates
+    skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
     strategy.ts          Advice gates and advice text
     tools.ts             Candidates, the 32 cap, the flag threshold
     tuning.ts            Tuning rules, revert rules

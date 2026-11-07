@@ -15,9 +15,9 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-05 | Ledger | M | WG-03 | Done |
 | WG-06 | Status line and `/jev` base | M | WG-03 | Done |
 | WG-07 | Main effort | M | WG-02, 04, 05, 06 | Done |
-| WG-08 | Effort hold | S | WG-07 | Planned |
+| WG-08 | Effort hold | S | WG-07 | Done |
 | WG-09 | Skill pick and delivery | L | WG-07 | Planned |
-| WG-10 | Strategy advice | S | WG-07 | Planned |
+| WG-10 | Strategy advice | S | WG-07 | Done |
 | WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
 | WG-12 | Modes and expert tier | M | WG-11 | Planned |
 | WG-13 | Slots and fallback | M | WG-11 | Planned |
@@ -136,7 +136,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-08: Effort hold
 
-**A5.** First decision kept for the session on listed providers; one new decision after a compaction; questions omitted while held.
+**A5.** Decision kept on listed providers until a compaction or a model switch; one new decision after a compaction; questions omitted while held.
 
 - **Done when:** a host test shows no thinking change after the first decision on a held provider, and exactly one after a compaction.
 - **Note:** in the [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run, `claude-code` kept the prompt cache across a thinking change, so it is not in the default hold list.
@@ -145,6 +145,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 **C1, C2, C5.**
 
+- **Ships as two changes:** `wg-09-skill-policy` (criteria, batches, questions, pick, delivery text, duplicate check) and `wg-09-skill-host` (catalog, eligibility, `/skill:name` skip, hidden message, ledger, host test).
 - **Includes:** catalog from `getCommands`, batching over 254, gates, pick logic, platform scan, injection and suggestion through a hidden message, no duplicates on a branch, explicit `/skill:name` skips.
 - **After a compaction:** a hidden message injected earlier is gone ([WG-02 Q5](evidence/2026-11-05-host-seams.md#q5)), so delivery must not assume a skill or advice injected before a compaction is still present.
 - **Done when:** a host test proves the body reaches the provider exactly once across repeated picks, and the `(none)` and gate paths attach nothing.
@@ -171,7 +172,7 @@ The pre-launch tier cascade moved here from WG-13.
 
 ### WG-12: Modes and expert tier
 
-**Modes, H1.** Rubrics as data, `/jev mode`, Fable rules, softer `expert_needed` in `premium`, mode in the ledger.
+**Modes, H1.** Rubrics as data, `/jev mode`, expert gates, softer `expert_needed` in `premium`, mode in the ledger.
 
 - **Done when:** the [decision order](domain-model.md#workerdecision) has a table test per mode, and a replay of real briefs reproduces the [recorded distribution](evidence/2026-11-05-replay.md#routing-by-mode) within noise. That replay needs approval at the time.
 
@@ -232,7 +233,7 @@ Not committed. Each needs evidence or a decision first.
 | Quality check of the reviewer slot | Routing is proven, review quality is not | Real findings compared |
 | Decision on threshold tuning | Upstream's rules never fired on real data | About 200 decisions per signal, then keep or drop |
 | `enforce` by default for tool assessment | Unknown whether removals are right | Would-remove counts reviewed |
-| Calibrating Fable rules | Two cases in replay | More data |
+| Calibrating expert gates | Two cases in replay | More data |
 | More work reaching the fast tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
 | OpenRouter or Vercel backends | Excluded for now | Demand |
 

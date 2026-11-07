@@ -1,15 +1,24 @@
 // Question sets for main and worker requests. Wording lives in ./rubrics.ts.
 import type { QuestionSpec } from "../policy/answers.ts";
 import { EFFORT_LEVELS } from "../policy/effort.ts";
+import { STRATEGIES } from "../policy/strategy.ts";
 import { TIER_LADDER, type TierName } from "../policy/launch.ts";
+import type { ModeName } from "../policy/modes.ts";
+import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
 import {
+  type BareNoulQuestion,
   CORRECTS_QUESTION,
-  EXPERT_NEEDED_QUESTION,
+  EXPERT_NEEDED_QUESTIONS,
+  GATE_QUESTIONS,
   MAIN_EFFORT_INSTRUCTION,
+  MAIN_TIER_QUESTION,
+  NONE_CRITERION,
   RISKY_QUESTION,
-  STANDARD_TIER_CRITERIA,
+  STRATEGY_QUESTION,
+  TIER_CRITERIA,
   TIER_INSTRUCTION,
   TOOL_QUESTION,
+  WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
   type WireQuestion,
 } from "./rubrics.ts";
@@ -26,9 +35,59 @@ function copy(question: WireQuestion): WireQuestion {
   return { ...question, criteria: { ...question.criteria } };
 }
 
-/** Questions for a main request; `effort` and `risky` only when `askEffort`. */
-export function mainQuestions(o: { askEffort: boolean }): MainQuestions {
-  const wire: Record<string, WireQuestion> = {};
+/** Main questions plus the skill question and gates; gates are bare noul questions. */
+export type SkillQuestions = {
+  wire: Record<string, WireQuestion | BareNoulQuestion>;
+  specs: Record<string, QuestionSpec>;
+};
+
+// `which` over one list, so criteria and options cannot drift apart.
+function whichQuestion(batch: readonly SkillEntry[]): { wire: WireQuestion; spec: QuestionSpec } {
+  // Integer-like names keep JS key order in `criteria`; `options` keep catalog order and drive ties.
+  const criteria: Record<string, string> = {};
+  const define = (name: string, value: string): void => {
+    Object.defineProperty(criteria, name, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  };
+  for (const entry of batch) define(entry.name, skillCriterion(entry));
+  define(NONE_OPTION, NONE_CRITERION);
+  return {
+    wire: { type: "choice", instructions: WHICH_INSTRUCTION, criteria },
+    spec: { type: "choice", options: [...batch.map((e) => e.name), NONE_OPTION] },
+  };
+}
+
+/** Later skill batches: `which` only. */
+export function skillBatchQuestions(batch: readonly SkillEntry[]): MainQuestions {
+  const { wire, spec } = whichQuestion(batch);
+  return { wire: { which: wire }, specs: { which: spec } };
+}
+
+/**
+ * Questions for a main request: `effort` and `risky` when `askEffort`, `tier` and `strategy` when
+ * `askStrategy`, then `corrects`.
+ */
+export function mainQuestions(o: {
+  askEffort: boolean;
+  askStrategy?: boolean;
+  skills?: undefined;
+}): MainQuestions;
+/** With a non-empty first skill batch, appends `which` then the three gates. */
+export function mainQuestions(o: {
+  askEffort: boolean;
+  askStrategy?: boolean;
+  skills: readonly SkillEntry[];
+}): SkillQuestions;
+export function mainQuestions(o: {
+  askEffort: boolean;
+  askStrategy?: boolean;
+  skills?: readonly SkillEntry[] | undefined;
+}): SkillQuestions {
+  const wire: Record<string, WireQuestion | BareNoulQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
   if (o.askEffort) {
     // The five effort criteria are shared with the worker question; only the instruction differs.
@@ -41,10 +100,26 @@ export function mainQuestions(o: { askEffort: boolean }): MainQuestions {
     wire["risky"] = copy(RISKY_QUESTION);
     specs["risky"] = { type: "noul" };
   }
+  if (o.askStrategy === true) {
+    wire["tier"] = copy(MAIN_TIER_QUESTION);
+    specs["tier"] = { type: "choice", options: Object.keys(MAIN_TIER_QUESTION.criteria) };
+    wire["strategy"] = copy(STRATEGY_QUESTION);
+    specs["strategy"] = { type: "choice", options: [...STRATEGIES] };
+  }
   wire["corrects"] = copy(CORRECTS_QUESTION);
   specs["corrects"] = { type: "noul" };
+  if (o.skills !== undefined && o.skills.length > 0) {
+    const which = whichQuestion(o.skills);
+    wire["which"] = which.wire;
+    specs["which"] = which.spec;
+    for (const key of GATE_KEYS) {
+      wire[key] = { ...GATE_QUESTIONS[key] };
+      specs[key] = { type: "noul" };
+    }
+  }
   return { wire, specs };
 }
+
 /** Configured tiers in ladder order; `expert` only when its switch is on. */
 export function offeredTiers(
   tiers: Partial<Record<TierName, string>>,
@@ -60,6 +135,7 @@ export function offeredTiers(
 export function buildWorkerQuestions(
   offered: readonly TierName[],
   displayNames: Partial<Record<TierName, string>>,
+  mode: ModeName,
 ): { questions: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> } {
   const questions: Record<string, WireQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
@@ -68,7 +144,7 @@ export function buildWorkerQuestions(
     const criteria: Record<string, string> = {};
     for (const tier of ordered) {
       const name = displayNames[tier];
-      const text = STANDARD_TIER_CRITERIA[tier];
+      const text = TIER_CRITERIA[mode][tier];
       criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
     }
     questions["tier"] = { type: "choice", instructions: TIER_INSTRUCTION, criteria };
@@ -79,7 +155,7 @@ export function buildWorkerQuestions(
   questions["risky"] = copy(RISKY_QUESTION);
   specs["risky"] = { type: "noul" };
   if (ordered.includes("expert")) {
-    questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTION);
+    questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTIONS[mode]);
     specs["expert_needed"] = { type: "noul" };
   }
   return { questions, specs };

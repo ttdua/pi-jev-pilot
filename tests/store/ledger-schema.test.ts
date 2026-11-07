@@ -58,6 +58,15 @@ describe("ledger schema", () => {
     if (r.ok) expect(r.line).toBe(`${JSON.stringify(r.entry)}\n`);
   });
 
+  test("Expert admitted accepted", () => {
+    const entry = { ...base("worker"), reason: "expert-admitted", tier: "expert" };
+    expect(validateLedgerEntry(entry).ok).toBe(true);
+  });
+
+  test("Old reason name rejected", () => {
+    expect(paths({ ...base("worker"), reason: "fable", tier: "expert" })).toEqual(["reason"]);
+  });
+
   test("valid correction line accepted", () => {
     expect(validateLedgerEntry({ ...base("correction"), corrects: 0.82 }).ok).toBe(true);
   });

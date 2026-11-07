@@ -40,7 +40,7 @@ The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the e
 - **THEN** a line with `status` `error` is written
 
 ### Requirement: Decision fields
-The line SHALL carry `mode` (the effective mode); `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent; `agent` and `briefChars` (code points of the brief); the raw `tierP`, `effortP`, `risky` and `expertNeeded`; the route's recorded fields; and `toolsScored` and `toolsFlagged` when that launch started a worker session whose tool assessment got an answer, omitted otherwise (a resumed launch starts no new session). The line MUST NOT contain the brief, the description, tool names or tool arguments.
+The line SHALL carry `mode` (the mode captured when the launch was classified, see `worker-routing`); `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent; `agent` and `briefChars` (code points of the brief); the raw `tierP`, `effortP`, `risky` and `expertNeeded`; the route's recorded fields; and `toolsScored` and `toolsFlagged` when that launch started a worker session whose tool assessment got an answer, omitted otherwise (a resumed launch starts no new session). The line MUST NOT contain the brief, the description, tool names or tool arguments.
 
 #### Scenario: Routed fields
 - **WHEN** a launch is routed to `balanced` with thinking `high` and the caller asked for `fixture/fixture-main`
@@ -77,6 +77,10 @@ The line SHALL carry `mode` (the effective mode); `answered`, `ms` and `miss` fr
 #### Scenario: No prompt text
 - **WHEN** a launch with a brief containing a unique marker is recorded
 - **THEN** no ledger file contains that marker
+
+#### Scenario: Mode recorded
+- **WHEN** a launch is classified while the mode is `budget`
+- **THEN** its line has `mode` `budget`
 
 #### Scenario: Tool counts recorded
 - **WHEN** a launch's worker was assessed with 4 tools scored and 1 flagged

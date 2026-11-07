@@ -355,6 +355,14 @@ describe("Ledger failures do not affect the launch", () => {
   });
 });
 
+describe("Mode recorded", () => {
+  test("Classified in budget", async () => {
+    const h = harness({ mode: "budget" });
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ mode: "budget" });
+  });
+});
+
 describe("Tool counts on the worker line", () => {
   const reset = () => {
     (globalThis as Record<symbol, unknown>)[TOOL_COUNTS_KEY] = undefined;

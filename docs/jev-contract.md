@@ -143,7 +143,7 @@ Nothing found sends `none found`.
 
 ## Eligibility
 
-A main request is sent when `messageType` is `user`, the text is not empty, and the session is not a child. An explicit `/skill:name` skips only the skill questions. When every applicable feature is off, or held, no request is made.
+A main request is sent when `messageType` is `user`, the text is not empty, and the session is not a child. An explicit `/skill:name` skips only the skill questions. When every applicable feature is off, or held, no request is made. `effort` and `risky` need `effort` on; `tier` and `strategy` need `strategy` on.
 
 Non-reasoning models, and models with one supported level, skip `effort` and `risky`. While effort is held, they are skipped too.
 
@@ -170,7 +170,7 @@ A forked launch with `subagents.forkedLaunch` set to `thinking`, or a launch wit
 | `gate::would_follow_documented_procedure` | noul | | Skill gate |
 | `gate::prose_suffices` | noul | | Skill gate, inverted |
 
-A catalog over 254 skills is split into batches sent in parallel. Only the first batch carries the other questions.
+A catalog over 254 skills is split into batches sent in parallel. The first batch's request carries `which` and the three gates; each later batch carries only its `which`. The gates are sent as `type` and `instructions` only.
 
 ## Worker state
 
@@ -205,7 +205,7 @@ The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/age
 | `tier` | choice | Configured tiers (active mode's rubric) and `slot::<name>` | Worker model |
 | `effort` | choice | Five levels, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
-| `expert_needed` | noul | Only when `tiers.expert` is set | Fable rule |
+| `expert_needed` | noul | Only when `tiers.expert` is set | Expert gate |
 
 ## Tool assessment
 
@@ -238,9 +238,13 @@ It is a separate request because tool descriptions are irrelevant to the tier qu
 
 Catalog: `pi.getCommands()` entries with `source: "skill"`, read through `sourceInfo.path`. Skills with `disable-model-invocation: true` and unreadable files are excluded.
 
-1. Take the leader of each batch, ignoring `(none)`, then the highest of those.
+Each skill's criterion is `<description> — <first 300 code points of the body>`, both trimmed; an empty part counts as absent. With one part, use it alone; with none, `A skill named <name>.`
+
+Batches hold at most 254 skills plus `(none)`, as few as fit, of near-equal size, in catalog order. Of a repeated name only the first is kept, and no skill is named `(none)`.
+
+1. Take each batch's leader by probability; a batch led by `(none)` is ignored. Then the highest leader; ties go to the earlier option or batch.
 2. Pick it when its probability is at least .5.
-3. Otherwise pick it when both its probability and the gate mean are at least .3. `prose_suffices` is inverted in the mean.
+3. Otherwise pick it when both its probability and the gate mean are at least .3. The gate mean is over the gates read, with `prose_suffices` inverted; with none read it is absent, and only the .5 rule applies.
 4. Otherwise no skill. A failed batch means no skill.
 
 Delivered through `before_agent_start`'s `message` with `display: false`:
@@ -248,7 +252,7 @@ Delivered through `before_agent_start`'s `message` with `display: false`:
 - `skills.inject: "content"`: the full body, with the skill's directory so relative references resolve.
 - `skills.inject: "suggest"`: only the name and path, and the model decides whether to read it.
 
-If the same body is already on the current branch, from a pick or an explicit `/skill:name`, a one-line reference is sent instead. Pi's own skill catalog stays in the system prompt. Workers get no skill selection.
+If a skill with the same name and the same body fingerprint is in context since the latest compaction, from a pick or an explicit `/skill:name`, a one-line reference is sent instead. Pi's own skill catalog stays in the system prompt. Workers get no skill selection.
 
 ## From answers to decisions
 
@@ -257,7 +261,7 @@ If the same body is already on the current branch, from a pick or an explicit `/
 | `effort.choice` | Authoritative | Effort, before floor, ceiling and clamp |
 | `risky` | `> .7` | Effort at least `high`; model at least `deep` |
 | `tier` probabilities | `fast` needs ≥ .6, slot needs ≥ .6 | See the [decision order](domain-model.md#workerdecision) |
-| `expert_needed`, `P(expert)` | Per mode | See the [Fable rules](domain-model.md#fable-rules) |
+| `expert_needed`, `P(expert)` | Per mode | See the [expert gates](domain-model.md#expert-gates) |
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |
@@ -271,7 +275,7 @@ Strategy gates:
 | `parallel` | ≥ .6 | `tier` is not `fast` |
 | `graph` | ≥ .8 | `tier` is `deep` |
 
-User and project instructions keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
+An unanswered `tier` attaches nothing for `parallel` or `graph`. User and project instructions and a loaded skill keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
 
 **How much these thresholds can be trusted** is recorded in the [evidence](evidence/2026-11-05-replay.md#threshold-provenance).
 

@@ -4,6 +4,7 @@ import { createMain, type MainDeps } from "../../src/host/main.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import { mainQuestions } from "../../src/jev/questions.ts";
 import { mainState } from "../../src/jev/state.ts";
+import { strategyBlock } from "../../src/policy/strategy.ts";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { ThinkingLevel } from "../../src/policy/effort.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
@@ -11,20 +12,35 @@ import type { State } from "../../src/store/state-file.ts";
 
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
-function answer(choice: string, risky = 0.1, corrects = 0.05): JevOutcome {
+type Extra = { strategy?: [string, number]; tier?: string };
+
+function answer(choice: string, risky = 0.1, corrects = 0.05, extra: Extra = {}): JevOutcome {
   const probabilities = Object.fromEntries(EFFORTS.map((l) => [l, l === choice ? 0.6 : 0.1]));
-  return {
-    kind: "ok",
-    ms: 7,
-    body: {
-      answers: {
-        effort: { type: "choice", choice, probabilities },
-        risky: { type: "noul", noul: risky },
-        corrects: { type: "noul", noul: corrects },
-      },
-    },
+  const answers: Record<string, unknown> = {
+    effort: { type: "choice", choice, probabilities },
+    risky: { type: "noul", noul: risky },
+    corrects: { type: "noul", noul: corrects },
   };
+  if (extra.strategy !== undefined) {
+    const [c, p] = extra.strategy;
+    answers["strategy"] = {
+      type: "choice",
+      choice: c,
+      probabilities: { direct: 0.1, delegate: 0.1, parallel: 0.1, graph: 0.1, [c]: p },
+    };
+  }
+  if (extra.tier !== undefined) {
+    answers["tier"] = {
+      type: "choice",
+      choice: extra.tier,
+      probabilities: { fast: 0.1, balanced: 0.1, deep: 0.1, [extra.tier]: 0.8 },
+    };
+  }
+  return { kind: "ok", ms: 7, body: { answers } };
 }
+
+const advised = (c = "delegate", p = 0.9, extra: Extra = {}): JevOutcome =>
+  answer("high", 0.1, 0.05, { strategy: [c, p], ...extra });
 
 const sessionId = "main-session-1";
 
@@ -41,8 +57,10 @@ function setup(
     id?: string;
     branch?: unknown[];
     appendResult?: { ok: false; reason?: string } | { ok: true };
+    holdProviders?: string[];
   } = {},
 ) {
+  let branch: unknown[] = o.branch ?? [];
   const appended: unknown[] = [];
   const custom: { type: string; data: unknown }[] = [];
   const clock = { t: 1000 };
@@ -71,10 +89,18 @@ function setup(
       getSessionId: () => o.id ?? sessionId,
       getBranch: () => {
         if (o.branchThrows) throw new Error("boom");
-        return o.branch ?? [];
+        return branch;
       },
     },
-    model: "model" in o ? o.model : { reasoning: true, thinkingLevelMap: { xhigh: "xhigh" } },
+    model:
+      "model" in o
+        ? o.model
+        : {
+            provider: "fixture",
+            id: "fixture-main",
+            reasoning: true,
+            thinkingLevelMap: { xhigh: "xhigh" },
+          },
     cwd: "/tmp/x",
     hasUI: true,
     mode: "rpc",
@@ -83,12 +109,20 @@ function setup(
   };
   const requests: JevRequest[] = [];
   const queue = [...(o.outcomes ?? [])];
-  const snapshot: Snapshot = buildSnapshot({
-    configRead: o.config ?? { kind: "ok", present: true, config: {} as Config },
-    stateRead: { kind: "ok", state: o.state ?? {} },
-    env: o.env ?? { TYPESAFE_API_KEY: "test-key" },
-    toolNames: [],
-  });
+  const snap = (state: State | undefined): Snapshot =>
+    buildSnapshot({
+      configRead: o.config ?? {
+        kind: "ok",
+        present: true,
+        config: (o.holdProviders === undefined
+          ? {}
+          : { effort: { holdProviders: o.holdProviders } }) as Config,
+      },
+      stateRead: { kind: "ok", state: state ?? {} },
+      env: o.env ?? { TYPESAFE_API_KEY: "test-key" },
+      toolNames: [],
+    });
+  let snapshot = snap(o.state);
   const deps: MainDeps = {
     load: () => snapshot,
     ask: async (req) => {
@@ -119,6 +153,8 @@ function setup(
     widgets,
     requests,
     event,
+    setState: (state: State) => (snapshot = snap(state)),
+    setBranch: (entries: unknown[]) => (branch = entries),
     setLevel: (l: ThinkingLevel) => (lvl = l),
     setSupported: (s: ThinkingLevel[]) => (supported = s),
     level: () => lvl,
@@ -149,7 +185,9 @@ describe("eligibility", () => {
       expect(t.widgets).toEqual([]);
       expect(t.level()).toBe(o?.start ?? "low");
     });
-  untouched("effort off", { state: { switches: { effort: false } } });
+  untouched("effort and strategy off", {
+    state: { switches: { effort: false, strategy: false } },
+  });
   untouched("custom", {}, "hi", "custom");
   untouched("child", { id: "child-1" });
   untouched("key unset", { env: {} });
@@ -170,7 +208,7 @@ describe("decision", () => {
     await run(t);
     expect(t.sets).toEqual(["xhigh"]);
     expect(t.widgets.at(-1)).toEqual(["Jev · standard · xhigh"]);
-    expect(t.main.decision()).toEqual({ kind: "level", level: "xhigh" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "xhigh" } });
   });
 
   test("target equals current", async () => {
@@ -188,10 +226,40 @@ describe("decision", () => {
   });
 
   test("non-reasoning model asks corrects only", async () => {
-    const t = setup({ start: "off", model: { reasoning: false }, outcomes: [answer("high")] });
+    const t = setup({
+      start: "off",
+      model: { reasoning: false },
+      state: { switches: { strategy: false } },
+      outcomes: [answer("high")],
+    });
     await run(t);
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["corrects"]);
     expect(t.sets).toEqual([]);
+  });
+
+  test("non-reasoning model with strategy", async () => {
+    const t = setup({ start: "off", model: { reasoning: false }, outcomes: [answer("high")] });
+    await run(t);
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "tier",
+      "strategy",
+      "corrects",
+    ]);
+  });
+
+  test("effort off, strategy on asks the strategy questions only", async () => {
+    const t = setup({
+      state: { switches: { effort: false } },
+      outcomes: [advised("delegate", 0.9)],
+    });
+    const r = await run(t);
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "tier",
+      "strategy",
+      "corrects",
+    ]);
+    expect(t.sets).toEqual([]);
+    expect(r).toBeDefined();
   });
 
   test("request matches builders and signal is ctx.signal", async () => {
@@ -200,7 +268,7 @@ describe("decision", () => {
     t.ctxRaw.signal = ac.signal;
     await run(t, "why does src/a.ts fail?");
     const req = t.requests[0]!;
-    expect(req.questions).toEqual(mainQuestions({ askEffort: true }).wire);
+    expect(req.questions).toEqual(mainQuestions({ askEffort: true, askStrategy: true }).wire);
     expect(req.state).toEqual(
       mainState({ prompt: "why does src/a.ts fail?", items: [], platforms: ["none found"] }),
     );
@@ -279,7 +347,7 @@ describe("discard and failure", () => {
     t.setLevel("off");
     await run(t);
     expect(t.widgets).toHaveLength(1);
-    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
   });
 
   test("unknown choice", async () => {
@@ -351,7 +419,7 @@ describe("Esc", () => {
     await run(t2);
     expect(t2.widgets.at(-1)).toEqual(["Jev · standard · xhigh"]);
     await t2.main.agentSettled(settled(true));
-    expect(t2.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t2.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     expect(t2.widgets.at(-1)).toEqual(["Jev · standard · high"]);
     const t3 = setup({ outcomes: [answer("high")] });
     await run(t3);
@@ -366,10 +434,10 @@ describe("Esc", () => {
     const t = setup({ outcomes: [held, answer("high")] });
     const first = run(t);
     await run(t);
-    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     release({ kind: "cancelled" });
     await first;
-    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     // the newer record still exists: Esc restores its level
     t.sets.length = 0;
     await t.main.agentSettled(settled(true));
@@ -476,7 +544,13 @@ describe("ledger", () => {
       outcome: "ok",
     });
     expect(t.custom).toEqual([
-      { type: "jev-turn", data: { turnId: "11111111-1111-1111-1111-111111111111" } },
+      {
+        type: "jev-turn",
+        data: {
+          turnId: "11111111-1111-1111-1111-111111111111",
+          decided: { provider: "fixture", model: "fixture-main", level: "high" },
+        },
+      },
     ]);
   });
 
@@ -590,7 +664,7 @@ describe("ledger", () => {
     await run(t);
     await t.main.agentSettled(settled(false));
     const text = JSON.stringify(t.appended);
-    for (const k of ["held", "advised", "strategy", "strategyP", "skill", "skillP", "gate"])
+    for (const k of ["advised", "strategy", "strategyP", "skill", "skillP", "gate"])
       expect(text).not.toContain(`"${k}"`);
   });
 
@@ -614,5 +688,483 @@ describe("ledger", () => {
     await t.main.agentSettled(settled(false));
     await t.main.agentSettled(settled(false));
     expect(t.appended).toHaveLength(1);
+  });
+});
+
+describe("strategy advice", () => {
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const msg = {
+    message: {
+      customType: "jev-advice",
+      display: false,
+      content: strategyBlock("delegate"),
+    },
+  };
+
+  test("delegate 0.9 returns the hidden message", async () => {
+    const t = setup({ outcomes: [advised("delegate", 0.9)] });
+    expect(await run(t)).toEqual(msg);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high · delegate"]);
+  });
+
+  test("direct, miss and strategy off return undefined", async () => {
+    const a = setup({ outcomes: [advised("direct", 0.9)] });
+    expect(await run(a)).toBeUndefined();
+    const b = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "x", ms: 3 }] });
+    expect(await run(b)).toBeUndefined();
+    const c = setup({
+      state: { switches: { strategy: false } },
+      outcomes: [advised("delegate", 0.9)],
+    });
+    expect(await run(c)).toBeUndefined();
+    expect("strategy" in (c.requests[0]!.questions as object)).toBe(false);
+  });
+
+  test("advice is independent of effort", async () => {
+    let release!: (o: JevOutcome) => void;
+    const held = new Promise<JevOutcome>((r) => (release = r));
+    const t = setup({ outcomes: [answer("high"), held] });
+    await run(t);
+    t.setLevel("low");
+    const pending = run(t);
+    t.setLevel("medium");
+    release(advised("delegate", 0.9));
+    expect(await pending).toEqual(msg);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high · delegate"]);
+
+    const m = setup({ start: "max", outcomes: [advised("delegate", 0.9)] });
+    expect(await run(m)).toEqual(msg);
+
+    const bad = advised("delegate", 0.9);
+    (bad as { body: { answers: { effort: { choice: string } } } }).body.answers.effort.choice =
+      "wild";
+    const u = setup({ outcomes: [bad] });
+    expect(await run(u)).toEqual(msg);
+    expect(u.widgets.at(-1)).toEqual(["Jev · standard · no answer · delegate"]);
+
+    const off = setup({
+      state: { switches: { effort: false } },
+      outcomes: [advised("delegate", 0.9)],
+    });
+    expect(await run(off)).toEqual(msg);
+    expect(off.widgets.at(-1)).toEqual(["Jev · standard · delegate"]);
+  });
+
+  test("cancelled returns undefined without drawing", async () => {
+    const t = setup({ outcomes: [{ kind: "cancelled" }] });
+    expect(await run(t)).toBeUndefined();
+    expect(t.widgets).toEqual([]);
+  });
+
+  test("Esc before any request restores the previous decision with its advice", async () => {
+    const t = setup({ outcomes: [advised("delegate", 0.9), advised("direct", 0.9)] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    await t.main.agentSettled(settled(true));
+    expect(t.main.decision()).toEqual({
+      effort: { kind: "level", level: "high" },
+      advice: "delegate",
+    });
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high · delegate"]);
+  });
+
+  test("Esc restores when only the advice changed", async () => {
+    const t = setup({
+      state: { switches: { effort: false } },
+      outcomes: [advised("delegate", 0.9), advised("direct", 0.9)],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.main.decision()).toEqual({});
+    await t.main.agentSettled(settled(true));
+    expect(t.main.decision()).toEqual({ advice: "delegate" });
+    expect(t.appended).toHaveLength(1);
+  });
+
+  const mainLine = async (o: JevOutcome, state?: State) => {
+    const t = setup({ outcomes: [o], ...(state === undefined ? {} : { state }) });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(false));
+    const v = validateLedgerEntry(t.appended[0]);
+    expect(v.ok).toBe(true);
+    return t.appended[0] as Record<string, unknown>;
+  };
+
+  test("ledger fields", async () => {
+    expect(await mainLine(advised("delegate", 0.9))).toMatchObject({
+      strategy: "delegate",
+      strategyP: 0.9,
+      advised: true,
+    });
+    expect(await mainLine(advised("graph", 0.7, { tier: "deep" }))).toMatchObject({
+      strategy: "graph",
+      strategyP: 0.7,
+      advised: false,
+    });
+  });
+
+  test("no ledger fields for off, miss or unknown", async () => {
+    const lines = [
+      await mainLine(advised("delegate", 0.9), { switches: { strategy: false } }),
+      await mainLine({ kind: "miss", miss: "timeout", reason: "x", ms: 3 }),
+      await mainLine(advised("wild", 0.9)),
+    ];
+    for (const l of lines)
+      for (const k of ["strategy", "strategyP", "advised"]) expect(k in l).toBe(false);
+  });
+
+  test("status: direct clears, miss clears, off leaves, sessionStart resets", async () => {
+    const t = setup({
+      outcomes: [
+        advised("delegate", 0.9),
+        advised("direct", 0.9),
+        advised("delegate", 0.9),
+        { kind: "miss", miss: "timeout", reason: "x", ms: 3 },
+      ],
+    });
+    await run(t);
+    expect(t.main.decision()?.advice).toBe("delegate");
+    await t.main.agentSettled(settled(false));
+    await run(t);
+    expect(t.main.decision()?.advice).toBeUndefined();
+    await run(t);
+    expect(t.main.decision()?.advice).toBe("delegate");
+    await run(t);
+    expect(t.main.decision()).toEqual({ effort: { kind: "no-answer" } });
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · no answer"]);
+    t.main.sessionStart();
+    expect(t.main.decision()).toBeUndefined();
+  });
+
+  test("a turn with strategy off leaves the advice", async () => {
+    const t = setup({ outcomes: [advised("delegate", 0.9), answer("high")] });
+    await run(t);
+    expect(t.main.decision()?.advice).toBe("delegate");
+    await t.main.agentSettled(settled(false));
+    t.setState({ switches: { strategy: false } });
+    await run(t);
+    expect("strategy" in (t.requests[1]!.questions as object)).toBe(false);
+    expect(t.main.decision()).toEqual({
+      effort: { kind: "level", level: "high" },
+      advice: "delegate",
+    });
+  });
+});
+
+describe("hold", () => {
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const decided = { provider: "fixture", model: "fixture-main", level: "high" };
+  const heldTurn = (turnId = "T1") => ({
+    type: "custom",
+    customType: "jev-turn",
+    data: { turnId, decided },
+  });
+  const heldSetup = (o: Parameters<typeof setup>[0] = {}) =>
+    setup({ branch: [heldTurn()], holdProviders: ["fixture"], start: "high", ...o });
+  const lines = (t: ReturnType<typeof setup>) =>
+    t.appended.map((e) => {
+      expect(validateLedgerEntry(e).ok).toBe(true);
+      return e as Record<string, unknown>;
+    });
+  const mainLine = (t: ReturnType<typeof setup>) => lines(t).find((l) => l["kind"] === "main")!;
+  /** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
+  const keys = (t: ReturnType<typeof setup>, i: number): string[] =>
+    Object.keys(t.requests[i]!.questions as object).filter((k) => k !== "tier" && k !== "strategy");
+  const correctsOnly = (corrects: number): JevOutcome => ({
+    kind: "ok",
+    ms: 7,
+    body: { answers: { corrects: { type: "noul", noul: corrects } } },
+  });
+
+  test("second prompt held", async () => {
+    const t = heldSetup({ outcomes: [answer("xhigh")] });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["corrects"]);
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+  });
+
+  test("provider not listed", async () => {
+    const t = heldSetup({ holdProviders: ["other"] });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
+  });
+
+  test("held miss", async () => {
+    const t = heldSetup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
+    await run(t);
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).toMatchObject({
+      held: true,
+      answered: false,
+      miss: "timeout",
+      effective: "high",
+    });
+  });
+
+  test("held schema miss", async () => {
+    const t = heldSetup({ outcomes: [{ kind: "ok", ms: 7, body: {} }] });
+    await run(t);
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).toMatchObject({ held: true, miss: "schema", effective: "high" });
+  });
+
+  test("manual change while held", async () => {
+    const t = heldSetup({ start: "low", outcomes: [correctsOnly(0.1)] });
+    await run(t);
+    expect(t.sets).toEqual([]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).toMatchObject({ held: true, from: "low", effective: "low" });
+  });
+
+  test("held line fields", async () => {
+    const t = heldSetup({ outcomes: [correctsOnly(0.1)] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    const line = mainLine(t);
+    expect(line).toMatchObject({ held: true, effective: "high", from: "high", corrects: 0.1 });
+    for (const k of ["effortP", "risky", "requested"]) expect(line).not.toHaveProperty(k);
+  });
+
+  test("correction while held", async () => {
+    const t = heldSetup({ outcomes: [correctsOnly(0.9)] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lines(t).find((l) => l["kind"] === "correction")).toMatchObject({ turnId: "T1" });
+  });
+
+  test("miss right after a compaction keeps the release", async () => {
+    const t = setup({
+      branch: [heldTurn(), { type: "compaction", id: "c1" }],
+      holdProviders: ["fixture"],
+      start: "high",
+      outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }, answer("high")],
+    });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
+    await t.main.agentSettled(settled(false));
+    const entry = t.custom.find((c) => c.type === "jev-turn")!;
+    expect(entry.data).toEqual({ turnId: "11111111-1111-1111-1111-111111111111" });
+    t.setBranch([
+      heldTurn(),
+      { type: "compaction", id: "c1" },
+      { type: "custom", customType: "jev-turn", data: entry.data },
+    ]);
+    await run(t);
+    expect(keys(t, 1)).toEqual(["effort", "risky", "corrects"]);
+  });
+
+  test("model switch decides once and anchors the new model", async () => {
+    const t = heldSetup({
+      model: { provider: "fixture", id: "fixture-balanced", reasoning: true },
+      outcomes: [answer("medium"), correctsOnly(0.1)],
+    });
+    await run(t);
+    expect(keys(t, 0)).toContain("effort");
+    await t.main.agentSettled(settled(false));
+    const entry = t.custom.find((c) => c.type === "jev-turn")!;
+    expect((entry.data as { decided?: unknown }).decided).toEqual({
+      provider: "fixture",
+      model: "fixture-balanced",
+      level: "medium",
+    });
+    t.setBranch([heldTurn(), { type: "custom", customType: "jev-turn", data: entry.data }]);
+    await run(t);
+    expect(keys(t, 1)).toEqual(["corrects"]);
+  });
+
+  test("held with strategy off asks only corrects", async () => {
+    const t = heldSetup({
+      state: { switches: { strategy: false } },
+      outcomes: [correctsOnly(0.1)],
+    });
+    expect(await run(t)).toBeUndefined();
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["corrects"]);
+  });
+
+  test("held with strategy on asks tier, strategy and corrects and attaches advice", async () => {
+    const t = heldSetup({ outcomes: [advised("delegate", 0.9)] });
+    const result = await run(t);
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "tier",
+      "strategy",
+      "corrects",
+    ]);
+    expect(result).toEqual({
+      message: { customType: "jev-advice", content: strategyBlock("delegate"), display: false },
+    });
+    expect(t.sets).toEqual([]);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high · delegate"]);
+    await t.main.agentSettled(settled(false));
+    const line = mainLine(t);
+    expect(line).toMatchObject({
+      held: true,
+      effective: "high",
+      strategy: "delegate",
+      strategyP: 0.9,
+      advised: true,
+    });
+    expect(line).not.toHaveProperty("effortP");
+    expect(line).not.toHaveProperty("risky");
+    expect(line).not.toHaveProperty("requested");
+  });
+
+  test("held turn that attaches no advice clears the advice suffix", async () => {
+    const t = heldSetup({ outcomes: [advised("delegate", 0.9), advised("direct", 0.9)] });
+    await run(t);
+    expect(t.main.decision()?.advice).toBe("delegate");
+    await t.main.agentSettled(settled(false));
+    expect(await run(t)).toBeUndefined();
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
+  });
+
+  test("held miss clears the advice suffix and shows the level", async () => {
+    const t = heldSetup({
+      outcomes: [advised("delegate", 0.9), { kind: "miss", miss: "timeout", reason: "x", ms: 3 }],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(await run(t)).toBeUndefined();
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+  });
+
+  test("effort off is not held: no hold fields and the level is untouched", async () => {
+    const t = heldSetup({
+      state: { switches: { effort: false } },
+      outcomes: [advised("delegate", 0.9)],
+    });
+    expect(await run(t)).toBeDefined();
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "tier",
+      "strategy",
+      "corrects",
+    ]);
+    expect(t.sets).toEqual([]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).not.toHaveProperty("held");
+  });
+
+  test("decided turn on listed provider has no held", async () => {
+    const t = setup({ holdProviders: ["fixture"], outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).not.toHaveProperty("held");
+  });
+});
+
+describe("anchor", () => {
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+  const id = "11111111-1111-1111-1111-111111111111";
+  const decided = (level: string) => ({ provider: "fixture", model: "fixture-main", level });
+  const lastTurn = (t: ReturnType<typeof setup>) => t.custom.at(-1);
+  const heldTurn = {
+    type: "custom",
+    customType: "jev-turn",
+    data: { turnId: "T1", decided: decided("high") },
+  };
+
+  test("applied turn anchors", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)).toEqual({
+      type: "jev-turn",
+      data: { turnId: id, decided: decided("high") },
+    });
+  });
+
+  test("same level anchors", async () => {
+    const t = setup({ start: "medium", outcomes: [answer("medium")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("medium") });
+  });
+
+  test("max anchors", async () => {
+    const t = setup({ start: "max", outcomes: [answer("low")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("max") });
+  });
+
+  test("unlisted provider anchors", async () => {
+    const t = setup({ holdProviders: [], outcomes: [answer("high")] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("high") });
+  });
+
+  test("held turn writes no decided", async () => {
+    const t = setup({
+      branch: [heldTurn],
+      holdProviders: ["fixture"],
+      start: "high",
+      outcomes: [answer("xhigh")],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("discarded turn writes no decided", async () => {
+    let release: (o: JevOutcome) => void = () => {};
+    const t = setup({ outcomes: [new Promise<JevOutcome>((r) => (release = r))] });
+    const p = run(t);
+    t.setLevel("medium");
+    release(answer("high"));
+    await p;
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("miss writes no decided", async () => {
+    const t = setup({ outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }] });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("non-reasoning model writes no decided", async () => {
+    const t = setup({
+      model: { provider: "fixture", id: "fixture-main", reasoning: false },
+      outcomes: [answer("high")],
+    });
+    await run(t);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("aborted after the provider request anchors", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    await t.main.beforeProviderRequest();
+    await t.main.agentSettled(settled(true));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id, decided: decided("high") });
+  });
+
+  test("compaction during the turn writes no decided", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    t.setBranch([{ type: "compaction", id: "c1" }]);
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
+  });
+
+  test("branch read failure at settle writes turn id only", async () => {
+    const t = setup({ outcomes: [answer("high")] });
+    await run(t);
+    t.ctxRaw.sessionManager.getBranch = () => {
+      throw new Error("boom");
+    };
+    await t.main.agentSettled(settled(false));
+    expect(lastTurn(t)?.data).toEqual({ turnId: id });
   });
 });

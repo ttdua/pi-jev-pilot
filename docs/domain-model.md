@@ -19,7 +19,7 @@ classDiagram
     class Mode {
       name
       rubric
-      fableRule
+      expertGate
     }
     class Tier {
       name
@@ -100,7 +100,7 @@ All tiers are optional. An unconfigured tier is never offered.
 
 ### Mode
 
-`budget`, `standard` (default), `premium`. A mode selects **one rubric and one Fable rule**. Nothing else changes: not the questions, not the thresholds for slots or `fast`, not the main session.
+`budget`, `standard` (default), `premium`. A mode selects **one rubric and one expert gate**. Nothing else changes: not the questions, not the thresholds for slots or `fast`, not the main session.
 
 ### Slot
 
@@ -118,19 +118,19 @@ Made once per eligible main prompt.
 |---|---|---|
 | Effort | `effort`, `risky` | Choice; `risky > .7` raises to at least `high`; start capped at `xhigh`; clamped with `clampThinkingLevel`; a current `max` is left alone. No confidence gate, no close-call lean |
 | Manual change | | The operator changing the level during an outstanding request discards that result. The next prompt decides again. `/jev effort off` hands the level back |
-| Hold | Config | Providers in `holdProviders` keep the first decision until a compaction, without asking `effort` or `risky` |
+| Hold | Config | Providers in `holdProviders` keep the level of the newest decision (anchored on provider and model) until a compaction or a provider or model switch, without asking `effort` or `risky` |
 | Skill | `which`, `gate::*` | At most one; probability ≥ .5, or probability and gate mean both ≥ .3 |
-| Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates |
+| Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates. Independent of the effort result |
 | Correction mark | `corrects` | ≥ .7 writes a `correction` line for the previous turn |
 
 ### WorkerDecision
 
 Made once per `subagent` launch, in this order. The first match wins.
 
-1. The mode's Fable rule passes: `expert`.
+1. The mode's expert gate passes: `expert`.
 2. `risky > .7`: `deep`, or the highest configured tier below `expert`.
 3. A slot with probability ≥ .6: that slot. Below .6, continue with the highest tier.
-4. `expert` that did not pass the rule: `deep`, or the highest configured tier below `expert`. With no tier below `expert`, nothing is decided.
+4. `expert` that did not pass the expert gate: `deep`, or the highest configured tier below `expert`. With no tier below `expert`, nothing is decided.
 5. `fast`: only with probability ≥ .6, otherwise `balanced`, or the lowest configured tier above `fast` and below `expert`.
 6. Otherwise the chosen tier.
 
@@ -140,7 +140,7 @@ Then **availability**: an unusable tier warns, naming the setting, and moves dow
 
 A launch with `resume` is always left untouched. A forked launch (`inherit_context`) follows `subagents.forkedLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
 
-### Fable rules
+### Expert gates
 
 | Mode | Rule |
 |---|---|
@@ -230,7 +230,7 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | Main, worker | `effortP` | All effort probabilities |
 | | `risky` | Probability |
 | | `requested`, `effective`, `from` | Effort wanted, effort applied, effort before |
-| | `held` | Decided by hold, without asking |
+| | `held` | Held turn: level left as is, with `effective`, and no `effortP`, `risky` or `requested` |
 | | `strategy`, `strategyP`, `advised` | Answer, its probability, whether advice was attached |
 | | `skill`, `skillP`, `gate` | Pick, its probability, gate mean |
 | | `turnId` | Id of this turn, so a later `correction` line can point at it |
@@ -239,7 +239,7 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | Worker | `agent`, `briefChars` | Agent name and brief length |
 | | `tierP`, `expertNeeded`, `risky` | All raw answers, with `effortP` |
 | | `tier`, `model`, `effort` | The decision. `tier` is a slot name when a slot won |
-| | `reason` | Which rule decided the model: `fable`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
+| | `reason` | Which rule decided the model: `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
 | | `toolsScored`, `toolsFlagged` | Tool assessment counts; only when the worker got an answer, never on a resumed launch's line |

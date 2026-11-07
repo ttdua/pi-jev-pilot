@@ -25,15 +25,15 @@ Use these words consistently in code, docs and the user interface.
 | **Rubric** | The set of descriptions that define the tiers in a question. Each mode has one. |
 | **Tier** | A role a model plays: `fast`, `balanced`, `deep`, `expert`. |
 | **Slot** | A named custom model with a `when` description, offered beside the tiers. |
-| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. Selects a rubric and a Fable rule. |
-| **Fable rule** | The per-mode condition for using the `expert` tier. |
+| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. Selects a rubric and an expert gate. |
+| **Expert gate** | The per-mode condition for using the `expert` tier. |
 | **Effort** | How much reasoning a turn gets. Jev's ladder: `low` to `max`. |
 | **Thinking level** | Pi's name for effort on a session or worker. |
 | **Requested / effective** | The effort the policy wanted, and what the model supports after clamping. |
 | **Clamp** | Reduce a level to the nearest one a model supports. |
 | **Risk floor** | `risky > .7` raises effort to at least `high` and forces at least `deep`. |
 | **Ceiling** | The highest level a turn or worker may start at: `xhigh`. |
-| **Hold** | Keep the first effort of a session on providers where changing it loses the prompt cache. |
+| **Hold** | Keep the level of the latest decision until a compaction or a provider or model switch, on providers where changing it loses the prompt cache. |
 | **Strategy** | How work should be carried out: `direct`, `delegate`, `parallel`, `graph`. Advice only. |
 | **Advice** | Context attached for the model to weigh. Never enforced. |
 | **Gate (skill)** | Three yes/no questions whose mean says whether a prompt needs a skill at all. |

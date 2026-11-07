@@ -84,7 +84,7 @@ Each is optional: an exact `provider/id`, at most 128 characters. An unset tier 
 | `fast` | Bounded work with nothing to decide |
 | `balanced` | Ordinary engineering |
 | `deep` | Judgment and long work |
-| `expert` | The hardest work; gated by the mode's Fable rule |
+| `expert` | The hardest work; gated by the mode's expert gate |
 
 ### `crew.slots`
 
@@ -102,7 +102,7 @@ Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `m
 
 | Key | Default | Notes |
 |---|---|---|
-| `holdProviders` | `["9router"]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the first effort until a compaction. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
+| `holdProviders` | `["9router"]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the level of the latest decision until a compaction or a provider or model switch. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
 
 Check for yourself by watching for cache misses after thinking-level changes on your provider.
 
@@ -148,7 +148,7 @@ Content that leaves the machine with its own switch.
 | Effort ceiling | `xhigh` | Cost |
 | `fast` effort cap | `medium` | Cost |
 | `fast`, slot threshold | Probability .6 | Not yet calibrated; change through code and evidence |
-| Fable rules | See the [domain model](domain-model.md#fable-rules) | Not yet calibrated |
+| Expert gates | See the [domain model](domain-model.md#expert-gates) | Not yet calibrated |
 | Tool removal score | .5 | Not yet calibrated |
 | Skill thresholds | .5, .3, .3 | From upstream |
 | Strategy thresholds | .6, .8 | From upstream |

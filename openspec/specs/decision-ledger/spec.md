@@ -72,7 +72,7 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | worker | `tier`, `fallback` | target | |
 | worker | `model` | model | |
 | worker | `effort` | level | |
-| worker | `reason` | `fable`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
+| worker | `reason` | `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
 | worker | `callerModel` | caller model | |
 | worker | `locked` | flag | |
 | worker | `toolsScored`, `toolsFlagged`, `tokens`, `toolUses` | count | |
@@ -115,7 +115,7 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 - **THEN** validation passes, since the writer and not the schema is responsible for naming the agent
 
 ### Requirement: Worker decisions record their tier
-A worker line whose `reason` is `fable`, `risky`, `slot`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it.
+A worker line whose `reason` is `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model.
 
 #### Scenario: Deciding worker without a tier rejected
 - **WHEN** a worker entry has `reason` `choice` and no `tier`
@@ -124,6 +124,14 @@ A worker line whose `reason` is `fable`, `risky`, `slot`, `expert-denied`, `fast
 #### Scenario: Untouched worker without a tier accepted
 - **WHEN** a worker entry has `reason` `untouched` and no `tier`
 - **THEN** validation passes
+
+#### Scenario: Expert admitted accepted
+- **WHEN** a worker entry with the required fields has `reason` `expert-admitted` and `tier` `expert`
+- **THEN** validation passes
+
+#### Scenario: Old reason name rejected
+- **WHEN** a worker entry has `reason` `fable`
+- **THEN** validation fails with an issue at `reason`, and a read skips and counts that line like any invalid line
 
 ### Requirement: Misses are unanswered
 A main or worker line that carries `miss` SHALL have `answered` `false`.

@@ -8,6 +8,7 @@ import { askJev, type JevOutcome } from "../jev/client.ts";
 import { buildWorkerQuestions, offeredTiers } from "../jev/questions.ts";
 import { buildWorkerState } from "../jev/state.ts";
 import type { QuestionSpec } from "../policy/answers.ts";
+import type { ModeName } from "../policy/modes.ts";
 import type { ModelThinking } from "../policy/effort.ts";
 import {
   effectiveLaunch,
@@ -45,6 +46,8 @@ type LaunchEntry = {
   facts: AgentFacts;
   launch: EffectiveLaunch;
   kind: LaunchKind;
+  /** Read once at classification; the request, tier decision and ledger line all use it. */
+  mode: ModeName;
   offered: readonly TierName[];
   outcome: Promise<JevOutcome> | undefined;
   specs: Record<string, QuestionSpec>;
@@ -53,7 +56,6 @@ type LaunchEntry = {
   /** Set by `route()`: what the ledger line needs besides the route. */
   jev?: JevOutcome | undefined;
   session?: string;
-  mode?: string;
   callerModel?: string;
   briefChars?: number;
   write?: { model?: string };
@@ -276,7 +278,15 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const launch = effectiveLaunch(input, facts);
     const offered = offeredTiers(settings.tiers, settings.switches.expert);
     const kind = launchKind(launch, offered, settings.subagents.forkedLaunch);
-    const entry: LaunchEntry = { facts, launch, kind, offered, outcome: undefined, specs: {} };
+    const entry: LaunchEntry = {
+      facts,
+      launch,
+      kind,
+      mode: settings.mode,
+      offered,
+      outcome: undefined,
+      specs: {},
+    };
     if (kind.kind === "untouched") return entry;
 
     const names: Partial<Record<TierName, string>> = {};
@@ -287,7 +297,11 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         if (found !== undefined && typeof found.name === "string") names[tier] = found.name;
       }
     }
-    const { questions, specs } = buildWorkerQuestions(kind.tierQuestion ? offered : [], names);
+    const { questions, specs } = buildWorkerQuestions(
+      kind.tierQuestion ? offered : [],
+      names,
+      entry.mode,
+    );
     const parentRequest = settings.state.parentRequest ? lastUserText(ctx) : undefined;
     const state = buildWorkerState({
       brief: typeof input["prompt"] === "string" ? input["prompt"] : "",
@@ -345,7 +359,6 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
     entry.seq = ++seq;
     entry.session = ctx.sessionManager.getSessionId();
-    entry.mode = snap.settings.mode;
     entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
     const outcome = entry.outcome === undefined ? undefined : await entry.outcome;
     const answers = outcome === undefined ? undefined : readWorkerOutcome(outcome, entry.specs);
@@ -366,6 +379,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       answers,
       launch: entry.launch,
       offered: entry.offered,
+      mode: entry.mode,
       forkedLaunch: settings.subagents.forkedLaunch,
       canRun: (t) => !writesModel || checkOf(t).ok,
       thinkingOf: (t) => {

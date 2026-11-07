@@ -37,13 +37,13 @@ sequenceDiagram
 
 **Skipped when** the run was started by a custom message, the prompt is empty, the session is a child, or every applicable feature is off. An explicit `/skill:name` skips only the skill questions.
 
-**While held** (provider in `effort.holdProviders`, after the first decision and before the next compaction), `effort` and `risky` are not asked. Other questions still are.
+**While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `effort` and `risky` are not asked. Only `corrects` is asked. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
 
 **If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again.
 
 **If the operator presses Esc before the first provider request**, Pi aborts the run. When the run settles aborted with no provider request, the package puts back the level it replaced, only if the current level is still the one it set, and the status line returns to its previous text. No ledger line is written. Esc after a provider request started is a normal turn with `outcome: aborted`.
 
-**Ledger and status:** one `main` line per decided turn, written when the turn settles, and a `correction` line for the previous turn when `corrects` is at least .7. A `jev-turn` entry holding only the turn id is added to the session so the next correction finds it. The status line shows the decided level (`Jev · standard · high`) or `Jev · no answer`.
+**Ledger and status:** one `main` line per decided turn, written when the turn settles, and a `correction` line for the previous turn when `corrects` is at least .7. A `jev-turn` entry holding the turn id is added to the session so the next correction finds it. When the turn produced an effective level without being held and without a compaction, the entry also carries `decided` (provider, model, level); that is the anchor of the hold. The status line shows the decided level (`Jev · standard · high`) or `Jev · no answer`.
 
 **Effect on the session:**
 
@@ -137,7 +137,7 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 1. `/jev mode budget`.
 2. `state.json` is updated. No Jev call.
-3. The next launch uses the `budget` rubric and Fable rule. Running workers are unaffected.
+3. The next launch uses the `budget` rubric and expert gate. Running workers are unaffected.
 4. Each ledger line records its mode, so tuning signals are never mixed across modes.
 
 ## 5. Auto-tuning
@@ -181,7 +181,7 @@ This is separate from the `reviewer` slot, which routes ordinary review subagent
 ## 7. A compaction
 
 1. `session_compact` fires.
-2. A held effort is released, so the next prompt makes one new decision.
+2. A held effort is released because the anchor is now before the compaction, so the next prompt makes one new decision.
 3. Skill bodies that were compacted away can be injected again if picked again.
 4. Nothing else changes. The ledger is unaffected.
 

@@ -13,8 +13,12 @@ For every eligible prompt whose Jev request completed (answered or missed), the 
 - **THEN** the ledger holds one new `main` line for it
 
 #### Scenario: Ineligible prompt
-- **WHEN** a prompt is submitted with `effort` off
+- **WHEN** a prompt is submitted with `effort` and `strategy` both off
 - **THEN** no ledger line is added
+
+#### Scenario: Strategy only
+- **WHEN** a prompt is submitted with `effort` off and `strategy` on, and Jev answers
+- **THEN** the ledger holds one new `main` line for it, with no `requested` or `effective`
 
 #### Scenario: Run fails before any provider request
 - **WHEN** an eligible prompt is answered and the run settles not aborted with an error before any provider request
@@ -29,7 +33,7 @@ For every eligible prompt whose Jev request completed (answered or missed), the 
 - **THEN** the turn proceeds and completes normally
 
 ### Requirement: Main line fields
-A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at the prompt), `answered`, `turnId` and `outcome`, and when known: `ms`, `miss`, `effortP` (all five probabilities), `risky`, `corrects`, `requested`, `effective`, `from` (level before the request), `toolCalls`, `failures`, `inputTokens`, `outputTokens`, `durationMs`. `held`, `advised`, `strategy`, `strategyP`, `skill`, `skillP` and `gate` MUST be absent.
+A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at the prompt), `answered`, `turnId` and `outcome`, and when known: `ms`, `miss`, `effortP` (all five probabilities), `risky`, `corrects`, `requested`, `effective`, `from` (level before the request), `strategy` (the chosen strategy), `strategyP` (its probability), `advised` (whether advice was attached), `toolCalls`, `failures`, `inputTokens`, `outputTokens`, `durationMs`. `answered` is true whenever Jev returned a readable response, whatever was asked. `strategy`, `strategyP` and `advised` MUST be present exactly when `strategy` was answered, held or not. A held turn's line MUST carry `held` `true` and `effective` (the level in force once the Jev request completed), and MUST NOT carry `effortP`, `risky` or `requested`. `held` MUST be absent from any other line. `skill`, `skillP` and `gate` MUST be absent. No main `tier` field MUST be written.
 
 #### Scenario: Required fields
 - **WHEN** any `main` line is written
@@ -38,6 +42,34 @@ A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at
 #### Scenario: Effective is read back from Pi
 - **WHEN** the package applies `xhigh` and Pi clamps it to `high`
 - **THEN** the line has `requested` `xhigh` and `effective` `high`
+
+#### Scenario: Advice attached
+- **WHEN** Jev answered `strategy` `delegate` with probability 0.9 and advice was attached
+- **THEN** the line has `strategy` `delegate`, `strategyP` 0.9 and `advised` true
+
+#### Scenario: Advice not attached
+- **WHEN** Jev answered `strategy` `graph` with probability 0.7 and `tier` `deep`
+- **THEN** the line has `strategy` `graph`, `strategyP` 0.7 and `advised` false
+
+#### Scenario: Strategy not asked or unanswered
+- **WHEN** `strategy` is off, or the request was a miss, or `strategy` came back with an unknown choice
+- **THEN** the line has no `strategy`, `strategyP` or `advised`
+
+#### Scenario: Held turn
+- **WHEN** a held turn at level `high`, with `strategy` off, is answered with `corrects` 0.1 and completes
+- **THEN** the line has `held` `true`, `effective` `high`, `from` `high`, `corrects` 0.1, and no `effortP`, `risky` or `requested`
+
+#### Scenario: Held turn with advice
+- **WHEN** a held turn at level `high`, with `strategy` on, is answered with `strategy` `delegate` at probability 0.9
+- **THEN** the line has `held` `true`, `effective` `high`, `strategy` `delegate`, `strategyP` 0.9 and `advised` true, and no `effortP`, `risky` or `requested`
+
+#### Scenario: Held turn with a miss
+- **WHEN** a held turn's Jev request times out
+- **THEN** the line has `held` `true`, `answered` false, `miss` `timeout` and `effective` equal to the level in force
+
+#### Scenario: Decided turn is not held
+- **WHEN** a turn on a listed provider is decided with `effort` asked
+- **THEN** the line has no `held`
 
 ### Requirement: Turn outcome
 `outcome` SHALL be `aborted` when the run settled aborted, `error` when its last assistant message ended with an error stop reason, and `ok` otherwise. `toolCalls` and `failures` SHALL count the tool results of the run and those that are errors; `inputTokens` and `outputTokens` SHALL sum the assistant messages' usage.
@@ -59,11 +91,19 @@ A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at
 - **THEN** the line has `outcome` `aborted`
 
 ### Requirement: Turn id recorded on the branch
-After writing a `main` line, the package SHALL record its `turnId` as a session custom entry of type `jev-turn` holding only `{ turnId }`. The entry MUST NOT be sent to the model.
+After writing a `main` line, the package SHALL record its `turnId` as a session custom entry of type `jev-turn`. The entry data MUST be exactly `{ turnId }`, or `{ turnId, decided }` for a turn that anchors a hold as `effort-hold` defines. The entry MUST NOT be sent to the model.
 
 #### Scenario: Entry after a decided turn
-- **WHEN** a decided turn settles
+- **WHEN** a decided turn with no effective level (its Jev request missed) settles
 - **THEN** the session holds one new custom entry `jev-turn` whose data is exactly `{ turnId }` equal to the line's `turnId`
+
+#### Scenario: Entry after an applied turn
+- **WHEN** a turn that applied a level settles
+- **THEN** the session holds one new custom entry `jev-turn` whose `turnId` equals the line's `turnId` and whose `decided.level` equals the line's `effective`
+
+#### Scenario: Entry not in the provider request
+- **WHEN** a turn with a `decided` entry is followed by another prompt
+- **THEN** the next provider request contains neither `jev-turn` nor `decided`
 
 ### Requirement: Correction lines
 When `corrects` is answered with a value of at least 0.7 and the current branch holds an earlier `jev-turn` entry, the package SHALL append one `correction` line with that entry's `turnId` (the newest on the branch, looked up when the prompt is classified) and the `corrects` value, when the run settles and just before its `main` line. A run cancelled before any provider request MUST write no `correction` line. Without such an entry, no `correction` line MUST be written.

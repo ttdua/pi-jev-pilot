@@ -4,7 +4,18 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
 import { registerWorkerRouting } from "../../src/host/worker.ts";
 import { tempDir } from "../helpers.ts";
-import { base, body, harness, ok, snap, TIERS, type Handler, type Opts } from "./worker-fakes.ts";
+import {
+  base,
+  body,
+  bodyWith,
+  harness,
+  ok,
+  snap,
+  TIERS,
+  TIERS_X,
+  type Handler,
+  type Opts,
+} from "./worker-fakes.ts";
 
 const saved = process.env.TYPESAFE_API_KEY;
 beforeEach(() => {
@@ -147,7 +158,7 @@ describe("Target check before writing", () => {
   test("Unknown model", async () => {
     const h = harness({ reg: { "fx/fast": {}, "fx/balanced": {} } });
     h.setScript(() => ok(body("deep")));
-    const input = base();
+    const input: Record<string, unknown> = base();
     await h.fire("message_end", h.msg(["a", input]));
     await h.fire("tool_call", h.call("a", input));
     expect(input).toMatchObject({ model: "fx/balanced" });
@@ -156,7 +167,7 @@ describe("Target check before writing", () => {
   test("Missing credentials", async () => {
     const h = harness({ reg: { "fx/fast": {}, "fx/balanced": {}, "fx/deep": { auth: false } } });
     h.setScript(() => ok(body("deep")));
-    const input = base();
+    const input: Record<string, unknown> = base();
     await h.fire("message_end", h.msg(["a", input]));
     await h.fire("tool_call", h.call("a", input));
     expect(input).toMatchObject({ model: "fx/balanced" });
@@ -180,7 +191,7 @@ describe("Target check before writing", () => {
       tiers: { ...TIERS, fast: "openrouter/anthropic/claude" },
       reg: { "openrouter/anthropic/claude": {}, "fx/balanced": {}, "fx/deep": {} },
     });
-    const input = base();
+    const input: Record<string, unknown> = base();
     await h.fire("message_end", h.msg(["a", input]));
     await h.fire("tool_call", h.call("a", input));
     expect(h.finds).toContain("openrouter|anthropic/claude");
@@ -241,7 +252,7 @@ describe("Routing fails open", () => {
   test("Cancelled batch not re-asked", async () => {
     const h = harness();
     h.setScript(() => ({ kind: "cancelled" }));
-    const input = base();
+    const input: Record<string, unknown> = base();
     await h.fire("message_end", h.msg(["a", input]));
     await h.fire("tool_call", h.call("a", input));
     expect(h.asks).toHaveLength(1);
@@ -367,5 +378,54 @@ describe("Fallback warning", () => {
     const input = await launch(h, "a");
     expect(h.notes).toHaveLength(0);
     expect(input).toMatchObject({ model: "fx/balanced" });
+  });
+});
+
+describe("One mode per launch", () => {
+  const split = { fast: 0.05, balanced: 0.15, deep: 0.5, expert: 0.3 };
+
+  test("Premium criteria sent", async () => {
+    const h = harness({ mode: "premium" });
+    await h.fire("message_end", h.msg(["a", base()]));
+    const q = h.asks[0]?.questions as { tier: { criteria: Record<string, string> } };
+    // The fake registry names a model by its id, so the display-name prefix comes first.
+    expect(q.tier.criteria["deep"]).toBe(
+      "deep. The default for real engineering: any feature, fix or refactor that needs working out, touches more than a few files, leaves choices open, or where a subtle bug would be costly.",
+    );
+  });
+
+  test("Mode changed between message end and launch", async () => {
+    const h = harness({ tiers: TIERS_X, mode: "standard" });
+    h.setScript(() => ok(bodyWith("deep", split, "xhigh")));
+    const input: Record<string, unknown> = base();
+    await h.fire("message_end", h.msg(["a", input]));
+    h.setSnap({ tiers: TIERS_X, mode: "premium" });
+    await h.fire("tool_call", h.call("a", input));
+    await h.fire("tool_result", h.result("a", "ag-a"));
+    await h.emit("subagents:completed", { id: "ag-a", status: "completed" });
+    expect(input["model"]).toBe("fx/deep");
+    expect(h.lines[0]).toMatchObject({ mode: "standard", reason: "choice" });
+  });
+
+  test("Premium at classification admits expert", async () => {
+    const h = harness({ tiers: TIERS_X, mode: "premium" });
+    h.setScript(() => ok(bodyWith("deep", split, "xhigh")));
+    const input: Record<string, unknown> = base();
+    await h.fire("message_end", h.msg(["a", input]));
+    await h.fire("tool_call", h.call("a", input));
+    expect(input["model"]).toBe("fx/expert");
+  });
+
+  test("Premium with expert switched off", async () => {
+    const h = harness({ tiers: TIERS_X, mode: "premium", switches: { expert: false } });
+    const three = { fast: 0.05, balanced: 0.15, deep: 0.8 };
+    h.setScript(() => ok(bodyWith("deep", three, "xhigh")));
+    const input: Record<string, unknown> = base();
+    await h.fire("message_end", h.msg(["a", input]));
+    const q = h.asks[0]?.questions as { tier: { criteria: Record<string, string> } };
+    expect(q).not.toHaveProperty("expert_needed");
+    expect(Object.keys(q.tier.criteria)).toEqual(["fast", "balanced", "deep"]);
+    await h.fire("tool_call", h.call("a", input));
+    expect(input["model"]).toBe("fx/deep");
   });
 });
