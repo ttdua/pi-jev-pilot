@@ -19,9 +19,9 @@
 
 ## 4. Host tests through the real Pi
 
-- [ ] 4.1 Add a harness option that writes `review.enabled` into the test `config.json` (`tests/host/harness.ts`)
-- [ ] 4.2 Update `tests/host/cli-review.test.ts`: turn the review on for the existing flows, and add scenarios for off by default, the config, state over config, and toggling mid-session in both directions
-- [ ] 4.3 Update `tests/host/jev-base.test.ts`, `tests/host/main-effort.test.ts` and `tests/host/strategy-advice.test.ts`: with the default off, compare raw bodies with no `withoutReview` filter, and assert that `jev_review` is absent. Remove `withoutReview` from `tests/host/bodies.ts` if nothing uses it any more
+- [x] 4.1 Add a harness option that writes `review.enabled` into the test `config.json` (`tests/host/harness.ts`)
+- [x] 4.2 Update `tests/host/cli-review.test.ts`: turn the review on for the existing flows, and add scenarios for off by default, the config, state over config, and toggling mid-session in both directions
+- [x] 4.3 Update `tests/host/jev-base.test.ts`, `tests/host/main-effort.test.ts` and `tests/host/strategy-advice.test.ts`: with the default off, compare raw bodies with no `withoutReview` filter, and assert that `jev_review` is absent. Remove `withoutReview` from `tests/host/bodies.ts` if nothing uses it any more
 
 ## 5. Docs
 
