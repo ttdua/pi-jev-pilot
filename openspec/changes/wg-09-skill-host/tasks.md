@@ -18,7 +18,7 @@
 
 ## 4. Host test through the real CLI
 
-- [ ] 4.1 Add `tests/host/skill-delivery.test.ts`: content once across three picks, operator `/skill:name` then a pick gives a reference, a pick after a compaction resends the body, `(none)` and gate too low attach nothing, suggest form, Jev 500 and later-batch failure attach nothing, ledger fields, no prompt marker in entries (Skill message, No duplicate body in context, Jev failure attaches no skill, Main line fields, No prompt text in the ledger or entries)
+- [x] 4.1 Add `tests/host/skill-delivery.test.ts`: content once across three picks, operator `/skill:name` then a pick gives a reference, a pick after a compaction resends the body, `(none)` and gate too low attach nothing, suggest form, Jev 500 and later-batch failure attach nothing, ledger fields, no prompt marker in entries (Skill message, No duplicate body in context, Jev failure attaches no skill, Main line fields, No prompt text in the ledger or entries)
 
 ## 5. Check
 
