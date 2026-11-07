@@ -5,7 +5,7 @@
 ## 2. Jev request
 
 - [x] 2.1 Add `TOOL_QUESTION` wording to `src/jev/rubrics.ts` and `buildToolQuestions(names)` to `src/jev/questions.ts` (one noul per name, key `tool::<name>`), with tests in `tests/jev/questions.test.ts` (Assessment request: One noul per candidate)
-- [ ] 2.2 Add `cutLastCodePoints` to `src/shared/text.ts` and `buildToolState` to `src/jev/state.ts`: brief cut to its last 4000 code points, agent name/source/description, tools with description, source and top-level parameter descriptions cut to 500 code points, with tests in `tests/jev/state.test.ts` (Assessment request, Brief)
+- [x] 2.2 Add `cutLastCodePoints` to `src/shared/text.ts` and `buildToolState` to `src/jev/state.ts`: brief cut to its last 4000 code points, agent name/source/description, tools with description, source and top-level parameter descriptions cut to 500 code points, with tests in `tests/jev/state.test.ts` (Assessment request, Brief)
 
 ## 3. Host handler
 
