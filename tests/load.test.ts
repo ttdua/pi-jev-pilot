@@ -60,6 +60,7 @@ describe("package loading", () => {
       "message_end",
       "session_shutdown",
       "session_start",
+      "session_tree",
       "tool_call",
       "tool_result",
       "turn_end",

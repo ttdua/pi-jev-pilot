@@ -11,6 +11,7 @@ import { scanPlatforms } from "./context.ts";
 import { listAgents } from "./agents.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
+import { sessionModes } from "./session-mode.ts";
 import { hideReviewInChild, registerReviewTool } from "./review.ts";
 import { compactTally, drawStatus, logLine } from "./status.ts";
 import { jevDir } from "./stores.ts";
@@ -118,6 +119,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
         window.clear();
       }
       log.reset(ctx.sessionManager.getSessionId());
+      sessionModes().rebuild(ctx.sessionManager.getSessionId(), ctx.sessionManager.getBranch());
       drawStatus(ctx, loadSnapshot(pi), main.decision());
     } catch {
       /* swallow: the line stays as it was */
@@ -126,6 +128,16 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       showUnseenTuning(tuningDeps(), ctx);
     } catch {
       /* swallow */
+    }
+  });
+
+  pi.on("session_tree", async (_event, ctx) => {
+    try {
+      if (isChild(ctx.sessionManager.getSessionId())) return;
+      sessionModes().rebuild(ctx.sessionManager.getSessionId(), ctx.sessionManager.getBranch());
+      drawStatus(ctx, loadSnapshot(pi), main.decision());
+    } catch {
+      /* swallow: the line stays as it was */
     }
   });
 

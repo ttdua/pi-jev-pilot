@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildSnapshot, hasExecutor, isKeySet, loadSnapshot } from "../../src/host/readiness.ts";
+import { sessionModes } from "../../src/host/session-mode.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import type { StateRead } from "../../src/store/state-file.ts";
 import type { TuningRead } from "../../src/store/tuning-file.ts";
@@ -166,5 +167,25 @@ describe("loadSnapshot", () => {
     expect(s.executor).toBe(true);
     expect(s.tuning.kind).toBe("ok");
     expect(s.settings.classifier.timeoutMs).toBe(1700);
+  });
+
+  test("loadSnapshot ignores a holder of another session", () => {
+    const dir = tempDir("jev-ready-");
+    dirs.push(dir);
+    process.env.PI_CODING_AGENT_DIR = dir;
+    mkdirSync(join(dir, "jev"));
+    writeFileSync(join(dir, "jev", "state.json"), '{"version":1,"mode":"budget"}');
+    const pi = { getAllTools: () => [] } as never;
+    sessionModes().rebuild("A", [
+      { type: "custom", customType: "jev-mode", data: { mode: "premium" } },
+    ]);
+    try {
+      expect(loadSnapshot(pi, "A").settings.mode).toBe("premium");
+      const other = loadSnapshot(pi, "B");
+      expect(other.settings.mode).toBe("budget");
+      expect(other.settings.modeSource).toBe("saved");
+    } finally {
+      sessionModes().rebuild("reset", []);
+    }
   });
 });

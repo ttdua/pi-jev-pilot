@@ -5,6 +5,7 @@ import { resolveSettings, untunedTimeout, type Settings } from "../store/setting
 import { readState, type StateRead } from "../store/state-file.ts";
 import { readTuning, type TuningDocument, type TuningRead } from "../store/tuning-file.ts";
 import type { Issue } from "../store/validate.ts";
+import { sessionModes } from "./session-mode.ts";
 import { jevDir } from "./stores.ts";
 
 export type Snapshot = {
@@ -73,8 +74,12 @@ export function buildSnapshot(input: {
   };
 }
 
+function optionalMode(sessionMode: Mode | undefined): { sessionMode?: Mode } {
+  return sessionMode ? { sessionMode } : {};
+}
+
 /** Reads the three files, the environment and the tool list now; keeps nothing between calls. */
-export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">): Snapshot {
+export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">, sessionId?: string): Snapshot {
   const dir = jevDir();
   return buildSnapshot({
     configRead: readConfig(dir),
@@ -82,5 +87,6 @@ export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">): Snapshot {
     tuningRead: readTuning(dir),
     env: process.env,
     toolNames: pi.getAllTools().map((t) => t.name),
+    ...optionalMode(sessionModes().modeFor(sessionId)),
   });
 }

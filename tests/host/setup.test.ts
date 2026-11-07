@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY, isChild } from "../../src/host/child.ts";
+import { sessionModes } from "../../src/host/session-mode.ts";
 import { setup } from "../../src/host/setup.ts";
 import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tool-service.ts";
 import { startJevFixture } from "../jev/fixture.ts";
@@ -69,12 +70,12 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: b
   };
 }
 
-function fakeCtx(sessionId: string, setWidget: () => void) {
+function fakeCtx(sessionId: string, setWidget: () => void, branch: () => unknown[] = () => []) {
   return {
     hasUI: true,
     mode: "rpc",
     ui: { setWidget, notify: () => {} },
-    sessionManager: { getSessionId: () => sessionId },
+    sessionManager: { getSessionId: () => sessionId, getBranch: branch },
   };
 }
 
@@ -93,6 +94,7 @@ afterEach(() => {
   delete (globalThis as Record<symbol, unknown>)[CHILDREN_KEY];
   delete (globalThis as Record<symbol, unknown>)[MAIN_SERVICE_KEY];
   delete (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY];
+  sessionModes().rebuild("reset", []);
   rmSync(agentDir, { recursive: true, force: true });
   if (saved.dir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = saved.dir;
@@ -345,6 +347,7 @@ describe("setup", () => {
       "message_end",
       "session_shutdown",
       "session_start",
+      "session_tree",
       "tool_call",
       "tool_result",
       "turn_end",
@@ -602,5 +605,78 @@ describe("setup", () => {
       const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "kid" } };
       expect(await f.handlers.get("before_agent_start")![0]!(event, ctx)).toBeUndefined();
     });
+  });
+});
+
+describe("setup session mode", () => {
+  const modeEntry = (mode: string) => ({
+    type: "custom",
+    customType: "jev-mode",
+    data: { mode },
+  });
+
+  function widgetCtx(id: string, branch: () => unknown[]) {
+    const widgets: string[] = [];
+    const notes: string[] = [];
+    const ctx = {
+      ...fakeCtx(id, () => {}, branch),
+      ui: {
+        setWidget: (_k: string, c: unknown) => {
+          if (Array.isArray(c)) widgets.push(String(c[0]));
+        },
+        notify: (t: string) => notes.push(t),
+      },
+    };
+    return { ctx, widgets, notes };
+  }
+
+  test("session_start rebuilds the session mode", async () => {
+    for (const reason of ["startup", "reload", "resume", "fork", "new"]) {
+      const f = fakePi();
+      setup(f.pi);
+      const { ctx, widgets } = widgetCtx("main", () => [modeEntry("budget")]);
+      await f.handlers.get("session_start")![0]!({ reason }, ctx);
+      expect(widgets.at(-1)).toContain("Jev · budget (session)");
+    }
+  });
+
+  test("Tree navigation before the entry redraws and reports the saved mode", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    let branch: unknown[] = [modeEntry("premium")];
+    const { ctx, widgets, notes } = widgetCtx("main", () => branch);
+    await f.handlers.get("session_start")![0]!({ reason: "startup" }, ctx);
+    expect(widgets.at(-1)).toContain("Jev · premium (session)");
+    branch = [];
+    await f.handlers.get("session_tree")![0]!({}, ctx);
+    expect(widgets.at(-1)).toContain("Jev · standard");
+    expect(widgets.at(-1)).not.toContain("(session)");
+    const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+    await jev.handler("", ctx);
+    expect(notes.at(-1)).toContain("mode: standard");
+  });
+
+  test("session_tree in a child session does not rebuild", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    f.emit(CREATED, { sessionId: "kid" });
+    sessionModes().rebuild("main", [modeEntry("budget")]);
+    await f.handlers.get("session_tree")![0]!(
+      {},
+      fakeCtx("kid", () => {}),
+    );
+    expect(sessionModes().modeFor(undefined)).toBe("budget");
+  });
+
+  test("Child start does not rebuild", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    f.emit(CREATED, { sessionId: "kid" });
+    sessionModes().rebuild("main", [modeEntry("budget")]);
+    await f.handlers.get("session_start")![0]!(
+      { reason: "startup" },
+      fakeCtx("kid", () => {}),
+    );
+    expect(sessionModes().modeFor(undefined)).toBe("budget");
   });
 });
