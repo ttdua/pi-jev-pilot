@@ -1,6 +1,6 @@
 ## 1. Resolver session layer
 
-- [ ] 1.1 Add the optional `sessionMode` input to `resolveSettings` and return `mode`, `modeSource` and `savedMode` (`settings-resolution` "One resolver for effective settings", "State overrides"; design D1), with store tests for every new scenario
+- [x] 1.1 Add the optional `sessionMode` input to `resolveSettings` and return `mode`, `modeSource` and `savedMode` (`settings-resolution` "One resolver for effective settings", "State overrides"; design D1), with store tests for every new scenario
 
 ## 2. Session entry reader
 
