@@ -1,7 +1,7 @@
 # tool-assessment Specification
 
 ## Purpose
-TBD
+When a worker's tools are assessed, how the worker finds its launch, the request and its candidates, the threshold, `observe` and `enforce`, reuse across turns, and failing open.
 
 ## Requirements
 
