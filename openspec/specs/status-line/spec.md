@@ -6,7 +6,13 @@ The line above the editor shows the package's base state (config error, no key, 
 ## Requirements
 
 ### Requirement: Status line text
-In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode. When the text is `Jev · <mode>`, `effort` is on, and a main decision has been made in this session, it MUST be followed by ` · <level>` with the effective level of the latest applied, kept or held decision, or by ` · no answer` when the latest request was not held and was a miss (whatever was asked) or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave the suffix as it was. A session start MUST clear the suffix. Drawing the line MUST make no network call.
+In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode.
+
+When the text is `Jev · <mode>`, suffixes follow in this order:
+- **Effort suffix.** When `effort` is on and a main decision has been made in this session, ` · <level>` MUST follow, with the effective level of the latest applied, kept or held decision. ` · no answer` MUST follow instead when the latest request was not held and was a miss (whatever was asked), or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave this suffix as it was.
+- **Advice suffix.** When `strategy` is on and the latest decided request that asked `strategy` attached advice, ` · <strategy>` MUST follow, with the attached strategy. A later decided request that asked `strategy` and attached none, or a miss, MUST remove it. A request that did not ask `strategy` MUST leave it as it was. A discarded effort result MUST NOT affect it, and a held turn sets or removes it like any other turn. A cancelled decision MUST leave both suffixes as they were. While `strategy` is off the advice suffix MUST NOT be shown; turning `strategy` back on shows the latest kept advice again, as the effort suffix does for `effort`.
+
+A session start MUST clear both suffixes. Drawing the line MUST make no network call.
 
 #### Scenario: Ready with the default mode
 - **WHEN** the config is valid, the key is set, no switch is changed and no mode is set
@@ -41,28 +47,56 @@ In a main session, the status line SHALL show the first that applies of: `Jev ·
 - **THEN** the status line reads `Jev · standard`
 
 #### Scenario: After a decision
-- **WHEN** a main decision applied `high`
+- **WHEN** a main decision applied `high` and attached no advice
 - **THEN** the status line reads `Jev · standard · high`
+
+#### Scenario: After a decision with advice
+- **WHEN** a main decision applied `high` and attached advice for `delegate`
+- **THEN** the status line reads `Jev · standard · high · delegate`
+
+#### Scenario: Advice with effort off
+- **WHEN** `effort` is off and a main decision attached advice for `parallel`
+- **THEN** the status line reads `Jev · standard · parallel`
+
+#### Scenario: Advice cleared by the next turn
+- **WHEN** the previous decision showed `high · delegate` and the next decision applied `medium` and attached no advice
+- **THEN** the status line reads `Jev · standard · medium`
+
+#### Scenario: Strategy switched off
+- **WHEN** a decision showed `high · delegate` and the operator runs `/jev strategy off`
+- **THEN** the redrawn status line reads `Jev · standard · high`
+
+#### Scenario: Discarded effort with advice
+- **WHEN** the previous decision showed `high`, and the next result is discarded on a manual change and attached advice for `delegate`
+- **THEN** the status line reads `Jev · standard · high · delegate`
+
+#### Scenario: Strategy switched back on
+- **WHEN** a decision showed `high · delegate`, and the operator runs `/jev strategy off` then `/jev strategy on`
+- **THEN** the redrawn status line reads `Jev · standard · high · delegate`
 
 #### Scenario: After a miss
 - **WHEN** the latest main request was not held and timed out
 - **THEN** the status line reads `Jev · standard · no answer`
 
 #### Scenario: Discarded keeps the previous suffix
-- **WHEN** the previous decision showed `high` and the next result is discarded
+- **WHEN** the previous decision showed `high` and the next result is discarded and attached no advice
 - **THEN** the status line still reads `Jev · standard · high`
 
 #### Scenario: Miss on a non-reasoning model
-- **WHEN** the model is not a reasoning model and the request asking only `corrects` times out
+- **WHEN** the model is not a reasoning model, `strategy` is off, and the request asking only `corrects` times out
 - **THEN** the status line reads `Jev · standard · no answer`
 
 #### Scenario: Answered without effort keeps the suffix
-- **WHEN** the previous decision showed `high` and an answered request on a non-reasoning model asked only `corrects`
+- **WHEN** the previous decision showed `high`, `strategy` is off, and an answered request on a non-reasoning model asked only `corrects`
 - **THEN** the status line still reads `Jev · standard · high`
 
 #### Scenario: Held turn shows the level in force
 - **WHEN** a session resumed on a listed provider with an anchor at `high`, with no suffix yet, and the next prompt is held
 - **THEN** the status line reads `Jev · standard · high`
+
+#### Scenario: Held turn with advice
+- **WHEN** a prompt is held at `high` and Jev answers `strategy` `delegate` with probability 0.9
+- **THEN** the status line reads `Jev · standard · high · delegate`
 
 #### Scenario: Held miss shows the level
 - **WHEN** a prompt is held at `high` and its Jev request times out
@@ -73,16 +107,20 @@ In a main session, the status line SHALL show the first that applies of: `Jev ·
 - **THEN** the redrawn status line reads `Jev · standard · high`
 
 #### Scenario: Effort switched off
-- **WHEN** a decision applied `high` and the operator runs `/jev effort off`
+- **WHEN** a decision applied `high`, attached no advice, and the operator runs `/jev effort off`
 - **THEN** the redrawn status line reads `Jev · standard`
 
 #### Scenario: Session start clears the suffix
-- **WHEN** a decision applied `high` and the operator starts a new session
+- **WHEN** a decision showed `high · delegate` and the operator starts a new session
 - **THEN** the status line reads `Jev · standard`
 
 #### Scenario: Base state wins
 - **WHEN** a decision applied `high` and the operator then runs `/jev all off`
 - **THEN** the status line reads `Jev · off`
+
+#### Scenario: Cancelled keeps both suffixes
+- **WHEN** the previous decision showed `high · delegate` and the operator aborts the next prompt before any provider request
+- **THEN** the status line reads `Jev · standard · high · delegate`
 
 ### Requirement: Status line placement and refresh
 The status line SHALL be a widget with key `jev` placed above the editor. It MUST be drawn when a main session starts, for every start reason, again after every `/jev` run, and again after every main decision that changes its text. In the terminal UI the text MUST be right-aligned to the widget width; in RPC mode it MUST be sent as a single-line string list.

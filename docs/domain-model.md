@@ -120,7 +120,7 @@ Made once per eligible main prompt.
 | Manual change | | The operator changing the level during an outstanding request discards that result. The next prompt decides again. `/jev effort off` hands the level back |
 | Hold | Config | Providers in `holdProviders` keep the level of the newest decision (anchored on provider and model) until a compaction or a provider or model switch, without asking `effort` or `risky` |
 | Skill | `which`, `gate::*` | At most one; probability ≥ .5, or probability and gate mean both ≥ .3 |
-| Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates |
+| Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates. Independent of the effort result |
 | Correction mark | `corrects` | ≥ .7 writes a `correction` line for the previous turn |
 
 ### WorkerDecision

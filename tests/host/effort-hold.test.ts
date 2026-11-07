@@ -41,6 +41,25 @@ function answers(choice: Choice, risky = 0.1, corrects = 0.05): { json: unknown 
   };
 }
 
+/** Effort answers plus a strategy answer, for a held turn that still gets advice. */
+function withStrategy(choice: Choice, strategy: string, p: number): { json: unknown } {
+  const base = answers(choice) as { json: { answers: Record<string, unknown> } };
+  const probabilities = { direct: 0, delegate: 0, parallel: 0, graph: 0, [strategy]: p };
+  base.json.answers["strategy"] = {
+    type: "choice",
+    choice: strategy,
+    confidence: 0.8,
+    probabilities,
+  };
+  base.json.answers["tier"] = {
+    type: "choice",
+    choice: "balanced",
+    confidence: 0.8,
+    probabilities: { fast: 0, balanced: 1, deep: 0 },
+  };
+  return base;
+}
+
 const isSummarization = (r: RecordedRequest): boolean => {
   const msgs = Array.isArray(r.body.messages) ? (r.body.messages as { role?: string }[]) : [];
   const system = msgs.find((m) => m.role === "system" || m.role === "developer");
@@ -134,8 +153,11 @@ function turnAnchors(s: HostSession): Record<string, unknown>[] {
   return out;
 }
 
+/** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
 const questionKeys = (jev: JevFixture, i: number): string[] =>
-  Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions);
+  Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions).filter(
+    (k) => k !== "tier" && k !== "strategy",
+  );
 
 /** One prompt, then wait until its `main` line is in the ledger and the session file is flushed. */
 async function turn(s: HostSession, text: string, lines: number): Promise<void> {
@@ -294,6 +316,29 @@ describe("effort hold through the real CLI", () => {
       expect(questionKeys(jev, 1)).toEqual(["corrects"]);
       expect(fixture.requests.map((r) => r.reasoningEffort)).toEqual(["high", "high"]);
       expect(mainLines(b)[1]).toMatchObject({ held: true });
+    },
+    TIMEOUT,
+  );
+  test(
+    "a held turn still gets strategy advice",
+    async () => {
+      const { s, fixture, jev, routes } = await setup({
+        holdProviders: ["fixture"],
+        thinking: "low",
+      });
+      routes[ASK] = answers("high");
+      await turn(s, "one", 1);
+      const afterFirst = levelChanges(s);
+      routes[ASK] = withStrategy("low", "delegate", 0.9);
+      await turn(s, "two", 2);
+      const keys = Object.keys(
+        (JSON.parse(jev.requests[1]!.body) as { questions: object }).questions,
+      );
+      expect(keys).toEqual(["tier", "strategy", "corrects"]);
+      expect(fixture.requests[1]?.reasoningEffort).toBe("high");
+      expect(JSON.stringify(fixture.requests[1]?.body)).toContain("best carried out as: delegate.");
+      expect(levelChanges(s)).toBe(afterFirst);
+      expect(mainLines(s)[1]).toMatchObject({ held: true, strategy: "delegate", advised: true });
     },
     TIMEOUT,
   );

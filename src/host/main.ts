@@ -1,6 +1,7 @@
 import type {
   AgentSettledEvent,
   BeforeAgentStartEvent,
+  BeforeAgentStartEventResult,
   ExtensionAPI,
   ExtensionContext,
   TurnEndEvent,
@@ -8,7 +9,7 @@ import type {
 import type { askJev } from "../jev/client.ts";
 import { mainQuestions } from "../jev/questions.ts";
 import { mainState } from "../jev/state.ts";
-import { readAnswers } from "../policy/answers.ts";
+import { readAnswers, type Answer } from "../policy/answers.ts";
 import { isHeld } from "../policy/hold.ts";
 import {
   CORRECTION_THRESHOLD,
@@ -18,11 +19,12 @@ import {
   type EffortLevel,
   type ThinkingLevel,
 } from "../policy/effort.ts";
+import { adviseStrategy, type Strategy } from "../policy/strategy.ts";
 import type { WriteResult } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
-import { drawStatus, type Decision } from "./status.ts";
+import { drawStatus, withDecision, type Decision } from "./status.ts";
 
 export type MainDeps = {
   load: () => Snapshot;
@@ -52,6 +54,9 @@ export type TurnRecord = {
   effortP?: Record<string, number>;
   risky?: number;
   corrects?: number;
+  strategy?: Strategy;
+  strategyP?: number;
+  advised?: boolean;
   requested?: EffortLevel;
   effective?: ThinkingLevel;
   applied?: ThinkingLevel;
@@ -91,10 +96,13 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     drawStatus(ctx, snapshot, decision);
   }
 
-  async function beforeAgentStart(event: BeforeAgentStartEvent, ctx: Ctx): Promise<undefined> {
+  async function beforeAgentStart(
+    event: BeforeAgentStartEvent,
+    ctx: Ctx,
+  ): Promise<BeforeAgentStartEventResult | undefined> {
     const mine: { rec?: TurnRecord } = {};
     try {
-      await decide(event, ctx, mine);
+      return await decide(event, ctx, mine);
     } catch {
       // A failure before the apply leaves the level unchanged; after it the applied level stays.
       // Only this run's own record is dropped, never a newer one.
@@ -102,20 +110,25 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         record = undefined;
         undo = undefined;
       }
+      return undefined;
     }
-    return undefined;
   }
 
   async function decide(
     event: BeforeAgentStartEvent,
     ctx: Ctx,
     mine: { rec?: TurnRecord },
-  ): Promise<void> {
+  ): Promise<BeforeAgentStartEventResult | undefined> {
     if (event.messageType !== "user" || event.prompt.trim() === "") return;
     const sessionId = ctx.sessionManager.getSessionId();
     if (isChild(sessionId)) return;
     const snapshot = deps.load();
-    if (!snapshot.config.valid || !snapshot.keySet || !snapshot.settings.switches.effort) return;
+    if (
+      !snapshot.config.valid ||
+      !snapshot.keySet ||
+      !(snapshot.settings.switches.effort || snapshot.settings.switches.strategy)
+    )
+      return;
     const model = ctx.model;
     if (model === undefined) return;
     const apiKey = deps.env()[snapshot.keyVar];
@@ -129,14 +142,18 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     const { anchor, compactionId } = holdContext(entries);
     const provider = typeof model.provider === "string" ? model.provider : undefined;
     const modelId = typeof model.id === "string" ? model.id : undefined;
-    const held = isHeld({
-      provider,
-      model: modelId,
-      holdProviders: snapshot.settings.effort.holdProviders,
-      anchor,
-    });
-    const askEffort = !held && canAskEffort(supported);
-    const questions = mainQuestions({ askEffort });
+    // A hold keeps the effort decision, so it applies only while `effort` is on.
+    const held =
+      snapshot.settings.switches.effort &&
+      isHeld({
+        provider,
+        model: modelId,
+        holdProviders: snapshot.settings.effort.holdProviders,
+        anchor,
+      });
+    const askEffort = snapshot.settings.switches.effort && !held && canAskEffort(supported);
+    const askStrategy = snapshot.settings.switches.strategy;
+    const questions = mainQuestions({ askEffort, askStrategy });
     const state = mainState({
       prompt: event.prompt,
       items: branchItems(entries),
@@ -183,33 +200,40 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         record = undefined;
         undo = undefined;
       }
-      return;
+      return undefined;
     }
     rec.ms = outcome.ms;
-    if (held) {
-      holdOutcome(rec, ctx, snapshot, outcome, questions.specs);
-      return;
-    }
+    if (held) return holdOutcome(rec, ctx, snapshot, outcome, questions.specs, askStrategy);
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
-      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
+      setDecision(rec, ctx, snapshot, withDecision(current, { kind: "no-answer" }, undefined));
       return;
     }
     const read = readAnswers(questions.specs, outcome.body);
     if (read.kind === "miss") {
       rec.miss = read.miss;
-      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
+      setDecision(rec, ctx, snapshot, withDecision(current, { kind: "no-answer" }, undefined));
       return;
     }
     rec.answered = true;
     const effort = read.answers["effort"];
     const risky = read.answers["risky"];
     const corrects = read.answers["corrects"];
+    const strategy = read.answers["strategy"];
+    const tier = read.answers["tier"];
     if (risky?.type === "noul") rec.risky = risky.noul;
     if (corrects?.type === "noul") rec.corrects = corrects.noul;
+    const { nextAdvice, message } = applyAdvice(rec, askStrategy, strategy, tier);
+    /** Advice-only redraw: the effort part stays as it is. */
+    const keepEffort = (): void => {
+      if (nextAdvice !== current?.advice)
+        setDecision(rec, ctx, snapshot, withDecision(current, current?.effort, nextAdvice));
+    };
     if (effort?.type !== "choice") {
-      if (askEffort) setDecision(rec, ctx, snapshot, { kind: "no-answer" });
-      return;
+      if (askEffort)
+        setDecision(rec, ctx, snapshot, withDecision(current, { kind: "no-answer" }, nextAdvice));
+      else keepEffort();
+      return message;
     }
     rec.effortP = effort.probabilities;
     const { requested, target } = decideEffort({
@@ -220,26 +244,75 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     rec.requested = requested;
 
     // Operator changed the level (or the model) during the wait: discard, keep the old suffix.
-    if (level() !== from) return;
+    if (level() !== from) {
+      keepEffort();
+      return message;
+    }
     if (from === "max") {
       rec.effective = "max";
-      setDecision(rec, ctx, snapshot, { kind: "level", level: "max" });
-      return;
+      setDecision(
+        rec,
+        ctx,
+        snapshot,
+        withDecision(current, { kind: "level", level: "max" }, nextAdvice),
+      );
+      return message;
     }
     if (target !== from) pi.setThinkingLevel(target as never);
     rec.effective = level();
     rec.applied = rec.effective;
-    setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
+    setDecision(
+      rec,
+      ctx,
+      snapshot,
+      withDecision(current, { kind: "level", level: rec.effective }, nextAdvice),
+    );
+    return message;
   }
 
-  /** A held prompt keeps the level: record the classifier outcome, never touch the thinking level. */
+  /**
+   * Gates the strategy answer, records it on the turn, and returns the next advice suffix and
+   * the hidden message. A turn that did not ask `strategy` keeps the current advice suffix.
+   */
+  function applyAdvice(
+    rec: TurnRecord,
+    askStrategy: boolean,
+    strategy: Answer | undefined,
+    tier: Answer | undefined,
+  ): { nextAdvice: Strategy | undefined; message: BeforeAgentStartEventResult | undefined } {
+    if (!askStrategy) return { nextAdvice: current?.advice, message: undefined };
+    const advice = adviseStrategy({
+      ...(strategy?.type === "choice" ? { strategy } : {}),
+      ...(tier?.type === "choice" ? { tier: tier.choice } : {}),
+    });
+    if (advice !== undefined) {
+      rec.strategy = advice.strategy;
+      rec.strategyP = advice.strategyP;
+      rec.advised = advice.advised;
+    }
+    if (advice?.advised !== true || advice.block === undefined) {
+      return { nextAdvice: undefined, message: undefined };
+    }
+    return {
+      nextAdvice: advice.strategy,
+      message: { message: { customType: "jev-advice", content: advice.block, display: false } },
+    };
+  }
+
+  /**
+   * A held prompt keeps the level: record the classifier outcome, never touch the thinking level.
+   * Strategy advice still applies, as on any other turn; a miss clears the advice suffix.
+   */
   function holdOutcome(
     rec: TurnRecord,
     ctx: Ctx,
     snapshot: Snapshot,
     outcome: Exclude<Awaited<ReturnType<typeof askJev>>, { kind: "cancelled" }>,
     specs: ReturnType<typeof mainQuestions>["specs"],
-  ): void {
+    askStrategy: boolean,
+  ): BeforeAgentStartEventResult | undefined {
+    let nextAdvice: Strategy | undefined;
+    let message: BeforeAgentStartEventResult | undefined;
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
     } else {
@@ -250,10 +323,22 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         rec.answered = true;
         const corrects = read.answers["corrects"];
         if (corrects?.type === "noul") rec.corrects = corrects.noul;
+        ({ nextAdvice, message } = applyAdvice(
+          rec,
+          askStrategy,
+          read.answers["strategy"],
+          read.answers["tier"],
+        ));
       }
     }
     rec.effective = level();
-    setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
+    setDecision(
+      rec,
+      ctx,
+      snapshot,
+      withDecision(current, { kind: "level", level: rec.effective }, nextAdvice),
+    );
+    return message;
   }
 
   async function beforeProviderRequest(): Promise<undefined> {
@@ -355,6 +440,9 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         ...(rec.effortP === undefined ? {} : { effortP: rec.effortP }),
         ...(rec.risky === undefined ? {} : { risky: rec.risky }),
         ...(rec.corrects === undefined ? {} : { corrects: rec.corrects }),
+        ...(rec.strategy === undefined || rec.strategyP === undefined || rec.advised === undefined
+          ? {}
+          : { strategy: rec.strategy, strategyP: rec.strategyP, advised: rec.advised }),
         ...(rec.requested === undefined ? {} : { requested: rec.requested }),
         ...(rec.effective === undefined ? {} : { effective: rec.effective }),
         from: rec.from,

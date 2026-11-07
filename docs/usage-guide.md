@@ -67,13 +67,15 @@ After each decided prompt the line shows the level that was set or kept:
 
 ```text
 Jev · standard · high
+Jev · standard · high · delegate
 ```
 
-Later work groups add skill and advice to the line.
+A later work group adds the skill.
 
 | You see | Meaning |
 |---|---|
 | `Jev · standard · high` | Jev chose the level for the last prompt (`high` here) |
+| `· delegate` | Advice was attached for the last prompt |
 | `Jev · no answer` | Jev timed out or failed. Work continues normally |
 
 If you press Esc before any provider request, the status line also returns to its previous text.

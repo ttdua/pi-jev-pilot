@@ -1,7 +1,7 @@
 # effort-hold Specification
 
 ## Purpose
-Main prompts on providers listed in `effort.holdProviders` keep the thinking level of the newest decision recorded on the current branch after its latest compaction, for the same provider and model, asking Jev only `corrects`; a compaction or a provider or model switch releases the hold so the next prompt decides once.
+Main prompts on providers listed in `effort.holdProviders` keep the thinking level of the newest decision recorded on the current branch after its latest compaction, for the same provider and model, asking Jev neither `effort` nor `risky` (strategy advice still applies); a compaction or a provider or model switch releases the hold so the next prompt decides once.
 
 ## Requirements
 
@@ -41,11 +41,15 @@ An eligible main prompt SHALL be held when the selected model's provider is in `
 - **THEN** the prompt is not held
 
 ### Requirement: Held turn keeps the level
-A held prompt SHALL ask only `corrects`, MUST NOT call `pi.setThinkingLevel`, and MUST NOT change the model. The turn's provider requests MUST carry the thinking level in force when the Jev request completes. A Jev miss on a held prompt MUST change nothing else.
+A held prompt SHALL ask `corrects`, and `tier` and `strategy` when the `strategy` feature is on (as `strategy-advice` defines, with advice attached as on any other turn); it MUST NOT ask `effort` or `risky`, MUST NOT call `pi.setThinkingLevel`, and MUST NOT change the model. Only a prompt with the `effort` feature on can be held. The turn's provider requests MUST carry the thinking level in force when the Jev request completes. A Jev miss on a held prompt MUST change nothing else.
 
 #### Scenario: No thinking change while held
 - **WHEN** the anchor was decided at `high` on a listed provider and three more prompts are submitted
-- **THEN** each of those requests to Jev has exactly the question key `corrects`, the session gains no thinking-level change entry, and each provider request carries `high`
+- **THEN** each of those requests to Jev asks no `effort` or `risky`, the session gains no thinking-level change entry, and each provider request carries `high`
+
+#### Scenario: Held turn with strategy advice
+- **WHEN** the anchor was decided at `high` on a listed provider, `strategy` is on, and the next prompt is answered with `strategy` `delegate` at probability 0.9
+- **THEN** that request to Jev has exactly the question keys `tier`, `strategy` and `corrects`, the provider request carries `high` and the `delegate` advice block, and the ledger line has `held` `true` and `advised` true
 
 #### Scenario: Held and Jev fails
 - **WHEN** a prompt is held and the Jev fixture answers HTTP 500
