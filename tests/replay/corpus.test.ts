@@ -1,4 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   mainSamples,
@@ -114,5 +116,23 @@ describe("sample", () => {
       const n = got.filter((t) => t.g === g).length;
       expect(Math.abs(n - (size * 20) / 60)).toBeLessThan(1);
     }
+  });
+});
+
+describe("nested session layout", () => {
+  const root = mkdtempSync(join(tmpdir(), "replay-nested-"));
+  const project = join(root, "--work-alpha--");
+  const childDir = join(project, "2026_main", "run-uuid", "run-0");
+  mkdirSync(childDir, { recursive: true });
+  copyFileSync(join(dir, "main.jsonl"), join(project, "2026_main.jsonl"));
+  copyFileSync(join(dir, "workers.jsonl"), join(project, "2026_workers.jsonl"));
+  copyFileSync(join(dir, "child.jsonl"), join(childDir, "session.jsonl"));
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  test("finds nested top-level sessions and excludes the child", () => {
+    const prompts = mainSamples(root).map((s) => s.prompt);
+    expect(prompts).toContain("Fix the widget parser");
+    expect(prompts).not.toContain("Child only prompt");
+    expect(workerSamples(root).length).toBeGreaterThan(0);
   });
 });

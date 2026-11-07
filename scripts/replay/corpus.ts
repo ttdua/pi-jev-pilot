@@ -1,5 +1,5 @@
 // Builds the replay corpus: main-turn and worker samples from session files, and a seeded stratified sampler.
-import { readdirSync } from "node:fs";
+import { type Dirent, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { branchTo, readLedgerLines, readSessionFile, type SessionEntry } from "./sessions.ts";
 
@@ -48,11 +48,30 @@ function userPrompt(e: SessionEntry): string | undefined {
 const isExcludedPrompt = (p: string): boolean =>
   p === "" || p.startsWith("/") || p.startsWith("<skill");
 
+const MAX_SESSION_DEPTH = 6;
+
+/** Session files under `dir`, recursively, sorted by relative path. Skips symlinks and unreadable directories. */
 function sessionFiles(dir: string): string[] {
-  return readdirSync(dir)
-    .filter((n) => n.endsWith(".jsonl") && !n.startsWith("ledger"))
-    .sort()
-    .map((n) => join(dir, n));
+  const found: string[] = [];
+  const walk = (current: string, rel: string, depth: number): void => {
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isSymbolicLink()) continue;
+      const relPath = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (depth < MAX_SESSION_DEPTH) walk(join(current, e.name), relPath, depth + 1);
+      } else if (e.isFile() && e.name.endsWith(".jsonl") && !e.name.startsWith("ledger")) {
+        found.push(relPath);
+      }
+    }
+  };
+  walk(dir, "", 0);
+  return found.sort().map((r) => join(dir, r));
 }
 
 /**
