@@ -240,7 +240,7 @@ describe("setup", () => {
     expect(notes.length).toBeGreaterThan(0);
   });
 
-  async function runPrompt() {
+  async function runPrompt(opts: { writable?: boolean; prompts?: number } = {}) {
     const probabilities = { low: 0.1, medium: 0.1, high: 0.6, xhigh: 0.1, max: 0.1 };
     const fx = await startJevFixture({
       "/ask": {
@@ -253,7 +253,7 @@ describe("setup", () => {
         },
       },
     });
-    mkdirSync(join(agentDir, "jev", "ledger.jsonl"), { recursive: true });
+    mkdirSync(join(agentDir, "jev", opts.writable ? "" : "ledger.jsonl"), { recursive: true });
     writeFileSync(
       join(agentDir, "jev", "config.json"),
       JSON.stringify({ classifier: { url: fx.url("/ask") }, tiers: TIERS }),
@@ -261,12 +261,18 @@ describe("setup", () => {
     const f = fakePi();
     setup(f.pi);
     const notes: string[] = [];
+    const widgets: string[] = [];
     const ctx = {
       cwd: agentDir,
       hasUI: true,
       mode: "rpc",
       model: { id: "m", provider: "p", name: "m", reasoning: true },
-      ui: { setWidget: () => {}, notify: (t: string) => notes.push(t) },
+      ui: {
+        setWidget: (_k: string, c: unknown) => {
+          if (Array.isArray(c)) widgets.push(String(c[0]));
+        },
+        notify: (t: string) => notes.push(t),
+      },
       sessionManager: { getSessionId: () => "main-1", getBranch: () => [] },
     };
     const fire = async (name: string, event: unknown) => {
@@ -278,11 +284,28 @@ describe("setup", () => {
       return notes.at(-1) ?? "";
     };
     await fire("session_start", { reason: "startup" });
-    await fire("before_agent_start", { messageType: "user", prompt: "hello", systemPrompt: "" });
-    await fire("before_provider_request", { payload: {} });
-    await fire("agent_settled", { aborted: false });
-    return { fx, fire, status };
+    for (let i = 0; i < (opts.prompts ?? 1); i++) {
+      await fire("before_agent_start", { messageType: "user", prompt: "hello", systemPrompt: "" });
+      await fire("before_provider_request", { payload: {} });
+      await fire("agent_settled", { aborted: false });
+    }
+    return { fx, fire, status, widgets };
   }
+
+  test("cadence: the 10th prompt shows the compact tally, the 9th does not", async () => {
+    const nine = await runPrompt({ writable: true, prompts: 9 });
+    try {
+      expect(nine.widgets.at(-1)).not.toContain("prompts");
+    } finally {
+      await nine.fx.stop();
+    }
+    const ten = await runPrompt({ writable: true, prompts: 10 });
+    try {
+      expect(ten.widgets.at(-1)).toBe("Jev · standard · 10 prompts · 0 workers · 0 fallbacks");
+    } finally {
+      await ten.fx.stop();
+    }
+  });
 
   test("tally counts with failed append", async () => {
     const { fx, status } = await runPrompt();

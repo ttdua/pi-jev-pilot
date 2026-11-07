@@ -180,7 +180,7 @@ Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `revie
 ```text
 session:
   prompts 2
-  workers 1 (fixture/fast 1)
+  workers 1 (openai/gpt-5-mini 1)
   worker tokens 120
   fallbacks 0
 ```

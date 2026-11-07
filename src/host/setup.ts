@@ -35,9 +35,11 @@ export function setup(pi: ExtensionAPI): void {
   const off = subscribeChildren(pi.events);
   const log = createSessionLog(pi, { verbose: () => loadSnapshot(pi).settings.switches.verbose });
   const append = (e: unknown) => {
-    const r = appendLedger(jevDir(), e);
-    log.record(e);
-    return r;
+    try {
+      return appendLedger(jevDir(), e);
+    } finally {
+      log.record(e);
+    }
   };
   const routing = registerWorkerRouting(pi, { append });
   const main = createMain(pi, {

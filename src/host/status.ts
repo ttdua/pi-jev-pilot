@@ -46,10 +46,7 @@ export function drawStatus(
   if (ctx.mode === "tui") {
     ctx.ui.setWidget(
       WIDGET_KEY,
-      () => ({
-        render: (width: number) => [alignRight(text, width)],
-        invalidate() {},
-      }),
+      () => ({ render: (width: number) => [alignRight(text, width)], invalidate() {} }),
       PLACEMENT,
     );
     return;

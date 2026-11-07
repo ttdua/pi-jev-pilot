@@ -62,7 +62,7 @@ export function createSessionLog(
         const v = validateLedgerEntry(line);
         if (!v.ok || sessionId === undefined || v.entry.session !== sessionId) return;
         count(counts, v.entry);
-        appendIfVerbose(line);
+        appendIfVerbose(v.entry);
       } catch {
         // Fail open.
       }
