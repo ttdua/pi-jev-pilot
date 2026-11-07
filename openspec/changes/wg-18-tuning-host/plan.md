@@ -198,7 +198,7 @@
   In `commands.test.ts`, add "Malformed tuning reported": `formatStatus` lists `  tuning (malformed) (file): …` under `problems:`.
 - [ ] **Step 2: Run** `bun test tests/host/readiness.test.ts tests/host/commands.test.ts`. Expected: FAIL.
 - [ ] **Step 3: Implement** per D3. `formatStatus` appends `issueLines(\`tuning (${s.tuning.kind})\`, s.tuning.issues)` after the state problems.
-- [ ] **Step 4: Update the fixtures.** Rewrite `snap()` in `tests/host/worker-fakes.ts` and `tests/host/tools.test.ts` to call `buildSnapshot` with `ConfigRead`/`StateRead` built from their options, keeping their current option names, so new `Snapshot` fields need no further fixture edits.
+- [ ] **Step 4: Update the fixtures.** Keep the `snap()` literals in `tests/host/worker-fakes.ts` and `tests/host/tools.test.ts`, and add `tuning: { kind: "missing", issues: [], record: {} }` and `untunedTimeoutMs`. *(Changed during apply: rewriting the literals through `buildSnapshot` would change what those tests assert. `buildSnapshot` drops config settings when the config is invalid and reads `keySet` from the environment.)*
 - [ ] **Step 5: Run** `bun run typecheck && bun test tests/host`. Expected: PASS.
 - [ ] **Step 6: Commit** `feat(readiness-checks): read tuning.json into the snapshot`.
 

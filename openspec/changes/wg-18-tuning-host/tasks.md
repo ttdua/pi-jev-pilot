@@ -10,9 +10,9 @@
 
 ## 3. Snapshot reads tuning.json
 
-- [ ] 3.1 Export a pure `untunedTimeout(config)` from `src/store/settings.ts` and use it inside `resolveSettings`
-- [ ] 3.2 Extend `Snapshot`, `buildSnapshot` and `loadSnapshot` in `src/host/readiness.ts` with `tuningRead`, `tuning: { kind, issues, record }` and `untunedTimeoutMs`, ignoring tuning while the config is invalid; switch the `Snapshot` literals in `tests/host/worker-fakes.ts` and `tests/host/tools.test.ts` to `buildSnapshot`; extend `tests/host/readiness.test.ts`
-- [ ] 3.3 List `tuning (<kind>)` problems in `formatStatus` (`src/host/commands.ts`), using `issueLines` from `src/host/tuning-text.ts` (task 4.1); unit test "Malformed tuning reported"
+- [x] 3.1 Export a pure `untunedTimeout(config)` from `src/store/settings.ts` and use it inside `resolveSettings`
+- [x] 3.2 Extend `Snapshot`, `buildSnapshot` and `loadSnapshot` in `src/host/readiness.ts` with `tuningRead`, `tuning: { kind, issues, record }` and `untunedTimeoutMs`, ignoring tuning while the config is invalid; switch the `Snapshot` literals in `tests/host/worker-fakes.ts` and `tests/host/tools.test.ts` to `buildSnapshot`; extend `tests/host/readiness.test.ts`
+- [x] 3.3 List `tuning (<kind>)` problems in `formatStatus` (`src/host/commands.ts`), using `issueLines` from `src/host/tuning-text.ts` (task 4.1); unit test "Malformed tuning reported"
 
 ## 4. Tuning texts
 
