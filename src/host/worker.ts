@@ -356,6 +356,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       answers,
       launch: entry.launch,
       offered: entry.offered,
+      mode: snap.settings.mode,
       forkedLaunch: settings.subagents.forkedLaunch,
       canRun: (t) => !writesModel || checkOf(t).ok,
       thinkingOf: (t) => {

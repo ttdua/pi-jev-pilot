@@ -16,6 +16,7 @@ function answers(input: {
   tier?: [string, Record<string, number>];
   risky?: number;
   expertNeeded?: number;
+  effort?: string;
 }): WorkerAnswers {
   const out: Record<string, Answer> = {};
   const unanswered: Record<string, "missing"> = {};
@@ -25,6 +26,13 @@ function answers(input: {
     for (const [k, v] of Object.entries(given)) probabilities[k] = v;
     out["tier"] = { type: "choice", choice, probabilities };
   } else unanswered["tier"] = "missing";
+  if (input.effort !== undefined) {
+    out["effort"] = {
+      type: "choice",
+      choice: input.effort,
+      probabilities: { [input.effort]: 0.9 },
+    };
+  } else unanswered["effort"] = "missing";
   if (input.risky !== undefined) out["risky"] = { type: "noul", noul: input.risky };
   else unanswered["risky"] = "missing";
   if (input.expertNeeded !== undefined) {
@@ -40,102 +48,216 @@ function decided(tier: TierName, reason: Extract<TierDecision, { kind: "decided"
 describe("Decision order", () => {
   test("Ordinary choice", () => {
     const a = answers({ tier: ["deep", { deep: 0.8 }], risky: 0.1 });
-    expect(decideTier(a, ALL)).toEqual(decided("deep", "choice"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("deep", "choice"));
   });
 });
 
-describe("Fable rule", () => {
-  test("Fable passes", () => {
+describe("Expert admitted rule", () => {
+  test("Expert admitted in standard", () => {
     const a = answers({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.95 });
-    expect(decideTier(a, ALL)).toEqual(decided("expert", "fable"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("expert", "expert-admitted"));
   });
-  test("Fable boundary", () => {
+  test("Standard boundary", () => {
     const a = answers({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.9 });
-    expect(decideTier(a, ALL)).toEqual(decided("deep", "expert-denied"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("deep", "expert-denied"));
   });
   test("Expert stands on high risk", () => {
     const a = answers({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.95, risky: 0.9 });
-    expect(decideTier(a, ALL)).toEqual(decided("expert", "fable"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("expert", "expert-admitted"));
   });
+  test("Same answers, different modes", () => {
+    const a = answers({
+      tier: ["deep", { deep: 0.7, expert: 0.2 }],
+      effort: "xhigh",
+      expertNeeded: 0.3,
+      risky: 0.1,
+    });
+    expect(decideTier(a, ALL, "budget")).toEqual(decided("deep", "choice"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("deep", "choice"));
+    expect(decideTier(a, ALL, "premium")).toEqual(decided("expert", "expert-admitted"));
+  });
+  test("Premium admits from deep on high risk", () => {
+    const a = answers({
+      tier: ["deep", { deep: 0.7, expert: 0.3 }],
+      effort: "max",
+      risky: 0.9,
+    });
+    expect(decideTier(a, ALL, "premium")).toEqual(decided("expert", "expert-admitted"));
+  });
+  test("Premium gate passes but expert not offered", () => {
+    const a = answers({ tier: ["deep", { deep: 0.7, expert: 0.3 }], effort: "max" });
+    expect(decideTier(a, ["fast", "balanced", "deep"], "premium")).toEqual(
+      decided("deep", "choice"),
+    );
+  });
+  test("Premium denies expert on low effort", () => {
+    const a = answers({
+      tier: ["expert", { expert: 0.6 }],
+      effort: "high",
+      expertNeeded: 0.99,
+    });
+    expect(decideTier(a, ALL, "premium")).toEqual(decided("deep", "expert-denied"));
+  });
+  test("Effort unanswered in premium", () => {
+    const a = answers({ tier: ["expert", { expert: 0.8 }] });
+    expect(decideTier(a, ["deep", "expert"], "premium")).toEqual(decided("deep", "expert-denied"));
+  });
+});
+
+type Cell = [TierName, "expert-admitted" | "risky" | "expert-denied" | "fast-unsure" | "choice"];
+const ROWS: { name: string; answers: WorkerAnswers; standard: Cell; premium: Cell }[] = [
+  {
+    name: "expert, sure, high effort",
+    answers: answers({ tier: ["expert", { expert: 0.8 }], expertNeeded: 0.95, effort: "high" }),
+    standard: ["expert", "expert-admitted"],
+    premium: ["deep", "expert-denied"],
+  },
+  {
+    name: "expert, sure, max effort",
+    answers: answers({ tier: ["expert", { expert: 0.8 }], expertNeeded: 0.95, effort: "max" }),
+    standard: ["expert", "expert-admitted"],
+    premium: ["expert", "expert-admitted"],
+  },
+  {
+    name: "deep with P(expert) .3, xhigh",
+    answers: answers({
+      tier: ["deep", { deep: 0.7, expert: 0.3 }],
+      effort: "xhigh",
+      expertNeeded: 0.2,
+    }),
+    standard: ["deep", "choice"],
+    premium: ["expert", "expert-admitted"],
+  },
+  {
+    name: "deep with P(expert) .05, max",
+    answers: answers({ tier: ["deep", { deep: 0.95, expert: 0.05 }], effort: "max" }),
+    standard: ["deep", "choice"],
+    premium: ["deep", "choice"],
+  },
+  {
+    name: "balanced, risky, max",
+    answers: answers({ tier: ["balanced", { balanced: 0.9 }], risky: 0.9, effort: "max" }),
+    standard: ["deep", "risky"],
+    premium: ["deep", "risky"],
+  },
+  {
+    name: "expert, not needed, medium",
+    answers: answers({ tier: ["expert", { expert: 0.8 }], expertNeeded: 0.5, effort: "medium" }),
+    standard: ["deep", "expert-denied"],
+    premium: ["deep", "expert-denied"],
+  },
+  {
+    name: "fast unsure",
+    answers: answers({ tier: ["fast", { fast: 0.55 }] }),
+    standard: ["balanced", "fast-unsure"],
+    premium: ["balanced", "fast-unsure"],
+  },
+  {
+    name: "fast sure",
+    answers: answers({ tier: ["fast", { fast: 0.9 }] }),
+    standard: ["fast", "choice"],
+    premium: ["fast", "choice"],
+  },
+  {
+    name: "balanced, low risk",
+    answers: answers({ tier: ["balanced", { balanced: 0.9 }], risky: 0.1 }),
+    standard: ["balanced", "choice"],
+    premium: ["balanced", "choice"],
+  },
+];
+
+describe("Table per mode", () => {
+  for (const row of ROWS) {
+    for (const mode of ["budget", "standard", "premium"] as const) {
+      test(`${row.name} in ${mode}`, () => {
+        const [tier, reason] = mode === "premium" ? row.premium : row.standard;
+        expect(decideTier(row.answers, ALL, mode)).toEqual(decided(tier, reason));
+      });
+    }
+  }
 });
 
 describe("Risk floor rule", () => {
   test("Risk floor", () => {
     const a = answers({ tier: ["fast", { fast: 0.9 }], risky: 0.71 });
-    expect(decideTier(a, ALL)).toEqual(decided("deep", "risky"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("deep", "risky"));
   });
   test("Risk boundary", () => {
     const a = answers({ tier: ["balanced", { balanced: 0.8 }], risky: 0.7 });
-    expect(decideTier(a, ALL)).toEqual(decided("balanced", "choice"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("balanced", "choice"));
   });
   test("Risk floor without deep", () => {
     const a = answers({ tier: ["fast", { fast: 0.9 }], risky: 0.9 });
-    expect(decideTier(a, ["fast", "balanced"])).toEqual(decided("balanced", "risky"));
+    expect(decideTier(a, ["fast", "balanced"], "standard")).toEqual(decided("balanced", "risky"));
   });
 });
 
 describe("Expert denied rule", () => {
   test("Expert denied without deep", () => {
     const a = answers({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.5 });
-    expect(decideTier(a, ["balanced", "expert"])).toEqual(decided("balanced", "expert-denied"));
+    expect(decideTier(a, ["balanced", "expert"], "standard")).toEqual(
+      decided("balanced", "expert-denied"),
+    );
   });
 });
 
 describe("Unsure fast rule", () => {
   test("Fast sure", () => {
     const a = answers({ tier: ["fast", { fast: 0.6 }] });
-    expect(decideTier(a, ALL)).toEqual(decided("fast", "choice"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("fast", "choice"));
   });
   test("Fast unsure", () => {
     const a = answers({ tier: ["fast", { fast: 0.59 }] });
-    expect(decideTier(a, ALL)).toEqual(decided("balanced", "fast-unsure"));
+    expect(decideTier(a, ALL, "standard")).toEqual(decided("balanced", "fast-unsure"));
   });
 });
 
 describe("Partial answers in the decision", () => {
   test("Risk floor without a tier answer", () => {
-    expect(decideTier(answers({ risky: 0.9 }), ["deep"])).toEqual(decided("deep", "risky"));
+    expect(decideTier(answers({ risky: 0.9 }), ["deep"], "standard")).toEqual(
+      decided("deep", "risky"),
+    );
   });
   test("Expert needed unanswered", () => {
     const a = answers({ tier: ["expert", { expert: 0.9 }] });
-    expect(decideTier(a, ["deep"])).toEqual(decided("deep", "expert-denied"));
+    expect(decideTier(a, ["deep"], "standard")).toEqual(decided("deep", "expert-denied"));
   });
   test("No tier answer", () => {
-    expect(decideTier(answers({ risky: 0.2 }), ALL)).toEqual({ kind: "none" });
+    expect(decideTier(answers({ risky: 0.2 }), ALL, "standard")).toEqual({ kind: "none" });
   });
   test("No tier offered", () => {
     const a = answers({ tier: ["deep", { deep: 0.8 }], risky: 0.9 });
-    expect(decideTier(a, [])).toEqual({ kind: "none" });
+    expect(decideTier(a, [], "standard")).toEqual({ kind: "none" });
   });
   test("Every answer unanswered", () => {
-    expect(decideTier(answers({}), ALL)).toEqual({ kind: "none" });
+    expect(decideTier(answers({}), ALL, "standard")).toEqual({ kind: "none" });
   });
 });
 
 describe("Rules without a qualifying tier", () => {
   test("Risk floor with only fast", () => {
     const a = answers({ tier: ["fast", { fast: 0.9 }], risky: 0.9 });
-    expect(decideTier(a, ["fast"])).toEqual(decided("fast", "risky"));
+    expect(decideTier(a, ["fast"], "standard")).toEqual(decided("fast", "risky"));
   });
   test("Fast unsure without a higher tier", () => {
     const a = answers({ tier: ["fast", { fast: 0.4 }] });
-    expect(decideTier(a, ["fast"])).toEqual(decided("fast", "choice"));
+    expect(decideTier(a, ["fast"], "standard")).toEqual(decided("fast", "choice"));
   });
   test("Only expert offered and denied", () => {
     const a = answers({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.5 });
-    expect(decideTier(a, ["expert"])).toEqual({ kind: "none" });
+    expect(decideTier(a, ["expert"], "standard")).toEqual({ kind: "none" });
   });
 });
 
 describe("Decision on Jev failure", () => {
   test("Jev failure", () => {
-    expect(decideTier({ kind: "miss", miss: "timeout" }, ALL)).toEqual({
+    expect(decideTier({ kind: "miss", miss: "timeout" }, ALL, "standard")).toEqual({
       kind: "none",
       reason: "miss",
     });
   });
   test("Cancelled", () => {
-    const result = decideTier({ kind: "cancelled" }, ALL);
+    const result = decideTier({ kind: "cancelled" }, ALL, "standard");
     expect(result).toEqual({ kind: "none" });
     expect("reason" in result).toBe(false);
   });

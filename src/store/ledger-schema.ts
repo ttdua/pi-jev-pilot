@@ -18,7 +18,7 @@ export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 export type Miss = "timeout" | "error" | "schema";
 export type Strategy = "direct" | "delegate" | "parallel" | "graph";
 export type WorkerReason =
-  | "fable"
+  | "expert-admitted"
   | "risky"
   | "slot"
   | "expert-denied"
@@ -158,7 +158,7 @@ const SLOT = /^slot::[a-z][a-z0-9-]{0,23}$/;
 const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
 const DECIDING_REASONS: readonly string[] = [
-  "fable",
+  "expert-admitted",
   "risky",
   "slot",
   "expert-denied",
