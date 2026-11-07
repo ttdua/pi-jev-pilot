@@ -3,6 +3,7 @@ import { parseFrontmatter, stripFrontmatter } from "@earendil-works/pi-coding-ag
 import {
   explicitSkill,
   fingerprint,
+  loadedSkills,
   readCatalog,
   skillBlock,
   type SkillCommand,
@@ -161,5 +162,111 @@ describe("readCatalog", () => {
     const raw = "---\nname: debug\n---\n\n  Step one.\n\n";
     const out = readCatalog([cmd("debug", "/d/SKILL.md")], reader({ "/d/SKILL.md": raw }));
     expect(out[0]?.body).toBe(stripFrontmatter(raw).trim());
+  });
+});
+
+describe("loadedSkills", () => {
+  const debug = {
+    name: "debug",
+    body: "Step.",
+    path: "/s/debug/SKILL.md",
+    baseDir: "/s/debug",
+    fingerprint: fingerprint("Step."),
+  };
+  const F = "f".repeat(64);
+
+  const custom = (content: unknown, details: unknown, customType = "jev-skill") => ({
+    type: "custom_message",
+    customType,
+    content,
+    details,
+  });
+  const kept = (sourceEntry: { content?: unknown }) => ({
+    sourceEntry,
+    messages: [{ role: "custom", content: sourceEntry.content }],
+  });
+  const user = (content: unknown) => {
+    const message = { role: "user", content };
+    return { sourceEntry: { type: "message", message }, messages: [message] };
+  };
+  const detail = (form: string) => ({ name: "debug", fingerprint: F, form });
+
+  test("Delivered content", () => {
+    expect(loadedSkills([kept(custom("body", detail("content")))], [debug])).toEqual([
+      { name: "debug", fingerprint: F },
+    ]);
+  });
+
+  test("Suggested before", () => {
+    expect(loadedSkills([kept(custom("body", detail("suggest")))], [debug])).toEqual([]);
+  });
+
+  test("Reference", () => {
+    expect(loadedSkills([kept(custom("body", detail("reference")))], [debug])).toEqual([]);
+  });
+
+  test("Removed by a context edit", () => {
+    const sourceEntry = custom("body", detail("content"));
+    expect(loadedSkills([{ sourceEntry, messages: [] }], [debug])).toEqual([]);
+  });
+
+  test("Rewritten by a context edit", () => {
+    const sourceEntry = custom("body", detail("content"));
+    const messages = [{ role: "custom", content: "shortened" }];
+    expect(loadedSkills([{ sourceEntry, messages }], [debug])).toEqual([]);
+  });
+
+  test("Loaded by the operator", () => {
+    const text = `${skillBlock(debug)}\n\nfix it`;
+    const want = [{ name: "debug", fingerprint: debug.fingerprint }];
+    expect(loadedSkills([user(text)], [debug])).toEqual(want);
+    expect(loadedSkills([user([{ type: "text", text }])], [debug])).toEqual(want);
+  });
+
+  test("Loaded before an edit", () => {
+    const text = `${skillBlock({ ...debug, body: "Old step." })}\n\nfix it`;
+    const out = loadedSkills([user(text)], [debug]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.name).toBe("debug");
+    expect(out[0]?.fingerprint).not.toBe(debug.fingerprint);
+  });
+
+  test("Explicit block with </skill> in the body", () => {
+    const tricky = { ...debug, body: "A</skill>\nmore" };
+    const out = loadedSkills([user(`${skillBlock(tricky)}\n\ngo`)], [tricky]);
+    expect(out).toEqual([{ name: "debug", fingerprint: debug.fingerprint }]);
+  });
+
+  test("Unknown skill block", () => {
+    const text = skillBlock({ ...debug, name: "other" });
+    expect(loadedSkills([user(text)], [debug])).toEqual([]);
+  });
+
+  test("Other entries", () => {
+    const assistant = { role: "assistant", content: [{ type: "text", text: skillBlock(debug) }] };
+    expect(
+      loadedSkills(
+        [
+          { sourceEntry: { type: "message", message: assistant }, messages: [assistant] },
+          kept(custom("x", detail("content"), "jev-advice")),
+          { sourceEntry: { type: "compaction", summary: "s" }, messages: [] },
+        ],
+        [debug],
+      ),
+    ).toEqual([]);
+  });
+
+  test("Malformed details", () => {
+    const bad = [
+      custom("b", undefined),
+      custom("b", null),
+      custom("b", { name: 1, fingerprint: F, form: "content" }),
+      custom("b", { name: "debug", fingerprint: 2, form: "content" }),
+      custom("b", { name: "debug", fingerprint: F }),
+    ];
+    expect(
+      loadedSkills([...bad.map(kept), { sourceEntry: null, messages: [null] }], [debug]),
+    ).toEqual([]);
+    expect(loadedSkills([user(5), user([{ type: "image" }]), user(null)], [debug])).toEqual([]);
   });
 });

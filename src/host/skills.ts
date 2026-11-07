@@ -88,3 +88,65 @@ export function readCatalog(
   }
   return out;
 }
+
+type ProjectionEntry = { sourceEntry: unknown; messages: readonly unknown[] };
+type Loaded = { name: string; fingerprint: string };
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function sameContent(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** A `jev-skill` message that reached the model with its body, unchanged by any context edit. */
+function deliveredSkill(entry: ProjectionEntry): Loaded | undefined {
+  const source = record(entry.sourceEntry);
+  if (source?.type !== "custom_message" || source.customType !== SKILL_MESSAGE_TYPE)
+    return undefined;
+  const details = record(source.details);
+  if (details?.form !== "content") return undefined;
+  const { name, fingerprint: print } = details;
+  if (typeof name !== "string" || typeof print !== "string") return undefined;
+  if (entry.messages.length !== 1) return undefined;
+  if (!sameContent(record(entry.messages[0])?.content, source.content)) return undefined;
+  return { name, fingerprint: print };
+}
+
+/** A user prompt that starts with a Pi-expanded skill block; an outdated body is `"stale"`. */
+function explicitLoaded(
+  entry: ProjectionEntry,
+  catalog: readonly CatalogSkill[],
+): Loaded | undefined {
+  const message = record(record(entry.sourceEntry)?.message);
+  if (message?.role !== "user") return undefined;
+  const content = message.content;
+  let text: unknown = content;
+  if (Array.isArray(content)) {
+    text = content.map(record).find((part) => part?.type === "text")?.text;
+  }
+  if (typeof text !== "string") return undefined;
+  const name = explicitSkill(text);
+  const skill = catalog.find((s) => s.name === name);
+  if (!skill) return undefined;
+  return {
+    name: skill.name,
+    fingerprint: text.startsWith(skillBlock(skill)) ? skill.fingerprint : "stale",
+  };
+}
+
+/** Skills whose body is in the model's context, from `buildSessionProjection().entries`. */
+export function loadedSkills(
+  entries: readonly ProjectionEntry[],
+  catalog: readonly CatalogSkill[],
+): Loaded[] {
+  const out: Loaded[] = [];
+  for (const entry of entries) {
+    const loaded = deliveredSkill(entry) ?? explicitLoaded(entry, catalog);
+    if (loaded) out.push(loaded);
+  }
+  return out;
+}
