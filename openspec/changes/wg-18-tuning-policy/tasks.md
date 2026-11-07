@@ -4,7 +4,7 @@
 
 ## 2. Tuning file
 
-- [ ] 2.1 Add the validator and `readTuning` in `src/store/tuning-file.ts`: content and values per `tuning-file` (required inner keys, ranges, `before.timeouts ≤ asked`, history ≤ 50, unknown keys), with `missing`, `malformed` and `unreadable` reads. Tests in `tests/store/tuning-file.test.ts` cover every read scenario, including `history[3].cause` and the value not echoed
+- [x] 2.1 Add the validator and `readTuning` in `src/store/tuning-file.ts`: content and values per `tuning-file` (required inner keys, ranges, `before.timeouts ≤ asked`, history ≤ 50, unknown keys), with `missing`, `malformed` and `unreadable` reads. Tests in `tests/store/tuning-file.test.ts` cover every read scenario, including `history[3].cause` and the value not echoed
 - [ ] 2.2 Add `updateTuning(dir, mutate)` with an atomic write through `writeFileAtomic`. A malformed file moves to `tuning.json.bad`; an unreadable file is refused; an invalid result or a throwing mutate is refused. Tests cover the update scenarios, including modes `0600`/`0700` and `config.json`/`state.json` left untouched
 
 ## 3. Tuning rules
