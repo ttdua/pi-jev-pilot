@@ -13,9 +13,9 @@
 
 ## 4. Host
 
-- [ ] 4.1 In `src/host/worker.ts`, capture the mode once at classification, use it for questions, `routeLaunch` and the ledger line; tests in `tests/host/worker.test.ts` and `tests/host/worker-ledger.test.ts`, with helper changes in `tests/host/worker-fakes.ts`, `tests/host/worker-routing.test.ts` and `tests/host/fixture.ts` (worker-routing: Mode of a launch; worker-ledger: Decision fields)
+- [x] 4.1 In `src/host/worker.ts`, capture the mode once at classification, use it for questions, `routeLaunch` and the ledger line; tests in `tests/host/worker.test.ts` and `tests/host/worker-ledger.test.ts`, with helper changes in `tests/host/worker-fakes.ts`, `tests/host/worker-routing.test.ts` and `tests/host/fixture.ts` (worker-routing: Mode of a launch; worker-ledger: Decision fields)
 - [ ] 4.2 Add `/jev mode <budget|standard|premium>` to `src/host/commands.ts`, with usage text; tests in `tests/host/commands.test.ts` (jev-command: Mode, Usage text for other input)
-- [ ] 4.3 Host test with the loopback Jev fixture and the real executor: a `premium` launch with a `deep` + `xhigh` answer runs on `tiers.expert` and records `mode` `premium`, `reason` `expert-admitted`; Jev down in `premium` records `miss` (worker-routing: Mode of a launch)
+- [x] 4.3 Host test with the loopback Jev fixture and the real executor: a `premium` launch with a `deep` + `xhigh` answer runs on `tiers.expert` and records `mode` `premium`, `reason` `expert-admitted`; Jev down in `premium` records `miss` (worker-routing: Mode of a launch)
 
 ## 5. Docs
 
