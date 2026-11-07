@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
 import {
   formatStatus,
   parseJevArgs,
-  runJev,
+  runJev as runJevWith,
   usageText,
   type JevArgs,
 } from "../../src/host/commands.ts";
@@ -21,6 +21,7 @@ import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
 import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
+import { createSessionModeHolder, type SessionModeHolder } from "../../src/host/session-mode.ts";
 import type { WindowEntry } from "../../src/policy/cutpoints.ts";
 import type { TierName } from "../../src/policy/launch.ts";
 
@@ -55,17 +56,56 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("tune")).toEqual({ kind: "tune", sub: "report" });
     expect(parseJevArgs("tune off")).toEqual({ kind: "tune", sub: "off" });
     for (const w of ["undo", "reset", "on"])
-      expect(parseJevArgs(`tune ${w}`)).toEqual({ kind: "tune", sub: w as "undo" });
+      expect(parseJevArgs(`tune ${w}`)).toEqual({
+        kind: "tune",
+        sub: w as "undo",
+      });
     for (const bad of ["tune apply", "tune Undo", "tune undo now"])
       expect(parseJevArgs(bad)).toEqual(usage);
   });
   test("set", () => {
-    expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
-    expect(parseJevArgs("status on")).toEqual({ kind: "set", feature: "status", on: true });
+    expect(parseJevArgs("skills off")).toEqual({
+      kind: "set",
+      feature: "skills",
+      on: false,
+    });
+    expect(parseJevArgs("status on")).toEqual({
+      kind: "set",
+      feature: "status",
+      on: true,
+    });
   });
   test("mode", () => {
-    expect(parseJevArgs("mode premium")).toEqual({ kind: "mode", mode: "premium" });
-    expect(parseJevArgs("mode budget")).toEqual({ kind: "mode", mode: "budget" });
+    expect(parseJevArgs("mode premium")).toEqual({
+      kind: "mode",
+      mode: "premium",
+    });
+    expect(parseJevArgs("mode budget")).toEqual({
+      kind: "mode",
+      mode: "budget",
+    });
+  });
+  test("session mode forms", () => {
+    expect(parseJevArgs("mode premium session")).toEqual({
+      kind: "session-mode",
+      mode: "premium",
+    });
+    expect(parseJevArgs("mode session off")).toEqual({
+      kind: "session-mode",
+      mode: undefined,
+    });
+    expect(parseJevArgs("  mode  budget   session ")).toEqual({
+      kind: "session-mode",
+      mode: "budget",
+    });
+    for (const bad of [
+      "mode premium Session",
+      "mode session",
+      "mode session on",
+      "mode premium session now",
+      "mode Session off",
+    ])
+      expect(parseJevArgs(bad)).toEqual(usage);
   });
   test("all and reset", () => {
     expect(parseJevArgs("all off")).toEqual({ kind: "all", on: false });
@@ -73,7 +113,10 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("reset")).toEqual({ kind: "reset" });
   });
   test("cli-review", () => {
-    expect(parseJevArgs("cli-review opencode")).toEqual({ kind: "cli-review", cli: "opencode" });
+    expect(parseJevArgs("cli-review opencode")).toEqual({
+      kind: "cli-review",
+      cli: "opencode",
+    });
     expect(parseJevArgs("cli-review codex default high")).toEqual({
       kind: "cli-review",
       cli: "codex",
@@ -122,6 +165,8 @@ describe("usageText", () => {
   });
   test("Usage lists the mode form", () => {
     expect(text).toContain("/jev mode budget|standard|premium");
+    expect(text).toContain("/jev mode budget|standard|premium session");
+    expect(text).toContain("/jev mode session off");
   });
   test("lists the cli-review form", () => {
     expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
@@ -149,7 +194,9 @@ describe("formatStatus", () => {
   });
   test("cli review default and set values", () => {
     expect(formatStatus(snap())).toContain("cli review: codex (CLI defaults)");
-    const state: State = { cliReview: { cli: "codex", model: "luna", effort: "high" } };
+    const state: State = {
+      cliReview: { cli: "codex", model: "luna", effort: "high" },
+    };
     const lines = formatStatus(snap({ state })).split("\n");
     expect(lines).toContain("cli review: codex (model luna, effort high)");
     expect(lines.indexOf("cli review: codex (model luna, effort high)")).toBe(
@@ -302,13 +349,41 @@ afterEach(() => {
   dirs = [];
 });
 
-const load = (dir: string) => () =>
-  buildSnapshot({
+const load = (dir: string, holder?: SessionModeHolder) => () => {
+  const sessionMode = holder?.modeFor("main-1");
+  return buildSnapshot({
     configRead: readConfig(dir),
     stateRead: readState(dir),
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
+    ...(sessionMode === undefined ? {} : { sessionMode }),
   });
+};
+
+type Appended = [string, unknown][];
+function sessionDeps(initial?: Mode) {
+  const appended: Appended = [];
+  const sessionModes = createSessionModeHolder();
+  sessionModes.rebuild(
+    "main-1",
+    initial ? [{ type: "custom", customType: "jev-mode", data: { mode: initial } }] : [],
+  );
+  return {
+    appended,
+    sessionModes,
+    appendEntry: (t: string, d: unknown) => void appended.push([t, d]),
+  };
+}
+
+/** Existing tests need no session mode: supply a recording append and a fresh holder. */
+const runJev = (
+  args: string,
+  ctx: ExtensionCommandContext,
+  deps: Omit<Parameters<typeof runJevWith>[2], "appendEntry" | "sessionModes">,
+) => {
+  const { appendEntry, sessionModes } = sessionDeps();
+  return runJevWith(args, ctx, { appendEntry, sessionModes, ...deps });
+};
 
 const noExec: Exec = async () => {
   throw new Error("exec must not be called");
@@ -351,7 +426,9 @@ describe("runJev", () => {
 
   test("redraw keeps the decision suffix; effort off drops it", async () => {
     const dir = jevDir();
-    const decision = (): Decision => ({ effort: { kind: "level", level: "high" } });
+    const decision = (): Decision => ({
+      effort: { kind: "level", level: "high" },
+    });
     const a = await run("skills off", dir, fakeCtx(), decision);
     expect(a.widgets[0]![1]).toEqual(["Jev · standard · high"]);
     const b = await run("effort off", dir, fakeCtx(), decision);
@@ -445,7 +522,10 @@ describe("runJev", () => {
     writeFileSync(join(dir, "state.json"), "{nope");
     await run("skills off", dir);
     expect(existsSync(join(dir, "state.json.bad"))).toBe(true);
-    expect(readState(dir)).toEqual({ kind: "ok", state: { switches: { skills: false } } });
+    expect(readState(dir)).toEqual({
+      kind: "ok",
+      state: { switches: { skills: false } },
+    });
   });
 
   test.skipIf(process.getuid?.() === 0)("unreadable state is refused", async () => {
@@ -694,7 +774,12 @@ describe("runJev cli-review", () => {
 
   async function go(args: string, f: ReturnType<typeof fake>, dir = jevDir()) {
     const c = fakeCtx();
-    await runJev(args, c.ctx, { dir, load: load(dir), decision: noDecision, exec: f.exec });
+    await runJev(args, c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: f.exec,
+    });
     return { rec: c.rec, dir };
   }
 
@@ -711,11 +796,18 @@ describe("runJev cli-review", () => {
   test("tier stored as typed, list read once with the right command", async () => {
     const f = fake(ok(catalog));
     const { rec, dir } = await go("cli-review codex luna high", f);
-    expect(review(dir)).toEqual({ cli: "codex", model: "luna", effort: "high" });
+    expect(review(dir)).toEqual({
+      cli: "codex",
+      model: "luna",
+      effort: "high",
+    });
     expect(f.calls).toHaveLength(1);
     expect(f.calls[0]![0]).toBe("codex");
     expect(f.calls[0]![1]).toEqual(["debug", "models"]);
-    expect(f.calls[0]![2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+    expect(f.calls[0]![2]).toEqual({
+      timeout: 30000,
+      maxBuffer: 8 * 1024 * 1024,
+    });
     expect(rec.notes[0]![0]).toContain("cli review: codex (model luna, effort high)");
   });
 
@@ -758,7 +850,11 @@ describe("runJev cli-review", () => {
     const { dir } = await go("cli-review opencode glm-5.3 high", f);
     expect(f.calls[0]![0]).toBe("opencode");
     expect(f.calls[0]![1]).toEqual(["models"]);
-    expect(review(dir)).toEqual({ cli: "opencode", model: "ollama-cloud/glm-5.3", effort: "high" });
+    expect(review(dir)).toEqual({
+      cli: "opencode",
+      model: "ollama-cloud/glm-5.3",
+      effort: "high",
+    });
   });
 
   test("opencode name with two providers is refused naming both", async () => {
@@ -784,7 +880,11 @@ describe("runJev cli-review", () => {
   test("unreadable list (non-zero exit) stores with a warning", async () => {
     const f = fake({ ...ok(""), code: 1, stderr: "boom" });
     const { rec, dir } = await go("cli-review codex luna high", f);
-    expect(review(dir)).toEqual({ cli: "codex", model: "luna", effort: "high" });
+    expect(review(dir)).toEqual({
+      cli: "codex",
+      model: "luna",
+      effort: "high",
+    });
     expect(rec.notes.map((n) => n[1])).toEqual(["warning", "info"]);
     expect(rec.notes[0]![0]).toBe("CLI review model not checked: could not read the model list.");
   });
@@ -857,5 +957,128 @@ describe("runJev cli-review", () => {
     expect(c.rec.notes).toHaveLength(0);
     expect(f.calls).toHaveLength(0);
     expect(existsSync(join(dir, "state.json"))).toBe(false);
+  });
+});
+
+describe("runJev session mode", () => {
+  const stateBytes = (dir: string) => readFileSync(join(dir, "state.json"), "utf8");
+  async function go(
+    args: string,
+    dir: string,
+    sd: ReturnType<typeof sessionDeps>,
+    c = fakeCtx(true, "main-1"),
+  ) {
+    await runJevWith(args, c.ctx, {
+      dir,
+      load: load(dir, sd.sessionModes),
+      decision: noDecision,
+      exec: noExec,
+      appendEntry: sd.appendEntry,
+      sessionModes: sd.sessionModes,
+    });
+    return c.rec;
+  }
+
+  test("Set a session mode", async () => {
+    const dir = jevDir();
+    await run("mode standard", dir);
+    const before = stateBytes(dir);
+    const sd = sessionDeps();
+    const rec = await go("mode premium session", dir, sd);
+    expect(sd.appended).toEqual([["jev-mode", { mode: "premium" }]]);
+    expect(stateBytes(dir)).toBe(before);
+    expect(rec.notes[0]![0]).toContain("mode: premium (session; saved standard)");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · premium (session)"]);
+  });
+
+  test("Entry content", async () => {
+    const sd = sessionDeps();
+    await go("mode budget session", jevDir(), sd);
+    expect(sd.appended[0]![1]).toEqual({ mode: "budget" });
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Set while state is unreadable", async () => {
+    const dir = jevDir();
+    await run("mode standard", dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const sd = sessionDeps();
+    const rec = await go("mode budget session", dir, sd);
+    expect(sd.appended).toHaveLength(1);
+    expect(rec.notes[0]![0]).toContain("mode: budget (session");
+    expect(rec.notes[0]![0]).toContain("state (");
+  });
+
+  test("Clear back to the saved mode", async () => {
+    const dir = jevDir();
+    await run("mode budget", dir);
+    const sd = sessionDeps("premium");
+    const rec = await go("mode session off", dir, sd);
+    expect(sd.appended).toEqual([["jev-mode", { mode: null }]]);
+    expect(rec.notes[0]![0]).toContain("mode: budget");
+    expect(rec.notes[0]![0]).not.toContain("(session");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · budget"]);
+  });
+
+  test("Nothing to clear", async () => {
+    const sd = sessionDeps();
+    const rec = await go("mode session off", jevDir(), sd);
+    expect(rec.notes).toEqual([["no session mode set", "info"]]);
+    expect(sd.appended).toHaveLength(0);
+    expect(rec.widgets).toHaveLength(0);
+  });
+
+  test("Append fails", async () => {
+    const sd = sessionDeps();
+    sd.appendEntry = () => {
+      throw new Error("disk full");
+    };
+    const rec = await go("mode premium session", jevDir(), sd);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(sd.sessionModes.modeFor("main-1")).toBeUndefined();
+  });
+
+  test("Saving keeps the session mode", async () => {
+    const dir = jevDir();
+    const sd = sessionDeps("budget");
+    const rec = await go("mode premium", dir, sd);
+    expect((readState(dir).state as State).mode).toBe("premium");
+    expect(sd.appended).toHaveLength(0);
+    expect(rec.notes[0]![0]).toContain("mode: budget (session; saved premium)");
+    expect(rec.notes[0]![0]).toContain(
+      "session mode budget still applies here; saved mode is now premium",
+    );
+    expect(rec.widgets[0]![1]).toEqual(["Jev · budget (session)"]);
+  });
+
+  test("Reset clears the session mode", async () => {
+    const dir = jevDir();
+    await run("mode budget", dir);
+    const sd = sessionDeps("premium");
+    const rec = await go("reset", dir, sd);
+    expect(sd.appended).toEqual([["jev-mode", { mode: null }]]);
+    expect(rec.notes[0]![0]).toContain("mode: standard");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · standard"]);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Refused reset keeps the session mode", async () => {
+    const dir = jevDir();
+    await run("mode budget", dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const sd = sessionDeps("premium");
+    const rec = await go("reset", dir, sd);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("EACCES");
+    expect(sd.appended).toHaveLength(0);
+    expect(sd.sessionModes.modeFor("main-1")).toBe("premium");
+  });
+
+  test("Command in a child", async () => {
+    (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["kid"]);
+    const sd = sessionDeps("premium");
+    const rec = await go("mode budget session", jevDir(), sd, fakeCtx(true, "kid"));
+    expect(rec.notes).toHaveLength(0);
+    expect(sd.appended).toHaveLength(0);
+    expect(sd.sessionModes.modeFor("main-1")).toBe("premium");
   });
 });

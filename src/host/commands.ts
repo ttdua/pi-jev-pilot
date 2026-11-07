@@ -4,7 +4,9 @@ import { resetState, updateState, validateCliReview } from "../store/state-file.
 import { recentMix, WINDOW_MIN } from "../policy/cut-window.ts";
 import type { WindowEntry } from "../policy/cutpoints.ts";
 import { MODE_TARGETS } from "../policy/modes.ts";
+import { SESSION_MODE_TYPE } from "../jev/session-mode.ts";
 import { isChild } from "./child.ts";
+import type { SessionModeHolder } from "./session-mode.ts";
 import {
   checkCodexChoice,
   checkOpencodeChoice,
@@ -32,8 +34,14 @@ export type JevArgs =
   | { kind: "set"; feature: Feature; on: boolean }
   | { kind: "all"; on: boolean }
   | { kind: "mode"; mode: Mode }
+  | { kind: "session-mode"; mode: Mode | undefined }
   | { kind: "reset" }
-  | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
+  | {
+      kind: "cli-review";
+      cli: "codex" | "opencode";
+      model?: string;
+      effort?: string;
+    }
   | { kind: "slot"; args: SlotArgs }
   | { kind: "tune"; sub: TuneSub }
   | { kind: "usage" };
@@ -62,6 +70,18 @@ function parseTune(words: string[]): JevArgs {
     : USAGE;
 }
 
+const isMode = (w: string | undefined): w is Mode => (MODES as readonly string[]).includes(w!);
+
+/** `mode <m>`, `mode <m> session` and `mode session off`; `value` and `rest` follow `mode`. */
+function parseMode(value: string, rest: string[]): JevArgs {
+  if (rest.length === 0) return isMode(value) ? { kind: "mode", mode: value } : USAGE;
+  if (rest.length > 1) return USAGE;
+  if (isMode(value) && rest[0] === "session") return { kind: "session-mode", mode: value };
+  return value === "session" && rest[0] === "off"
+    ? { kind: "session-mode", mode: undefined }
+    : USAGE;
+}
+
 /** Split on whitespace and match case-sensitively; only an empty argument is the status form. */
 export function parseJevArgs(text: string): JevArgs {
   const words = text.trim() === "" ? [] : text.trim().split(/\s+/);
@@ -72,11 +92,7 @@ export function parseJevArgs(text: string): JevArgs {
   if (slot !== undefined) return slot === "usage" ? USAGE : { kind: "slot", args: slot };
   const [head, value, ...rest] = words;
   if (words.length === 1) return head === "reset" ? { kind: "reset" } : USAGE;
-  if (head === "mode") {
-    return rest.length === 0 && (MODES as readonly string[]).includes(value!)
-      ? { kind: "mode", mode: value as Mode }
-      : USAGE;
-  }
+  if (head === "mode") return parseMode(value!, rest);
   if (rest.length > 0 || (value !== "on" && value !== "off")) return USAGE;
   const on = value === "on";
   if (head === "all") return { kind: "all", on };
@@ -94,6 +110,8 @@ export function usageText(): string {
     `      features: ${FEATURES.join(", ")}`,
     "  /jev all on|off           switch the seven decision features",
     "  /jev mode budget|standard|premium  choose the worker mode",
+    "  /jev mode budget|standard|premium session  use a mode for this session only",
+    "  /jev mode session off     drop this session's mode",
     "  /jev reset                reset switches, mode and CLI review default",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
     "  /jev <slot> <provider/model> [when <text>]",
@@ -186,7 +204,7 @@ async function checkAgainstCli(
   return { check: checkOpencodeChoice(a.model, a.effort, ids) };
 }
 
-type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" }>;
+type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" | "session-mode" }>;
 
 function applyChange(
   parsed: Change,
@@ -218,6 +236,39 @@ function applyChange(
   }
 }
 
+type SessionModeDeps = {
+  appendEntry: (type: string, data: unknown) => void;
+  sessionModes: SessionModeHolder;
+};
+
+/** Record the session mode as an entry, then update the holder. False when there was nothing to do. */
+function changeSessionMode(
+  mode: Mode | undefined,
+  sessionId: string,
+  deps: SessionModeDeps,
+  notify: (message: string, type: "info") => void,
+): boolean {
+  if (mode === undefined && deps.sessionModes.modeFor(sessionId) === undefined) {
+    notify("no session mode set", "info");
+    return false;
+  }
+  deps.appendEntry(SESSION_MODE_TYPE, { mode: mode ?? null });
+  deps.sessionModes.set(sessionId, mode);
+  return true;
+}
+
+/** A refused `/jev reset` keeps the session mode; a successful one drops it too. */
+function clearSessionModeOnReset(sessionId: string, deps: SessionModeDeps): void {
+  if (deps.sessionModes.modeFor(sessionId) === undefined) return;
+  changeSessionMode(undefined, sessionId, deps, () => {});
+}
+
+/** Tell the user when a saved mode change is shadowed by this session's mode. */
+function withSessionNote(report: string, s: Snapshot, saved: Mode): string {
+  if (s.settings.modeSource !== "session") return report;
+  return `${report}\nsession mode ${s.settings.mode} still applies here; saved mode is now ${saved}`;
+}
+
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
@@ -230,10 +281,11 @@ export async function runJev(
     window?: () => readonly WindowEntry[];
     overlay?: () => string | undefined;
     tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
-  },
+  } & SessionModeDeps,
 ): Promise<void> {
   try {
-    if (isChild(ctx.sessionManager.getSessionId())) return;
+    const sessionId = ctx.sessionManager.getSessionId();
+    if (isChild(sessionId)) return;
     const notify = (message: string, type: "info" | "warning" | "error"): void => {
       if (ctx.hasUI) ctx.ui.notify(message, type);
     };
@@ -288,11 +340,16 @@ export async function runJev(
           );
           return;
         } else {
-          cliReview = { model: outcome.check.model, effort: outcome.check.effort };
+          cliReview = {
+            model: outcome.check.model,
+            effort: outcome.check.effort,
+          };
         }
       }
     }
-    if (parsed.kind !== "status") {
+    if (parsed.kind === "session-mode") {
+      if (!changeSessionMode(parsed.mode, sessionId, deps, notify)) return;
+    } else if (parsed.kind !== "status") {
       const result = applyChange(parsed, deps.dir, cliReview);
       if (!result.ok) {
         notify(
@@ -301,10 +358,15 @@ export async function runJev(
         );
         return;
       }
+      if (parsed.kind === "reset") clearSessionModeOnReset(sessionId, deps);
     }
     const snapshot = deps.load();
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
-    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.()), "info");
+    const report = formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.());
+    notify(
+      parsed.kind === "mode" ? withSessionNote(report, snapshot, parsed.mode) : report,
+      "info",
+    );
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");

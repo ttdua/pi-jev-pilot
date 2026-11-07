@@ -216,6 +216,8 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       return runJev(args, ctx, {
         dir: jevDir(),
         load: () => loadSnapshot(pi),
+        appendEntry: (type, data) => pi.appendEntry(type, data),
+        sessionModes: sessionModes(),
         decision: main.decision,
         tally: log.tally,
         window: () => window.entries(),
