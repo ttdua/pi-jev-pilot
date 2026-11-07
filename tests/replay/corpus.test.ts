@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { mainSamples, sample, workerKind, workerSamples } from "../../scripts/replay/corpus.ts";
+import {
+  mainSamples,
+  mainStratum,
+  sample,
+  workerKind,
+  workerSamples,
+} from "../../scripts/replay/corpus.ts";
 
 const dir = join(import.meta.dir, "../fixtures/replay/sessions");
 const items = Array.from({ length: 60 }, (_, i) => ({ i, g: i < 40 ? "a" : i < 55 ? "b" : "c" }));
@@ -15,13 +21,48 @@ describe("mainSamples", () => {
       "Rename the gizmo module",
       "Plan the doohickey work",
       "Now do it",
+      "Fork branch one",
+      "Fork branch two",
     ]);
   });
 
   test("start effort from the effort entry or the ledger", () => {
     const s = mainSamples(dir);
-    expect(s.map((x) => x.startEffort)).toEqual(["high", "low", undefined, undefined, undefined]);
+    expect(s.map((x) => x.startEffort)).toEqual([
+      "high",
+      "low",
+      undefined,
+      undefined,
+      undefined,
+      "xhigh",
+      "low",
+    ]);
     expect(s[2]!.branch.map((e) => e.id)).toEqual(["u1", "c1", "a1", "u3"]);
+  });
+});
+
+describe("mainSamples robustness", () => {
+  test("headerless session file is skipped, not thrown", () => {
+    expect(mainSamples(dir).map((s) => s.prompt)).not.toContain("headerless prompt");
+    expect(workerSamples(dir).length).toBeGreaterThan(0);
+  });
+
+  test("any slash prompt is excluded", () => {
+    expect(mainSamples(dir).map((s) => s.prompt)).not.toContain("/other cmd");
+  });
+
+  test("start effort follows the prompt's branch, not file order", () => {
+    const fork = mainSamples(dir).filter((s) => s.session === "s-fork");
+    expect(fork.map((s) => [s.prompt, s.startEffort])).toEqual([
+      ["Fork branch one", "xhigh"],
+      ["Fork branch two", "low"],
+    ]);
+  });
+
+  test("mainStratum is cwd plus start effort", () => {
+    const [a, b] = [mainSamples(dir)[0]!, mainSamples(dir)[2]!];
+    expect(mainStratum(a)).toBe("/work/alpha|high");
+    expect(mainStratum(b)).toBe("/work/alpha|unknown");
   });
 });
 
@@ -43,6 +84,19 @@ describe("workerSamples", () => {
 describe("sample", () => {
   test("same seed, same corpus", () => expect(pick(7)).toEqual(pick(7)));
   test("different seed differs", () => expect(pick(7)).not.toEqual(pick(8)));
+  test("n >= items.length returns every item", () => {
+    expect(
+      sample(items, 99, 1, (t) => t.g)
+        .map((t) => t.i)
+        .sort((x, y) => x - y),
+    ).toEqual(items.map((t) => t.i));
+  });
+  test("exact largest-remainder allocation", () => {
+    const got = sample(items, 6, 3, (t) => t.g);
+    const count = (g: string) => got.filter((t) => t.g === g).length;
+    // exact quotas: a 4.0, b 1.5, c 0.5 -> a 4, then b takes the extra by key order
+    expect([count("a"), count("b"), count("c")]).toEqual([4, 2, 0]);
+  });
   test("stratified", () => {
     const got = sample(items, 20, 3, (t) => t.g);
     expect(got).toHaveLength(20);

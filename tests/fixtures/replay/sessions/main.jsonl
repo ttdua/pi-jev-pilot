@@ -9,3 +9,4 @@ this line is corrupt {{{
 {"type":"message","id":"u4","parentId":"u3","timestamp":"2026-01-01T00:00:07Z","message":{"role":"user","content":"/jev status"}}
 {"type":"message","id":"u5","parentId":"u4","timestamp":"2026-01-01T00:00:08Z","message":{"role":"user","content":"<skill name=\"x\" location=\"/s\">body</skill>"}}
 {"type":"message","id":"u6","parentId":"u5","timestamp":"2026-01-01T00:00:09Z","message":{"role":"user","content":"Fix the widget parser"}}
+{"type":"message","id":"u7","parentId":"u6","message":{"role":"user","content":"/other cmd"}}

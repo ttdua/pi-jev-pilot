@@ -44,7 +44,7 @@ function userPrompt(e: SessionEntry): string | undefined {
 }
 
 const isExcludedPrompt = (p: string): boolean =>
-  p === "" || p.startsWith("/jev") || p.startsWith("<skill");
+  p === "" || p.startsWith("/") || p.startsWith("<skill");
 
 function sessionFiles(dir: string): string[] {
   return readdirSync(dir)
@@ -53,14 +53,17 @@ function sessionFiles(dir: string): string[] {
     .map((n) => join(dir, n));
 }
 
-/** Effort at the start of a turn: the entries between this prompt and the next user message. */
+/** Effort at the start of a turn: the entries on this prompt's branch before its next user message. */
 function startEffortOf(
   entries: readonly SessionEntry[],
   index: number,
   ledger: ReturnType<typeof readLedgerLines>,
 ): string | undefined {
+  const reach = new Set<string>([entries[index]!.id!]);
   for (let i = index + 1; i < entries.length; i++) {
     const e = entries[i]!;
+    if (!e.id || !e.parentId || !reach.has(e.parentId)) continue;
+    reach.add(e.id);
     if (userPrompt(e) !== undefined) return undefined;
     const data = isRec(e.data) ? e.data : undefined;
     if (e.type !== "custom" || !data) continue;
@@ -81,8 +84,9 @@ export function mainSamples(dir: string): MainSample[] {
   const seen = new Set<string>();
   const out: MainSample[] = [];
   for (const path of sessionFiles(dir)) {
-    const { header, entries } = readSessionFile(path);
-    if (header.parentSession) continue;
+    const session = readSessionFile(path);
+    if (!session || session.header.parentSession) continue;
+    const { header, entries } = session;
     entries.forEach((entry, index) => {
       const prompt = userPrompt(entry);
       if (prompt === undefined || !entry.id || isExcludedPrompt(prompt) || seen.has(prompt)) return;
@@ -135,7 +139,9 @@ function nearestUserPrompt(branch: readonly SessionEntry[]): string | undefined 
 export function workerSamples(dir: string): WorkerSample[] {
   const out: WorkerSample[] = [];
   for (const path of sessionFiles(dir)) {
-    const { header, entries } = readSessionFile(path);
+    const session = readSessionFile(path);
+    if (!session) continue;
+    const { header, entries } = session;
     for (const entry of entries) {
       const m = messageOf(entry);
       if (m?.role !== "assistant" || !Array.isArray(m.content) || !entry.id) continue;

@@ -26,15 +26,33 @@ function jsonLines(path: string): Record<string, unknown>[] {
     .filter((v): v is Record<string, unknown> => v !== undefined);
 }
 
-export function readSessionFile(path: string): { header: SessionHeader; entries: SessionEntry[] } {
+/** Keeps only entries with a string `type`; `id` and `parentId` are kept only when well-typed. */
+function toEntry(raw: Record<string, unknown>): SessionEntry | undefined {
+  if (typeof raw.type !== "string") return undefined;
+  return {
+    type: raw.type,
+    ...(typeof raw.id === "string" ? { id: raw.id } : {}),
+    ...(typeof raw.parentId === "string" || raw.parentId === null
+      ? { parentId: raw.parentId }
+      : {}),
+    ...(typeof raw.customType === "string" ? { customType: raw.customType } : {}),
+    ...(raw.data !== undefined ? { data: raw.data } : {}),
+    ...(raw.message !== undefined ? { message: raw.message } : {}),
+  };
+}
+
+/** Parses a session file; returns undefined when the header is missing or corrupt. */
+export function readSessionFile(
+  path: string,
+): { header: SessionHeader; entries: SessionEntry[] } | undefined {
   const [head, ...rest] = jsonLines(path);
-  if (!head || head.type !== "session") throw new Error(`not a session file: ${path}`);
+  if (!head || head.type !== "session") return undefined;
   const header: SessionHeader = {
     id: String(head.id ?? ""),
     cwd: String(head.cwd ?? ""),
     ...(typeof head.parentSession === "string" ? { parentSession: head.parentSession } : {}),
   };
-  return { header, entries: rest.filter((e) => typeof e.type === "string") as SessionEntry[] };
+  return { header, entries: rest.flatMap((e) => toEntry(e) ?? []) };
 }
 
 /** The entries from the root down to `entryId`, following `parentId`. */
