@@ -8,9 +8,9 @@
 
 ## 3. Host holder and snapshot
 
-- [ ] 3.1 Add `src/host/session-mode.ts`: an in-memory holder tagged with its session id, offering rebuild-from-branch and set-after-append (`session-mode` "Session mode entry", "Session mode belongs to its session"; design D2)
-- [ ] 3.2 Make `loadSnapshot` pass the holder's mode to the resolver only for the current main session id, leaving every call site unchanged (design D2)
-- [ ] 3.3 Rebuild the holder at every main `session_start` and at `session_tree`, then redraw the status line after the tree rebuild; skip child sessions (`session-mode` "Session mode from the branch", "Inert in a child session")
+- [x] 3.1 Add `src/host/session-mode.ts`: an in-memory holder tagged with its session id, offering rebuild-from-branch and set-after-append (`session-mode` "Session mode entry", "Session mode belongs to its session"; design D2)
+- [x] 3.2 Make `loadSnapshot` pass the holder's mode to the resolver only for the current main session id, leaving every call site unchanged (design D2)
+- [x] 3.3 Rebuild the holder at every main `session_start` and at `session_tree`, then redraw the status line after the tree rebuild; skip child sessions (`session-mode` "Session mode from the branch", "Inert in a child session")
 
 ## 4. Command forms
 
