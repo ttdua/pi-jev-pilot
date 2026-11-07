@@ -68,7 +68,7 @@ Lines from every mode are pooled. Cut points are recomputed from the window befo
 *Alternative:* re-read the ledger at every launch. Rejected: it adds file I/O to the launch path and gains only other processes' lines.
 *Alternative:* a window per mode. Rejected: the score does not depend on the mode, and a pool avoids a cold start after a mode switch.
 
-**D7. Seed cut points.** `SEED_CUTPOINTS: Record<ModeName, CutPoints>` in `policy/cutpoints.ts` is computed from the 2026-11-07 replay answers with the D2 formula and the D4 rules. The values are written to the evidence note. The tests check that `cutPoints` reproduces them from a fixture of synthetic scores with the same quantiles; the real scores are not stored.
+**D7. Seed cut points.** `SEED_CUTPOINTS: Record<ModeName, CutPoints>` in `policy/seed.ts` (data only; `cutPointsFor` in `policy/cutpoints.ts` picks it below 100 entries) is computed from the 2026-11-07 replay answers with the D2 formula and the D4 rules. The values are written to the evidence note. The tests check that `cutPoints` reproduces them from a fixture of synthetic scores with the same quantiles; the real scores are not stored.
 
 **D8. Ledger line.** The `worker` line gains three optional fields:
 - `score`, a number from 0 to 3.5;

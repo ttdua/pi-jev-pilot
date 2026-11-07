@@ -354,7 +354,7 @@
 
 ## Scenario → test
 
-Each line is `Requirement › Scenario → test file`. The test name in the file matches the scenario name.
+Each line is `Requirement › Scenario → test file`. Most test names match the scenario name; the rest map to the closest test, listed in `verify.md` section 4.
 
 **decision-ledger**
 
@@ -559,8 +559,8 @@ Each line is `Requirement › Scenario → test file`. The test name in the file
 - Cut-point window › Unreadable ledger → `tests/host/cutpoint-window.test.ts`
 - Cut-point window › Write failure still counts → `tests/host/cutpoint-window.test.ts`
 - Cut-point window › No ledger read per launch → `tests/host/cutpoint-window.test.ts`
-- Cut points of a launch › Siblings share a window state → `tests/host/worker-routing.test.ts`
-- Cut points of a launch › Launch classified alone → `tests/host/worker-routing.test.ts`
+- Cut points of a launch › Siblings share a window state → `tests/host/worker.test.ts`
+- Cut points of a launch › Launch classified alone → `tests/host/worker.test.ts`
 - Mode of a launch › Premium launch end to end → `tests/host/worker-routing.test.ts`
-- Mode of a launch › Mode changed between message end and launch → `tests/host/worker-routing.test.ts`
+- Mode of a launch › Mode changed between message end and launch → `tests/host/worker.test.ts`
 - Mode of a launch › Jev down in premium → `tests/host/worker-routing.test.ts`
