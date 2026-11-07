@@ -83,6 +83,22 @@ describe("host session harness", () => {
     });
   }, 60_000);
 
+  test("jev config carries effort.holdProviders only when given", async () => {
+    const fixture = await fixtureWith([]);
+    const plain = await sessionWith(fixture);
+    const read = (dir: string): Record<string, unknown> =>
+      JSON.parse(readFileSync(join(dir, "jev", "config.json"), "utf8")) as Record<string, unknown>;
+    expect("effort" in read(plain.agentDir)).toBe(false);
+    const url = "http://127.0.0.1:1/v1/systemone";
+    const held = await sessionWith(fixture, {
+      jevConfig: { url, timeoutMs: 50, holdProviders: ["fixture"] },
+    });
+    expect(read(held.agentDir)).toEqual({
+      classifier: { url, timeoutMs: 50 },
+      effort: { holdProviders: ["fixture"] },
+    });
+  }, 60_000);
+
   test("installs executor offline", async () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },

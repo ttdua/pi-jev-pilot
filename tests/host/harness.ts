@@ -109,7 +109,7 @@ type PrepareOpts = {
   /** Reuse a working directory. */
   cwd?: string;
   /** Classifier endpoint written to jev/config.json; defaults to a refused loopback port. */
-  jevConfig?: { url: string; timeoutMs: number };
+  jevConfig?: { url: string; timeoutMs: number; holdProviders?: string[] };
 };
 
 const DEFAULT_JEV_CONFIG = { url: "http://127.0.0.1:9/v1/systemone", timeoutMs: 300 };
@@ -118,9 +118,10 @@ const DEFAULT_JEV_CONFIG = { url: "http://127.0.0.1:9/v1/systemone", timeoutMs: 
 function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): void {
   const file = join(agentDir, "jev", "config.json");
   if (existsSync(file)) return;
-  const { url, timeoutMs } = jevConfig ?? DEFAULT_JEV_CONFIG;
+  const { url, timeoutMs, holdProviders } = { ...DEFAULT_JEV_CONFIG, ...jevConfig };
   mkdirSync(join(agentDir, "jev"), { recursive: true });
-  writeFileSync(file, JSON.stringify({ classifier: { url, timeoutMs } }));
+  const effort = holdProviders === undefined ? {} : { effort: { holdProviders } };
+  writeFileSync(file, JSON.stringify({ classifier: { url, timeoutMs }, ...effort }));
 }
 
 /** Shared setup: temp dirs, models.json, agents and installs. */
