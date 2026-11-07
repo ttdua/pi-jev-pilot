@@ -234,6 +234,7 @@ export async function runJev(
     window?: () => readonly WindowEntry[];
     overlay?: () => string | undefined;
     tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
+    sync?: (snapshot: Snapshot) => void;
   },
 ): Promise<void> {
   try {
@@ -307,6 +308,13 @@ export async function runJev(
       }
     }
     const snapshot = deps.load();
+    if (parsed.kind !== "status") {
+      try {
+        deps.sync?.(snapshot);
+      } catch {
+        /* a failed tool sync must not hide the status */
+      }
+    }
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
     notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.()), "info");
   } catch (err) {

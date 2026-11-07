@@ -607,6 +607,20 @@ describe("setup", () => {
       expect(f.active()).toEqual(["read", "jev_review"]);
     });
 
+    test("/jev cli-review on activates jev_review", async () => {
+      const f = fakePi();
+      f.setActive(["read"]);
+      setup(f.pi);
+      const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+      await jev.handler("cli-review on", {
+        hasUI: true,
+        mode: "rpc",
+        ui: { notify: () => {}, setWidget: () => {} },
+        sessionManager: { getSessionId: () => "main" },
+      });
+      expect(f.active()).toEqual(["read", "jev_review"]);
+    });
+
     test("an assessment failure still leaves the review tool hidden", async () => {
       mkdirSync(join(agentDir, "jev"), { recursive: true });
       writeFileSync(join(agentDir, "jev", "config.json"), JSON.stringify({}));

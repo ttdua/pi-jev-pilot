@@ -653,6 +653,46 @@ describe("runJev mode", () => {
   });
 });
 
+describe("runJev sync", () => {
+  test("sync runs after a change, not after status or usage", async () => {
+    const dir = jevDir();
+    const seen: boolean[] = [];
+    const go = async (args: string) => {
+      const c = fakeCtx();
+      await runJev(args, c.ctx, {
+        dir,
+        load: load(dir),
+        decision: noDecision,
+        exec: noExec,
+        sync: (s) => seen.push(s.settings.review.enabled),
+      });
+    };
+    await go("");
+    await go("bogus words here");
+    expect(seen).toEqual([]);
+    await go("cli-review on");
+    expect(seen).toEqual([true]);
+    await go("reset");
+    expect(seen).toEqual([true, false]);
+  });
+
+  test("a throwing sync still draws and notifies", async () => {
+    const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("cli-review on", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      sync: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(c.rec.widgets).toHaveLength(1);
+    expect(c.rec.notes.map((n) => n[1])).toEqual(["info"]);
+  });
+});
+
 describe("runJev cli-review", () => {
   const catalog = JSON.stringify({
     models: [

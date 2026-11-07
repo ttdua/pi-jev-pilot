@@ -215,6 +215,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
         tune: (sub, c) => runTune(tuningDeps(), sub, c),
+        sync: (s) => syncReviewTool(pi, s.settings.review.enabled),
       });
     },
   });
