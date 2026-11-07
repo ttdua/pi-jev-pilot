@@ -106,6 +106,7 @@ export function formatStatus(s: Snapshot, t?: Tally): string {
   const problems: string[] = [];
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
+  problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");

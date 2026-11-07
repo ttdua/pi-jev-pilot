@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { buildSnapshot, hasExecutor, isKeySet, loadSnapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import type { StateRead } from "../../src/store/state-file.ts";
+import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
 
 const okConfig = (config: Config = {}): ConfigRead => ({ kind: "ok", present: true, config });
@@ -83,6 +84,43 @@ describe("buildSnapshot", () => {
   });
 });
 
+describe("buildSnapshot tuning", () => {
+  const tuned: TuningRead = {
+    kind: "ok",
+    record: { timeoutMs: { value: 1700, base: 1500 } },
+  };
+
+  test("Tuned value in the snapshot", () => {
+    const s = snap({ tuningRead: tuned });
+    expect(s.settings.classifier.timeoutMs).toBe(1700);
+    expect(s.untunedTimeoutMs).toBe(1500);
+    expect(s.tuning.kind).toBe("ok");
+    expect(s.tuning.record).toEqual(tuned.record);
+  });
+
+  test("Tuning ignored with an invalid config", () => {
+    const s = snap({
+      configRead: { kind: "invalid", issues: [{ path: "x", message: "bad" }] },
+      tuningRead: tuned,
+    });
+    expect(s.settings.classifier.timeoutMs).toBe(1500);
+    expect(s.untunedTimeoutMs).toBe(1500);
+  });
+
+  test("Malformed tuning ignored", () => {
+    const issues = [{ path: "", message: "tuning.json is not valid JSON" }];
+    const s = snap({ tuningRead: { kind: "malformed", record: {}, issues } });
+    expect(s.settings.classifier.timeoutMs).toBe(1500);
+    expect(s.tuning.kind).toBe("malformed");
+    expect(s.tuning.issues).toEqual(issues);
+  });
+
+  test("missing tuning by default", () => {
+    const s = snap();
+    expect(s.tuning).toEqual({ kind: "missing", issues: [], record: {} });
+  });
+});
+
 describe("isKeySet / hasExecutor", () => {
   test("isKeySet", () => {
     expect(isKeySet({ A: "v" }, "A")).toBe(true);
@@ -112,9 +150,15 @@ describe("loadSnapshot", () => {
     process.env.PI_CODING_AGENT_DIR = dir;
     mkdirSync(join(dir, "jev"));
     writeFileSync(join(dir, "jev", "state.json"), '{"version":1,"mode":"budget"}');
+    writeFileSync(
+      join(dir, "jev", "tuning.json"),
+      '{"version":1,"timeoutMs":{"value":1700,"base":1500}}',
+    );
     const pi = { getAllTools: () => [{ name: "subagent" }] } as never;
     const s = loadSnapshot(pi);
     expect(s.settings.mode).toBe("budget");
     expect(s.executor).toBe(true);
+    expect(s.tuning.kind).toBe("ok");
+    expect(s.settings.classifier.timeoutMs).toBe(1700);
   });
 });

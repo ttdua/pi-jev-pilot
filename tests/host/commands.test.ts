@@ -18,6 +18,7 @@ import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
+import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
 
 function snap(
@@ -27,6 +28,7 @@ function snap(
     state?: State;
     env?: Record<string, string | undefined>;
     tools?: string[];
+    tuningRead?: TuningRead;
   } = {},
 ): Snapshot {
   return buildSnapshot({
@@ -34,6 +36,7 @@ function snap(
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
+    ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
   });
 }
 
@@ -114,6 +117,13 @@ describe("usageText", () => {
 });
 
 describe("formatStatus", () => {
+  test("Malformed tuning reported", () => {
+    const issues = [{ path: "", message: "tuning.json is not valid JSON" }];
+    const text = formatStatus(snap({ tuningRead: { kind: "malformed", record: {}, issues } }));
+    expect(text).toContain("problems:");
+    expect(text).toContain("  tuning (malformed) (file): tuning.json is not valid JSON");
+  });
+
   test("default", () => {
     const text = formatStatus(snap());
     expect(text).toContain("Jev · standard");
