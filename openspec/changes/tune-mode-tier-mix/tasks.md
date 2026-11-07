@@ -18,7 +18,7 @@
 
 ## 4. Ledger schema
 
-- [ ] 4.1 In `src/store/ledger-schema.ts`, add the `score` (0–3.5) and `rubric version` (integer 1–99) domains, the worker fields `score`, `rubric` and `expertOffered`, and the reasons `expert` and `cut`, keeping the retired names. Update the exported field sets. Update `tests/store/ledger-schema.test.ts` for the modified `decision-ledger` requirements: Ledger value domains, Ledger line schema, Worker decisions record their tier
+- [x] 4.1 In `src/store/ledger-schema.ts`, add the `score` (0–3.5) and `rubric version` (integer 1–99) domains, the worker fields `score`, `rubric` and `expertOffered`, and the reasons `expert` and `cut`, keeping the retired names. Update the exported field sets. Update `tests/store/ledger-schema.test.ts` for the modified `decision-ledger` requirements: Ledger value domains, Ledger line schema, Worker decisions record their tier
 
 ## 5. Host wiring
 
