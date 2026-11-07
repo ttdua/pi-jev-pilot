@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { branchItems } from "../../src/jev/branch.ts";
 import type { BranchItem, GitCounts, RichGroup, RichInputs } from "../../src/jev/state.ts";
 import { scanLanguages, scanPlatforms } from "../../src/jev/workspace.ts";
-import type { AgentFacts } from "../../src/policy/launch.ts";
+import { type AgentFacts, LOCKABLE_FIELDS } from "../../src/policy/launch.ts";
 import type { MainSample, WorkerSample } from "./corpus.ts";
 import type { readLedgerLines, SessionEntry } from "./sessions.ts";
 
@@ -36,6 +36,38 @@ type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => v !== null && typeof v === "object";
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
+const isStrings = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === "string");
+const optionalBool = (v: unknown): boolean => v === undefined || typeof v === "boolean";
+
+function isTool(v: unknown): v is Snapshot["tools"][number] {
+  return isRec(v) && typeof v.name === "string" && typeof v.description === "string";
+}
+
+function isLocked(v: unknown): boolean {
+  if (v === undefined || v === true) return true;
+  return Array.isArray(v) && v.every((f) => (LOCKABLE_FIELDS as readonly unknown[]).includes(f));
+}
+
+function isAgent(v: unknown): v is AgentFacts {
+  if (!isRec(v)) return false;
+  const sets = v.sets;
+  return (
+    typeof v.name === "string" &&
+    (v.source === "project" || v.source === "global" || v.source === "builtin") &&
+    typeof v.description === "string" &&
+    typeof v.instructionsExcerpt === "string" &&
+    (v.declaredTools === null || isStrings(v.declaredTools)) &&
+    (v.maxTurns === null || typeof v.maxTurns === "number") &&
+    optionalBool(v.runInBackground) &&
+    optionalBool(v.inheritContext) &&
+    isLocked(v.locked) &&
+    isRec(sets) &&
+    typeof sets.model === "boolean" &&
+    typeof sets.thinking === "boolean"
+  );
+}
+
 export function readSnapshot(path: string): Snapshot {
   let parsed: unknown;
   try {
@@ -51,7 +83,11 @@ export function readSnapshot(path: string): Snapshot {
   ) {
     throw new SnapshotError(`capabilities snapshot ${path} is not version 1`);
   }
-  return parsed as Snapshot;
+  const { tools, agents } = parsed;
+  if (!tools.every(isTool) || !agents.every(isAgent)) {
+    throw new SnapshotError(`capabilities snapshot ${path} has a malformed tool or agent`);
+  }
+  return { v: 1, tools, agents };
 }
 
 export function agentFacts(snapshot: Snapshot | undefined, name: string): AgentFacts | undefined {
@@ -117,7 +153,13 @@ function contextPercent(
     if (m?.role !== "assistant") continue;
     const tokens = isRec(m.usage) ? m.usage.totalTokens : undefined;
     const window = models.get(`${String(m.provider)}/${String(m.model)}`);
-    if (typeof tokens !== "number" || window === undefined || window <= 0) return undefined;
+    if (
+      typeof tokens !== "number" ||
+      !Number.isFinite(tokens) ||
+      window === undefined ||
+      window <= 0
+    )
+      return undefined;
     return (tokens * 100) / window;
   }
   return undefined;

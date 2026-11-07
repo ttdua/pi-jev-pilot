@@ -166,6 +166,65 @@ describe("models and snapshot", () => {
   });
 });
 
+describe("snapshot element validation", () => {
+  const agent = {
+    name: "scout",
+    source: "builtin",
+    description: "d",
+    instructionsExcerpt: "",
+    declaredTools: null,
+    maxTurns: null,
+    sets: { model: false, thinking: false },
+  };
+  const load = (snapshot: object) => {
+    const dir = mkdtempSync(join(tmpdir(), "replay-snap-"));
+    try {
+      const path = join(dir, "s.json");
+      writeFileSync(path, JSON.stringify(snapshot));
+      return readSnapshot(path);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const bad: [string, object][] = [
+    ["tool is not an object", { v: 1, tools: [1], agents: [] }],
+    ["tool lacks description", { v: 1, tools: [{ name: "read" }], agents: [] }],
+    ["agent is null", { v: 1, tools: [], agents: [null] }],
+    ["agent lacks name", { v: 1, tools: [], agents: [{ ...agent, name: 3 }] }],
+    ["agent declaredTools bad", { v: 1, tools: [], agents: [{ ...agent, declaredTools: [1] }] }],
+    [
+      "agent declaredTools missing",
+      { v: 1, tools: [], agents: [{ ...agent, declaredTools: undefined }] },
+    ],
+    ["agent maxTurns bad", { v: 1, tools: [], agents: [{ ...agent, maxTurns: "5" }] }],
+    ["agent source bad", { v: 1, tools: [], agents: [{ ...agent, source: "x" }] }],
+    ["agent sets bad", { v: 1, tools: [], agents: [{ ...agent, sets: { model: 1 } }] }],
+    ["agent locked bad", { v: 1, tools: [], agents: [{ ...agent, locked: "yes" }] }],
+    ["agent flag bad", { v: 1, tools: [], agents: [{ ...agent, inheritContext: "no" }] }],
+  ];
+  for (const [name, snapshot] of bad) {
+    test(`rejects: ${name}`, () => {
+      expect(() => load(snapshot)).toThrow(SnapshotError);
+    });
+  }
+
+  test("accepts well-formed elements", () => {
+    const ok = load({
+      v: 1,
+      tools: [{ name: "read", description: "Reads." }],
+      agents: [{ ...agent, declaredTools: ["read"], maxTurns: 5, locked: ["model"] }],
+    });
+    expect(ok.agents[0]!.name).toBe("scout");
+  });
+
+  test("non-finite token count is missing", () => {
+    for (const t of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const r = rebuildRich(sampleOf([assistant("a", t)]), ctx());
+      expect(r.missing).toContain("context_used_percent");
+    }
+  });
+});
+
 describe("same state as live", () => {
   const branch = [
     user("u0", "earlier question?"),

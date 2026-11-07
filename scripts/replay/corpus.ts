@@ -55,46 +55,50 @@ function sessionFiles(dir: string): string[] {
     .map((n) => join(dir, n));
 }
 
+/**
+ * Entries on this prompt's branch after `index`, in file order, stopping before the next user
+ * message. Return a value from `visit` to end the walk with it.
+ */
+function walkBranch<T>(
+  entries: readonly SessionEntry[],
+  index: number,
+  visit: (e: SessionEntry) => T | undefined,
+): T | undefined {
+  const reach = new Set<string>([entries[index]!.id!]);
+  for (let i = index + 1; i < entries.length; i++) {
+    const e = entries[i]!;
+    if (!e.id || !e.parentId || !reach.has(e.parentId)) continue;
+    reach.add(e.id);
+    if (userPrompt(e) !== undefined) return undefined;
+    const found = visit(e);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
 /** Effort at the start of a turn: the entries on this prompt's branch before its next user message. */
 function startEffortOf(
   entries: readonly SessionEntry[],
   index: number,
   ledger: ReturnType<typeof readLedgerLines>,
 ): string | undefined {
-  const reach = new Set<string>([entries[index]!.id!]);
-  for (let i = index + 1; i < entries.length; i++) {
-    const e = entries[i]!;
-    if (!e.id || !e.parentId || !reach.has(e.parentId)) continue;
-    reach.add(e.id);
-    if (userPrompt(e) !== undefined) return undefined;
+  return walkBranch(entries, index, (e) => {
     const data = isRec(e.data) ? e.data : undefined;
-    if (e.type !== "custom" || !data) continue;
-    if (e.customType === "jev-pilot:effort") {
-      const requested = str(data.requested);
-      if (requested) return requested;
-    } else if (e.customType === "jev-turn") {
-      const turnId = str(data.turnId);
-      const from = turnId ? ledger.get(turnId)?.from : undefined;
-      if (from) return from;
-    }
-  }
-  return undefined;
+    if (e.type !== "custom" || !data) return undefined;
+    if (e.customType === "jev-pilot:effort") return str(data.requested) || undefined;
+    if (e.customType !== "jev-turn") return undefined;
+    const turnId = str(data.turnId);
+    return (turnId ? ledger.get(turnId)?.from : undefined) || undefined;
+  });
 }
 
 /** Turn id of the first `jev-turn` entry on this prompt's branch before its next user message. */
 function turnIdOf(entries: readonly SessionEntry[], index: number): string | undefined {
-  const reach = new Set<string>([entries[index]!.id!]);
-  for (let i = index + 1; i < entries.length; i++) {
-    const e = entries[i]!;
-    if (!e.id || !e.parentId || !reach.has(e.parentId)) continue;
-    reach.add(e.id);
-    if (userPrompt(e) !== undefined) return undefined;
-    if (e.type === "custom" && e.customType === "jev-turn" && isRec(e.data)) {
-      const turnId = str(e.data.turnId);
-      if (turnId) return turnId;
-    }
-  }
-  return undefined;
+  return walkBranch(entries, index, (e) =>
+    e.type === "custom" && e.customType === "jev-turn" && isRec(e.data)
+      ? str(e.data.turnId) || undefined
+      : undefined,
+  );
 }
 
 export function mainSamples(dir: string): MainSample[] {
