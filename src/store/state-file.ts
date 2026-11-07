@@ -18,6 +18,7 @@ export type State = {
   switches?: Partial<Record<Feature, boolean>>;
   mode?: Mode;
   cliReview?: { cli: "codex" | "opencode"; model?: string; effort?: string };
+  cliReviewEnabled?: boolean;
 };
 
 export type StateRead =
@@ -64,6 +65,7 @@ function stateValidator(): V<State & { version: 1 }> {
       switches: object(Object.fromEntries(FEATURES.map((f) => [f, boolean()]))),
       mode: oneOf(MODES),
       cliReview: cliReviewValidator,
+      cliReviewEnabled: boolean(),
     },
     { required: ["version"] },
   ) as V<State & { version: 1 }>;

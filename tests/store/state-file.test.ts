@@ -75,6 +75,20 @@ describe("state content", () => {
       expect(paths(r)).toEqual(["cliReview.model"]);
     }));
 
+  test("CLI review switch read", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReviewEnabled":true}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: { cliReviewEnabled: true } });
+    }));
+
+  test("Non-boolean CLI review switch", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReviewEnabled":"yes"}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["cliReviewEnabled"]);
+    }));
+
   test("OpenCode provider/model id accepted", () =>
     withDir((dir) => {
       put(dir, '{"version":1,"cliReview":{"cli":"opencode","model":"ollama-cloud/gpt-oss:120b"}}');
@@ -236,7 +250,7 @@ describe("Reset", () => {
     withDir((dir) => {
       put(
         dir,
-        '{"version":1,"switches":{"skills":false},"mode":"budget","cliReview":{"cli":"codex"}}',
+        '{"version":1,"switches":{"skills":false},"mode":"budget","cliReview":{"cli":"codex"},"cliReviewEnabled":true}',
       );
       expect(resetState(dir)).toEqual({ ok: true });
       expect(readState(dir)).toEqual({ kind: "ok", state: {} });
