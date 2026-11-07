@@ -14,10 +14,10 @@
 
 ## 4. Command forms
 
-- [ ] 4.1 Parse `/jev mode <m> session` and `/jev mode session off`, keep every other extra-word form as usage, and update the usage text (`jev-command` "Usage text for other input"; design D4)
-- [ ] 4.2 Run the set and clear forms: append the `jev-mode` entry, update the holder after the append succeeds, report `no session mode set` when there is nothing to clear, never touch `state.json` (`session-mode` "Set a session mode", "Clear the session mode", "Session mode entry")
-- [ ] 4.3 `/jev mode <m>` while a session mode is set: save, keep the session mode, add the `still applies here` report line (`jev-command` "Mode"; design D5)
-- [ ] 4.4 `/jev reset` clears the session mode only after a successful state reset (`jev-command` "Reset"; design D6)
+- [x] 4.1 Parse `/jev mode <m> session` and `/jev mode session off`, keep every other extra-word form as usage, and update the usage text (`jev-command` "Usage text for other input"; design D4)
+- [x] 4.2 Run the set and clear forms: append the `jev-mode` entry, update the holder after the append succeeds, report `no session mode set` when there is nothing to clear, never touch `state.json` (`session-mode` "Set a session mode", "Clear the session mode", "Session mode entry")
+- [x] 4.3 `/jev mode <m>` while a session mode is set: save, keep the session mode, add the `still applies here` report line (`jev-command` "Mode"; design D5)
+- [x] 4.4 `/jev reset` clears the session mode only after a successful state reset (`jev-command` "Reset"; design D6)
 
 ## 5. Visible text
 
