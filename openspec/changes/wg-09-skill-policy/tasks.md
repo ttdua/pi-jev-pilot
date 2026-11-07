@@ -5,7 +5,7 @@
 
 ## 2. Pure skill policy
 
-- [ ] 2.1 Add `skillCriterion` and `skillBatches` in `src/policy/skill.ts` (Skill criterion, Catalog batches)
+- [x] 2.1 Add `skillCriterion` and `skillBatches` in `src/policy/skill.ts` (Skill criterion, Catalog batches)
 - [ ] 2.2 Add `batchLeader`, `gateMean` and `pickSkill` in `src/policy/skill.ts`, reading `ReadResult` values from `src/policy/answers.ts` (Batch leader, Gate mean, Pick rule)
 - [ ] 2.3 Add `deliveryForm` and `deliveryText` in `src/policy/skill.ts` (Delivery text, Duplicate check)
 
