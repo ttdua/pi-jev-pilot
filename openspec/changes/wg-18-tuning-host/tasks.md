@@ -36,5 +36,5 @@
 
 ## 8. Docs
 
-- [ ] 8.1 Update `docs/usage-guide.md`, `docs/domain-model.md`, `docs/configuration.md`, `docs/workflow.md` (§5, §8), `docs/architecture.md` (new modules) and `docs/roadmap.md` (WG-18 done)
-- [ ] 8.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 8.1 Update `docs/usage-guide.md`, `docs/domain-model.md`, `docs/configuration.md`, `docs/workflow.md` (§5, §8), `docs/architecture.md` (new modules) and `docs/roadmap.md` (WG-18 done)
+- [x] 8.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
