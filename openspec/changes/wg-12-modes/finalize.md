@@ -16,7 +16,7 @@
 - **Branch**: `WG-12`
 - **Base branch**: `main`
 - **Final state**: `pr-open`. `wg-12-modes` was fast-forwarded into `WG-12` (`3d6abb2..19af1df`). `origin/main` was then merged in (`25b41ef`), and `WG-12` was pushed.
-- **PR URL**: see the PR comment section
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/34
 
 Deviations from the canonical steps:
 - Push and PR waited for the operator's explicit approval, as project policy (`AGENTS.md`) requires. The operator chose "merge origin/main into WG-12, resolve, test, push, open PR".
@@ -34,7 +34,7 @@ Deviations from the canonical steps:
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`. To be posted if a PR is opened after approval.
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/34#issuecomment-6701456274)
 
 ---
 
