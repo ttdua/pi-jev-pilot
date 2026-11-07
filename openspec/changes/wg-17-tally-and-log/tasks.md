@@ -17,7 +17,7 @@
 
 ## 4. Host test
 
-- [ ] 4.1 `tests/host/verbose-log.test.ts`: real host session with `verbose` on in `state.json`, two prompts; the session file holds a `jev-log` entry equal to the first `main` ledger line, and the second provider request contains neither `jev-log` nor that line's `turnId`; a run with default switches writes no `jev-log` entry
+- [x] 4.1 `tests/host/verbose-log.test.ts`: real host session with `verbose` on in `state.json`, two prompts; the session file holds a `jev-log` entry equal to the first `main` ledger line, and the second provider request contains neither `jev-log` nor that line's `turnId`; a run with default switches writes no `jev-log` entry
 
 ## 5. Docs and checks
 
