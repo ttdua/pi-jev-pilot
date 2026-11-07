@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { chmodSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
+import { writeFileAtomic } from "./atomic.ts";
 import {
   array,
   boolean,
@@ -9,6 +10,7 @@ import {
   oneOf,
   type Issue,
   type V,
+  type WriteResult,
 } from "./validate.ts";
 
 export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
@@ -105,6 +107,7 @@ function parseTuning(text: string): { record: TuningDocument } | { issues: Issue
   }
   const issues: Issue[] = [];
   const parsed = tuningValidator()(raw, "", issues);
+  // Load-bearing: `object` can return a value while issues exist.
   if (issues.length > 0 || parsed === undefined) return { issues };
   const { version: _version, ...record } = parsed;
   return { record };
@@ -126,4 +129,43 @@ export function readTuning(dir: string): TuningRead {
   const result = parseTuning(text);
   if ("issues" in result) return { kind: "malformed", record: {}, issues: result.issues };
   return { kind: "ok", record: result.record };
+}
+
+/** Reads, mutates, validates and atomically writes tuning.json. Never throws. */
+export function updateTuning(
+  dir: string,
+  mutate: (r: TuningDocument) => TuningDocument,
+): WriteResult {
+  const read = readTuning(dir);
+  if (read.kind === "unreadable") return { ok: false, issues: read.issues };
+  let next: TuningDocument;
+  try {
+    next = mutate(read.kind === "ok" ? read.record : {});
+  } catch {
+    return { ok: false, issues: [{ path: "", message: "update failed" }] };
+  }
+  const document = { version: 1, ...next };
+  const issues = validateTuning(document);
+  if (issues.length > 0) return { ok: false, issues };
+  if (read.kind === "malformed") {
+    const bad = join(dir, "tuning.json.bad");
+    try {
+      renameSync(join(dir, "tuning.json"), bad);
+      chmodSync(bad, 0o600);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code ?? "EIO";
+      return {
+        ok: false,
+        issues: [{ path: "", message: `cannot move tuning.json aside (${code})` }],
+      };
+    }
+  }
+  const written = writeFileAtomic(dir, "tuning.json", JSON.stringify(document, null, 2) + "\n");
+  if (!written.ok) {
+    return {
+      ok: false,
+      issues: [{ path: "", message: `cannot write tuning.json (${written.code})` }],
+    };
+  }
+  return { ok: true };
 }

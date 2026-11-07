@@ -1,7 +1,7 @@
-import { chmodSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { readTuning } from "../../src/store/tuning-file.ts";
+import { readTuning, updateTuning } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
 
 const isRoot = process.getuid?.() === 0;
@@ -88,6 +88,16 @@ describe("tuning file states", () => {
     expect(r.record).toEqual({});
     expect(paths(r)).toEqual([""]);
   });
+  test("Non-object root", () => {
+    const r = read([]);
+    expect(r.kind).toBe("malformed");
+    expect(paths(r)).toEqual([""]);
+  });
+  test("Missing version", () => {
+    const r = read({});
+    expect(r.kind).toBe("malformed");
+    expect(paths(r)).toEqual(["version"]);
+  });
   test("Partly valid file is not salvaged", () => {
     const r = read({ version: 1, timeoutMs: full.timeoutMs, history: "x" });
     expect(r.kind).toBe("malformed");
@@ -107,4 +117,81 @@ describe("tuning file states", () => {
       expect(JSON.stringify(r)).toContain("EACCES");
     }),
   );
+});
+
+const file = (dir: string): string => join(dir, "tuning.json");
+const bytes = (path: string): string => readFileSync(path, "utf8");
+const mode = (path: string): number => statSync(path).mode & 0o777;
+
+describe("updateTuning", () => {
+  test("Change persists", () =>
+    withDir((base) => {
+      const dir = join(base, "fresh", "sub");
+      const r = updateTuning(dir, (t) => ({ ...t, timeoutMs: { value: 1700, base: 1500 } }));
+      expect(r).toEqual({ ok: true });
+      expect(readTuning(dir)).toEqual({
+        kind: "ok",
+        record: { timeoutMs: { value: 1700, base: 1500 } },
+      });
+      expect(mode(file(dir))).toBe(0o600);
+      expect(mode(dir)).toBe(0o700);
+    }));
+  test("Bad file moved aside", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,');
+      const r = updateTuning(dir, (t) => ({ ...t, off: true }));
+      expect(r).toEqual({ ok: true });
+      expect(bytes(join(dir, "tuning.json.bad"))).toBe('{"version":1,');
+      expect(mode(join(dir, "tuning.json.bad"))).toBe(0o600);
+      expect(JSON.parse(bytes(file(dir)))).toEqual({ version: 1, off: true });
+    }));
+  test("Invalid update refused", () =>
+    withDir((dir) => {
+      put(dir, { version: 1 });
+      const before = bytes(file(dir));
+      const r = updateTuning(dir, (t) => ({ ...t, timeoutMs: { value: 9000, base: 1500 } }));
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.issues.map((i) => i.path)).toEqual(["timeoutMs.value"]);
+      expect(bytes(file(dir))).toBe(before);
+    }));
+  test("Throwing change refused", () =>
+    withDir((dir) => {
+      put(dir, { version: 1, off: true });
+      const before = bytes(file(dir));
+      const r = updateTuning(dir, () => {
+        throw new Error("boom");
+      });
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.issues.map((i) => i.path)).toEqual([""]);
+      expect(bytes(file(dir))).toBe(before);
+    }));
+  test.skipIf(isRoot)("Permission denied (update)", () =>
+    withDir((dir) => {
+      put(dir, { version: 1 });
+      const before = bytes(file(dir));
+      chmodSync(file(dir), 0o000);
+      const r = updateTuning(dir, (t) => ({ ...t, off: true }));
+      expect(r.ok).toBe(false);
+      expect(JSON.stringify(r)).toContain("EACCES");
+      expect(existsSync(join(dir, "tuning.json.bad"))).toBe(false);
+      expect(mode(file(dir))).toBe(0);
+      chmodSync(file(dir), 0o600);
+      expect(bytes(file(dir))).toBe(before);
+    }),
+  );
+  test("Other files untouched", () =>
+    withDir((dir) => {
+      writeFileSync(join(dir, "config.json"), '{"version":1}');
+      writeFileSync(join(dir, "state.json"), '{"version":1}');
+      const snap = ["config.json", "state.json"].map((n) => [
+        bytes(join(dir, n)),
+        statSync(join(dir, n)).mtimeMs,
+      ]);
+      updateTuning(dir, (t) => ({ ...t, off: true }));
+      const after = ["config.json", "state.json"].map((n) => [
+        bytes(join(dir, n)),
+        statSync(join(dir, n)).mtimeMs,
+      ]);
+      expect(after).toEqual(snap);
+    }));
 });
