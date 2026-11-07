@@ -24,6 +24,7 @@
 
 - **Range**: `af2f70a..812466c` (this receipt commit follows)
 - **Count**: `22` (12 implementation, test and docs commits; 10 tasks.md tick commits)
+- **Rebase before finalize**: rebased onto `origin/main` `66a0577` (#34, wg-12-modes) with no conflicts and no code change. The rebased range is `66a0577..c9a9f53`, 26 commits, including the receipts and a one-line design note naming `STALE_FINGERPRINT` (verify warning). Fresh checks after the rebase: typecheck, lint and fmt:check are clean, and `bun test` gives 1090 pass, 0 fail.
 
 ---
 
