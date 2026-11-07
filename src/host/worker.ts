@@ -277,7 +277,11 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         if (found !== undefined && typeof found.name === "string") names[tier] = found.name;
       }
     }
-    const { questions, specs } = buildWorkerQuestions(kind.tierQuestion ? offered : [], names);
+    const { questions, specs } = buildWorkerQuestions(
+      kind.tierQuestion ? offered : [],
+      names,
+      settings.mode,
+    );
     const parentRequest = settings.state.parentRequest ? lastUserText(ctx) : undefined;
     const state = buildWorkerState({
       brief: typeof input["prompt"] === "string" ? input["prompt"] : "",
