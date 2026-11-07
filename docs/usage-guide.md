@@ -219,7 +219,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev tune | /jev tune undo | /jev tune reset | /jev tune off   WG-18
 ```
 
-The first four lines work from WG-06. Forms marked with a later work group print the usage text until then.
+Forms without a work-group mark work now. Forms marked with a later work group print the usage text until that group lands.
 
 No command calls Jev. An unknown model in a slot command gets the three closest names from Pi's registry, without any network lookup.
 

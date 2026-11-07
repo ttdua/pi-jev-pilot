@@ -188,6 +188,15 @@ describe("Modes", () => {
         "Fast and low cost, for bounded work with nothing to decide",
       ),
     ).toBe(true);
+    const section = docs.split("### `standard`")[1]!.split("\n### ")[0]!;
+    const rows = [...section.matchAll(/^\| `(\w+)` \| (.+) \|$/gm)];
+    expect(rows.map((r) => r[1])).toEqual(["fast", "balanced", "deep", "expert"]);
+    for (const [, tier, text] of rows) {
+      expect(TIER_CRITERIA.standard[tier as "fast"]).toBe(text!);
+    }
+    const afterMarker = docs.split("**In `budget` and `standard`:**")[1]!;
+    const quoted = /^> (.+)$/m.exec(afterMarker)![1]!;
+    expect(EXPERT_NEEDED_QUESTIONS.standard.instructions).toBe(quoted);
   });
   test("Budget expert criterion", () => {
     expect(TIER_CRITERIA.budget.expert).toBe(TIER_CRITERIA.standard.expert);
