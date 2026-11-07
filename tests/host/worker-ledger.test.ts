@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { putToolCounts, takeToolCounts, TOOL_COUNTS_KEY } from "../../src/host/tool-counts.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import { base, body, harness, ok } from "./worker-fakes.ts";
 
@@ -359,5 +360,58 @@ describe("Mode recorded", () => {
     const h = harness({ mode: "budget" });
     await foreground(h);
     expect(h.lines[0]).toMatchObject({ mode: "budget" });
+  });
+});
+
+describe("Tool counts on the worker line", () => {
+  const reset = () => {
+    (globalThis as Record<symbol, unknown>)[TOOL_COUNTS_KEY] = undefined;
+  };
+  beforeEach(reset);
+  afterEach(reset);
+
+  test("Tool counts recorded", async () => {
+    const h = harness();
+    putToolCounts("ag-t1", { toolsScored: 4, toolsFlagged: 1 });
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ toolsScored: 4, toolsFlagged: 1 });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+    expect(takeToolCounts("ag-t1")).toBeUndefined();
+  });
+
+  test("Counts recorded when the tool result comes first", async () => {
+    const h = harness();
+    putToolCounts("ag-t1", { toolsScored: 2, toolsFlagged: 0 });
+    await launch(h, "t1");
+    await h.fire("tool_result", h.result("t1", "ag-t1"));
+    await h.emit("subagents:completed", done("ag-t1"));
+    expect(h.lines[0]).toMatchObject({ toolsScored: 2, toolsFlagged: 0 });
+  });
+
+  test("No assessment, no counts", async () => {
+    const h = harness();
+    await foreground(h);
+    expect(h.lines[0]).not.toHaveProperty("toolsScored");
+    expect(h.lines[0]).not.toHaveProperty("toolsFlagged");
+  });
+
+  test("Resumed launch carries no counts", async () => {
+    const h = harness();
+    putToolCounts("ag-t1", { toolsScored: 4, toolsFlagged: 1 });
+    await foreground(h, "t1", { ...base(), resume: "ag-t1" });
+    expect(h.lines).toHaveLength(1);
+    expect(h.lines[0]).not.toHaveProperty("toolsScored");
+    expect(h.lines[0]).not.toHaveProperty("toolsFlagged");
+    expect(takeToolCounts("ag-t1")).toEqual({ toolsScored: 4, toolsFlagged: 1 });
+  });
+
+  test("Refused launch reads no counts", async () => {
+    const h = harness();
+    putToolCounts("ag-t1", { toolsScored: 4, toolsFlagged: 1 });
+    await launch(h, "t1");
+    await h.fire("tool_result", h.result("t1", ""));
+    expect(h.lines).toHaveLength(1);
+    expect(h.lines[0]).not.toHaveProperty("toolsScored");
+    expect(takeToolCounts("ag-t1")).toEqual({ toolsScored: 4, toolsFlagged: 1 });
   });
 });

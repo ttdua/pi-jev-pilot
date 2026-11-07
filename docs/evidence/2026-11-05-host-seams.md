@@ -113,3 +113,15 @@ Added with [WG-07](../roadmap.md#wg-07-main-effort); not one of the eight WG-02 
 **Documents changed.** [architecture.md](../architecture.md#host-seams) host seams table and failure model, [workflow.md](../workflow.md#1-a-main-prompt), [usage-guide.md](../usage-guide.md), [jev-questions.md](../jev-questions.md#wire-format), [roadmap.md](../roadmap.md) WG-07 status.
 
 **Work groups affected.** WG-07. The restore may become removable once Pi exposes a signal in `before_agent_start`; an upstream issue is drafted in the WG-07 change and not yet posted.
+
+## Tool assessment service lookup (WG-14)
+
+Added with [WG-14](../roadmap.md#wg-14-tool-assessment-observe-only); not one of the eight WG-02 questions. Pi 1.5.0 with `@gotgenes/pi-subagents` 25.0.5, host test `tests/host/tool-assessment.test.ts` (testing level: Host).
+
+**Observed.** A worker finds its launch by matching its session file with `outputFile` in the executor service's `listAgents()`. A worker session loads its own executor instance, which overwrites the global service, so the service captured by the main session at `session_start` is used, and a worker's shutdown never clears it. At the worker's first `before_agent_start` the record was already present: the tool request reached Jev with `state.agent.name` equal to the launched agent. Two concurrent background workers each named their own agent. Child tool lists (names only): a default worker had `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`, `ask_parent`, `notify_parent`; the request keyed the first seven and never the last two (7 scored, 1 flagged). In `enforce` the child's list lacked `edit` on every request, and a call to `edit` returned "not found". A built-in agent with declared tools (`Explore`) sent no tool request. With Jev answering 500 in `enforce`, the child kept the same tools as a run with the `tools` switch off. A prompt marker appeared in the Jev request and in no file of the `jev` directory.
+
+**Limits.** One executor version, one Pi version, and a fixture standing in for Jev. The result depends on the executor keeping launch records reachable through `listAgents()` by `outputFile`.
+
+**Documents changed.** [architecture.md](../architecture.md#host-seams) host seams, layout, failure model and performance budget, [jev-contract.md](../jev-contract.md#tool-assessment), [jev-questions.md](../jev-questions.md#tool-assessment), [domain-model.md](../domain-model.md#toolassessment), [workflow.md](../workflow.md#3-a-worker-starts), [usage-guide.md](../usage-guide.md), [roadmap.md](../roadmap.md) WG-14 status.
+
+**Work groups affected.** WG-14. The criterion wording stays provisional until the replay in WG-16.

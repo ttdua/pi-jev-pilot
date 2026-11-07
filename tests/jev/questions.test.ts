@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import {
+  buildToolQuestions,
   buildWorkerQuestions,
   mainQuestions,
   offeredTiers,
@@ -402,5 +403,34 @@ describe("skill questions", () => {
       skillCriterion(skills[0]!),
     );
     expect(GATE_QUESTIONS["gate::prose_suffices"].instructions).not.toBe("changed");
+  });
+});
+
+describe("buildToolQuestions", () => {
+  test("One noul per candidate", () => {
+    const { questions, specs } = buildToolQuestions(["read", "edit", "bash"]);
+    expect(Object.keys(questions)).toEqual(["tool::read", "tool::edit", "tool::bash"]);
+    expect(Object.keys(specs)).toEqual(["tool::read", "tool::edit", "tool::bash"]);
+    for (const key of Object.keys(questions)) {
+      expect(questions[key]!.type).toBe("noul");
+      expect(specs[key]).toEqual({ type: "noul" });
+    }
+    const edit = questions["tool::edit"]!;
+    expect(edit.instructions).toContain("`tools.edit`");
+    const section = docs.split("## Tool assessment")[1]!.split("\n## ")[0]!;
+    expect(edit.criteria["true"]).toBe(section.match(/^- `true`: (.*)$/m)![1]!);
+    expect(edit.criteria["false"]).toBe(section.match(/^- `false`: (.*)$/m)![1]!);
+    const quote = section.match(/^> (.*)$/m)![1]!;
+    expect(edit.instructions).toBe(quote.replace("`tools.<name>`", "`tools.edit`"));
+  });
+  test("Fresh objects per call", () => {
+    const first = buildToolQuestions(["read"]);
+    first.questions["tool::read"]!.criteria["true"] = "x";
+    first.questions["tool::read"]!.instructions = "x";
+    first.specs["tool::read"] = { type: "choice", options: [] };
+    const next = buildToolQuestions(["read"]);
+    expect(next.questions["tool::read"]!.criteria["true"]).not.toBe("x");
+    expect(next.questions["tool::read"]!.instructions).not.toBe("x");
+    expect(next.specs["tool::read"]).toEqual({ type: "noul" });
   });
 });

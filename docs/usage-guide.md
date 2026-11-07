@@ -193,13 +193,15 @@ From WG-06 only the forms above exist. Any other form prints the usage text unti
 
 ## Tool assessment
 
-For workers whose agent declares no `tools`, Jev can flag tools the task does not need. By default this only records. See what it would have removed in the ledger before enabling it:
+For workers whose agent declares no `tools`, Jev can flag tools the task does not need. By default this only records: the launch's `worker` ledger line carries `toolsScored` and `toolsFlagged`, so you can see what it would have removed before enabling it. `/jev tools off` stops it. In both modes the worker waits for Jev before its first turn, at most `classifier.timeoutMs`; if Jev fails, the worker keeps every tool and nothing is recorded.
+
+To remove flagged tools:
 
 ```json
 { "tools": { "mode": "enforce" } }
 ```
 
-It can remove tools, never add them. A wrongly removed tool can leave a worker stuck, so try it on low-stakes work first.
+It can remove tools, never add them. A removed tool stays removed on every turn of that worker, including a resumed run. A wrongly removed tool can leave a worker stuck, so try it on low-stakes work first.
 
 ## Tuning
 

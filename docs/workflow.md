@@ -113,18 +113,23 @@ sequenceDiagram
     E->>C: bindExtensions, session_start
     E->>C: before_agent_start
     C->>C: is a child: only tool assessment runs
-    alt agent declares tools, or feature off
+    alt agent declares tools, switch off, or no key
         C-->>E: nothing
     else
-        C->>J: task + agent + tools (one noul per tool)
-        J-->>C: scores
+        C->>E: listAgents(), match outputFile with own session file
+        E-->>C: launch record (agent, description)
+        C->>J: task + agent + tools (one noul per candidate)
+        J-->>C: scores (waits up to timeoutMs)
+        C->>X: scored and flagged counts
         alt observe mode
-            C->>C: record would-remove count
+            C-->>E: selectedTools unchanged
         else enforce mode
             C-->>E: selectedTools without flagged tools
         end
     end
 ```
+
+The worker finds its launch through the executor service that the main session captured at `session_start`; a worker session loads its own executor instance, which overwrites the global service, so the main session's capture is kept. The worker waits for Jev before its first turn in both modes, at most `classifier.timeoutMs`. Any failure keeps every tool and records nothing. The counts reach the `worker` ledger line when the launch ends, only if that line exists. Later turns and resumed runs make no new request: in `enforce` the flagged tools stay removed.
 
 Default is `observe`, so workers keep all their tools until the operator switches to `enforce`.
 

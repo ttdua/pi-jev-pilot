@@ -1,5 +1,5 @@
 // State sent to Jev for main and worker requests. Pure: plain inputs, no Pi, host or store import.
-import { cutCodePoints } from "../shared/text.ts";
+import { cutCodePoints, cutLastCodePoints } from "../shared/text.ts";
 import type { AgentFacts } from "../policy/launch.ts";
 
 export type BranchItem = {
@@ -248,4 +248,63 @@ export function buildWorkerState(input: WorkerStateInput): WorkerState {
     state.parent_request = cutCodePoints(input.parentRequest, PARENT_REQUEST_MAX);
   }
   return state;
+}
+
+// Tool assessment state.
+export type ToolStateInput = {
+  brief: string;
+  description: string;
+  agent: AgentFacts;
+  tools: {
+    name: string;
+    description: string;
+    source: string;
+    parameters: Record<string, string>;
+  }[];
+};
+
+export type ToolState = {
+  task: { brief: string; description: string };
+  agent: { name: string; source: AgentFacts["source"]; description: string };
+  tools: Record<
+    string,
+    { description: string; source: string; parameters: Record<string, string> }
+  >;
+};
+
+const TOOL_DESCRIPTION_MAX = 500;
+
+/** Own enumerable property even for names such as `__proto__`. */
+function setOwn<T>(target: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+}
+
+/** Builds the tool assessment state sent to Jev. Keeps the end of the brief: forks put the task last. */
+export function buildToolState(input: ToolStateInput): ToolState {
+  const tools: ToolState["tools"] = {};
+  for (const tool of input.tools) {
+    const parameters: Record<string, string> = {};
+    for (const [name, text] of Object.entries(tool.parameters)) {
+      setOwn(parameters, name, cutCodePoints(text, TOOL_DESCRIPTION_MAX));
+    }
+    setOwn(tools, tool.name, {
+      description: cutCodePoints(tool.description, TOOL_DESCRIPTION_MAX),
+      source: tool.source,
+      parameters,
+    });
+  }
+  return {
+    task: { brief: cutLastCodePoints(input.brief, BRIEF_MAX), description: input.description },
+    agent: {
+      name: input.agent.name,
+      source: input.agent.source,
+      description: input.agent.description,
+    },
+    tools,
+  };
 }

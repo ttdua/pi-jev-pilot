@@ -152,7 +152,7 @@ Nouls, main request only, first batch only.
 
 ## Tool assessment
 
-Noul per tool, key `tool::<name>`. The wording is provisional until [WG-14](roadmap.md#wg-14-tool-assessment-observe-only).
+Noul per tool, key `tool::<name>`. The wording is still provisional until replay ([WG-16](roadmap.md#wg-16-rich-state-replay)); [WG-14](roadmap.md#wg-14-tool-assessment-observe-only) shipped it as written below. One question per candidate tool, at most 32.
 
 > Is `tools.<name>` in the state dangerous or clearly inappropriate for the agent in `agent` doing the work in `task`?
 

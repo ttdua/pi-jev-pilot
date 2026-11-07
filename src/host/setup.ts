@@ -10,6 +10,8 @@ import { hideReviewInChild, registerReviewTool } from "./review.ts";
 import { compactTally, drawStatus, logLine } from "./status.ts";
 import { jevDir } from "./stores.ts";
 import { createSessionLog } from "./tally.ts";
+import { captureMainService, clearMainService } from "./tool-service.ts";
+import { createToolAssessment } from "./tools.ts";
 import { registerWorkerRouting } from "./worker.ts";
 
 /** Draw `jev-log` entries as one truncated line; older Pi without the API is skipped. */
@@ -42,6 +44,7 @@ export function setup(pi: ExtensionAPI): void {
     }
   };
   const routing = registerWorkerRouting(pi, { append });
+  const tools = createToolAssessment(pi);
   const main = createMain(pi, {
     load: () => loadSnapshot(pi),
     ask: askJev,
@@ -59,6 +62,7 @@ export function setup(pi: ExtensionAPI): void {
   pi.on("session_start", async (_event, ctx) => {
     try {
       if (isChild(ctx.sessionManager.getSessionId())) return;
+      captureMainService();
       main.sessionStart();
       log.reset(ctx.sessionManager.getSessionId());
       drawStatus(ctx, loadSnapshot(pi), main.decision());
@@ -75,6 +79,7 @@ export function setup(pi: ExtensionAPI): void {
       const sessionId = ctx.sessionManager.getSessionId();
       if (isChild(sessionId)) {
         hideReviewInChild(event, sessionId);
+        await tools.beforeAgentStart(event, ctx);
         return undefined;
       }
       return await main.beforeAgentStart(event, ctx);
@@ -111,7 +116,12 @@ export function setup(pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (_event, ctx) => {
+    try {
+      if (!isChild(ctx.sessionManager.getSessionId())) clearMainService();
+    } catch {
+      /* keep shutdown clean */
+    }
     try {
       off();
     } catch {

@@ -44,7 +44,7 @@ A successful response:
 
 | | Main | Worker | Tool assessment |
 |---|---|---|---|
-| **When** | Eligible main prompt | Each launch | Worker starts, agent declares no tools |
+| **When** | Eligible main prompt | Each launch | Worker's first turn, agent declares no tools |
 | **Where** | Main session | Main session | Child session |
 | **Usual size** | 7 KB, plus skills (about 60 KB with 78 skills) | 5–6 KB | 6 KB |
 | **Cost** | About $0.0006 with 78 skills | About $0.00006 | About $0.00006 |
@@ -223,7 +223,14 @@ The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/age
 }
 ```
 
-One noul per tool, `tool::<name>`, asking whether that entry is dangerous or clearly inappropriate for this agent doing this task. At most 32 are scored; the rest stay allowed.
+- `task.brief` is the last 4000 code points of the worker's first prompt; `task.description` is the launch description.
+- `agent` holds the name, source and description of the worker's agent.
+- `tools` is keyed by candidate. Each entry has the tool's description, its source (`sourceInfo.source`, or `unknown`) and the descriptions of its top-level parameters. Every text is cut to 500 code points.
+- Candidates are the worker's selected tools minus `ask_parent` and `notify_parent`. `jev_review` is already removed from a worker's tools. At most 32 are scored; the rest stay allowed.
+
+One noul per candidate, `tool::<name>`, asking whether that entry is dangerous or clearly inappropriate for this agent doing this task. The wording is provisional until replay.
+
+The worker finds its launch by matching its session file with `outputFile` in the executor service's `listAgents()`. The brief is the worker's first prompt; neither it nor any tool text is stored (see [Privacy](privacy.md)).
 
 It is a separate request because tool descriptions are irrelevant to the tier question, and TypeSafe documents that unrelated state lowers accuracy.
 
@@ -258,7 +265,7 @@ If a skill with the same name and the same body fingerprint is in context since 
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |
-| `tool::*` | ≥ .5 | Remove, or record in `observe` mode |
+| `tool::*` | ≥ .5 | Flag; `enforce` removes it, `observe` only counts it |
 
 Strategy gates:
 

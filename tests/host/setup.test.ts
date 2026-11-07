@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY, isChild } from "../../src/host/child.ts";
 import { setup } from "../../src/host/setup.ts";
+import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tool-service.ts";
 import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
 import { body, TIERS } from "./worker-fakes.ts";
@@ -79,6 +80,7 @@ function fakeCtx(sessionId: string, setWidget: () => void) {
 const CREATED = "subagents:child:session-created";
 const DISPOSED = "subagents:child:disposed";
 const saved = { dir: process.env.PI_CODING_AGENT_DIR, key: process.env.TYPESAFE_API_KEY };
+const EXECUTOR_KEY = Symbol.for("@gotgenes/pi-subagents:service");
 let agentDir = "";
 
 beforeEach(() => {
@@ -88,6 +90,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete (globalThis as Record<symbol, unknown>)[CHILDREN_KEY];
+  delete (globalThis as Record<symbol, unknown>)[MAIN_SERVICE_KEY];
+  delete (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY];
   rmSync(agentDir, { recursive: true, force: true });
   if (saved.dir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = saved.dir;
@@ -414,5 +418,135 @@ describe("setup", () => {
     expect(calls).toBe(0);
     b.emit(DISPOSED, { sessionId: "kid" });
     expect(isChild("kid")).toBe(false);
+  });
+
+  describe("tool assessment wiring", () => {
+    const service = { listAgents: () => [] as unknown[] };
+    const put = () => ((globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = service);
+    const start = (f: ReturnType<typeof fakePi>, id: string) =>
+      f.handlers.get("session_start")![0]!(
+        {},
+        fakeCtx(id, () => {}),
+      );
+    const stop = (f: ReturnType<typeof fakePi>, id: string) =>
+      f.handlers.get("session_shutdown")![0]!(
+        {},
+        fakeCtx(id, () => {}),
+      );
+
+    test("main session_start captures the service", async () => {
+      put();
+      const f = fakePi();
+      setup(f.pi);
+      await start(f, "main");
+      expect(mainService()).toBe(service);
+    });
+
+    test("child session_start does not capture", async () => {
+      put();
+      const f = fakePi();
+      setup(f.pi);
+      f.emit(CREATED, { sessionId: "kid" });
+      await start(f, "kid");
+      expect(mainService()).toBeUndefined();
+    });
+
+    test("main shutdown clears, child shutdown leaves it", async () => {
+      put();
+      const f = fakePi();
+      setup(f.pi);
+      await start(f, "main");
+      f.emit(CREATED, { sessionId: "kid" });
+      await start(f, "kid");
+      await stop(f, "kid");
+      expect(mainService()).toBe(service);
+      await stop(f, "main");
+      expect(mainService()).toBeUndefined();
+    });
+
+    test("child before_agent_start hides the review tool, then assesses", async () => {
+      const fx = await startJevFixture({
+        "/ask": { json: { answers: { "tool::read": { type: "noul", noul: 0.1 } } } },
+      });
+      try {
+        mkdirSync(join(agentDir, "jev"), { recursive: true });
+        writeFileSync(
+          join(agentDir, "jev", "config.json"),
+          JSON.stringify({ classifier: { url: fx.url("/ask") } }),
+        );
+        (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
+          listAgents: () => [
+            { id: "a1", type: "general-purpose", description: "d", outputFile: "/kid.jsonl" },
+          ],
+        };
+        const f = fakePi();
+        setup(f.pi);
+        await start(f, "main");
+        f.emit(CREATED, { sessionId: "kid" });
+        const selectedTools = ["read", "jev_review"];
+        const ctx = {
+          cwd: agentDir,
+          sessionManager: { getSessionId: () => "kid", getSessionFile: () => "/kid.jsonl" },
+        };
+        const event = {
+          messageType: "user",
+          prompt: "do it",
+          systemPromptOptions: { selectedTools },
+        };
+        const out = await f.handlers.get("before_agent_start")![0]!(event, ctx);
+        expect(out).toBeUndefined();
+        expect(selectedTools).toEqual(["read"]);
+        expect(fx.requests).toHaveLength(1);
+        const questions = Object.keys(JSON.parse(fx.requests[0]!.body).questions);
+        expect(questions).toEqual(["tool::read"]);
+      } finally {
+        await fx.stop();
+      }
+    });
+
+    test("an assessment failure still leaves the review tool hidden", async () => {
+      mkdirSync(join(agentDir, "jev"), { recursive: true });
+      writeFileSync(join(agentDir, "jev", "config.json"), JSON.stringify({}));
+      (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = { listAgents: () => [] };
+      const f = fakePi();
+      setup(f.pi);
+      await start(f, "main");
+      f.emit(CREATED, { sessionId: "kid" });
+      const selectedTools = ["read", "jev_review"];
+      let fileCalls = 0;
+      const ctx = {
+        cwd: agentDir,
+        sessionManager: {
+          getSessionId: () => "kid",
+          getSessionFile: (): never => {
+            fileCalls++;
+            throw new Error("no session file");
+          },
+        },
+      };
+      const event = {
+        messageType: "user",
+        prompt: "do it",
+        systemPromptOptions: { selectedTools },
+      };
+      expect(await f.handlers.get("before_agent_start")![0]!(event, ctx)).toBeUndefined();
+      expect(selectedTools).toEqual(["read"]);
+      expect(fileCalls).toBe(1);
+    });
+
+    test("a throwing event leaves before_agent_start returning undefined", async () => {
+      const f = fakePi();
+      setup(f.pi);
+      f.emit(CREATED, { sessionId: "kid" });
+      const event = {
+        messageType: "user",
+        prompt: "p",
+        get systemPromptOptions(): never {
+          throw new Error("boom");
+        },
+      };
+      const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "kid" } };
+      expect(await f.handlers.get("before_agent_start")![0]!(event, ctx)).toBeUndefined();
+    });
   });
 });
