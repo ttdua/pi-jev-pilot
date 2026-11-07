@@ -21,8 +21,8 @@
 
 ## 3. Status line
 
-- [ ] 3.1 Split `Decision` in `src/host/status.ts` into an effort part and an advice part. Make `statusText` render ` · <level|no answer>` (when `effort` is on) then ` · <strategy>` (when `strategy` is on).
-- [ ] 3.2 Extend `tests/host/status.test.ts` with the new status-line scenarios: advice with and without effort, `strategy` switched off and back on, and base states still winning.
+- [x] 3.1 Split `Decision` in `src/host/status.ts` into an effort part and an advice part. Make `statusText` render ` · <level|no answer>` (when `effort` is on) then ` · <strategy>` (when `strategy` is on).
+- [x] 3.2 Extend `tests/host/status.test.ts` with the new status-line scenarios: advice with and without effort, `strategy` switched off and back on, and base states still winning.
 
 ## 4. Main decision wiring
 
