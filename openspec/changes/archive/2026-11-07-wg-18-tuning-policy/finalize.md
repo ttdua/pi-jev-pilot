@@ -7,7 +7,7 @@
 
 **Change**: `wg-18-tuning-policy`
 **Finalized at**: `2026-11-07 18:05`
-**Outcome**: `pr-updated` (local closeout only; push and PR are pending the operator's go-ahead, see Deviations)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `feat/wg-18-tuning-policy`
 - **Base branch**: `main`
-- **Final state**: `merged` into the feature branch locally (`git merge --ff-only wg-18-tuning-policy`, HEAD `25a9cc5` before this receipt). Not pushed.
-- **PR URL**: N/A (no remote branch or PR yet)
+- **Final state**: `pr-open`. The worktree branch was fast-forwarded into the feature branch (`git merge --ff-only wg-18-tuning-policy`, `25a9cc5`). The archive commit followed, then the push.
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/42
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/42#issuecomment-6705128078)
 
 ---
 
@@ -51,7 +51,8 @@
 
 ## Deviations
 
-- **No push and no PR.** The project rules (`AGENTS.md`) forbid pushing, merging or opening a PR without the operator's explicit go-ahead in chat. Steps 10–12 (push, PR prompt, PR comment) are therefore not run. They run once the operator approves.
+- **Push and PR after the operator's go-ahead.** `AGENTS.md` requires an explicit go-ahead before any push or PR. The operator chose to archive first, then push and open the PR. That is why the archive commit comes before the push, and why the PR was created rather than updated.
+- **Merge check.** Before the push, the active `gh` account was switched to `ttdua`, which owns the remote. `origin/main` was 3 commits ahead, so the merge with it was checked: `git merge-tree` found no conflicts, and on the merged tree `typecheck`, `lint` and `bun test` passed (1509 pass, 0 fail).
 - **No pull in step 3.** `feat/wg-18-tuning-policy` has no upstream yet, so there was nothing to pull.
 - **Step 6 cleanup.** It used `wt remove` instead of `git worktree remove`, per the project rule.
 
@@ -59,4 +60,4 @@
 
 ## Next step
 
-Run `/opsx-archive` on `feat/wg-18-tuning-policy`. It syncs the delta specs into `openspec/specs/`, and the archive commits land on this branch. With the operator's go-ahead, push the feature branch, open the PR against `main`, and post the orientation comment; then merge the PR, which lands the implementation and the archive together.
+The change is already archived and its specs synced on this branch. Wait for the PR #42 code review, then merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). The merge needs the operator's explicit go-ahead.
