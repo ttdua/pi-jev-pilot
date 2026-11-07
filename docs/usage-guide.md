@@ -58,7 +58,7 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 | `Jev · standard` | Working. The word is the current mode |
 | `Jev · no key` | `TYPESAFE_API_KEY` (or the variable named in config) is not set in this shell |
 | `Jev · config error` | `config.json` is malformed or invalid. `/jev` names the field |
-| `Jev · off` | All seven decision features are switched off |
+| `Jev · off` | All six decision features are switched off |
 | `no executor` in `/jev` | Worker routing and tool assessment are off |
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
@@ -177,18 +177,18 @@ The choice and the on/off setting are kept in `state.json`; `config.json` is not
 
 A CLI review does not depend on the Jev key or the feature switches, only on its own on/off setting. It runs only when you ask, and it is never offered to subagents. While it is off, the `jev_review` tool is not offered to the model, and a call is refused with `jev_review is off. Turn it on with /jev cli-review on.`. A change applies from the next turn, without a restart.
 
-**Upgrading:** from this version, `jev_review` is off until you turn it on. An existing CLI review default does not turn it on by itself.
+**Upgrading:** from this version, `jev_review` is off until you turn it on. An existing CLI review default does not turn it on by itself. The `review` feature switch is removed: it never controlled anything. `/jev review on|off` now prints the usage text. A `switches.review` left in `state.json` is ignored and removed at the next change.
 
 ## Switches
 
 ```text
 /jev                     status and session tally
 /jev skills off          one feature
-/jev all off             the seven decision features
+/jev all off             the six decision features
 /jev reset               switches, mode and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 ```
 
-Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
+Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`. `/jev all on|off` sets the six decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
 
 `/jev` ends with the session tally, which starts empty in each new or resumed session:
 
@@ -252,8 +252,8 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 
 ```text
 /jev                                         status and session tally
-/jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
-/jev all on|off                              the seven decision features, not status or verbose
+/jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, status, verbose
+/jev all on|off                              the six decision features, not status or verbose
 /jev reset                                   switches, mode and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 /jev mode budget|standard|premium
 /jev <slot> <provider/model> [when <text>]   add or replace a slot
