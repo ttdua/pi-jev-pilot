@@ -29,7 +29,7 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 ## Other destinations
 
 - **Your selected models** receive the injected skills and advice as part of normal Pi requests, and workers go to whichever provider the routed model uses. **A routed worker can reach a different provider than your main model**, including a slot such as `9router/gpt-6.1-sol`, so its brief and files it reads go there. Only configure models you trust with your code.
-- **CLI reviews** run `codex` or `opencode` on your machine, with your own login, read-only. They read your code and talk to their own providers. They run only when you ask. Note:
+- **CLI reviews** run `codex` or `opencode` on your machine, with your own login, read-only. They read your code and talk to their own providers. They run only when you ask, and only after you turn the CLI review on. Note:
   - The instructions and your brief are passed as a command-line argument, so they are visible in the local process list while a review runs.
   - Read-only rests on the review instructions for OpenCode: its `plan` agent denies edits but allows shell commands. Codex runs in a read-only sandbox.
   - OpenCode keeps the prompt in its own session history. Codex runs with `--ephemeral`, so it keeps no session files.

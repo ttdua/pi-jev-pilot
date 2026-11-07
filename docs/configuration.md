@@ -7,7 +7,7 @@ All under `<agentDir>/jev/`, by default `~/.pi/agent/jev/`.
 | File | Written by | Holds |
 |---|---|---|
 | `config.json` | You, and `/jev` for slots | Settings below |
-| `state.json` | `/jev` | Switches, mode, CLI review default |
+| `state.json` | `/jev` | Switches, mode, CLI review default and on/off |
 | `tuning.json` | Automatic tuning | Applied changes and history |
 | `ledger.jsonl` | The package | Decisions and outcomes |
 | `ledger.1.jsonl` | The package | The previous ledger segment |
@@ -154,8 +154,14 @@ Content that leaves the machine with its own switch.
 | Key | Default | Values |
 |---|---|---|
 | `cli` | `codex` | `codex` or `opencode`. `/jev cli-review` stores an override in `state.json` and leaves this file alone |
+| `enabled` | `false` | `false` or `true`. `/jev cli-review on\|off` stores an override in `state.json` |
 
-`state.json` holds the override as `cliReview: { cli, model?, effort? }`. `cliReview.model` is 1 to 128 characters of letters, digits, `.`, `_`, `-`, `:` and `/`, and does not start with `-`, `:` or `/`, so it can never be read as a flag. It is not the word `default`: `/jev cli-review ... default` removes the field instead.
+`state.json` holds the reviewer override as `cliReview: { cli, model?, effort? }`, and the on/off override as `cliReviewEnabled: true|false`. The state override wins over `review.enabled`; with neither set, the CLI review is off.
+
+`cliReview.model` is 1 to 128 characters of letters, digits, `.`, `_`, `-`, `:` and `/`, and does not start with `-`, `:` or `/`, so it can never be read as a flag. It is not the word `default`: `/jev cli-review ... default` removes the field instead.
+
+> [!WARNING]
+> **Rollback.** Before you roll back to an older build, remove `review.enabled` from `config.json`. An older build rejects unknown keys: it reports `state.json` as malformed when it holds `cliReviewEnabled` (moved aside at the next `/jev` change), and `config.json` as invalid when it holds `review.enabled`.
 
 ## Fixed, not configurable
 

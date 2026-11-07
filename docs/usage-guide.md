@@ -139,6 +139,8 @@ A slot offers Jev another model, with a description of when to choose it.
 
 **Routine reviews** go through a slot like the one above. Any subagent doing review work is routed to it, whichever agent it is.
 
+The CLI review is off by default. Turn it on with `/jev cli-review on`, by choosing a reviewer, or with `review.enabled` in `config.json`.
+
 **A CLI review** runs Codex or OpenCode itself, read-only, using that CLI's own login. Ask for it in words:
 
 ```text
@@ -150,12 +152,16 @@ Say `with Codex` or `with OpenCode`, and name a model or effort, to override the
 Set a default:
 
 ```text
+/jev cli-review on
+/jev cli-review off
 /jev cli-review codex luna high
 /jev cli-review opencode
 /jev cli-review opencode openai/gpt-6.1-sol high
 /jev cli-review codex default
 /jev cli-review codex luna default
 ```
+
+Choosing a reviewer turns the CLI review on. `/jev cli-review off` turns it off and keeps the reviewer choice.
 
 The model takes one of three forms:
 
@@ -167,9 +173,11 @@ The model takes one of three forms:
 
 `/jev cli-review` checks the model and effort against the CLI's own list (`codex debug models`, `opencode models`). An unknown model, an unsupported effort, or a name that two OpenCode providers list is refused, and the message suggests close matches. When the list cannot be read (CLI missing, error or timeout), the value is accepted with a warning that it was not checked. An OpenCode effort needs a model.
 
-The choice is kept in `state.json`; `config.json` is not changed. `/jev` shows it on a `cli review:` line, such as `cli review: codex (model luna, effort high)`, or `CLI defaults` when nothing is set. `/jev reset` clears it.
+The choice and the on/off setting are kept in `state.json`; `config.json` is not changed. `/jev` shows them on a `cli review:` line, such as `cli review: on (codex, model luna, effort high)`, or `cli review: off (codex, CLI defaults)` when nothing is set. `/jev reset` turns the CLI review off (unless `review.enabled` is `true` in config) and clears the reviewer choice. `/jev all on|off` leaves it alone.
 
-A CLI review does not need the Jev key and does not depend on the switches. It runs only when you ask, and it is never offered to subagents.
+A CLI review does not depend on the Jev key or the feature switches, only on its own on/off setting. It runs only when you ask, and it is never offered to subagents. While it is off, the `jev_review` tool is not offered to the model, and a call is refused with `jev_review is off. Turn it on with /jev cli-review on.`. A change applies from the next turn, without a restart.
+
+**Upgrading:** from this version, `jev_review` is off until you turn it on. An existing CLI review default does not turn it on by itself.
 
 ## Switches
 
@@ -177,10 +185,10 @@ A CLI review does not need the Jev key and does not depend on the switches. It r
 /jev                     status and session tally
 /jev skills off          one feature
 /jev all off             the seven decision features
-/jev reset               switches, mode and CLI review default back to config defaults
+/jev reset               switches, mode and CLI review default back to config defaults; the CLI review goes off
 ```
 
-Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
+Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
 
 `/jev` ends with the session tally, which starts empty in each new or resumed session:
 
@@ -246,12 +254,13 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev                                         status and session tally
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
-/jev reset                                   switches, mode and CLI review default back to config defaults
+/jev reset                                   switches, mode and CLI review default back to config defaults; the CLI review goes off
 /jev mode budget|standard|premium
 /jev <slot> <provider/model> [when <text>]   add or replace a slot
 /jev <slot>                                  show it
 /jev remove <slot>                           delete a slot
-/jev cli-review <codex|opencode> [model|default] [effort|default]   kept in state.json
+/jev cli-review on|off                       turn the CLI review on or off
+/jev cli-review <codex|opencode> [model|default] [effort|default]   kept in state.json; also turns it on
 /jev tune [undo|reset|on|off]               show or change tuning
 ```
 
