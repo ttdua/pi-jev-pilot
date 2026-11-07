@@ -727,6 +727,54 @@ describe("hold", () => {
     expect(lines(t).find((l) => l["kind"] === "correction")).toMatchObject({ turnId: "T1" });
   });
 
+  test("miss right after a compaction keeps the release", async () => {
+    const t = setup({
+      branch: [heldTurn(), { type: "compaction", id: "c1" }],
+      holdProviders: ["fixture"],
+      start: "high",
+      outcomes: [{ kind: "miss", miss: "timeout", reason: "slow", ms: 300 }, answer("high")],
+    });
+    await run(t);
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "effort",
+      "risky",
+      "corrects",
+    ]);
+    await t.main.agentSettled(settled(false));
+    const entry = t.custom.find((c) => c.type === "jev-turn")!;
+    expect(entry.data).toEqual({ turnId: "11111111-1111-1111-1111-111111111111" });
+    t.setBranch([
+      heldTurn(),
+      { type: "compaction", id: "c1" },
+      { type: "custom", customType: "jev-turn", data: entry.data },
+    ]);
+    await run(t);
+    expect(Object.keys(t.requests[1]!.questions as object)).toEqual([
+      "effort",
+      "risky",
+      "corrects",
+    ]);
+  });
+
+  test("model switch decides once and anchors the new model", async () => {
+    const t = heldSetup({
+      model: { provider: "fixture", id: "fixture-balanced", reasoning: true },
+      outcomes: [answer("medium"), correctsOnly(0.1)],
+    });
+    await run(t);
+    expect(Object.keys(t.requests[0]!.questions as object)).toContain("effort");
+    await t.main.agentSettled(settled(false));
+    const entry = t.custom.find((c) => c.type === "jev-turn")!;
+    expect((entry.data as { decided?: unknown }).decided).toEqual({
+      provider: "fixture",
+      model: "fixture-balanced",
+      level: "medium",
+    });
+    t.setBranch([heldTurn(), { type: "custom", customType: "jev-turn", data: entry.data }]);
+    await run(t);
+    expect(Object.keys(t.requests[1]!.questions as object)).toEqual(["corrects"]);
+  });
+
   test("decided turn on listed provider has no held", async () => {
     const t = setup({ holdProviders: ["fixture"], outcomes: [answer("high")] });
     await run(t);

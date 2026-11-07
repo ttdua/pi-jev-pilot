@@ -1,18 +1,21 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { startFixture, type Fixture, type RecordedRequest } from "./fixture";
+import { tempDir } from "../helpers";
 import { startHostSession, type HostSession } from "./harness";
 
 const fixtures: Fixture[] = [];
 const jevs: JevFixture[] = [];
 const sessions: HostSession[] = [];
+const ownedDirs: string[] = [];
 
 afterEach(async () => {
   for (const s of sessions.splice(0)) await s.close();
   for (const f of fixtures.splice(0)) await f.stop();
   for (const j of jevs.splice(0)) await j.stop();
+  for (const d of ownedDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
 const KEY = { TYPESAFE_API_KEY: "test-key" };
@@ -231,6 +234,66 @@ describe("effort hold through the real CLI", () => {
       const body = JSON.stringify(fixture.requests[1]!.body);
       expect(body).not.toContain("jev-turn");
       expect(body).not.toContain("decided");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "held prompt with Jev down",
+    async () => {
+      const { s, fixture, jev, routes } = await setup({
+        holdProviders: ["fixture"],
+        thinking: "low",
+      });
+      routes[ASK] = answers("high");
+      await turn(s, "one", 1);
+      const afterFirst = levelChanges(s);
+      routes[ASK] = { status: 500 };
+      await turn(s, "two", 2);
+      expect(jev.requests.length).toBe(2);
+      expect(fixture.requests.map((r) => r.reasoningEffort)).toEqual(["high", "high"]);
+      expect(mainLines(s)[1]).toMatchObject({ held: true, answered: false, miss: "error" });
+      expect(levelChanges(s)).toBe(afterFirst);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "resume keeps the hold",
+    async () => {
+      const agentDir = tempDir("jev-hold-agent-");
+      const cwd = tempDir("jev-hold-cwd-");
+      ownedDirs.push(agentDir, cwd);
+      const fixture = await startFixture([
+        { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+      ]);
+      fixtures.push(fixture);
+      const routes: Record<string, FixtureRoute> = { [ASK]: answers("high") };
+      const jev = await startJevFixture(routes);
+      jevs.push(jev);
+      const common = {
+        fixture,
+        self: true,
+        env: KEY,
+        timeoutMs: 60_000,
+        jevConfig: { url: jev.url(ASK), timeoutMs: 5000, holdProviders: ["fixture"] },
+        thinking: "low",
+        persist: true,
+        agentDir,
+        cwd,
+      };
+      const a = await startHostSession(common);
+      await turn(a, "one", 1);
+      await a.close();
+      // No --thinking here: an explicit flag would override the level restored from the session.
+      const b = await startHostSession({ ...common, thinking: undefined, args: ["--continue"] });
+      sessions.push(b);
+      routes[ASK] = answers("low");
+      await turn(b, "two", 2);
+      expect(jev.requests.length).toBe(2);
+      expect(questionKeys(jev, 1)).toEqual(["corrects"]);
+      expect(fixture.requests.map((r) => r.reasoningEffort)).toEqual(["high", "high"]);
+      expect(mainLines(b)[1]).toMatchObject({ held: true });
     },
     TIMEOUT,
   );

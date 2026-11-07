@@ -176,6 +176,8 @@ export async function startHostSession(
     thinking?: string;
     env?: Record<string, string>;
     timeoutMs?: number;
+    /** Extra CLI arguments appended after the defaults (for example `--continue`). */
+    args?: string[];
   },
 ): Promise<HostSession> {
   const { dirs, installPath, cleanDirs } = prepare(opts);
@@ -187,6 +189,7 @@ export async function startHostSession(
     const args = ["--provider", "fixture", "--model", opts.model ?? "fixture-main"];
     if (opts.thinking) args.push("--thinking", opts.thinking);
     if (!opts.persist) args.push("--no-session");
+    if (opts.args) args.push(...opts.args);
 
     const spawned = spawnRpc({
       agentDir,
