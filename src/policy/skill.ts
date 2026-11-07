@@ -109,11 +109,11 @@ export function pickSkill(batches: readonly PickBatch[]): SkillPick {
   const first = batches[0]?.read;
   const gate = first?.kind === "read" ? gateMean(first.answers) : undefined;
   let best: { name: string; p: number } | undefined;
-  batches.forEach((batch, i) => {
+  for (const [i, batch] of batches.entries()) {
     const answer = whichAnswers[i];
     const leader = answer === undefined ? undefined : batchLeader(batch.options, answer);
     if (leader !== undefined && (best === undefined || leader.p > best.p)) best = leader;
-  });
+  }
   if (best === undefined) return withGate({ kind: "none", reason: "none-leads" }, gate);
   const sure = best.p >= SURE_PICK;
   const fits = best.p >= FIT_PICK && gate !== undefined && gate >= GATE_PICK;

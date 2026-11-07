@@ -182,6 +182,14 @@ describe("pickSkill", () => {
     ]);
     expect(pick).toEqual({ kind: "none", reason: "none-leads" });
   });
+  test("None leads carries the gate mean", () => {
+    const r = whichRead({ debug: 0.1, "(none)": 0.9 }, gateOnly(0.6));
+    expect(pickSkill([{ options, read: r }])).toEqual({
+      kind: "none",
+      reason: "none-leads",
+      gate: 0.6,
+    });
+  });
   test("No batch", () => {
     const pick = pickSkill([]);
     expect(pick).toEqual({ kind: "none", reason: "no-batch" });
@@ -208,6 +216,18 @@ describe("pickSkill", () => {
       { options, read: undefined },
     ]);
     expect(pick).toEqual({ kind: "none", reason: "failed" });
+  });
+  test("Schema miss on a batch", () => {
+    const pick = pickSkill([{ options, read: { kind: "miss", miss: "schema" } }]);
+    expect(pick).toEqual({ kind: "none", reason: "failed" });
+    expect("p" in pick).toBe(false);
+    expect("gate" in pick).toBe(false);
+  });
+  test("Which answered with a noul", () => {
+    const pick = pickSkill([{ options, read: read({ which: noul(0.9) }, {}) }]);
+    expect(pick).toEqual({ kind: "none", reason: "failed" });
+    expect("p" in pick).toBe(false);
+    expect("gate" in pick).toBe(false);
   });
   test("Unreadable which", () => {
     const pick = pickSkill([{ options, read: read({}, { which: "missing" }) }]);
@@ -244,9 +264,10 @@ describe("deliveryText", () => {
     baseDir: "/s/debug",
     body: "Step one.",
   };
-  const docs = readFileSync("docs/jev-questions.md", "utf8");
+  const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
   function template(form: string): string {
     const at = docs.indexOf(`**\`${form}\`**`);
+    expect(at).toBeGreaterThan(-1);
     const open = docs.indexOf("```text\n", at) + "```text\n".length;
     return docs.slice(open, docs.indexOf("\n```", open));
   }

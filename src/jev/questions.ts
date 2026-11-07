@@ -38,9 +38,18 @@ export type SkillQuestions = {
 
 // `which` over one list, so criteria and options cannot drift apart.
 function whichQuestion(batch: readonly SkillEntry[]): { wire: WireQuestion; spec: QuestionSpec } {
+  // Integer-like names keep JS key order in `criteria`; `options` keep catalog order and drive ties.
   const criteria: Record<string, string> = {};
-  for (const entry of batch) criteria[entry.name] = skillCriterion(entry);
-  criteria[NONE_OPTION] = NONE_CRITERION;
+  const define = (name: string, value: string): void => {
+    Object.defineProperty(criteria, name, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  };
+  for (const entry of batch) define(entry.name, skillCriterion(entry));
+  define(NONE_OPTION, NONE_CRITERION);
   return {
     wire: { type: "choice", instructions: WHICH_INSTRUCTION, criteria },
     spec: { type: "choice", options: [...batch.map((e) => e.name), NONE_OPTION] },

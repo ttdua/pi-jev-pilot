@@ -230,6 +230,16 @@ describe("skill questions", () => {
     });
   });
 
+  test("which keeps a skill named __proto__", () => {
+    const { wire, specs } = skillBatchQuestions([{ name: "__proto__" }, { name: "plan" }]);
+    const which = wire["which"] as WireQuestion;
+    expect(Object.keys(which.criteria)).toContain("__proto__");
+    expect(specs["which"]).toEqual({
+      type: "choice",
+      options: ["__proto__", "plan", "(none)"],
+    });
+  });
+
   test("Later batch", () => {
     const { wire, specs } = skillBatchQuestions(skills);
     expect(Object.keys(wire)).toEqual(["which"]);
