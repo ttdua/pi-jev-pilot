@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { cutPoints, cutPointsFor, type WindowEntry } from "../../src/policy/cutpoints.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  cutPoints,
+  cutPointsFor,
+  type CutPoints,
+  type WindowEntry,
+} from "../../src/policy/cutpoints.ts";
 import { WINDOW_MIN } from "../../src/policy/cut-window.ts";
 import type { EffortLevel } from "../../src/policy/effort.ts";
 import { MODE_NAMES, MODE_TARGETS } from "../../src/policy/modes.ts";
 import { SEED_CUTPOINTS } from "../../src/policy/seed.ts";
+import { REPO_ROOT } from "../helpers";
 
 function entry(score: number, effort: EffortLevel = "high"): WindowEntry {
   return { score, effort, decided: "balanced" };
@@ -101,5 +109,40 @@ describe("cutPointsFor", () => {
     }
     expect(SEED_CUTPOINTS.premium.fastMax).toBe(-Infinity);
     expect(SEED_CUTPOINTS.budget.expertMin).toBe(Infinity);
+  });
+});
+
+const EVIDENCE_NOTE = "docs/evidence/2026-11-07-tier-mix.md";
+
+function parseCut(cell: string): number {
+  if (cell === "−∞") return -Infinity;
+  if (cell === "+∞") return Infinity;
+  return Number(cell);
+}
+
+// Rows of the note's "Seed cut points" table: | `mode` | fastMax | balancedMax | expertMin |
+function publishedSeed(text: string): Record<string, CutPoints> {
+  const section = text.split("## Seed cut points")[1]?.split("\n## ")[0] ?? "";
+  const rows: Record<string, CutPoints> = {};
+  for (const line of section.split("\n")) {
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((c) => c.trim());
+    const mode = /^`(\w+)`$/.exec(cells[0] ?? "")?.[1];
+    if (mode === undefined || cells.length !== 4) continue;
+    rows[mode] = {
+      fastMax: parseCut(cells[1] ?? ""),
+      balancedMax: parseCut(cells[2] ?? ""),
+      expertMin: parseCut(cells[3] ?? ""),
+    };
+  }
+  return rows;
+}
+
+describe("seed evidence", () => {
+  test("seed matches the evidence note", () => {
+    const published = publishedSeed(readFileSync(join(REPO_ROOT, EVIDENCE_NOTE), "utf8"));
+    expect(published).toEqual({ ...SEED_CUTPOINTS });
   });
 });

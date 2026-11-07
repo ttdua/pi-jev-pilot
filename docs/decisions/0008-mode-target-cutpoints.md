@@ -6,7 +6,7 @@
 
 ADR 0003 gave each mode its own rubric and expert gate. The [2026-11-07 replay](../evidence/2026-11-07-replay.md) reproduced `budget` and `premium`, but `standard` moved toward `deep`, and the operator could not say what mix a mode should give. Wording is also a blunt control: a change to one rubric moves the mix in ways only a replay shows.
 
-The operator set a target mix per mode in [#39](https://github.com/ttdua/pi-jev-pilot/issues/39). An offline spike on the replay answers showed that a single difficulty score, with cut points taken from recent scores, can hold each target.
+The operator set a target mix per mode in [#39](https://github.com/ttdua/pi-jev-pilot/issues/39). An offline spike on the replay answers showed that a single difficulty score, with cut points taken from recent scores, can hold each target. The [tier-mix replay](../evidence/2026-11-07-tier-mix.md) checks this against the shipped code and publishes the seed.
 
 ## Decision
 
