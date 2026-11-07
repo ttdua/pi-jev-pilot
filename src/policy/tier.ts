@@ -1,13 +1,14 @@
 // Pure tier decision and fallback. Imports nothing outside src/policy/.
 
 import { TIER_LADDER, type TierName } from "./launch.ts";
+import { expertAdmitted, type ModeName } from "./modes.ts";
 import type { WorkerAnswers } from "./worker.ts";
 
 export type TierDecision =
   | {
       kind: "decided";
       tier: TierName;
-      reason: "fable" | "risky" | "expert-denied" | "fast-unsure" | "choice";
+      reason: "expert-admitted" | "risky" | "expert-denied" | "fast-unsure" | "choice";
     }
   | { kind: "none"; reason?: "miss" };
 
@@ -31,7 +32,11 @@ function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
   return offered.includes("deep") ? "deep" : highestBelowExpert(offered);
 }
 
-export function decideTier(answers: WorkerAnswers, offered: readonly TierName[]): TierDecision {
+export function decideTier(
+  answers: WorkerAnswers,
+  offered: readonly TierName[],
+  mode: ModeName,
+): TierDecision {
   if (answers.kind === "miss") return { kind: "none", reason: "miss" };
   if (answers.kind === "cancelled") return { kind: "none" };
   if (offered.length === 0) return { kind: "none" };
@@ -40,17 +45,10 @@ export function decideTier(answers: WorkerAnswers, offered: readonly TierName[])
   const choice = tier?.type === "choice" ? tier : undefined;
   const risky = answers.answers["risky"];
   const riskyValue = risky?.type === "noul" ? risky.noul : undefined;
-  const needed = answers.answers["expert_needed"];
-  const neededValue = needed?.type === "noul" ? needed.noul : undefined;
 
-  // Rule 1: fable.
-  if (
-    choice?.choice === "expert" &&
-    neededValue !== undefined &&
-    neededValue > 0.9 &&
-    offered.includes("expert")
-  ) {
-    return decide("expert", "fable");
+  // Rule 1: expert admitted by the mode's gate.
+  if (offered.includes("expert") && expertAdmitted(mode, answers.answers)) {
+    return decide("expert", "expert-admitted");
   }
   // Rule 2: risk floor.
   if (riskyValue !== undefined && riskyValue > 0.7) {

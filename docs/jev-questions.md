@@ -6,7 +6,7 @@ Wording decides routing, so a change here needs a [replay](testing.md#replay-rul
 
 ## Wire format
 
-Questions follow the documented Choice and Noul shapes. A choice has `type`, `instructions` and `criteria`, a map from each option to its description. A noul has `type`, `instructions` and `criteria` with the keys `true` and `false`. The package always sends `criteria`; TypeSafe treats it as optional.
+Questions follow the documented Choice and Noul shapes. A choice has `type`, `instructions` and `criteria`, a map from each option to its description. A noul has `type`, `instructions` and `criteria` with the keys `true` and `false`. The package always sends `criteria`, except for the three skill gates, which are sent with `type` and `instructions` only, as upstream measured them; TypeSafe treats `criteria` as optional. The instruction sent for a gate is the table cell below without the trailing "Inverted when averaged." note.
 
 ## Tier rubrics
 
@@ -68,7 +68,7 @@ Noul. Asked in worker requests when `tiers.expert` is configured.
 - `true`: A concrete, consequential technical decision remains genuinely unresolved despite adequate constraints and evidence, and an ordinary deep-tier approach would materially fail to settle it: strongly coupled trade-offs, conflicting cross-subsystem evidence, or a blocker that resisted distinct, evidence-based investigations. A reusable decision, diagnosis or plan is the requested outcome.
 - `false`: Routine architecture explanation or design using known patterns; ordinary review; implementing a settled plan; collecting evidence; formatting or saving Markdown; a long task; a security or production label; missing requirements; or lack of evidence. Being difficult, high effort or high risk is not enough.
 
-**In `premium`:** asked and logged for calibration, and not part of its Fable rule.
+**In `premium`:** asked and logged for calibration, and not part of its expert gate.
 
 > This task needs the strongest available reasoning rather than competent execution of a settled plan: architecture or design across many components, long multi-step work with tightly coupled parts, a bug that resisted earlier attempts, or concurrency or data-integrity reasoning where a wrong call is expensive to undo.
 
@@ -132,7 +132,7 @@ Choice, main request only.
 
 > Which of these skills, if any, is the right one to load to help with the user's latest request? Match the kind of work the request asks for (such as debugging a failure, planning, reviewing, designing, writing a document), not only a product or technology it names. A skill for one product or platform (Vercel, Supabase, AWS, Firebase, Stripe…) fits only when the request, the conversation or the project (`workspace.platforms` in the state: what its files show it uses) shows that product is the one in use here; otherwise choose a general skill or none.
 
-Each skill's criterion is `<description> — <first 300 characters of the body>`. If either is missing, use what exists, or `A skill named <name>.`
+Each skill's criterion is `<description> — <first 300 code points of the body>`. Both parts are trimmed, and an empty part counts as missing. If either is missing, use what exists, or `A skill named <name>.`
 
 The option `(none)`:
 
@@ -202,6 +202,41 @@ Read the changed files and `git diff` (or `git diff HEAD~1` when the change is a
 Check that it does what the brief says, and look for wrong behavior, input that is not checked, broken edge cases and missing tests.
 Report each finding as P1 (wrong behavior or lost data), P2 (a likely bug or a missing check) or P3 (minor), with file:line and a one-line fix.
 End with one verdict: PASS, PASS-WITH-FOLLOWUP or NEEDS FIXES. Keep it tight.
+```
+
+### Skill delivery
+
+Sent as a hidden message for a picked skill, in one of three forms. `<…>` values are inserted verbatim; lines are joined with `\n`.
+
+**`content`**
+
+```text
+<skill_relevance>
+Relevant to the current request: <name>. Ignore this if it does not fit what the user actually asked for.
+<skill name="<name>" location="<path>">
+References are relative to <baseDir>.
+
+<body>
+</skill>
+</skill_relevance>
+```
+
+**`suggest`**
+
+```text
+<skill_relevance>
+Relevant to the current request: <name>. Ignore this if it does not fit what the user actually asked for.
+Its instructions are in <path>, with references relative to <baseDir>. Read that file before you start if the skill fits.
+</skill_relevance>
+```
+
+**`reference`**
+
+```text
+<skill_relevance>
+Relevant to the current request: <name>. Ignore this if it does not fit what the user actually asked for.
+Skill <name> is already loaded above; its instructions are unchanged.
+</skill_relevance>
 ```
 
 ## Example slot: `reviewer`

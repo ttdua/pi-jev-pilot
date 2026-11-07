@@ -10,7 +10,7 @@ To TypeSafe, on every eligible prompt and launch:
 | Recent conversation | Up to 4 messages, 2000 characters; text and tool names | Part of the same switch |
 | Facts about the request | Counts and flags computed locally | Part of the same switch |
 | Project platforms | Names inferred from file names, such as `Docker` | `/jev skills off` |
-| Skill catalog | Each skill's name, description, first 300 body characters | `/jev skills off` |
+| Skill catalog | Each skill's name, description, first 300 code points of the body | `/jev skills off` |
 | Worker briefs | First 4000 characters | `/jev subagents off` |
 | Agent details | Name, description, first 500 characters of instructions, tool names | `/jev subagents off` |
 | Slot details | Model id and your `when` text | Remove the slot |

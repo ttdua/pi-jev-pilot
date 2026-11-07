@@ -45,6 +45,10 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
     expect(parseJevArgs("status on")).toEqual({ kind: "set", feature: "status", on: true });
   });
+  test("mode", () => {
+    expect(parseJevArgs("mode premium")).toEqual({ kind: "mode", mode: "premium" });
+    expect(parseJevArgs("mode budget")).toEqual({ kind: "mode", mode: "budget" });
+  });
   test("all and reset", () => {
     expect(parseJevArgs("all off")).toEqual({ kind: "all", on: false });
     expect(parseJevArgs("all on")).toEqual({ kind: "all", on: true });
@@ -68,7 +72,10 @@ describe("parseJevArgs", () => {
     "cli-review claude",
     "cli-review Codex",
     "cli-review codex luna high now",
-    "mode premium",
+    "mode",
+    "mode quality",
+    "mode Premium",
+    "mode premium now",
     "colors off",
     "skills maybe",
     "skills off now",
@@ -90,8 +97,11 @@ describe("usageText", () => {
   });
   test("lists no later forms", () => {
     for (const line of text.split("\n"))
-      for (const p of ["/jev mode", "/jev tune", "/jev remove", "/jev slot"])
+      for (const p of ["/jev tune", "/jev remove", "/jev slot"])
         expect(line.trimStart().startsWith(p)).toBe(false);
+  });
+  test("Usage lists the mode form", () => {
+    expect(text).toContain("/jev mode budget|standard|premium");
   });
   test("lists the cli-review form", () => {
     expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
@@ -355,9 +365,9 @@ describe("runJev", () => {
     expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
   });
 
-  test("later-group command gets usage as warning", async () => {
+  test("Command from a later work group gets usage as warning", async () => {
     const dir = jevDir();
-    const rec = await run("mode premium", dir);
+    const rec = await run("tune", dir);
     expect(rec.notes).toEqual([[usageText(), "warning"]]);
     expect(existsSync(join(dir, "state.json"))).toBe(false);
   });
@@ -407,12 +417,55 @@ describe("runJev", () => {
         throw new TypeError("boom");
       },
     });
-    await runJev("mode premium", c.ctx, {
+    await runJev("tune", c.ctx, {
       dir,
       load: load(dir),
       decision: noDecision,
       exec: noExec,
     });
+  });
+});
+
+describe("runJev mode", () => {
+  const modeOf = (dir: string) => (readState(dir).state as State).mode;
+
+  test("Set premium", async () => {
+    const dir = jevDir();
+    await run("skills off", dir);
+    const rec = await run("mode premium", dir);
+    expect(modeOf(dir)).toBe("premium");
+    expect(switches(dir)?.skills).toBe(false);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("mode: premium");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · premium"]);
+  });
+
+  test("Mode survives a restart", async () => {
+    const dir = jevDir();
+    await run("mode budget", dir);
+    expect(load(dir)().settings.mode).toBe("budget");
+  });
+
+  test("Back to standard", async () => {
+    const dir = jevDir();
+    await run("mode premium", dir);
+    const rec = await run("mode standard", dir);
+    expect(modeOf(dir)).toBe("standard");
+    expect(rec.notes[0]![0]).toContain("mode: standard");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · standard"]);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Refused mode change", async () => {
+    const dir = jevDir();
+    await run("mode budget", dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const rec = await run("mode premium", dir);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("EACCES");
+    expect(rec.widgets).toHaveLength(0);
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(modeOf(dir)).toBe("budget");
   });
 });
 

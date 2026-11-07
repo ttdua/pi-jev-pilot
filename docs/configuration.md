@@ -84,7 +84,7 @@ Each is optional: an exact `provider/id`, at most 128 characters. An unset tier 
 | `fast` | Bounded work with nothing to decide |
 | `balanced` | Ordinary engineering |
 | `deep` | Judgment and long work |
-| `expert` | The hardest work; gated by the mode's Fable rule |
+| `expert` | The hardest work; gated by the mode's expert gate |
 
 ### `crew.slots`
 
@@ -148,7 +148,7 @@ Content that leaves the machine with its own switch.
 | Effort ceiling | `xhigh` | Cost |
 | `fast` effort cap | `medium` | Cost |
 | `fast`, slot threshold | Probability .6 | Not yet calibrated; change through code and evidence |
-| Fable rules | See the [domain model](domain-model.md#fable-rules) | Not yet calibrated |
+| Expert gates | See the [domain model](domain-model.md#expert-gates) | Not yet calibrated |
 | Tool removal score | .5 | Not yet calibrated |
 | Skill thresholds | .5, .3, .3 | From upstream |
 | Strategy thresholds | .6, .8 | From upstream |

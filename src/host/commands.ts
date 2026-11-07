@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { DECISION_FEATURES, FEATURES, type Feature } from "../store/defaults.ts";
+import { DECISION_FEATURES, FEATURES, MODES, type Feature, type Mode } from "../store/defaults.ts";
 import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
 import type { Issue } from "../store/validate.ts";
 import { isChild } from "./child.ts";
@@ -25,6 +25,7 @@ export type JevArgs =
   | { kind: "status" }
   | { kind: "set"; feature: Feature; on: boolean }
   | { kind: "all"; on: boolean }
+  | { kind: "mode"; mode: Mode }
   | { kind: "reset" }
   | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
   | { kind: "usage" };
@@ -50,6 +51,11 @@ export function parseJevArgs(text: string): JevArgs {
   if (words[0] === "cli-review") return parseCliReview(words);
   const [head, value, ...rest] = words;
   if (words.length === 1) return head === "reset" ? { kind: "reset" } : USAGE;
+  if (head === "mode") {
+    return rest.length === 0 && (MODES as readonly string[]).includes(value!)
+      ? { kind: "mode", mode: value as Mode }
+      : USAGE;
+  }
   if (rest.length > 0 || (value !== "on" && value !== "off")) return USAGE;
   const on = value === "on";
   if (head === "all") return { kind: "all", on };
@@ -66,6 +72,7 @@ export function usageText(): string {
     "  /jev <feature> on|off     switch one feature",
     `      features: ${FEATURES.join(", ")}`,
     "  /jev all on|off           switch the seven decision features",
+    "  /jev mode budget|standard|premium  choose the worker mode",
     "  /jev reset                reset switches, mode and CLI review default",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
   ].join("\n");
@@ -138,6 +145,38 @@ async function checkAgainstCli(
   return { check: checkOpencodeChoice(a.model, a.effort, ids) };
 }
 
+type Change = Exclude<JevArgs, { kind: "status" | "usage" }>;
+
+function applyChange(
+  parsed: Change,
+  dir: string,
+  cliReview: { model?: string; effort?: string } | undefined,
+): ReturnType<typeof updateState> {
+  switch (parsed.kind) {
+    case "reset":
+      return resetState(dir);
+    case "mode":
+      return updateState(dir, (st) => ({ ...st, mode: parsed.mode }));
+    case "cli-review":
+      return updateState(dir, (st) => ({
+        ...st,
+        cliReview: {
+          cli: parsed.cli,
+          ...(cliReview?.model ? { model: cliReview.model } : {}),
+          ...(cliReview?.effort ? { effort: cliReview.effort } : {}),
+        },
+      }));
+    case "set":
+    case "all":
+      return updateState(dir, (st) => {
+        const features = parsed.kind === "all" ? DECISION_FEATURES : [parsed.feature];
+        const switches = { ...st.switches };
+        for (const f of features) switches[f] = parsed.on;
+        return { ...st, switches };
+      });
+  }
+}
+
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
@@ -196,24 +235,7 @@ export async function runJev(
       }
     }
     if (parsed.kind !== "status") {
-      const result =
-        parsed.kind === "reset"
-          ? resetState(deps.dir)
-          : parsed.kind === "cli-review"
-            ? updateState(deps.dir, (st) => ({
-                ...st,
-                cliReview: {
-                  cli: parsed.cli,
-                  ...(cliReview?.model ? { model: cliReview.model } : {}),
-                  ...(cliReview?.effort ? { effort: cliReview.effort } : {}),
-                },
-              }))
-            : updateState(deps.dir, (st) => {
-                const features = parsed.kind === "all" ? DECISION_FEATURES : [parsed.feature];
-                const switches = { ...st.switches };
-                for (const f of features) switches[f] = parsed.on;
-                return { ...st, switches };
-              });
+      const result = applyChange(parsed, deps.dir, cliReview);
       if (!result.ok) {
         notify(
           result.issues.map((i) => (i.path ? `${i.path}: ${i.message}` : i.message)).join("\n"),
