@@ -263,4 +263,25 @@ describe("listAgents", () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]?.description).toBe("from project");
   });
+  test("single-pass listing matches per-name lookup across sources", () => {
+    const s = setup();
+    s.project("both.md", fmFile("description: p"));
+    s.global("both.md", fmFile("description: g"));
+    s.global("only-global.md", fmFile("description: og"));
+    s.project("Explore.md", fmFile("description: my explore"));
+    s.project("broken.md", fmFile("tools: [unterminated"));
+    s.global("broken.md", fmFile("description: fallback g"));
+    const listed = listAgents(s.dirs);
+    expect(listed.map((a) => a.name)).toEqual([
+      "Explore",
+      "Plan",
+      "both",
+      "broken",
+      "general-purpose",
+      "only-global",
+    ]);
+    for (const agent of listed) expect(agent).toEqual(readAgent(agent.name, s.dirs));
+    expect(listed.find((a) => a.name === "both")?.source).toBe("project");
+    expect(listed.find((a) => a.name === "only-global")?.source).toBe("global");
+  });
 });

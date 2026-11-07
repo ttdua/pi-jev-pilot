@@ -155,7 +155,6 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | Add skill and advice to context | `before_agent_start` returning `message` with `display: false` | Documented |
 | Set main effort | `pi.setThinkingLevel`, `clampThinkingLevel` | Documented |
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
-| Know context usage | `ctx.getContextUsage()` | Documented |
 | Skill catalog | `pi.getCommands()` with `sourceInfo.path`, `parseFrontmatter` / `stripFrontmatter` | Documented |
 | Skills already in context | `ctx.sessionManager.buildSessionProjection()` | Documented |
 | Pre-classify sibling launches | `pi.on("message_end")` before `tool_call` preflight | Verified: yes ([Q2](evidence/2026-11-05-host-seams.md#q2)) |

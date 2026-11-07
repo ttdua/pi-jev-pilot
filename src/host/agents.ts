@@ -124,44 +124,53 @@ function parseFile(
   }
 }
 
+type AgentFiles = { project: Map<string, string>; global: Map<string, string> };
+
+function listSources(dirs: { cwd: string; agentDir: string }): AgentFiles {
+  return {
+    project: listAgentFiles(join(dirs.cwd, ".pi", "agents")),
+    global: listAgentFiles(join(dirs.agentDir, "agents")),
+  };
+}
+
+/** Project, then global, then built-in; an unparsable file falls through to the next source. */
+function resolveAgent(key: string, files: AgentFiles): AgentFacts | undefined {
+  const p = files.project.get(key);
+  if (p !== undefined) {
+    const facts = parseFile(key, p, "project");
+    if (facts) return facts;
+  }
+  const g = files.global.get(key);
+  if (g !== undefined) {
+    const facts = parseFile(key, g, "global");
+    if (facts) return facts;
+  }
+  return BUILTIN_AGENTS.get(key);
+}
+
 export function readAgent(name: unknown, dirs: { cwd: string; agentDir: string }): AgentFacts {
   const fallback = BUILTIN_AGENTS.get(FALLBACK) as AgentFacts;
   if (typeof name !== "string") return fallback;
-  const project = listAgentFiles(join(dirs.cwd, ".pi", "agents"));
-  const global = listAgentFiles(join(dirs.agentDir, "agents"));
+  const files = listSources(dirs);
 
-  const resolve = (key: string): AgentFacts | undefined => {
-    const p = project.get(key);
-    if (p !== undefined) {
-      const facts = parseFile(key, p, "project");
-      if (facts) return facts;
-    }
-    const g = global.get(key);
-    if (g !== undefined) {
-      const facts = parseFile(key, g, "global");
-      if (facts) return facts;
-    }
-    return BUILTIN_AGENTS.get(key);
-  };
-
-  const exact = resolve(name);
+  const exact = resolveAgent(name, files);
   if (exact) return exact;
 
   const keys = [...BUILTIN_AGENTS.keys()];
-  for (const k of global.keys()) if (!keys.includes(k)) keys.push(k);
-  for (const k of project.keys()) if (!keys.includes(k)) keys.push(k);
+  for (const k of files.global.keys()) if (!keys.includes(k)) keys.push(k);
+  for (const k of files.project.keys()) if (!keys.includes(k)) keys.push(k);
   const lower = name.toLowerCase();
   const match = keys.find((k) => k.toLowerCase() === lower);
-  return (match === undefined ? undefined : resolve(match)) ?? fallback;
+  return (match === undefined ? undefined : resolveAgent(match, files)) ?? fallback;
 }
 
 /** Every known agent, project over global over built-in, one per name, in name order. */
 export function listAgents(dirs: { cwd: string; agentDir: string }): AgentFacts[] {
-  const project = listAgentFiles(join(dirs.cwd, ".pi", "agents"));
-  const global = listAgentFiles(join(dirs.agentDir, "agents"));
-  const names = new Set([...BUILTIN_AGENTS.keys(), ...global.keys(), ...project.keys()]);
-  return [...names].sort().flatMap((name) => {
-    const facts = readAgent(name, dirs);
-    return facts.name === name ? [facts] : [];
-  });
+  const files = listSources(dirs);
+  const names = new Set([
+    ...BUILTIN_AGENTS.keys(),
+    ...files.global.keys(),
+    ...files.project.keys(),
+  ]);
+  return [...names].sort().flatMap((name) => resolveAgent(name, files) ?? []);
 }

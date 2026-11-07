@@ -66,8 +66,7 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
     "last_decision": { "effort": "high", "strategy": "direct" }
   },
   "workspace": {
-    "platforms": ["Docker", "GitHub Actions"],
-    "git": { "changed_files": 3, "diff_lines": 84 }  // pending pass 2; not sent yet
+    "platforms": ["Docker", "GitHub Actions"]
   },
   "capabilities": {
     "tools": [{ "name": "read", "summary": "<first sentence of the description>" }],

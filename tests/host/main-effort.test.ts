@@ -426,7 +426,15 @@ describe("default request state", () => {
         "workspace",
       ]);
       expect(second.conversation["last_decision"]).toMatchObject({ effort: "high" });
-      // First turn has no last decision.
+      expect(Object.keys(second.conversation).sort()).toEqual([
+        "last_decision",
+        "recent",
+        "recent_tools",
+        "turn_index",
+      ]);
+      expect(Object.keys(second.workspace)).toEqual(["platforms"]);
+      // First turn has capabilities but no last decision.
+      expect(first).toHaveProperty("capabilities");
       expect(first.conversation).not.toHaveProperty("last_decision");
       // Unshipped groups are never sent.
       for (const state of states) {
