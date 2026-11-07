@@ -6,8 +6,8 @@
 > from "keep as-is" to PR later).
 
 **Change**: `wg-16-rich-state-replay`
-**Finalized at**: `2026-11-07 12:05` (UTC)
-**Outcome**: `merge-locally` (partial: code part only; see Deviations)
+**Finalized at**: `2026-11-07 14:10` (UTC). This receipt was first written at 12:05 for the code part, and was re-entered for iterations 3–5.
+**Outcome**: `merge-locally` (partial: pass 1 decided and shipped, pass 2 git pending; see Deviations)
 
 ---
 
@@ -15,7 +15,11 @@
 
 - **Branch**: `WG-16` (feature branch)
 - **Base branch**: `main`
-- **Final state**: `merged`. `wg-16-rich-state-replay` was fast-forwarded into `WG-16` at `bc55c49`. This receipt is committed on top. Nothing has been pushed.
+- **Final state**: `merged`. `wg-16-rich-state-replay` was fast-forwarded into `WG-16` twice:
+  - at `bc55c49` (code part);
+  - at `9d97789` (iterations 3–5: pass 1 decisions and effort option order).
+
+  This receipt is committed on top. Nothing has been pushed.
 - **PR URL**: N/A. `WG-16` has no upstream, and no PR exists.
 
 ---
@@ -37,9 +41,11 @@
 
 ## Code review
 
-- **Code review**: `approved`. The operator approved the code review gate in the Plannotator Inbox, thread "wg-16-rich-state-replay".
+- **Code review**: `approved`, twice. The operator approved the code review gate in the Plannotator Inbox, thread "wg-16-rich-state-replay", for each range.
 - **Reviewer tier**: human operator, through the Plannotator Inbox. Before that, there were per-task `superspec.task-reviewer` reviews and one final whole-branch review.
-- **Commit range reviewed**: `WG-16` `3ebb2e0`..`wg-16-rich-state-replay` `bc55c49` (34 commits, 51 files, +4726 / −178).
+- **Commit range reviewed**:
+  - `3ebb2e0..bc55c49`: 34 commits, 51 files, +4726 / −178;
+  - `fba404b..9d97789`: 11 commits, 38 files, +559 / −699.
 
 ---
 
@@ -47,7 +53,8 @@
 
 - **Baseline status at finish**: `passing`.
   - In the worktree, before the merge: `bun test` gave 1566 pass, 0 fail.
-  - On `WG-16`, after the fast-forward: `bun test` gave 1566 pass, 0 fail; `bun run typecheck` was clean and `bun run lint` exited 0.
+  - On `WG-16`, after the first fast-forward: `bun test` gave 1566 pass, 0 fail; `bun run typecheck` was clean and `bun run lint` exited 0.
+  - On `WG-16`, after the second fast-forward (`9d97789`): `bun test` gave 1558 pass, 0 fail; typecheck was clean and lint exited 0.
 
 ---
 
@@ -55,20 +62,16 @@
 
 - **Push skipped.** Step 10 (`git push origin WG-16`) and step 11 (offering a PR) were not run. The project `AGENTS.md` forbids pushing, merging or opening a PR without the operator's explicit go-ahead in chat, and the operator approved only finalize of the code part.
 - **Pull skipped.** `WG-16` has no upstream branch, so step 3's `git pull` was skipped.
-- **Branch kept.** Step 7 (deleting the worktree branch) was skipped. The change is not complete: tasks 5.x and 6.x (plan Tasks 12–14, the operator-gated replay passes and decisions) still run in the same worktree. The operator chose to finalize the code part first and run pass 1 afterwards.
+- **Branch kept.** Step 7 (deleting the worktree branch) was skipped. The change is not complete: tasks 6.x (pass 2, git) still run in the same worktree. Pass 1 (5.x) is done and merged.
 - **Archive blocked.** `/opsx-archive` must wait until Tasks 12–14 are done and verified (verify W2).
 
 ---
 
 ## Next step
 
-1. Run pass 1 (plan Task 12) from the worktree:
-   - take the capabilities snapshot;
-   - do a dry run with real counts and cost;
-   - get the operator's approval;
-   - run with `--send`.
-2. Apply the pass 1 decisions (Task 13) as an apply iteration, then verify again.
-3. Record git counts for a few days, then run pass 2 (Task 14).
-4. Re-enter finalize, then run `/opsx-archive`.
+1. The operator records git counts for a few days, with `JEV_REPLAY_GIT=1` in the shell that runs Pi.
+2. Run pass 2 (Task 14) with the operator's approval.
+3. Apply the git decision. Apply is at its 5-iteration cap, so the operator chooses: a new iteration count, or a follow-up change.
+4. Verify, re-enter finalize, then run `/opsx-archive`.
 
 Pushing `WG-16` or opening a PR needs the operator's explicit go-ahead.
