@@ -70,6 +70,9 @@ export type TurnRecord = {
   effortP?: Record<string, number>;
   risky?: number;
   corrects?: number;
+  skill?: string;
+  skillP?: number;
+  gate?: number;
   requested?: EffortLevel;
   effective?: ThinkingLevel;
   applied?: ThinkingLevel;
@@ -174,7 +177,9 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     }
     rec.ms = outcome.ms;
     const read = readOf(outcome, p.questions.specs);
-    const message = skillMessage(await skillPick(p, read, later), p.batches, ctx, snapshot);
+    const pick = await safePick(p, read, later);
+    recordPick(rec, pick);
+    const message = skillMessage(pick, p.batches, ctx, snapshot);
     if (p.held) holdOutcome(rec, ctx, snapshot, outcome, read);
     else applyEffort(p, ctx, outcome, read);
     return message;
@@ -192,6 +197,26 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     const which = specs["which"];
     return which?.type === "choice" ? which.options : [];
   };
+
+  /** A throw while picking means no pick; the effort decision still goes ahead. */
+  async function safePick(
+    p: Prepared,
+    mainRead: ReadResult | undefined,
+    later: readonly Promise<JevOutcome>[],
+  ): Promise<SkillPick> {
+    try {
+      return await skillPick(p, mainRead, later);
+    } catch {
+      return { kind: "none", reason: "failed" };
+    }
+  }
+
+  /** Put the pick's name (only when picked), leader probability and gate mean on the record. */
+  function recordPick(rec: TurnRecord, pick: SkillPick): void {
+    if (pick.kind === "picked") rec.skill = pick.name;
+    if ("p" in pick) rec.skillP = pick.p;
+    if ("gate" in pick && pick.gate !== undefined) rec.gate = pick.gate;
+  }
 
   /** Pick one skill over the main reply and the later batches' replies; a cancel or miss reads as undefined. */
   async function skillPick(
@@ -531,6 +556,9 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         ...(rec.effortP === undefined ? {} : { effortP: rec.effortP }),
         ...(rec.risky === undefined ? {} : { risky: rec.risky }),
         ...(rec.corrects === undefined ? {} : { corrects: rec.corrects }),
+        ...(rec.skill === undefined ? {} : { skill: rec.skill }),
+        ...(rec.skillP === undefined ? {} : { skillP: rec.skillP }),
+        ...(rec.gate === undefined ? {} : { gate: rec.gate }),
         ...(rec.requested === undefined ? {} : { requested: rec.requested }),
         ...(rec.effective === undefined ? {} : { effective: rec.effective }),
         from: rec.from,
