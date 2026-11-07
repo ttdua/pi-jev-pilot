@@ -112,13 +112,14 @@ describe("compareReport main", () => {
     const agg = compareReport(plan, results, metaOf({ startEffort: [undefined, "low"] }));
     expect(agg.main.report.effort).toEqual({ low: 1, high: 1 });
     expect(agg.main.report.vsStart).toEqual({ lowered: 0, same: 1, raised: 0 });
+    expect(agg.main.report.vsFixed).toEqual({ level: "low", lowered: 0, same: 1, raised: 0 });
   });
 
   test("start outside the levels counts as none; ties take the higher level", () => {
     const { plan, results } = mainRun(["low", "low", "low"]);
     const agg = compareReport(plan, results, metaOf({ startEffort: ["bogus", "low", "high"] }));
     expect(agg.main.report.vsStart).toEqual({ lowered: 1, same: 1, raised: 0 });
-    expect(agg.main.report.vsFixed.level).toBe("high");
+    expect(agg.main.report.vsFixed).toEqual({ level: "high", lowered: 2, same: 0, raised: 0 });
   });
 
   test("no start at all gives a null fixed level", () => {
@@ -145,6 +146,8 @@ describe("compareReport workers", () => {
     const byKind = agg.workers.report.standard.slots.byKind;
     expect(byKind?.review["slot::reviewer"]).toBe(3);
     expect(byKind?.implementation["slot::reviewer"]).toBe(1);
+    const keys = Object.values(byKind ?? {}).flatMap((c) => Object.keys(c));
+    expect(keys.every((k) => k.startsWith("slot::"))).toBe(true);
     expect(agg.workers.report.standard.tiers.byKind).toBeUndefined();
     expect(Object.values(agg.workers.report.standard.slots.reasons).reduce((a, b) => a + b)).toBe(
       10,

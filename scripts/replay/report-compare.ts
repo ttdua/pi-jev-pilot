@@ -156,7 +156,8 @@ function tallyMain(side: Side, startEffort: readonly (string | undefined)[]) {
     if (m?.effort === undefined || decided < 0) return;
     bump(out.effort, m.effort);
     const start = levelIndex(startEffort[i]);
-    if (start >= 0) addDirection(out.vsStart, decided, start);
+    if (start < 0) return;
+    addDirection(out.vsStart, decided, start);
     if (fixed !== null) addDirection(out.vsFixed, decided, levelIndex(fixed));
   });
   return out;
@@ -186,7 +187,7 @@ function tallyWorkers(routed: (Targets | undefined)[], kinds: readonly Kind[], w
     bump(out.targets, r.target);
     bump(out.reasons, r.reason);
     const counts = out.byKind?.[kinds[i] ?? "implementation"];
-    if (counts !== undefined) bump(counts, r.target);
+    if (counts !== undefined && r.target.startsWith("slot::")) bump(counts, r.target);
   });
   return out;
 }
