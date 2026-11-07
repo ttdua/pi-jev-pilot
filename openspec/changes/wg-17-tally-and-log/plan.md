@@ -308,6 +308,7 @@
 - Tally on a miss → `tests/host/main.test.ts` "Tally on a miss"
 - Tally on a discarded 10th prompt → `tests/host/main.test.ts` "Tally on a discarded 10th prompt"
 - Effort off never shows the tally → `tests/host/main.test.ts` "Effort off never shows the tally"
+- Cancelled 11th prompt keeps the tally → `tests/host/main.test.ts` "cancelled 11th prompt keeps the overlay"
 
 **jev-command** (the 6 baseline Status report scenarios keep their tests in `tests/host/commands.test.ts`)
 - Empty tally → `tests/host/commands.test.ts` "Empty tally"

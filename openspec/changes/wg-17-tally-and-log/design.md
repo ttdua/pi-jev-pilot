@@ -62,11 +62,11 @@ The tally form is a display overlay, not a `Decision`:
 - `createMain` keeps `current` (the level suffix) as today and adds `overlay: string | undefined`.
 - When an eligible prompt's Jev request completes (not cancelled), `decide` asks a new dependency `tallyText(): string | undefined`. It returns the compact form when `log.prompts() + 1` is a multiple of 10. The `main` line is written only at settle, so `+ 1` counts this prompt.
 - If it returns text, `overlay` is set and the line is drawn as `statusText(s, current, overlay)`, whether or not this prompt's result set `current`.
-- At the start of the next eligible prompt, `overlay` is cleared before deciding. If that prompt leaves `current` unchanged (discarded, or answered without `effort`), it redraws with `current`.
+- When the next eligible prompt's Jev request completes (not cancelled), the overlay is recomputed, which clears it off the 10th. If that prompt leaves `current` unchanged (discarded, or answered without `effort`), it redraws with `current`. A cancelled prompt leaves the overlay and the line as they were, as it leaves the level suffix.
 - `main.decision()` stays the same. A new `main.overlay()` lets `/jev` redraw the same text.
 - `session_start` clears both.
 
-Why: this matches the operator's "until the next prompt" exactly, and keeps the level suffix rules of the status-line spec untouched underneath.
+Why: this follows the operator's "until the next prompt", counting a prompt once its result arrives, and keeps the level suffix rules of the status-line spec untouched underneath.
 
 The compact form is `<P> prompts · <W> workers · <F> fallbacks`, with `P` counting this prompt, for example `Jev · standard · 10 prompts · 3 workers · 1 fallbacks`. Each count is always shown, even at 0, and the plural is fixed. The model breakdown and tokens are left to `/jev`, because the line has to stay short.
 
