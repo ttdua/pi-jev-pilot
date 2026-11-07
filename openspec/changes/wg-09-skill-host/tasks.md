@@ -14,7 +14,7 @@
 - [x] 3.1 Extend `MainDeps` with `commands` and `readFile` and wire them in `src/host/setup.ts`; make eligibility `effort on || skills apply`, read the catalog only after the other conditions pass, and compute the hold only with `effort` on (Eligible main prompts, Skill catalog, Main questions)
 - [x] 3.2 Send the first batch with the main questions and later batches in parallel in `src/host/main.ts`; build the pick from every batch (When skill questions are asked, Jev failure attaches no skill, Jev failure changes nothing)
 - [x] 3.3 Return the `jev-skill` message from `beforeAgentStart` on every path that read the main answers, with the form from `deliveryForm` over `loadedSkills`; leave the status line and `jev-turn` data unchanged on skill-only turns (Skill message, No duplicate body in context)
-- [ ] 3.4 Add `skill`, `skillP` and `gate` to `TurnRecord` and the `main` line (Main line fields, One main line per decided turn)
+- [x] 3.4 Add `skill`, `skillP` and `gate` to `TurnRecord` and the `main` line (Main line fields, One main line per decided turn)
 
 ## 4. Host test through the real CLI
 
