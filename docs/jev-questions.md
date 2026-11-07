@@ -55,10 +55,6 @@ Offered in every mode beside the tiers, keyed `slot::<name>`, with this criterio
 <model display name> (a custom model). <when>
 ```
 
-Default `when`:
-
-> Choose for read-only bulk work where cost matters more than precision: searching or reading across many files and reporting what is there, summarizing logs or test output, listing, filling in boilerplate from an existing pattern.
-
 ## `expert_needed`
 
 Noul. Asked in worker requests when `tiers.expert` is configured.

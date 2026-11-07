@@ -129,14 +129,14 @@ Made once per `subagent` launch, in this order. The first match wins.
 
 1. The mode's expert gate passes: `expert`.
 2. `risky > .7`: `deep`, or the highest configured tier below `expert`.
-3. A slot with probability ≥ .6: that slot. Below .6, continue with the highest tier.
+3. A slot with probability ≥ .6: that slot. Below .6, continue with the offered tier of highest probability.
 4. `expert` that did not pass the expert gate: `deep`, or the highest configured tier below `expert`. With no tier below `expert`, nothing is decided.
 5. `fast`: only with probability ≥ .6, otherwise `balanced`, or the lowest configured tier above `fast` and below `expert`.
 6. Otherwise the chosen tier.
 
 Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, capped at `medium` on `fast`, clamped to the final model. After a fallback move, effort is `xhigh` on every tier, without the `fast` cap.
 
-Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `expert` (the warning is shown once per tier and model per session, and `/jev` clears it); an unusable slot moves to `balanced`; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
+Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `expert` (the warning is shown once per tier and model per session, and `/jev` clears it); an unusable slot moves to `balanced`, then `fast`, never up; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
 
 A launch with `resume` is always left untouched. A forked launch (`inherit_context`) follows `subagents.forkedLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
 
