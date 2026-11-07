@@ -7,7 +7,7 @@ import {
   offeredTiers,
   type MainQuestions,
 } from "../../src/jev/questions.ts";
-import type { TierName } from "../../src/policy/launch.ts";
+import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
 import type { ModeName } from "../../src/policy/modes.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
 
@@ -74,10 +74,18 @@ function mainVariants(pass: 1 | 2, input: PlanInput): MainVariant[] {
     id: `full-${g}`,
     base: "full",
     groups: candidates.filter((c) => c !== g),
-    needs: [g],
+    needs: candidates, // the same sample set as `full`, so each request has a `full` pair
   }));
   const tail: MainVariant[] = pass === 1 ? [{ ...plain("effort-reversed"), reversed: true }] : [];
   return [...head, full, ...addOne, ...leaveOne, ...tail];
+}
+
+function deepFreeze<T>(value: T): T {
+  if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value)) deepFreeze(v);
+  }
+  return value;
 }
 
 function reverseRecord<T>(record: Record<string, T>): Record<string, T> {
@@ -95,9 +103,10 @@ function withReversedEffort(q: MainQuestions): MainQuestions {
 }
 
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
-  const base = mainQuestions({ askEffort: true, askStrategy: true });
+  const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
+  const reversed = deepFreeze(withReversedEffort(base));
   for (const v of variants) {
-    const q = v.reversed === true ? withReversedEffort(base) : base;
+    const q = v.reversed === true ? reversed : base;
     main.forEach((m, sample) => {
       if (v.needs.some((g) => m.missing.includes(g))) {
         plan.excluded[v.id] = (plan.excluded[v.id] ?? 0) + 1;
@@ -117,21 +126,50 @@ function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): voi
   }
 }
 
-type WorkerVariant = { id: string; edit: (s: ReturnType<typeof buildWorkerState>) => void };
+function initialState(w: RebuiltWorker, parentRequest?: string): WorkerState {
+  if (w.agent === undefined) throw new Error("worker sample has no agent");
+  return buildWorkerState({
+    brief: w.sample.brief,
+    ...(w.sample.description === undefined ? {} : { description: w.sample.description }),
+    agent: w.agent,
+    runInBackground: w.sample.runInBackground,
+    ...(parentRequest === undefined ? {} : { parentRequest }),
+  });
+}
+
+type WorkerState = ReturnType<typeof buildWorkerState>;
+type WorkerVariant = {
+  id: string;
+  /** True when the edit would leave the state equal to `base`; such a sample is excluded. */
+  noop?: (w: RebuiltWorker & { agent: AgentFacts }) => boolean;
+  edit: (s: WorkerState, w: RebuiltWorker) => void;
+};
 
 const WORKER_VARIANTS: WorkerVariant[] = [
   { id: "base", edit: () => {} },
   { id: "rerun-a", edit: () => {} },
   { id: "rerun-b", edit: () => {} },
-  { id: "parent-request", edit: () => {} },
+  {
+    id: "parent-request",
+    noop: (w) => w.sample.parentPrompt === undefined,
+    edit: (s, w) => {
+      if (w.sample.parentPrompt !== undefined) {
+        // Reuse the builder's own truncation instead of repeating its limit here.
+        const cut = initialState(w, w.sample.parentPrompt).parent_request;
+        if (cut !== undefined) s.parent_request = cut;
+      }
+    },
+  },
   {
     id: "no-description",
+    noop: (w) => (w.sample.description ?? "") === "",
     edit: (s) => {
       s.agent.description = "";
     },
   },
   {
     id: "no-instructions",
+    noop: (w) => w.agent.instructionsExcerpt === "",
     edit: (s) => {
       s.agent.instructions_excerpt = "";
     },
@@ -145,23 +183,15 @@ function workerQuestions(config: PlainConfig) {
 }
 
 function planWorkers(workers: RebuiltWorker[], config: PlainConfig, plan: Plan): void {
-  const { questions, specs } = workerQuestions(config);
+  const { questions, specs } = deepFreeze(workerQuestions(config));
   for (const v of WORKER_VARIANTS) {
     workers.forEach((w, sample) => {
-      if (w.agent === undefined) {
+      if (w.agent === undefined || v.noop?.({ ...w, agent: w.agent }) === true) {
         plan.excluded[v.id] = (plan.excluded[v.id] ?? 0) + 1;
         return;
       }
-      const state = buildWorkerState({
-        brief: w.sample.brief,
-        ...(w.sample.description === undefined ? {} : { description: w.sample.description }),
-        agent: w.agent,
-        runInBackground: w.sample.runInBackground,
-        ...(v.id === "parent-request" && w.sample.parentPrompt !== undefined
-          ? { parentRequest: w.sample.parentPrompt }
-          : {}),
-      });
-      v.edit(state);
+      const state = initialState(w);
+      v.edit(state, w);
       plan.requests.push({
         variant: v.id,
         base: "base",

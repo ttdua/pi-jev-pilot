@@ -27,7 +27,11 @@ const agent: AgentFacts = {
   maxTurns: null,
   sets: { model: false, thinking: false },
 };
-const worker = (withAgent = true): RebuiltWorker => ({
+const worker = (
+  withAgent = true,
+  over: Partial<RebuiltWorker["sample"]> = {},
+  agentOver: Partial<AgentFacts> = {},
+): RebuiltWorker => ({
   sample: {
     session: "s",
     agent: "scout",
@@ -35,8 +39,9 @@ const worker = (withAgent = true): RebuiltWorker => ({
     description: "d",
     parentPrompt: "parent says",
     runInBackground: false,
+    ...over,
   },
-  ...(withAgent ? { agent } : {}),
+  ...(withAgent ? { agent: { ...agent, ...agentOver } } : {}),
 });
 
 const config: PlainConfig = {
@@ -113,6 +118,20 @@ describe("planPass", () => {
     expect(p.excluded["+languages"]).toBe(1);
   });
 
+  test("full-G pairs with full: same sample set", () => {
+    const p = plan1({ main: [main(["languages"]), main(["last_decision"])] });
+    expect(find(p, "full")).toEqual([]);
+    expect(find(p, "full-languages")).toEqual([]);
+    expect(find(p, "full-last_decision")).toEqual([]);
+    expect(p.excluded["full"]).toBe(2);
+    expect(p.excluded["full-languages"]).toBe(2);
+    expect(p.excluded["full-last_decision"]).toBe(2);
+    expect(find(p, "+languages").map((r) => r.sample)).toEqual([1]);
+    expect(find(p, "+last_decision").map((r) => r.sample)).toEqual([0]);
+    expect(p.excluded["+languages"]).toBe(1);
+    expect(p.excluded["+last_decision"]).toBe(1);
+  });
+
   test("pass 2 variants", () => {
     const p = planPass(2, {
       main: [main()],
@@ -152,6 +171,29 @@ describe("planPass", () => {
     const q = find(p, "base", "worker")[0];
     expect(Object.keys(q?.specs ?? {})).toEqual(["tier", "effort", "risky", "expert_needed"]);
     expect(find(p, "parent-request", "worker")[0]?.base).toBe("base");
+  });
+
+  test("no-op worker variants are excluded", () => {
+    const p = plan1({
+      workers: [
+        worker(true, { description: "", parentPrompt: undefined }, { instructionsExcerpt: "" }),
+      ],
+    });
+    expect(find(p, "parent-request", "worker")).toEqual([]);
+    expect(find(p, "no-description", "worker")).toEqual([]);
+    expect(find(p, "no-instructions", "worker")).toEqual([]);
+    expect(find(p, "base", "worker")).toHaveLength(1);
+    expect(p.excluded["parent-request"]).toBe(1);
+    expect(p.excluded["no-description"]).toBe(1);
+    expect(p.excluded["no-instructions"]).toBe(1);
+  });
+
+  test("shared questions and specs are frozen", () => {
+    const p = plan1();
+    for (const r of p.requests) {
+      expect(Object.isFrozen(r.questions)).toBe(true);
+      expect(Object.isFrozen(r.specs)).toBe(true);
+    }
   });
 
   test("worker without agent is excluded", () => {
