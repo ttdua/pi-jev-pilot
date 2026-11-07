@@ -6,8 +6,8 @@
 ## 2. Score and cut points (pure)
 
 - [x] 2.1 In `src/policy/modes.ts`, replace the expert gates and `expertAdmitted` with `MODE_TARGETS` (whole percents, per `worker-modes` "Mode targets"). Rewrite `tests/policy/modes.test.ts` for "Mode names", "Mode targets" and "Mode selects a target table"
-- [ ] 2.2 Add `src/policy/cutpoints.ts` with `difficultyScore` per `mode-cutpoints` "Difficulty score": tier-only renormalization, effort rank / 8, unanswered effort as `high`, rounding to 3 decimals, no score without tier mass. Tests in `tests/policy/cutpoints.test.ts` cover every scenario of that requirement
-- [ ] 2.3 Add `cutPoints(entries, target)` per "Cut points from a window": integer positions rounded half up, the expert cap above `balancedMax`, an empty window, order independence. Tests cover every scenario, including Expert cap, Ties stay under the cap and Empty window
+- [x] 2.2 Add `src/policy/cutpoints.ts` with `difficultyScore` per `mode-cutpoints` "Difficulty score": tier-only renormalization, effort rank / 8, unanswered effort as `high`, rounding to 3 decimals, no score without tier mass. Tests in `tests/policy/cutpoints.test.ts` cover every scenario of that requirement
+- [x] 2.3 Add `cutPoints(entries, target)` per "Cut points from a window": integer positions rounded half up, the expert cap above `balancedMax`, an empty window, order independence. Tests cover every scenario, including Expert cap, Ties stay under the cap and Empty window
 - [ ] 2.4 Add `windowEntries(lines, rubricVersion)` per "Window entries" (eligibility, latest 200 by `at` with later input winning ties, effort argmax with a higher-level tie-break, decided tier before fallback), and `recentMix(window)` per "Recent mix". Tests cover every scenario of both
 - [ ] 2.5 Compute `SEED_CUTPOINTS` offline from the 2026-11-07 replay answers with `difficultyScore` and `cutPoints`, outside the repository and printing aggregates only. Add the values as constants in `src/policy/cutpoints.ts`, and add `cutPointsFor(window, mode)` so that fewer than 100 entries use the seed. Tests cover "Seed cut points", including that the seed satisfies `fastMax ≤ balancedMax < expertMin`
 
