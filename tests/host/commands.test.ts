@@ -256,7 +256,7 @@ describe("runJev", () => {
 
   test("redraw keeps the decision suffix; effort off drops it", async () => {
     const dir = jevDir();
-    const decision = (): Decision => ({ kind: "level", level: "high" });
+    const decision = (): Decision => ({ effort: { kind: "level", level: "high" } });
     const a = await run("skills off", dir, fakeCtx(), decision);
     expect(a.widgets[0]![1]).toEqual(["Jev · standard · high"]);
     const b = await run("effort off", dir, fakeCtx(), decision);

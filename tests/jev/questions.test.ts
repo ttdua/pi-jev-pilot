@@ -27,24 +27,48 @@ import { MODE_NAMES } from "../../src/policy/modes.ts";
 const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
 
 describe("mainQuestions", () => {
-  test("askEffort true gives effort, risky, corrects in order", () => {
-    const { wire, specs } = mainQuestions({ askEffort: true });
-    expect(Object.keys(wire)).toEqual(["effort", "risky", "corrects"]);
-    expect(Object.keys(specs)).toEqual(["effort", "risky", "corrects"]);
+  test.each([
+    [true, true, ["effort", "risky", "tier", "strategy", "corrects"]],
+    [false, true, ["tier", "strategy", "corrects"]],
+    [true, false, ["effort", "risky", "corrects"]],
+    [false, false, ["corrects"]],
+  ] as const)("askEffort %p askStrategy %p gives %p", (askEffort, askStrategy, keys) => {
+    const { wire, specs } = mainQuestions({ askEffort, askStrategy });
+    expect(Object.keys(wire)).toEqual([...keys]);
+    expect(Object.keys(specs)).toEqual([...keys]);
+  });
+
+  test("specs for effort, risky, tier, strategy and corrects", () => {
+    const { specs } = mainQuestions({ askEffort: true, askStrategy: true });
     expect(specs["effort"]).toEqual({ type: "choice", options: EFFORT_LEVELS });
     expect(specs["risky"]).toEqual({ type: "noul" });
+    expect(specs["tier"]).toEqual({ type: "choice", options: ["fast", "balanced", "deep"] });
+    expect(specs["strategy"]).toEqual({
+      type: "choice",
+      options: ["direct", "delegate", "parallel", "graph"],
+    });
     expect(specs["corrects"]).toEqual({ type: "noul" });
   });
 
+  test("main tier uses the standard wording with no prefix and no expert", () => {
+    const tier = mainQuestions({ askEffort: false, askStrategy: true }).wire["tier"]!;
+    expect(tier.instructions).toBe(TIER_INSTRUCTION);
+    expect(Object.keys(tier.criteria)).toEqual(["fast", "balanced", "deep"]);
+    expect(tier.criteria["fast"]).toBe(TIER_CRITERIA.standard.fast);
+    expect(tier.criteria["balanced"]).toBe(TIER_CRITERIA.standard.balanced);
+    expect(tier.criteria["deep"]).toBe(TIER_CRITERIA.standard.deep);
+    expect("expert" in tier.criteria).toBe(false);
+  });
+
   test("effort has the choice wire shape with five ordered criteria", () => {
-    const effort = mainQuestions({ askEffort: true }).wire["effort"]!;
+    const effort = mainQuestions({ askEffort: true, askStrategy: true }).wire["effort"]!;
     expect(Object.keys(effort).sort()).toEqual(["criteria", "instructions", "type"]);
     expect(effort.type).toBe("choice");
     expect(Object.keys(effort.criteria)).toEqual([...EFFORT_LEVELS]);
   });
 
   test("noul questions have true and false criteria", () => {
-    const { wire } = mainQuestions({ askEffort: true });
+    const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
     for (const key of ["risky", "corrects"]) {
       const q = wire[key]!;
       expect(q.type).toBe("noul");
@@ -53,13 +77,13 @@ describe("mainQuestions", () => {
   });
 
   test("askEffort false asks only corrects", () => {
-    const { wire, specs } = mainQuestions({ askEffort: false });
+    const { wire, specs } = mainQuestions({ askEffort: false, askStrategy: false });
     expect(Object.keys(wire)).toEqual(["corrects"]);
     expect(Object.keys(specs)).toEqual(["corrects"]);
   });
 
   test("every instruction and criterion appears verbatim in docs/jev-questions.md", () => {
-    const { wire } = mainQuestions({ askEffort: true });
+    const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
     for (const q of Object.values(wire)) {
       expect(docs).toContain(q.instructions);
       for (const text of Object.values(q.criteria)) {
@@ -70,18 +94,22 @@ describe("mainQuestions", () => {
   });
 
   test("results are fresh objects: mutation does not leak into the next call", () => {
-    const a = mainQuestions({ askEffort: true });
+    const a = mainQuestions({ askEffort: true, askStrategy: true });
     a.wire["risky"]!.instructions = "changed";
     a.wire["risky"]!.criteria["true"] = "changed";
     a.wire["corrects"]!.criteria["false"] = "changed";
-    const b = mainQuestions({ askEffort: true });
+    a.wire["tier"]!.criteria["fast"] = "changed";
+    a.wire["strategy"]!.criteria["direct"] = "changed";
+    const b = mainQuestions({ askEffort: true, askStrategy: true });
     expect(b.wire["risky"]!.instructions).not.toBe("changed");
     expect(b.wire["risky"]!.criteria["true"]).not.toBe("changed");
     expect(b.wire["corrects"]!.criteria["false"]).not.toBe("changed");
+    expect(b.wire["tier"]!.criteria["fast"]).not.toBe("changed");
+    expect(b.wire["strategy"]!.criteria["direct"]).not.toBe("changed");
   });
 
   test("effort criteria match the docs table rows", () => {
-    const effort = mainQuestions({ askEffort: true }).wire["effort"]!;
+    const effort = mainQuestions({ askEffort: true, askStrategy: true }).wire["effort"]!;
     for (const level of EFFORT_LEVELS) {
       expect(docs).toContain(
         `| \`${level}\` | ${(effort.criteria as Record<string, string>)[level]} |`,
@@ -91,6 +119,20 @@ describe("mainQuestions", () => {
 });
 
 const DOC = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
+
+describe("Strategy docs", () => {
+  test("docs state precedence", () => {
+    const contract = readFileSync(new URL("../../docs/jev-contract.md", import.meta.url), "utf8");
+    expect(contract).toContain(
+      "User and project instructions and a loaded skill keep authority over this advice.",
+    );
+  });
+  test("docs state no prefix", () => {
+    expect(DOC).toContain(
+      "The main request's `tier` uses these criteria for `fast`, `balanced` and `deep`, without the display-name prefix.",
+    );
+  });
+});
 const ALL = { fast: "a/b", balanced: "c/d", deep: "e/f", expert: "g/h" };
 
 describe("Offered tiers", () => {
