@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { alignRight, drawStatus, statusText } from "../../src/host/status.ts";
+import {
+  alignRight,
+  compactTally,
+  drawStatus,
+  EMPTY_TALLY,
+  logLine,
+  statusText,
+  tallyLines,
+  type Tally,
+} from "../../src/host/status.ts";
 import { buildSnapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES } from "../../src/store/defaults.ts";
@@ -138,4 +147,149 @@ describe("decision suffix", () => {
     drawStatus(ctx, snap(), { kind: "level", level: "xhigh" });
     expect(calls).toEqual([["jev", ["Jev · standard · xhigh"], OPT]]);
   });
+});
+
+const tally = (o: Partial<Tally> = {}): Tally => ({ ...EMPTY_TALLY, ...o });
+
+describe("compactTally", () => {
+  test("uses the given prompt count", () =>
+    expect(compactTally(tally({ prompts: 9, workers: 2, fallbacks: 1 }), 10)).toBe(
+      "10 prompts · 2 workers · 1 fallbacks",
+    ));
+  test("zeros", () =>
+    expect(compactTally(EMPTY_TALLY, 10)).toBe("10 prompts · 0 workers · 0 fallbacks"));
+});
+
+describe("tallyLines", () => {
+  test("empty tally", () =>
+    expect(tallyLines(EMPTY_TALLY)).toEqual([
+      "session:",
+      "  prompts 0",
+      "  workers 0",
+      "  worker tokens 0",
+      "  fallbacks 0",
+    ]));
+  test("by model", () => {
+    const lines = tallyLines(
+      tally({ prompts: 2, workers: 1, byModel: [["fixture/fast", 1]], workerTokens: 120 }),
+    );
+    expect(lines).toContain("  workers 1 (fixture/fast 1)");
+    expect(lines).toContain("  worker tokens 120");
+  });
+  test("unrouted comes last", () =>
+    expect(tallyLines(tally({ workers: 2, byModel: [["fixture/fast", 1]], unrouted: 1 }))[2]).toBe(
+      "  workers 2 (fixture/fast 1, unrouted 1)",
+    ));
+});
+
+const base = { v: 1, at: 1, session: "s1", mode: "standard", answered: true };
+
+describe("logLine", () => {
+  test("main line text", () =>
+    expect(
+      logLine({
+        ...base,
+        kind: "main",
+        turnId: "t1",
+        outcome: "ok",
+        from: "low",
+        effective: "high",
+        ms: 512,
+        effortP: { low: 0.05, medium: 0.1, high: 0.7, xhigh: 0.1, max: 0.05 },
+      }),
+    ).toBe(
+      "jev · main · low → high · 0.5s · p low 0.05 medium 0.10 high 0.70 xhigh 0.10 max 0.05",
+    ));
+  test("sparse main line", () =>
+    expect(
+      logLine({
+        ...base,
+        answered: false,
+        kind: "main",
+        turnId: "t1",
+        outcome: "ok",
+        miss: "error",
+        from: "low",
+      }),
+    ).toBe("jev · main · low → - · miss error"));
+  test("main miss text", () =>
+    expect(
+      logLine({
+        ...base,
+        answered: false,
+        kind: "main",
+        turnId: "t1",
+        outcome: "ok",
+        from: "medium",
+        effective: "medium",
+        ms: 1500,
+        miss: "timeout",
+      }),
+    ).toBe("jev · main · medium → medium · 1.5s · miss timeout"));
+  test("main held", () =>
+    expect(logLine({ ...base, kind: "main", turnId: "t1", outcome: "ok", held: true })).toBe(
+      "jev · main · - → - · held",
+    ));
+  const worker = { ...base, kind: "worker", briefChars: 10, status: "completed" };
+  test("worker untouched head", () =>
+    expect(logLine({ ...worker, agent: "scout", reason: "untouched" })).toBe(
+      "jev · scout → untouched · -",
+    ));
+  test("worker fallback text", () =>
+    expect(
+      logLine({
+        ...worker,
+        agent: "general-purpose",
+        reason: "choice",
+        tier: "balanced",
+        fallback: "deep",
+        effort: "high",
+        ms: 480,
+        tierP: { fast: 0.1, balanced: 0.3, deep: 0.6 },
+      }),
+    ).toBe(
+      "jev · general-purpose → balanced · high · 0.5s · p fast 0.10 balanced 0.30 deep 0.60 · fallback deep",
+    ));
+  test("worker miss text", () =>
+    expect(
+      logLine({
+        ...worker,
+        answered: false,
+        agent: "scout",
+        reason: "miss",
+        miss: "timeout",
+        ms: 1500,
+      }),
+    ).toBe("jev · scout → - · - · 1.5s · why miss · miss timeout"));
+  test("worker untouched text", () =>
+    expect(logLine({ ...worker, agent: "scout", reason: "untouched", status: "aborted" })).toBe(
+      "jev · scout → untouched · - · aborted",
+    ));
+  test("worker locked", () =>
+    expect(
+      logLine({ ...worker, agent: "scout", reason: "choice", tier: "fast", locked: true }),
+    ).toBe("jev · scout → fast · - · locked"));
+  test("correction text", () =>
+    expect(
+      logLine({ v: 1, at: 1, session: "s1", kind: "correction", turnId: "t1", corrects: 0.8 }),
+    ).toBe("jev · correction · 0.80"));
+  test("logLine rejects invalid data", () => {
+    expect(logLine({ kind: "other" })).toBeUndefined();
+    expect(logLine(null)).toBeUndefined();
+    expect(logLine({ ...base, v: 2, kind: "main", turnId: "t1", outcome: "ok" })).toBeUndefined();
+  });
+});
+
+describe("overlay", () => {
+  const o = "10 prompts · 0 workers · 0 fallbacks";
+  test("replaces the level suffix", () =>
+    expect(statusText(snap(), { kind: "level", level: "high" }, o)).toBe(`Jev · standard · ${o}`));
+  test("overlay ignored for base states", () => {
+    expect(statusText(snap({ state: allOff() }), undefined, o)).toBe("Jev · off");
+    expect(statusText(snap({ env: {} }), undefined, o)).toBe("Jev · no key");
+  });
+  test("ignored with effort off", () =>
+    expect(statusText(snap({ state: { switches: { effort: false } } }), undefined, o)).toBe(
+      "Jev · standard",
+    ));
 });
