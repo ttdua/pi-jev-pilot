@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { skillBlock } from "../../src/host/skills.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import { createMain, type MainDeps } from "../../src/host/main.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
@@ -42,6 +43,10 @@ function setup(
     branch?: unknown[];
     appendResult?: { ok: false; reason?: string } | { ok: true };
     holdProviders?: string[];
+    skills?: { name: string; body: string; description?: string }[];
+    inject?: "content" | "suggest";
+    projection?: unknown[];
+    batchOutcomes?: (JevOutcome | Promise<JevOutcome>)[];
   } = {},
 ) {
   let branch: unknown[] = o.branch ?? [];
@@ -71,6 +76,7 @@ function setup(
   const ctx = {
     sessionManager: {
       getSessionId: () => o.id ?? sessionId,
+      buildSessionProjection: () => ({ entries: o.projection ?? [], messages: [] }),
       getBranch: () => {
         if (o.branchThrows) throw new Error("boom");
         return branch;
@@ -93,13 +99,16 @@ function setup(
   };
   const requests: JevRequest[] = [];
   const queue = [...(o.outcomes ?? [])];
+  const batchQueue = [...(o.batchOutcomes ?? [])];
+  const reads: string[] = [];
   const snapshot: Snapshot = buildSnapshot({
     configRead: o.config ?? {
       kind: "ok",
       present: true,
-      config: (o.holdProviders === undefined
-        ? {}
-        : { effort: { holdProviders: o.holdProviders } }) as Config,
+      config: {
+        ...(o.holdProviders === undefined ? {} : { effort: { holdProviders: o.holdProviders } }),
+        ...(o.inject === undefined ? {} : { skills: { inject: o.inject } }),
+      } as Config,
     },
     stateRead: { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "test-key" },
@@ -109,7 +118,23 @@ function setup(
     load: () => snapshot,
     ask: async (req) => {
       requests.push(req);
-      return queue.shift() ?? answer("low");
+      const keys = Object.keys(req.questions as object);
+      const only = keys.length === 1 && keys[0] === "which";
+      return (only ? batchQueue.shift() : queue.shift()) ?? answer("low");
+    },
+    commands: () =>
+      (o.skills ?? []).map((s) => ({
+        name: `skill:${s.name}`,
+        source: "skill",
+        ...(s.description === undefined ? {} : { description: s.description }),
+        sourceInfo: { path: `/s/${s.name}/SKILL.md`, baseDir: `/s/${s.name}` },
+      })),
+    readFile: (path) => {
+      reads.push(path);
+      const name = path.split("/")[2]!;
+      const skill = (o.skills ?? []).find((s) => s.name === name);
+      if (skill === undefined) throw new Error("no such file");
+      return `---\nname: ${name}\n---\n${skill.body}`;
     },
     append: (entry) => {
       appended.push(entry);
@@ -134,12 +159,45 @@ function setup(
     clock,
     widgets,
     requests,
+    reads,
     event,
     setBranch: (entries: unknown[]) => (branch = entries),
     setLevel: (l: ThinkingLevel) => (lvl = l),
     setSupported: (s: ThinkingLevel[]) => (supported = s),
     level: () => lvl,
   };
+}
+
+/** A full outcome for the main request; skill keys only when given. */
+function answerWith(o: {
+  effort?: string;
+  which?: [string, number];
+  gates?: [number, number, number];
+}): JevOutcome {
+  const answers: Record<string, unknown> = {
+    corrects: { type: "noul", noul: 0.05 },
+  };
+  if (o.effort !== undefined) {
+    answers["effort"] = {
+      type: "choice",
+      choice: o.effort,
+      probabilities: Object.fromEntries(EFFORTS.map((l) => [l, l === o.effort ? 0.6 : 0.1])),
+    };
+    answers["risky"] = { type: "noul", noul: 0.1 };
+  }
+  if (o.which !== undefined) {
+    answers["which"] = {
+      type: "choice",
+      choice: o.which[0],
+      probabilities: { [o.which[0]]: o.which[1], "(none)": 1 - o.which[1] },
+    };
+  }
+  if (o.gates !== undefined) {
+    answers["gate::acts_on_user_system"] = { type: "noul", noul: o.gates[0] };
+    answers["gate::would_follow_documented_procedure"] = { type: "noul", noul: o.gates[1] };
+    answers["gate::prose_suffices"] = { type: "noul", noul: o.gates[2] };
+  }
+  return { kind: "ok", ms: 7, body: { answers } as never };
 }
 
 const run = (t: ReturnType<typeof setup>, prompt?: string) =>
@@ -890,4 +948,146 @@ describe("anchor", () => {
     await t.main.agentSettled(settled(false));
     expect(lastTurn(t)?.data).toEqual({ turnId: id });
   });
+});
+
+describe("skill questions", () => {
+  const GATES = [
+    "gate::acts_on_user_system",
+    "gate::would_follow_documented_procedure",
+    "gate::prose_suffices",
+  ];
+  const keysOf = (t: ReturnType<typeof setup>, i = 0) =>
+    Object.keys(t.requests[i]!.questions as object);
+  const skills = [{ name: "debug", body: "Debug it." }];
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ name: `s${i}`, body: `Body ${i}` }));
+  const effortOff = { switches: { effort: false } };
+  const settled = (aborted: boolean) => ({ type: "agent_settled", aborted }) as never;
+
+  test("effort off, skills apply", async () => {
+    const t = setup({ state: effortOff, skills, start: "medium" });
+    await run(t);
+    expect(t.requests).toHaveLength(1);
+    expect(keysOf(t)).toEqual(["corrects", "which", ...GATES]);
+    expect(t.sets).toEqual([]);
+    expect(t.level()).toBe("medium");
+  });
+
+  test("effort off and empty catalog", async () => {
+    const t = setup({ state: effortOff });
+    await run(t);
+    expect(t.requests).toHaveLength(0);
+  });
+
+  test("effort off and explicit skill", async () => {
+    const t = setup({ state: effortOff, skills });
+    const block = skillBlock({
+      name: "debug",
+      path: "/s/debug/SKILL.md",
+      baseDir: "/s/debug",
+      body: "x",
+    });
+    await run(t, `${block}\n\nx`);
+    expect(t.requests).toHaveLength(0);
+  });
+
+  test("operator loads a skill with effort on", async () => {
+    const t = setup({ skills });
+    const block = skillBlock({
+      name: "debug",
+      path: "/s/debug/SKILL.md",
+      baseDir: "/s/debug",
+      body: "x",
+    });
+    await run(t, `${block}\n\nx`);
+    expect(t.requests).toHaveLength(1);
+    expect(keysOf(t)).toEqual(["effort", "risky", "corrects"]);
+  });
+
+  test("effort and skills", async () => {
+    const t = setup({ skills });
+    await run(t);
+    expect(keysOf(t)).toEqual(["effort", "risky", "corrects", "which", ...GATES]);
+  });
+
+  test("held prompt with skills", async () => {
+    const t = setup({
+      skills,
+      branch: [
+        {
+          type: "custom",
+          customType: "jev-turn",
+          data: {
+            turnId: "T1",
+            decided: { provider: "fixture", model: "fixture-main", level: "high" },
+          },
+        },
+      ],
+      holdProviders: ["fixture"],
+      start: "high",
+    });
+    await run(t);
+    expect(keysOf(t)).toEqual(["corrects", "which", ...GATES]);
+  });
+
+  test("skills off", async () => {
+    const t = setup({ skills, state: { switches: { skills: false } } });
+    await run(t);
+    expect(keysOf(t)).toEqual(["effort", "risky", "corrects"]);
+    expect(t.reads).toEqual([]);
+  });
+
+  test("ineligible prompts never read the catalog", async () => {
+    const unset = setup({ skills, env: {} });
+    await run(unset);
+    expect(unset.reads).toEqual([]);
+    const child = setup({ skills, id: "child-1" });
+    await run(child);
+    expect(child.reads).toEqual([]);
+  });
+
+  test("two batches go out together", async () => {
+    let first!: (o: JevOutcome) => void;
+    let second!: (o: JevOutcome) => void;
+    const t = setup({
+      skills: many(300),
+      outcomes: [new Promise<JevOutcome>((r) => (first = r))],
+      batchOutcomes: [new Promise<JevOutcome>((r) => (second = r))],
+    });
+    const pending = run(t);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(t.requests).toHaveLength(2);
+    expect(keysOf(t, 1)).toEqual(["which"]);
+    const which = (t.requests[1]!.questions as Record<string, { criteria: object }>)["which"]!;
+    expect(Object.keys(which.criteria)).toHaveLength(151);
+    expect(t.requests[1]!.state).toEqual(t.requests[0]!.state);
+    expect(t.requests[1]!.timeoutMs).toBe(t.requests[0]!.timeoutMs);
+    expect(t.requests[1]!.model).toBe(t.requests[0]!.model);
+    expect(t.requests[1]!.apiKey).toBe(t.requests[0]!.apiKey);
+    first(answer("low"));
+    second(answer("low"));
+    await pending;
+  });
+
+  for (const [name, second] of [
+    ["fails", { kind: "miss", miss: "timeout", reason: "x", ms: 3 } as JevOutcome],
+    ["cancelled", { kind: "cancelled" } as JevOutcome],
+  ] as const) {
+    test(`later batch ${name}`, async () => {
+      const t = setup({
+        skills: many(300),
+        outcomes: [answerWith({ effort: "high", which: ["s0", 0.9], gates: [0.9, 0.9, 0.1] })],
+        batchOutcomes: [second],
+      });
+      await run(t);
+      expect(t.level()).toBe("high");
+      expect(t.custom.filter((c) => c.type !== "jev-turn")).toEqual([]);
+      await t.main.agentSettled(settled(false));
+      const main = t.appended.find((e) => (e as { kind?: string }).kind === "main")!;
+      expect(main).not.toHaveProperty("skill");
+      expect(main).not.toHaveProperty("skillP");
+      expect(main).not.toHaveProperty("gate");
+    });
+  }
 });

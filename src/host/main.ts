@@ -5,10 +5,11 @@ import type {
   ExtensionContext,
   TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { askJev } from "../jev/client.ts";
-import { mainQuestions } from "../jev/questions.ts";
+import type { askJev, JevOutcome } from "../jev/client.ts";
+import { mainQuestions, skillBatchQuestions } from "../jev/questions.ts";
 import { mainState } from "../jev/state.ts";
 import { readAnswers } from "../policy/answers.ts";
+import { skillBatches } from "../policy/skill.ts";
 import { isHeld } from "../policy/hold.ts";
 import {
   CORRECTION_THRESHOLD,
@@ -22,6 +23,8 @@ import type { WriteResult } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
+import type { SkillCommand } from "./skills.ts";
+import { explicitSkill, readCatalog, type CatalogSkill } from "./skills.ts";
 import { drawStatus, type Decision } from "./status.ts";
 
 export type MainDeps = {
@@ -32,6 +35,8 @@ export type MainDeps = {
   newId: () => string;
   platforms: (cwd: string) => string[];
   env: () => Record<string, string | undefined>;
+  commands: () => readonly SkillCommand[];
+  readFile: (path: string) => string;
 };
 
 /** Per-turn bookkeeping. Internal; the ledger lines are written from it when the run settles. */
@@ -74,6 +79,10 @@ type Prepared = {
   askEffort: boolean;
   questions: ReturnType<typeof mainQuestions>;
   state: ReturnType<typeof mainState>;
+  /** Skill batches after the first, which rides on the main request. */
+  rest: CatalogSkill[][];
+  /** Outcomes of `rest`, in order; Task 6's skill pick consumes them. */
+  later?: Promise<JevOutcome>[];
 };
 
 type Ctx = Pick<
@@ -127,15 +136,17 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (p === undefined) return;
     const { rec, snapshot } = p;
     mine.rec = rec;
-    const outcome = await deps.ask({
+    const common = {
       url: snapshot.settings.classifier.url,
       apiKey: p.apiKey,
       model: snapshot.settings.classifier.model,
       timeoutMs: snapshot.settings.classifier.timeoutMs,
       state: p.state,
-      questions: p.questions.wire,
       ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-    });
+    };
+    const asked = deps.ask({ ...common, questions: p.questions.wire });
+    p.later = askBatches(p.rest, common);
+    const outcome = await asked;
 
     if (outcome.kind === "cancelled") {
       if (record === rec) {
@@ -158,13 +169,14 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     const sessionId = ctx.sessionManager.getSessionId();
     if (isChild(sessionId)) return undefined;
     const snapshot = deps.load();
-    if (!snapshot.config.valid || !snapshot.keySet || !snapshot.settings.switches.effort) {
-      return undefined;
-    }
+    if (!snapshot.config.valid || !snapshot.keySet) return undefined;
     const model = ctx.model;
     if (model === undefined) return undefined;
     const apiKey = deps.env()[snapshot.keyVar];
     if (apiKey === undefined || apiKey === "") return undefined;
+    const effortOn = snapshot.settings.switches.effort;
+    const skills = planSkills(event.prompt, snapshot);
+    if (!effortOn && skills === undefined) return undefined;
 
     const supported = supportedLevels({
       reasoning: model.reasoning,
@@ -174,14 +186,20 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     const { anchor, compactionId } = holdContext(entries);
     const provider = typeof model.provider === "string" ? model.provider : undefined;
     const modelId = typeof model.id === "string" ? model.id : undefined;
-    const held = isHeld({
-      provider,
-      model: modelId,
-      holdProviders: snapshot.settings.effort.holdProviders,
-      anchor,
-    });
-    const askEffort = !held && canAskEffort(supported);
-    const questions = mainQuestions({ askEffort });
+    const held =
+      effortOn &&
+      isHeld({
+        provider,
+        model: modelId,
+        holdProviders: snapshot.settings.effort.holdProviders,
+        anchor,
+      });
+    const askEffort = effortOn && !held && canAskEffort(supported);
+    const [first, ...rest] = skills?.batches ?? [];
+    const questions =
+      first === undefined
+        ? mainQuestions({ askEffort })
+        : mainQuestions({ askEffort, skills: first });
     const state = mainState({
       prompt: event.prompt,
       items: branchItems(entries),
@@ -211,7 +229,36 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     };
     record = rec;
     undo = { rec, ctx, snapshot, previous: current, drew: false };
-    return { rec, snapshot, apiKey, supported, held, askEffort, questions, state };
+    return { rec, snapshot, apiKey, supported, held, askEffort, questions, state, rest };
+  }
+
+  /** Skill batches for this prompt; undefined when skills do not apply. A read failure means they do not. */
+  function planSkills(
+    prompt: string,
+    snapshot: Snapshot,
+  ): { batches: CatalogSkill[][] } | undefined {
+    if (!snapshot.settings.switches.skills || explicitSkill(prompt) !== undefined) return undefined;
+    try {
+      const batches = skillBatches(readCatalog(deps.commands(), deps.readFile)) as CatalogSkill[][];
+      return batches.length === 0 ? undefined : { batches };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** One request per later batch, all started now; a rejection counts as a miss. */
+  function askBatches(
+    batches: readonly CatalogSkill[][],
+    common: Omit<Parameters<typeof askJev>[0], "questions">,
+  ): Promise<JevOutcome>[] {
+    return batches.map((batch) =>
+      deps.ask({ ...common, questions: skillBatchQuestions(batch).wire }).catch((): JevOutcome => ({
+        kind: "miss",
+        miss: "error",
+        reason: "request failed",
+        ms: 0,
+      })),
+    );
   }
 
   /** Read the answers and set the thinking level; records the outcome on `rec`. */
