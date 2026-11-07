@@ -1,6 +1,6 @@
 ## 1. Pure rules
 
-- [ ] 1.1 Add `src/policy/tools.ts`: `toolCandidates` (drop `ask_parent` and `notify_parent`, keep order, cap 32), `flaggedTools` (valid noul at least 0.5, unknown names ignored) and `toolCounts`, with unit tests in `tests/policy/tools.test.ts` (Candidates, Flagging, Observe and enforce: Never adds)
+- [x] 1.1 Add `src/policy/tools.ts`: `toolCandidates` (drop `ask_parent` and `notify_parent`, keep order, cap 32), `flaggedTools` (valid noul at least 0.5, unknown names ignored) and `toolCounts`, with unit tests in `tests/policy/tools.test.ts` (Candidates, Flagging, Observe and enforce: Never adds)
 
 ## 2. Jev request
 
