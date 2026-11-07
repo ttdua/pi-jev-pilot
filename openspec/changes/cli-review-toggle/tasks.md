@@ -25,8 +25,8 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Update `docs/usage-guide.md`: the `/jev cli-review on|off` form, off by default, choosing a reviewer turns it on, reset, `all` leaves it alone, the status line, and a breaking-change note
-- [ ] 5.2 Update `docs/configuration.md` (`review.enabled`, `cliReviewEnabled`, the rollback note), `docs/privacy.md` (off by default), `docs/testing.md` (the Jev-down comparison has no tool exception) and `docs/architecture.md` (`review.ts` syncs the tool, `state-file.ts` holds the switch)
+- [x] 5.1 Update `docs/usage-guide.md`: the `/jev cli-review on|off` form, off by default, choosing a reviewer turns it on, reset, `all` leaves it alone, the status line, and a breaking-change note
+- [x] 5.2 Update `docs/configuration.md` (`review.enabled`, `cliReviewEnabled`, the rollback note), `docs/privacy.md` (off by default), `docs/testing.md` (the Jev-down comparison has no tool exception) and `docs/architecture.md` (`review.ts` syncs the tool, `state-file.ts` holds the switch)
 
 ## 6. Verification
 
