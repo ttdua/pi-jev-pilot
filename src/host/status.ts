@@ -38,7 +38,7 @@ export function statusText(s: Snapshot, decision?: Decision, overlay?: string): 
   if (!s.config.valid) return "Jev · config error";
   if (!s.keySet) return "Jev · no key";
   if (DECISION_FEATURES.every((f) => !s.settings.switches[f])) return "Jev · off";
-  const marker = s.settings.modeSource === "session" ? " (session)" : "";
+  const marker = s.settings.modeSource === "local" ? " (session)" : "";
   const parts = [`Jev · ${s.settings.mode}${marker}`];
   if (overlay !== undefined) return `${parts[0]} · ${overlay}`;
   const { effort, advice } = decision ?? {};

@@ -143,8 +143,8 @@ function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
 }
 
 function modeLine(s: Snapshot): string {
-  const { mode, modeSource, savedMode } = s.settings;
-  return modeSource === "session" ? `mode: ${mode} (session; saved ${savedMode})` : `mode: ${mode}`;
+  const { mode, modeSource, globalMode } = s.settings;
+  return modeSource === "local" ? `mode: ${mode} (session; saved ${globalMode})` : `mode: ${mode}`;
 }
 
 export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
@@ -265,7 +265,7 @@ function clearSessionModeOnReset(sessionId: string, deps: SessionModeDeps): void
 
 /** Tell the user when a saved mode change is shadowed by this session's mode. */
 function withSessionNote(report: string, s: Snapshot, saved: Mode): string {
-  if (s.settings.modeSource !== "session") return report;
+  if (s.settings.modeSource !== "local") return report;
   return `${report}\nsession mode ${s.settings.mode} still applies here; saved mode is now ${saved}`;
 }
 

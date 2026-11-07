@@ -30,9 +30,9 @@ describe("buildSnapshot", () => {
   });
 
   test("session mode overrides the saved mode", () => {
-    const s = snap({ sessionMode: "premium" });
+    const s = snap({ localMode: "premium" });
     expect(s.settings.mode).toBe("premium");
-    expect(s.settings.modeSource).toBe("session");
+    expect(s.settings.modeSource).toBe("local");
   });
 
   test("configured key variable", () => {
@@ -183,7 +183,7 @@ describe("loadSnapshot", () => {
       expect(loadSnapshot(pi, "A").settings.mode).toBe("premium");
       const other = loadSnapshot(pi, "B");
       expect(other.settings.mode).toBe("budget");
-      expect(other.settings.modeSource).toBe("saved");
+      expect(other.settings.modeSource).toBe("global");
     } finally {
       sessionModes().rebuild("reset", []);
     }

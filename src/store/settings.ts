@@ -14,10 +14,10 @@ export type Settings = {
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; model?: string; effort?: string };
-  /** Effective mode: the session override when set, else the saved mode. */
+  /** Effective mode: the directory override when set, else the global mode. */
   mode: Mode;
-  modeSource: "session" | "saved";
-  savedMode: Mode;
+  modeSource: "local" | "global";
+  globalMode: Mode;
   switches: Record<Feature, boolean>;
 };
 
@@ -44,10 +44,10 @@ export function resolveSettings(input: {
   config: Config;
   state: State;
   tuning?: Tuning;
-  sessionMode?: Mode;
+  localMode?: Mode;
 }): Settings {
-  const { config, state, tuning, sessionMode } = input;
-  const savedMode = state.mode ?? DEFAULTS.mode;
+  const { config, state, tuning, localMode } = input;
+  const globalMode = state.mode ?? DEFAULTS.mode;
   const c = config.classifier;
   const untuned = untunedTimeout(config);
 
@@ -82,9 +82,9 @@ export function resolveSettings(input: {
         (DEFAULTS.subagents.forkedLaunch as "untouched" | "thinking"),
     },
     review,
-    mode: sessionMode ?? savedMode,
-    modeSource: sessionMode ? "session" : "saved",
-    savedMode,
+    mode: localMode ?? globalMode,
+    modeSource: localMode ? "local" : "global",
+    globalMode,
     switches,
   };
 }

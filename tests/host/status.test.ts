@@ -32,7 +32,7 @@ function snap(o: Over = {}) {
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
-    ...(o.sessionMode === undefined ? {} : { sessionMode: o.sessionMode }),
+    ...(o.sessionMode === undefined ? {} : { localMode: o.sessionMode }),
   });
 }
 

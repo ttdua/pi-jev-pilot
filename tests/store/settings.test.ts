@@ -25,8 +25,8 @@ describe("resolveSettings", () => {
       subagents: { forkedLaunch: "untouched" },
       review: { cli: "codex" },
       mode: "standard",
-      modeSource: "saved",
-      savedMode: "standard",
+      modeSource: "global",
+      globalMode: "standard",
       switches: {
         effort: true,
         subagents: true,
@@ -64,35 +64,35 @@ describe("resolveSettings", () => {
   test("Mode from state", () => {
     const s = resolveSettings({ config: {}, state: { mode: "premium" } });
     expect(s.mode).toBe("premium");
-    expect(s.modeSource).toBe("saved");
-    expect(s.savedMode).toBe("premium");
+    expect(s.modeSource).toBe("global");
+    expect(s.globalMode).toBe("premium");
   });
 
-  test("Session mode over state", () => {
+  test("Directory mode over state", () => {
     const s = resolveSettings({
       config: {},
       state: { mode: "premium" },
-      sessionMode: "budget",
+      localMode: "budget",
     });
     expect(s.mode).toBe("budget");
-    expect(s.modeSource).toBe("session");
-    expect(s.savedMode).toBe("premium");
+    expect(s.modeSource).toBe("local");
+    expect(s.globalMode).toBe("premium");
   });
 
-  test("Session mode over the default", () => {
-    const s = resolveSettings({ config: {}, state: {}, sessionMode: "premium" });
+  test("Directory mode over the default", () => {
+    const s = resolveSettings({ config: {}, state: {}, localMode: "premium" });
     expect(s.mode).toBe("premium");
-    expect(s.modeSource).toBe("session");
-    expect(s.savedMode).toBe("standard");
+    expect(s.modeSource).toBe("local");
+    expect(s.globalMode).toBe("standard");
   });
 
-  test("Session mode changes only the mode", () => {
+  test("Directory mode changes only the mode", () => {
     const state = { switches: { skills: false } };
     const without: Partial<Settings> = resolveSettings({ config: {}, state });
     const withSession: Partial<Settings> = resolveSettings({
       config: {},
       state,
-      sessionMode: "premium",
+      localMode: "premium",
     });
     for (const s of [without, withSession]) {
       delete s.mode;

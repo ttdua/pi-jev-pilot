@@ -42,7 +42,7 @@ function snap(
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
     ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
-    ...(o.sessionMode === undefined ? {} : { sessionMode: o.sessionMode }),
+    ...(o.sessionMode === undefined ? {} : { localMode: o.sessionMode }),
   });
 }
 
@@ -356,7 +356,7 @@ const load = (dir: string, holder?: SessionModeHolder) => (sessionId: string) =>
     stateRead: readState(dir),
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
-    ...(sessionMode === undefined ? {} : { sessionMode }),
+    ...(sessionMode === undefined ? {} : { localMode: sessionMode }),
   });
 };
 

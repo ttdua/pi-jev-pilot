@@ -38,7 +38,7 @@ export function buildSnapshot(input: {
   toolNames: string[];
   tuningRead?: TuningRead;
   /** A mode that overrides the saved one for this session. */
-  sessionMode?: Mode;
+  localMode?: Mode;
 }): Snapshot {
   const { configRead, stateRead, env, toolNames } = input;
   const tuningRead: TuningRead = input.tuningRead ?? { kind: "missing", record: {} };
@@ -51,7 +51,7 @@ export function buildSnapshot(input: {
     config,
     state,
     ...(tuning ? { tuning } : {}),
-    ...(input.sessionMode ? { sessionMode: input.sessionMode } : {}),
+    ...(input.localMode ? { localMode: input.localMode } : {}),
   });
   const keyVar = settings.classifier.apiKeyEnv;
   return {
@@ -74,8 +74,8 @@ export function buildSnapshot(input: {
   };
 }
 
-function optionalMode(sessionMode: Mode | undefined): { sessionMode?: Mode } {
-  return sessionMode ? { sessionMode } : {};
+function optionalMode(localMode: Mode | undefined): { localMode?: Mode } {
+  return localMode ? { localMode } : {};
 }
 
 /** Reads the three files, the environment and the tool list now; keeps nothing between calls. */
