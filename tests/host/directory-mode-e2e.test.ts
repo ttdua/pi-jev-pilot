@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { readLedger } from "../../src/store/ledger.ts";
@@ -87,6 +87,30 @@ function lastWidget(s: HostSession): string {
 const LOCAL_FILE = ".pi/jev-mode.json";
 const localFile = (cwd: string): string => join(cwd, LOCAL_FILE);
 const readLocal = (cwd: string): string => readFileSync(localFile(cwd), "utf8");
+const writeLocal = (cwd: string, mode: string): void =>
+  writeFileSync(localFile(cwd), JSON.stringify({ version: 1, mode }));
+
+/** File text, or null when the file does not exist. */
+function readOrNull(file: string): string | null {
+  return existsSync(file) ? readFileSync(file, "utf8") : null;
+}
+
+/** The two global files a directory command must never write. */
+function globalFiles(agentDir: string): (string | null)[] {
+  const dir = join(agentDir, "jev");
+  return [readOrNull(join(dir, "state.json")), readOrNull(join(dir, "config.json"))];
+}
+
+/** Every file below `root` (relative path) with its text, for before/after comparison. */
+function inventory(root: string, rel = ""): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const entry of readdirSync(join(root, rel), { withFileTypes: true })) {
+    const path = join(rel, entry.name);
+    if (entry.isDirectory()) Object.assign(out, inventory(root, path));
+    else out[path] = readFileSync(join(root, path), "utf8");
+  }
+  return out;
+}
 
 /** A second working directory that shares the agent directory of `dirs`. */
 function otherCwd(dirs: Shared): Shared {
@@ -103,11 +127,17 @@ describe("directory mode through the real CLI", () => {
       saveMode(dirs.agentDir, "standard");
       const fixture = await mainFixture();
       const a = await open(fixture, dirs);
+      // Baseline after startup: the harness writes config.json when the host starts.
+      const globalBefore = globalFiles(dirs.agentDir);
       expect(await report(a, "/jev mode premium")).toContain("premium");
+      expect(globalFiles(dirs.agentDir)).toEqual(globalBefore);
       await a.close();
+      // Change the file on disk while no process runs: a restart must read the file.
+      writeLocal(dirs.cwd, "budget");
       const b = await open(fixture, dirs);
-      expect(await report(b, "/jev")).toContain("mode: premium (this directory; global standard)");
-      await widgetShows(b, "Jev · premium (local)");
+      expect(await report(b, "/jev")).toContain("mode: budget (this directory; global standard)");
+      await widgetShows(b, "Jev · budget (local)");
+      expect(globalFiles(dirs.agentDir)).toEqual(globalBefore);
     },
     TIMEOUT,
   );
@@ -116,13 +146,19 @@ describe("directory mode through the real CLI", () => {
     "Set before the first message",
     async () => {
       const dirs = sharedDirs();
+      saveMode(dirs.agentDir, "standard");
       const fixture = await mainFixture();
       const a = await open(fixture, dirs);
+      // Baseline after startup: the harness writes config.json when the host starts.
+      const globalBefore = globalFiles(dirs.agentDir);
       await report(a, "/jev mode budget");
       await a.close();
       expect(JSON.parse(readLocal(dirs.cwd))).toEqual({ version: 1, mode: "budget" });
+      expect(globalFiles(dirs.agentDir)).toEqual(globalBefore);
+      writeLocal(dirs.cwd, "premium");
       const b = await open(fixture, dirs);
-      expect(await report(b, "/jev")).toContain("mode: budget (this directory;");
+      expect(await report(b, "/jev")).toContain("mode: premium (this directory; global standard)");
+      expect(globalFiles(dirs.agentDir)).toEqual(globalBefore);
     },
     TIMEOUT,
   );
@@ -135,7 +171,7 @@ describe("directory mode through the real CLI", () => {
       const fixture = await mainFixture();
       const a = await open(fixture, dirs);
       await report(a, "/jev mode premium");
-      expect(await report(a, "/jev")).toContain("mode: premium (this directory;");
+      expect(await report(a, "/jev")).toContain("mode: premium (this directory; global standard)");
       const b = await open(fixture, otherCwd(dirs));
       const text = await report(b, "/jev");
       expect(text).toContain("mode: standard");
@@ -152,8 +188,9 @@ describe("directory mode through the real CLI", () => {
       saveMode(dirs.agentDir, "standard");
       const fixture = await mainFixture();
       const a = await open(fixture, dirs);
+      await report(a, "/jev mode premium");
       const b = await open(fixture, dirs);
-      expect(await report(b, "/jev")).toContain("mode: standard");
+      expect(await report(b, "/jev")).toContain("mode: premium (this directory; global standard)");
       await report(a, "/jev mode budget");
       expect(await report(b, "/jev")).toContain("mode: budget (this directory; global standard)");
     },
@@ -164,16 +201,17 @@ describe("directory mode through the real CLI", () => {
     "No other project file touched",
     async () => {
       const dirs = sharedDirs();
-      const gitignore = join(dirs.cwd, ".gitignore");
-      writeFileSync(gitignore, "node_modules\n");
+      writeFileSync(join(dirs.cwd, ".gitignore"), "node_modules\n");
       const fixture = await mainFixture();
       const a = await open(fixture, dirs);
+      // Baseline after startup, so files Pi creates on its own are not blamed on the command.
+      const baseline = inventory(dirs.cwd);
       await report(a, "/jev mode premium");
       expect(readLocal(dirs.cwd)).toContain("premium");
-      expect(readFileSync(gitignore, "utf8")).toBe("node_modules\n");
+      expect(inventory(dirs.cwd)).toEqual({ ...baseline, [LOCAL_FILE]: readLocal(dirs.cwd) });
       await report(a, "/jev mode clear");
       expect(existsSync(localFile(dirs.cwd))).toBe(false);
-      expect(readFileSync(gitignore, "utf8")).toBe("node_modules\n");
+      expect(inventory(dirs.cwd)).toEqual(baseline);
     },
     TIMEOUT,
   );
@@ -262,8 +300,12 @@ describe("directory mode on worker launches", () => {
         }),
       );
       writeFileSync(join(dir, "state.json"), JSON.stringify({ version: 1, mode: "premium" }));
+      const globalBefore = globalFiles(session.agentDir);
       expect(await report(session, "/jev mode budget")).toContain("budget");
-      expect(await report(session, "/jev")).toContain("mode: budget (this directory;");
+      expect(globalFiles(session.agentDir)).toEqual(globalBefore);
+      expect(await report(session, "/jev")).toContain(
+        "mode: budget (this directory; global premium)",
+      );
       await session.prompt("START-MAIN");
       const lines = (): Record<string, unknown>[] => {
         const r = readLedger(dir);
@@ -274,6 +316,7 @@ describe("directory mode on worker launches", () => {
       // Budget cut points send the 0.9-balanced answer to the fast tier; premium would pick balanced.
       expect(lines()[0]).toMatchObject({ mode: "budget", tier: "fast", answered: true });
       expect(lines()[0]).not.toHaveProperty("miss");
+      expect(globalFiles(session.agentDir)).toEqual(globalBefore);
       expect(fixture.requests.find(isChild)?.model).toBe("fixture-fast");
     },
     TIMEOUT,
