@@ -172,9 +172,12 @@ describe("strategy advice through the real CLI", () => {
       await s.waitFor(() => widgetLines(s).length >= 1, "start widget");
       const start = ((await s.send({ type: "get_state" })).data as { thinkingLevel?: unknown })
         .thinkingLevel;
+      expect(typeof start).toBe("string");
+      expect((start as string).length).toBeGreaterThan(0);
       await s.prompt("/jev effort off");
       await s.prompt("hello");
       expect(jev.requests.length).toBe(1);
+      expect(fixture.requests[0]?.reasoningEffort).toBeDefined();
       expect(JSON.stringify(fixture.requests[0]?.body)).toContain(MARKER);
       expect(fixture.requests[0]?.reasoningEffort).toBe(start as string);
       await s.waitFor(() => mainLines(s).length >= 1, "main line");

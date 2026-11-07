@@ -13,7 +13,10 @@ export type Decision = {
   advice?: Strategy;
 };
 
-/** Builds a `Decision`; keys whose value is `undefined` are omitted. */
+/**
+ * Builds a `Decision`; keys whose value is `undefined` are omitted.
+ * `_prev` is accepted for call-site symmetry and is not read.
+ */
 export function withDecision(
   _prev: Decision | undefined,
   effort: Decision["effort"] | undefined,
