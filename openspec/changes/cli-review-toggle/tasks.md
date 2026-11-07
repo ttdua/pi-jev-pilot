@@ -30,4 +30,4 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. All pass
+- [x] 6.1 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. All pass
