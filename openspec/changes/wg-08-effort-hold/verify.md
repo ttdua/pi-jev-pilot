@@ -6,9 +6,9 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `wg-08-effort-hold`
-**Verified at**: `2026-11-07T01:41Z`
-**Iteration**: `1`
-**Verifier**: parent session (fresh gate run) with independent evidence from `superspec.verifier`
+**Verified at**: `2026-11-07T01:52Z`
+**Iteration**: `2`
+**Verifier**: parent session (fresh gate run); iteration 1 evidence from `superspec.verifier`, iteration 2 delta (tests only) checked by the parent
 
 ---
 
@@ -63,7 +63,7 @@ No REMOVED or RENAMED requirements; `effort-hold` is ADDED (4 requirements), `ma
 - [x] The project test command was run fresh in this step
 
 **Test command**: `bun test` (cwd: worktree)
-**Result**: exit 0 — 709 pass, 0 fail, 10453 expect() calls, 50 files
+**Result**: exit 0 — 713 pass, 0 fail, 10467 expect() calls, 50 files
 
 Also run fresh: `bun check` exit 0 (no type errors in 100 files), `bunx oxlint --deny-warnings .` exit 0, `bunx oxfmt --check .` exit 0.
 
@@ -73,16 +73,16 @@ Also run fresh: `bun check` exit 0 (no type errors in 100 files), `bunx oxlint -
 | Provider not listed | `hold.test.ts` "provider not listed"; `main.test.ts` "provider not listed" |
 | First prompt of a session | `hold.test.ts` "no anchor" |
 | Anchor before the latest compaction | `tests/host/context.test.ts` "anchor only before compaction" |
-| Model switched | `hold.test.ts` "model switched" (rule only; see W2) |
+| Model switched | `hold.test.ts` "model switched"; `main.test.ts` "model switch decides once and anchors the new model" |
 | Provider switched back | `hold.test.ts` "anchor for another provider"; `context.test.ts` "newest anchor wins" |
-| Resume keeps the hold | `main.test.ts` "second prompt held" (fresh `createMain`, branch only; see W3) |
+| Resume keeps the hold | `effort-hold.test.ts` "resume keeps the hold" (real `--continue` on the same agent dir); `main.test.ts` "second prompt held" |
 | Branch without the anchor | `context.test.ts` "anchor not on the branch" |
 | No thinking change while held | `tests/host/effort-hold.test.ts` "no thinking change after the anchor" |
-| Held and Jev fails | `main.test.ts` "held miss", "held schema miss" (see W3) |
+| Held and Jev fails | `effort-hold.test.ts` "held prompt with Jev down" (Jev HTTP 500); `main.test.ts` "held miss", "held schema miss" |
 | Manual change while held | `main.test.ts` "manual change while held" |
 | Correction while held | `main.test.ts` "correction while held" |
 | Exactly one decision after a compaction | `effort-hold.test.ts` "exactly one decision after a compaction" |
-| Miss right after a compaction | `context.test.ts` "anchor only before compaction" + `main.test.ts` "miss writes no decided" (indirect; see W1) |
+| Miss right after a compaction | `main.test.ts` "miss right after a compaction keeps the release" |
 | Compaction inside a decided turn | `main.test.ts` "compaction during the turn writes no decided" |
 | Applied turn | `main.test.ts` "applied turn anchors" |
 | Held turn | `main.test.ts` "held turn writes no decided" |
@@ -131,7 +131,7 @@ D1 `main.ts:300-322`; D2 `context.ts:69-95`, `hold.ts:7-16`; D3 `main.ts:312-316
 
 - [x] Working tree is clean (`git status --porcelain` empty before this receipt)
 
-**Commit range**: `54a93f6..4e9f481` (14 commits)
+**Commit range**: `54a93f6..efdbe01` (iteration 2 adds `3c4fd8e..efdbe01`: tests `0c8ff95`, receipts)
 
 ---
 
@@ -139,10 +139,7 @@ D1 `main.ts:300-322`; D2 `context.ts:69-95`, `hold.ts:7-16`; D3 `main.ts:312-316
 
 **CRITICAL**: none.
 
-**WARNING**
-- W1: "Miss right after a compaction" is covered only by composing two unit tests. Recommendation: add a `main.test.ts` case with a branch ending in a `compaction` entry, a held provider, a miss outcome, then a second prompt asserting `effort` and `risky` are asked.
-- W2: "Model switched", second clause (the decision on model B becomes the anchor), is not tested end to end. Recommendation: add a `main.test.ts` case with an anchor on model A, ctx model B, assert the prompt asks `effort` and its `jev-turn` carries `decided.model` B.
-- W3: "Held and Jev fails" uses a mocked miss, not the HTTP 500 fixture; "Resume keeps the hold" uses a fresh `createMain` with the branch, not a real restart. Recommendation: optionally add an `effort-hold.test.ts` case with the Jev fixture returning 500 on a held prompt.
+**WARNING**: none. Iteration 1 warnings W1–W3 are closed by the tests listed in section 4.
 
 **SUGGESTION**
 - S1: Extend plan.md "Scenario → test" to list the unchanged status-line scenarios for traceability.
@@ -152,12 +149,12 @@ D1 `main.ts:300-322`; D2 `context.ts:69-95`, `hold.ts:7-16`; D3 `main.ts:312-316
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [x] PASS_WITH_WARNINGS: proceed, noting: three scenarios are covered indirectly or with mocks (W1–W3); all fresh checks green
+- [x] PASS_WITH_WARNINGS: proceed, noting: no warnings remain; one traceability suggestion (S1) is open
 - [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 **Next step**:
 
-Run `/opsx-continue` with the worktree as the working directory to create the finalize artifact, then `/opsx-archive`. Optionally address W1–W2 first through `/opsx-apply`.
+Run `/opsx-continue` with the worktree as the working directory to create the finalize artifact, then `/opsx-archive`.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.
