@@ -1,7 +1,7 @@
 ## 1. Docs first
 
-- [ ] 1.1 Update `docs/jev-contract.md` "Eligibility" (a request when `effort` is on or skills apply; `corrects` on every request) and "Skill pick" (catalog exclusions including the ledger name pattern, explicit `/skill:name` from the expanded block, in-context check after compaction and context edits, failed later batch), and `docs/workflow.md` (main prompt flow and "A compaction" step 3) (When skill questions are asked, Explicit skill skips the skill questions, No duplicate body in context)
-- [ ] 1.2 Update `docs/architecture.md` host seams (`buildSessionProjection`, `parseFrontmatter` / `stripFrontmatter`) and `docs/privacy.md` (the hidden skill message holds the skill's own text; `details` holds name, fingerprint and form) (Host wiring only, No prompt text in the ledger or entries)
+- [x] 1.1 Update `docs/jev-contract.md` "Eligibility" (a request when `effort` is on or skills apply; `corrects` on every request) and "Skill pick" (catalog exclusions including the ledger name pattern, explicit `/skill:name` from the expanded block, in-context check after compaction and context edits, failed later batch), and `docs/workflow.md` (main prompt flow and "A compaction" step 3) (When skill questions are asked, Explicit skill skips the skill questions, No duplicate body in context)
+- [x] 1.2 Update `docs/architecture.md` host seams (`buildSessionProjection`, `parseFrontmatter` / `stripFrontmatter`) and `docs/privacy.md` (the hidden skill message holds the skill's own text; `details` holds name, fingerprint and form) (Host wiring only, No prompt text in the ledger or entries)
 
 ## 2. Host skill helpers
 
