@@ -22,11 +22,13 @@ Use these words consistently in code, docs and the user interface.
 |---|---|
 | **Decision** | What the policy concludes from Jev's answers. Jev answers; code decides. |
 | **Policy** | The pure rules that turn answers into decisions. |
-| **Rubric** | The set of descriptions that define the tiers in a question. Each mode has one. |
+| **Rubric** | The set of descriptions that define the tiers in a question. Workers share one rubric in every mode; it has a version. |
 | **Tier** | A role a model plays: `fast`, `balanced`, `deep`, `expert`. |
 | **Slot** | A named custom model with a `when` description, offered beside the tiers. |
-| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. Selects a rubric and an expert gate. |
-| **Expert gate** | The per-mode condition for using the `expert` tier. |
+| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. A target table of tier shares, with a cap for `expert`. |
+| **Difficulty score** | A number from 0 to 3.5 for one worker launch: the expected tier rank from Jev's `tier` probabilities, plus `effortRank / 8`. |
+| **Cut point** | A score that separates two tiers, recomputed from recent ledger scores so the mode's target mix holds. |
+| **Expert gate** | The condition for the `expert` tier: the score reaches the expert cut point and effort is `xhigh` or `max`. |
 | **Effort** | How much reasoning a turn gets. Jev's ladder: `low` to `max`. |
 | **Thinking level** | Pi's name for effort on a session or worker. |
 | **Requested / effective** | The effort the policy wanted, and what the model supports after clamping. |
