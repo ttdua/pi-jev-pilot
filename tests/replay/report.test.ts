@@ -106,11 +106,12 @@ describe("planReport", () => {
     expect(reqs(p, "rerun")).toHaveLength(1);
   });
 
-  test("no snapshot keeps samples without capabilities", () => {
-    const p = plan({ main: [main(["capabilities"])], hasSnapshot: false });
-    expect(reqs(p, "report")).toHaveLength(1);
-    expect(reqs(p, "rerun")).toHaveLength(1);
-    expect(p.excluded).toEqual({});
+  test("sample missing capabilities is excluded without a snapshot", () => {
+    const p = plan({ main: [main(["capabilities"]), main()], hasSnapshot: false });
+    expect(reqs(p, "report").map((r) => r.sample)).toEqual([1]);
+    expect(reqs(p, "rerun").map((r) => r.sample)).toEqual([1]);
+    expect(p.excluded["report"]).toBe(1);
+    expect(p.excluded["rerun"]).toBe(1);
   });
 
   test("missing group excluded", () => {
@@ -119,5 +120,12 @@ describe("planReport", () => {
     expect(reqs(p, "rerun").map((r) => r.sample)).toEqual([1]);
     expect(p.excluded["report"]).toBe(1);
     expect(p.excluded["rerun"]).toBe(1);
+  });
+
+  test("worker without agent is excluded under both variants", () => {
+    const p = plan({ main: [], workers: [{ sample: worker().sample }] });
+    expect(p.requests.some((r) => r.kind === "worker")).toBe(false);
+    expect(p.excluded["worker:report"]).toBe(1);
+    expect(p.excluded["worker:rerun"]).toBe(1);
   });
 });

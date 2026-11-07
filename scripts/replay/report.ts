@@ -1,5 +1,5 @@
 // Plans the report pass: the shipped main and worker requests, one `report` and one `rerun` each.
-import { mainState, pickRich, type RichGroup, SHIPPED_MAIN_GROUPS } from "../../src/jev/state.ts";
+import { mainState, pickRich, SHIPPED_MAIN_GROUPS } from "../../src/jev/state.ts";
 import { mainQuestions } from "../../src/jev/questions.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
 import {
@@ -22,21 +22,15 @@ export type ReportPlanInput = {
 const REPORT_VARIANTS = ["report", "rerun"] as const;
 const REPORT_BASE = "report";
 
-/** Without a capabilities snapshot the capabilities group cannot be rebuilt, so it is not required. */
-function requiredGroups(hasSnapshot: boolean): RichGroup[] {
-  return SHIPPED_MAIN_GROUPS.filter((g) => hasSnapshot || g !== "capabilities");
-}
-
 function exclude(plan: Plan, key: string): void {
   plan.excluded[key] = (plan.excluded[key] ?? 0) + 1;
 }
 
 function planReportMain(input: ReportPlanInput, plan: Plan): void {
   const questions = mainQuestions({ askEffort: true, askStrategy: true });
-  const groups = requiredGroups(input.hasSnapshot);
   for (const variant of REPORT_VARIANTS) {
     input.main.forEach((m, sample) => {
-      if (groups.some((g) => m.missing.includes(g))) {
+      if (SHIPPED_MAIN_GROUPS.some((g) => m.missing.includes(g))) {
         exclude(plan, variantKey("main", variant));
         return;
       }
@@ -49,7 +43,7 @@ function planReportMain(input: ReportPlanInput, plan: Plan): void {
           prompt: m.sample.prompt,
           items: m.items,
           platforms: m.platforms,
-          rich: pickRich(m.rich, groups),
+          rich: pickRich(m.rich, SHIPPED_MAIN_GROUPS),
         }),
         questions: questions.wire,
         specs: questions.specs,
