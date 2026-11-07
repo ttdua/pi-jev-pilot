@@ -13,6 +13,7 @@ import {
 } from "../../src/host/status.ts";
 import { buildSnapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
+import type { Mode } from "../../src/store/defaults.ts";
 import { DECISION_FEATURES } from "../../src/store/defaults.ts";
 import type { State, StateRead } from "../../src/store/state-file.ts";
 
@@ -22,6 +23,7 @@ type Over = {
   stateRead?: StateRead;
   env?: Record<string, string | undefined>;
   tools?: string[];
+  sessionMode?: Mode;
 };
 
 function snap(o: Over = {}) {
@@ -30,6 +32,7 @@ function snap(o: Over = {}) {
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
+    ...(o.sessionMode === undefined ? {} : { sessionMode: o.sessionMode }),
   });
 }
 
@@ -129,6 +132,29 @@ describe("drawStatus", () => {
       expect(calls).toEqual([["jev", undefined, OPT]]);
     }
   });
+});
+
+describe("session mode marker", () => {
+  test("Session mode marked", () =>
+    expect(statusText(snap({ state: { mode: "standard" }, sessionMode: "premium" }))).toBe(
+      "Jev · premium (session)",
+    ));
+  test("Session mode with a suffix", () =>
+    expect(
+      statusText(snap({ sessionMode: "budget" }), {
+        effort: { kind: "level", level: "high" },
+      }),
+    ).toBe("Jev · budget (session) · high"));
+  test("Session mode in the tally form", () =>
+    expect(
+      statusText(
+        snap({ sessionMode: "premium" }),
+        undefined,
+        "10 prompts · 0 workers · 0 fallbacks",
+      ),
+    ).toBe("Jev · premium (session) · 10 prompts · 0 workers · 0 fallbacks"));
+  test("Base state wins over a session mode", () =>
+    expect(statusText(snap({ state: allOff(), sessionMode: "premium" }))).toBe("Jev · off"));
 });
 
 describe("decision suffix", () => {

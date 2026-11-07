@@ -28,6 +28,12 @@ describe("buildSnapshot", () => {
     expect(s.keyVar).toBe("TYPESAFE_API_KEY");
   });
 
+  test("session mode overrides the saved mode", () => {
+    const s = snap({ sessionMode: "premium" });
+    expect(s.settings.mode).toBe("premium");
+    expect(s.settings.modeSource).toBe("session");
+  });
+
   test("configured key variable", () => {
     const s = snap({
       configRead: okConfig({ classifier: { apiKeyEnv: "MY_JEV_KEY" } }),

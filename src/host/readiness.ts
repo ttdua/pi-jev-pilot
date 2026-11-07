@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { Mode } from "../store/defaults.ts";
 import { readConfig, type ConfigRead } from "../store/config.ts";
 import { resolveSettings, untunedTimeout, type Settings } from "../store/settings.ts";
 import { readState, type StateRead } from "../store/state-file.ts";
@@ -35,6 +36,8 @@ export function buildSnapshot(input: {
   env: Record<string, string | undefined>;
   toolNames: string[];
   tuningRead?: TuningRead;
+  /** A mode that overrides the saved one for this session. */
+  sessionMode?: Mode;
 }): Snapshot {
   const { configRead, stateRead, env, toolNames } = input;
   const tuningRead: TuningRead = input.tuningRead ?? { kind: "missing", record: {} };
@@ -43,7 +46,12 @@ export function buildSnapshot(input: {
   const config = configRead.kind === "ok" ? configRead.config : {};
   // Tuning applies only on top of a valid config (design D3).
   const tuning = configRead.kind === "ok" ? tuningRead.record : undefined;
-  const settings = resolveSettings({ config, state, ...(tuning ? { tuning } : {}) });
+  const settings = resolveSettings({
+    config,
+    state,
+    ...(tuning ? { tuning } : {}),
+    ...(input.sessionMode ? { sessionMode: input.sessionMode } : {}),
+  });
   const keyVar = settings.classifier.apiKeyEnv;
   return {
     config:

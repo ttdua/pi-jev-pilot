@@ -124,8 +124,13 @@ function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
   return lines;
 }
 
+function modeLine(s: Snapshot): string {
+  const { mode, modeSource, savedMode } = s.settings;
+  return modeSource === "session" ? `mode: ${mode} (session; saved ${savedMode})` : `mode: ${mode}`;
+}
+
 export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
-  const lines = [statusText(s), `mode: ${s.settings.mode}`, "features:"];
+  const lines = [statusText(s), modeLine(s), "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
   lines.push(reviewLine(s.settings.review));
   lines.push(`key: ${s.keyVar} ${s.keySet ? "set" : "not set"}`);

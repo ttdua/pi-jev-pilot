@@ -12,6 +12,7 @@ import {
 } from "../../src/host/commands.ts";
 import type { Exec } from "../../src/host/review-cli.ts";
 import { statusText, type Decision, type Tally } from "../../src/host/status.ts";
+import type { Mode } from "../../src/store/defaults.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
@@ -31,6 +32,7 @@ function snap(
     env?: Record<string, string | undefined>;
     tools?: string[];
     tuningRead?: TuningRead;
+    sessionMode?: Mode;
   } = {},
 ): Snapshot {
   return buildSnapshot({
@@ -39,6 +41,7 @@ function snap(
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
     ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
+    ...(o.sessionMode === undefined ? {} : { sessionMode: o.sessionMode }),
   });
 }
 
@@ -188,6 +191,15 @@ describe("formatStatus", () => {
         "mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2",
       );
       expect(lines).not.toContain("cut points: seed");
+    });
+    test("Session mode in the report", () => {
+      const text = formatStatus(
+        snap({ state: { mode: "standard" }, sessionMode: "premium" }),
+        undefined,
+        entries(120, 60, 48, 12),
+      );
+      expect(text).toContain("mode: premium (session; saved standard)");
+      expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/45\/≤5/);
     });
     test("budget target", () => {
       const text = formatStatus(
