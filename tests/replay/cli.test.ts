@@ -193,8 +193,8 @@ describe("main", () => {
   });
 
   test("--only parses a list and needs a value", () => {
-    expect(parseArgs(["--pass", "1", "--only", "effort-order,full"]).only).toEqual([
-      "effort-order",
+    expect(parseArgs(["--pass", "1", "--only", "effort-reversed,full"]).only).toEqual([
+      "effort-reversed",
       "full",
     ]);
     expect(() => parseArgs(["--pass", "1", "--only"])).toThrow();

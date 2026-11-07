@@ -347,7 +347,14 @@ describe("mainState rich groups", () => {
       agents: [{ name: "scout", description: "Recon", tools: ["read"] }],
     },
   };
-  test("one group alone", () => {
+  test("one group alone: last_decision", () => {
+    const s = mainState({ ...base, rich: { lastDecision: { effort: "high" } } });
+    expect(s).toEqual({
+      ...mainState(base),
+      conversation: { ...mainState(base).conversation, last_decision: { effort: "high" } },
+    });
+  });
+  test("one group alone: git", () => {
     const plain = mainState(base);
     const s = mainState({ ...base, rich: { git: { changed_files: 2, diff_lines: 10 } } });
     expect(s).toEqual({

@@ -4,7 +4,6 @@ import { buildWorkerState, mainState, pickRich, type RichGroup } from "../../src
 import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
 import type { WireQuestion } from "../../src/jev/rubrics.ts";
 import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
-import { EFFORT_OPTION_ORDER } from "../../src/policy/effort.ts";
 import type { ModeName } from "../../src/policy/modes.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
 
@@ -59,9 +58,6 @@ export type PlanInput = {
 /** Variants every run keeps: the bases and the reruns they are measured against. */
 const ALWAYS = new Set(["minimal", "rerun-a", "rerun-b", "base"]);
 
-/** The shipped option order; `effort-order` is a no-op against the base since iteration 4. */
-const EFFORT_ORDER_CANDIDATE: readonly string[] = EFFORT_OPTION_ORDER;
-
 function selected(id: string, only: readonly string[] | undefined): boolean {
   if (only === undefined || ALWAYS.has(id) || only.includes(id)) return true;
   // `full` is the base of every `full-G`.
@@ -76,7 +72,7 @@ type MainVariant = {
   groups: readonly RichGroup[];
   /** Groups a sample must have; a sample missing one is excluded from this variant. */
   needs: readonly RichGroup[];
-  order?: "reversed" | "candidate";
+  order?: "reversed";
 };
 
 function mainVariants(pass: 1 | 2, input: PlanInput): MainVariant[] {
@@ -97,12 +93,7 @@ function mainVariants(pass: 1 | 2, input: PlanInput): MainVariant[] {
     needs: candidates, // the same sample set as `full`, so each request has a `full` pair
   }));
   const tail: MainVariant[] =
-    pass === 1
-      ? [
-          { ...plain("effort-reversed"), order: "reversed" },
-          { ...plain("effort-order"), order: "candidate" },
-        ]
-      : [];
+    pass === 1 ? [{ ...plain("effort-reversed"), order: "reversed" }] : [];
   return [...head, full, ...addOne, ...leaveOne, ...tail];
 }
 
@@ -145,12 +136,9 @@ const reversedOrder = (q: Questions): readonly string[] => {
 
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
   const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
-  const byOrder = {
-    reversed: deepFreeze(withEffortOrder(base, reversedOrder(base))),
-    candidate: deepFreeze(withEffortOrder(base, EFFORT_ORDER_CANDIDATE)),
-  };
+  const reversed = deepFreeze(withEffortOrder(base, reversedOrder(base)));
   for (const v of variants) {
-    const q = v.order === undefined ? base : byOrder[v.order];
+    const q = v.order === undefined ? base : reversed;
     main.forEach((m, sample) => {
       if (v.needs.some((g) => m.missing.includes(g))) {
         const key = variantKey("main", v.id);
@@ -188,8 +176,6 @@ type WorkerVariant = {
   /** True when the edit would leave the state equal to `base`; such a sample is excluded. */
   noop?: (w: RebuiltWorker & { agent: AgentFacts }) => boolean;
   edit: (s: WorkerState, w: RebuiltWorker) => void;
-  /** Reorders the effort options instead of changing the state. */
-  order?: "candidate";
 };
 
 const WORKER_VARIANTS: WorkerVariant[] = [
@@ -221,7 +207,6 @@ const WORKER_VARIANTS: WorkerVariant[] = [
       s.agent.instructions_excerpt = "";
     },
   },
-  { id: "effort-order", edit: () => {}, order: "candidate" },
 ];
 
 function workerQuestions(config: PlainConfig) {
@@ -237,14 +222,8 @@ function planWorkers(
   only: readonly string[] | undefined,
 ): void {
   const plain = deepFreeze(workerQuestions(config));
-  const candidate = deepFreeze(
-    (({ questions: wire, specs }) => {
-      const r = withEffortOrder({ wire, specs }, EFFORT_ORDER_CANDIDATE);
-      return { questions: r.wire, specs: r.specs };
-    })(plain),
-  );
   for (const v of WORKER_VARIANTS.filter((w) => selected(w.id, only))) {
-    const { questions, specs } = v.order === undefined ? plain : candidate;
+    const { questions, specs } = plain;
     workers.forEach((w, sample) => {
       if (w.agent === undefined || v.noop?.({ ...w, agent: w.agent }) === true) {
         const key = variantKey("worker", v.id);

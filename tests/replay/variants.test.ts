@@ -92,27 +92,7 @@ describe("planPass", () => {
     expect(rev?.base).toBe("minimal");
   });
 
-  test("effort-order is a no-op: the shipped order equals the base order", () => {
-    const p = plan1();
-    const order = ["high", "medium", "xhigh", "low", "max"];
-    const [min] = find(p, "minimal");
-    const [eo] = find(p, "effort-order");
-    const q = eo?.questions as { effort: { criteria: object } };
-    expect(Object.keys(q.effort.criteria)).toEqual(order);
-    expect(eo?.specs["effort"]).toEqual({ type: "choice", options: order });
-    expect(eo?.state).toEqual(min?.state);
-    expect(eo?.base).toBe("minimal");
-    const [weo] = find(p, "effort-order", "worker");
-    const [wbase] = find(p, "base", "worker");
-    const wq = weo?.questions as { effort: { criteria: object }; tier: unknown };
-    expect(Object.keys(wq.effort.criteria)).toEqual(order);
-    expect(weo?.specs["effort"]).toEqual({ type: "choice", options: order });
-    expect(weo?.state).toEqual(wbase?.state);
-    expect(weo?.base).toBe("base");
-    expect(weo?.specs["tier"]).toEqual(wbase?.specs["tier"]);
-  });
-
-  test("pass 1 variant order ends with the reversed and candidate orders", () => {
+  test("pass 1 variant order ends with the reversed order", () => {
     const ids = [
       ...new Set(
         plan1()
@@ -120,26 +100,26 @@ describe("planPass", () => {
           .map((r) => r.variant),
       ),
     ];
-    expect(ids.slice(-2)).toEqual(["effort-reversed", "effort-order"]);
+    expect(ids.slice(-1)).toEqual(["effort-reversed"]);
   });
 
   test("--only keeps the bases, reruns and listed variants", () => {
-    const p = plan1({ only: ["effort-order"] });
+    const p = plan1({ only: ["effort-reversed"] });
     const ids = (kind: string) => [
       ...new Set(p.requests.filter((r) => r.kind === kind).map((r) => r.variant)),
     ];
-    expect(ids("main")).toEqual(["minimal", "rerun-a", "rerun-b", "effort-order"]);
-    expect(ids("worker")).toEqual(["base", "rerun-a", "rerun-b", "effort-order"]);
+    expect(ids("main")).toEqual(["minimal", "rerun-a", "rerun-b", "effort-reversed"]);
+    expect(ids("worker")).toEqual(["base", "rerun-a", "rerun-b"]);
   });
 
   test("--only without a snapshot plans no worker variants", () => {
-    const p = plan1({ only: ["effort-order"], hasSnapshot: false });
+    const p = plan1({ only: ["effort-reversed"], hasSnapshot: false });
     expect(p.requests.some((r) => r.kind === "worker")).toBe(false);
     expect([...new Set(p.requests.map((r) => r.variant))]).toEqual([
       "minimal",
       "rerun-a",
       "rerun-b",
-      "effort-order",
+      "effort-reversed",
     ]);
   });
 
