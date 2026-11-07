@@ -101,7 +101,7 @@ Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `m
 
 | Key | Default | Notes |
 |---|---|---|
-| `holdProviders` | `["9router"]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the first effort until a compaction. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
+| `holdProviders` | `["9router"]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the level of the latest decision until a compaction or a provider or model switch. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
 
 Check for yourself by watching for cache misses after thinking-level changes on your provider.
 

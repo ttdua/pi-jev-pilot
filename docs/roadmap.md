@@ -136,7 +136,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-08: Effort hold
 
-**A5.** First decision kept for the session on listed providers; one new decision after a compaction; questions omitted while held.
+**A5.** Decision kept on listed providers until a compaction or a model switch; one new decision after a compaction; questions omitted while held.
 
 - **Done when:** a host test shows no thinking change after the first decision on a held provider, and exactly one after a compaction.
 - **Note:** in the [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run, `claude-code` kept the prompt cache across a thinking change, so it is not in the default hold list.

@@ -37,7 +37,7 @@ sequenceDiagram
 
 **Skipped when** the run was started by a custom message, the prompt is empty, the session is a child, or every applicable feature is off. An explicit `/skill:name` skips only the skill questions.
 
-**While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `effort` and `risky` are not asked. Other questions still are, and only `corrects` is asked of a prompt that has no other question. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
+**While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `effort` and `risky` are not asked. Only `corrects` is asked. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
 
 **If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again.
 
