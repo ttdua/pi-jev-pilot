@@ -33,9 +33,56 @@ export type MainState = {
       failed: number;
     };
     turn_index: number;
+    last_decision?: { effort?: string; strategy?: string };
+    context_used_percent?: number | null;
   };
-  workspace: { platforms: string[] };
+  workspace: { platforms: string[]; git?: GitCounts; languages?: string[] };
+  capabilities?: {
+    tools: { name: string; summary: string }[];
+    subagents: { name: string; description: string; tools: string[] | null }[];
+  };
 };
+
+export type GitCounts = { changed_files: number; diff_lines: number };
+
+export type RichGroup =
+  | "last_decision"
+  | "context_used_percent"
+  | "git"
+  | "languages"
+  | "capabilities";
+
+export type RichInputs = {
+  lastDecision?: { effort?: string; strategy?: string };
+  contextPercent?: number | null;
+  git?: GitCounts;
+  languages?: string[];
+  capabilities?: {
+    tools: { name: string; description: string }[];
+    agents: { name: string; description: string; tools: string[] | null }[];
+  };
+};
+
+/** Groups shipped in the main state; pass 2 of the replay decides what joins this list. */
+export const SHIPPED_MAIN_GROUPS: readonly RichGroup[] = [];
+
+const GROUP_INPUT: Record<RichGroup, keyof RichInputs> = {
+  last_decision: "lastDecision",
+  context_used_percent: "contextPercent",
+  git: "git",
+  languages: "languages",
+  capabilities: "capabilities",
+};
+
+/** Keeps only the inputs whose group is listed. */
+export function pickRich(all: RichInputs, groups: readonly RichGroup[]): RichInputs {
+  const out: Record<string, unknown> = {};
+  for (const group of groups) {
+    const key = GROUP_INPUT[group];
+    if (all[key] !== undefined) out[key] = all[key];
+  }
+  return out as RichInputs;
+}
 
 const TOTAL_BUDGET = 2000;
 const MAX_MESSAGES = 4;
@@ -184,12 +231,33 @@ export function turnIndex(items: BranchItem[]): number {
   return items.filter((i) => i.role === "user").length;
 }
 
+/** Adds each rich input under its key, only when defined. Shaping lives here. */
+function addRich(state: MainState, rich: RichInputs): void {
+  if (rich.lastDecision !== undefined) state.conversation.last_decision = rich.lastDecision;
+  if (rich.contextPercent !== undefined) {
+    state.conversation.context_used_percent = rich.contextPercent;
+  }
+  if (rich.git !== undefined) state.workspace.git = rich.git;
+  if (rich.languages !== undefined) state.workspace.languages = rich.languages;
+  if (rich.capabilities !== undefined) {
+    state.capabilities = {
+      tools: rich.capabilities.tools.map((t) => ({ name: t.name, summary: t.description })),
+      subagents: rich.capabilities.agents.map((a) => ({
+        name: a.name,
+        description: a.description,
+        tools: a.tools,
+      })),
+    };
+  }
+}
+
 export function mainState(i: {
   prompt: string;
   items: BranchItem[];
   platforms: string[];
+  rich?: RichInputs;
 }): MainState {
-  return {
+  const state: MainState = {
     request: requestSignals(i.prompt),
     conversation: {
       recent: recentMessages(i.items),
@@ -198,6 +266,8 @@ export function mainState(i: {
     },
     workspace: { platforms: i.platforms },
   };
+  if (i.rich !== undefined) addRich(state, i.rich);
+  return state;
 }
 
 // Worker state.

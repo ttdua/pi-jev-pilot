@@ -7,6 +7,9 @@ import {
   buildToolState,
   buildWorkerState,
   mainState,
+  pickRich,
+  SHIPPED_MAIN_GROUPS,
+  type RichInputs,
   recentMessages,
   recentTools,
   requestSignals,
@@ -330,5 +333,54 @@ describe("Tool state", () => {
     });
     expect(Object.keys(state.tools)).toEqual(["__proto__"]);
     expect(Object.getPrototypeOf(state.tools)).toBe(Object.prototype);
+  });
+});
+
+describe("mainState rich groups", () => {
+  const base = { prompt: "hi", items: [user("a")], platforms: ["Docker"] };
+  const all: RichInputs = {
+    lastDecision: { effort: "low", strategy: "direct" },
+    contextPercent: 42,
+    git: { changed_files: 2, diff_lines: 10 },
+    languages: ["TypeScript"],
+    capabilities: {
+      tools: [{ name: "read", description: "Read files" }],
+      agents: [{ name: "scout", description: "Recon", tools: ["read"] }],
+    },
+  };
+  test("one group alone", () => {
+    const plain = mainState(base);
+    const s = mainState({ ...base, rich: { languages: ["TypeScript"] } });
+    expect(s).toEqual({
+      ...plain,
+      workspace: { platforms: ["Docker"], languages: ["TypeScript"] },
+    });
+  });
+  test("every group", () => {
+    const s = mainState({ ...base, rich: all });
+    expect(s.conversation.last_decision).toEqual({ effort: "low", strategy: "direct" });
+    expect(s.conversation.context_used_percent).toBe(42);
+    expect(s.workspace.git).toEqual({ changed_files: 2, diff_lines: 10 });
+    expect(s.workspace.languages).toEqual(["TypeScript"]);
+    expect(s.capabilities).toEqual({
+      tools: [{ name: "read", summary: "Read files" }],
+      subagents: [{ name: "scout", description: "Recon", tools: ["read"] }],
+    });
+  });
+  test("absent rich keeps the output identical", () => {
+    expect(JSON.stringify(mainState({ ...base, rich: {} }))).toBe(JSON.stringify(mainState(base)));
+  });
+  test("pickRich keeps only listed groups", () => {
+    expect(pickRich(all, ["git", "languages"])).toEqual({
+      git: all.git!,
+      languages: ["TypeScript"],
+    });
+    expect(pickRich(all, [])).toEqual({});
+    expect(pickRich({ contextPercent: null }, ["context_used_percent"])).toEqual({
+      contextPercent: null,
+    });
+  });
+  test("shipped list starts empty", () => {
+    expect(SHIPPED_MAIN_GROUPS).toEqual([]);
   });
 });
