@@ -154,3 +154,14 @@ export function readAgent(name: unknown, dirs: { cwd: string; agentDir: string }
   const match = keys.find((k) => k.toLowerCase() === lower);
   return (match === undefined ? undefined : resolve(match)) ?? fallback;
 }
+
+/** Every known agent, project over global over built-in, one per name, in name order. */
+export function listAgents(dirs: { cwd: string; agentDir: string }): AgentFacts[] {
+  const project = listAgentFiles(join(dirs.cwd, ".pi", "agents"));
+  const global = listAgentFiles(join(dirs.agentDir, "agents"));
+  const names = new Set([...BUILTIN_AGENTS.keys(), ...global.keys(), ...project.keys()]);
+  return [...names].sort().flatMap((name) => {
+    const facts = readAgent(name, dirs);
+    return facts.name === name ? [facts] : [];
+  });
+}

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir } from "../helpers";
+import { run, tempDir } from "../helpers";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { toolNames, withoutReview } from "./bodies";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
@@ -57,6 +57,7 @@ async function setup(
     thinking?: string;
     persist?: boolean;
     script?: ScriptEntry[];
+    cwd?: string;
   } = {},
 ): Promise<{
   s: HostSession;
@@ -81,6 +82,7 @@ async function setup(
     jevConfig: { url: jev.url(ASK), timeoutMs: opts.timeoutMs ?? 5000 },
     ...(opts.thinking === undefined ? {} : { thinking: opts.thinking }),
     ...(opts.persist === undefined ? {} : { persist: opts.persist }),
+    ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
   });
   sessions.push(s);
   return { s, fixture, jev, routes };
@@ -390,6 +392,44 @@ describe("main effort through the real CLI", () => {
       await Bun.sleep(500);
       expect(jev.requests.length).toBe(1);
       expect(mainLines(s).length).toBe(1);
+    },
+    TIMEOUT,
+  );
+});
+
+describe("default request state", () => {
+  test(
+    "default request stays minimal",
+    async () => {
+      const cwd = tempDir("jev-rich-git-");
+      dirs.push(cwd);
+      const git = (...args: string[]) =>
+        run(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd });
+      git("init", "-q");
+      writeFileSync(join(cwd, "a.ts"), "one\n");
+      git("add", ".");
+      git("commit", "-q", "-m", "init");
+      writeFileSync(join(cwd, "a.ts"), "one\ntwo\n");
+      const { s, jev } = await setup(answers("high"), { cwd });
+      await s.prompt("first");
+      await s.waitFor(() => mainLines(s).length >= 1, "first main line");
+      await s.prompt("second");
+      await s.waitFor(() => jev.requests.length >= 2, "second jev request");
+      const states = jev.requests.map(
+        (r) => (JSON.parse(r.body) as { state: { conversation: object; workspace: object } }).state,
+      );
+      for (const state of states) {
+        const text = JSON.stringify(state);
+        for (const key of [
+          "last_decision",
+          "context_used_percent",
+          "git",
+          "languages",
+          "capabilities",
+        ]) {
+          expect(text).not.toContain(`"${key}"`);
+        }
+      }
     },
     TIMEOUT,
   );

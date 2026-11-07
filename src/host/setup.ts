@@ -1,10 +1,13 @@
 import { readFileSync } from "node:fs";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isChild, subscribeChildren } from "./child.ts";
 import { runJev } from "./commands.ts";
+import { SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
 import { askJev } from "../jev/client.ts";
 import { appendLedger } from "../store/ledger.ts";
 import { scanPlatforms } from "./context.ts";
+import { listAgents } from "./agents.ts";
+import { gitCounts } from "./git.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
 import { hideReviewInChild, registerReviewTool } from "./review.ts";
@@ -60,6 +63,12 @@ export function setup(pi: ExtensionAPI): void {
     env: () => process.env,
     commands: () => pi.getCommands(),
     readFile: (p) => readFileSync(p, "utf8"),
+    rich: {
+      groups: SHIPPED_MAIN_GROUPS,
+      git: (cwd) => gitCounts((c, a, o) => pi.exec(c, a, o), cwd),
+      tools: () => activeTools(pi),
+      agents: (cwd) => listAgents({ cwd, agentDir: getAgentDir() }),
+    },
   });
 
   pi.on("session_start", async (_event, ctx) => {
@@ -151,4 +160,13 @@ export function setup(pi: ExtensionAPI): void {
       });
     },
   });
+}
+
+/** Tools declared to the model: the active names joined with their descriptions. */
+function activeTools(pi: ExtensionAPI): { name: string; description: string }[] {
+  const active = new Set(pi.getActiveTools());
+  return pi
+    .getAllTools()
+    .filter((t) => active.has(t.name))
+    .map((t) => ({ name: t.name, description: t.description }));
 }

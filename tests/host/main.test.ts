@@ -66,6 +66,7 @@ function setup(
     inject?: "content" | "suggest";
     projection?: unknown[];
     batchOutcomes?: (JevOutcome | Promise<JevOutcome>)[];
+    rich?: MainDeps["rich"];
   } = {},
 ) {
   let branch: unknown[] = o.branch ?? [];
@@ -173,6 +174,7 @@ function setup(
     newId: () => "11111111-1111-1111-1111-111111111111",
     platforms: () => ["none found"],
     env: () => o.env ?? { TYPESAFE_API_KEY: "test-key" },
+    ...(o.rich === undefined ? {} : { rich: o.rich }),
   };
   const main = createMain(pi as never, deps);
   const event = (prompt = "do the thing", messageType = "user") =>
@@ -1973,5 +1975,64 @@ describe("skill fields on the main line", () => {
     none(
       t.appended.find((e) => (e as { kind?: string }).kind === "main") as Record<string, unknown>,
     );
+  });
+});
+
+describe("rich state inputs", () => {
+  const noRich = { git: async () => undefined, tools: () => [], agents: () => [] };
+  const stateOf = (t: ReturnType<typeof setup>, i: number) =>
+    t.requests[i]!.state as { conversation: Record<string, unknown>; workspace: object };
+
+  test("last decision carried to the next prompt", async () => {
+    const t = setup({
+      outcomes: [advised("delegate", 0.9, { tier: "balanced" }), answer("low")],
+      rich: { ...noRich, groups: ["last_decision"] },
+    });
+    await run(t);
+    await t.main.agentSettled({ aborted: false } as never);
+    await run(t);
+    expect(stateOf(t, 0).conversation["last_decision"]).toBeUndefined();
+    expect(stateOf(t, 1).conversation["last_decision"]).toEqual({
+      effort: "high",
+      strategy: "delegate",
+    });
+  });
+
+  test("last decision cleared on session start", async () => {
+    const t = setup({ rich: { ...noRich, groups: ["last_decision"] } });
+    await run(t);
+    await t.main.agentSettled({ aborted: false } as never);
+    t.main.sessionStart();
+    await run(t);
+    expect(stateOf(t, 1).conversation["last_decision"]).toBeUndefined();
+  });
+
+  test("shipped git sent", async () => {
+    const seen: string[] = [];
+    const t = setup({
+      rich: {
+        ...noRich,
+        groups: ["git"],
+        git: async (cwd) => (seen.push(cwd), { changed_files: 3, diff_lines: 9 }),
+      },
+    });
+    await run(t);
+    expect(seen).toEqual(["/tmp/x"]);
+    expect(stateOf(t, 0).workspace).toMatchObject({ git: { changed_files: 3, diff_lines: 9 } });
+  });
+
+  test("a failing group does not stop the decision", async () => {
+    const t = setup({
+      rich: {
+        ...noRich,
+        groups: ["capabilities"],
+        tools: () => {
+          throw new Error("boom");
+        },
+      },
+    });
+    await run(t);
+    expect(t.requests).toHaveLength(1);
+    expect(t.level()).toBe("low");
   });
 });

@@ -8,7 +8,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { askJev, JevOutcome } from "../jev/client.ts";
 import { mainQuestions, skillBatchQuestions } from "../jev/questions.ts";
-import { mainState } from "../jev/state.ts";
+import { mainState, SHIPPED_MAIN_GROUPS, type GitCounts, type RichGroup } from "../jev/state.ts";
 import { readAnswers, type Answer, type QuestionSpec, type ReadResult } from "../policy/answers.ts";
 import {
   deliveryForm,
@@ -28,9 +28,11 @@ import {
 } from "../policy/effort.ts";
 import { adviseStrategy, type Strategy } from "../policy/strategy.ts";
 import type { WriteResult } from "../store/validate.ts";
+import type { AgentFacts } from "../policy/launch.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
+import { buildRichInputs } from "./rich.ts";
 import {
   SKILL_MESSAGE_TYPE,
   explicitSkill,
@@ -53,6 +55,13 @@ export type MainDeps = {
   readFile: (path: string) => string;
   /** Compact tally for the status line when this prompt is a multiple of 10, else `undefined`. */
   tallyText?: () => string | undefined;
+  /** Rich state inputs; `groups` defaults to the shipped list. */
+  rich?: {
+    groups: readonly RichGroup[];
+    git: (cwd: string) => Promise<GitCounts | undefined>;
+    tools: () => { name: string; description: string }[];
+    agents: (cwd: string) => AgentFacts[];
+  };
 };
 
 /** Per-turn bookkeeping. Internal; the ledger lines are written from it when the run settles. */
@@ -95,12 +104,14 @@ type Answered = Exclude<JevOutcome, { kind: "cancelled" }>;
 
 type Ctx = Pick<
   ExtensionContext,
-  "cwd" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
+  "cwd" | "getContextUsage" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
 >;
 
 export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   let record: TurnRecord | undefined;
   let current: Decision | undefined;
+  /** What the last settled, answered turn applied; carried to the next prompt. */
+  let lastDecided: { effort?: string; strategy?: string } | undefined;
   /** Tally text shown on every 10th prompt until the next eligible prompt's result. */
   let overlay: string | undefined;
   /** Records that already drew during their own `decide` call. */
@@ -170,6 +181,9 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (event.messageType !== "user" || event.prompt.trim() === "") return;
     const sessionId = ctx.sessionManager.getSessionId();
     if (isChild(sessionId)) return;
+    const groups = deps.rich?.groups ?? SHIPPED_MAIN_GROUPS;
+    // Started before the first await so the git call overlaps the rest of the setup.
+    const git = groups.includes("git") ? deps.rich?.git(ctx.cwd) : undefined;
     const snapshot = deps.load();
     if (!snapshot.config.valid || !snapshot.keySet) return;
     const model = ctx.model;
@@ -208,14 +222,25 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       first === undefined
         ? mainQuestions({ askEffort, askStrategy })
         : mainQuestions({ askEffort, askStrategy, skills: first });
+    // The level the prompt started from is read before any await, so a change during the wait is seen.
+    const from = level();
+    const at = deps.now();
+    const rich = await buildRichInputs({
+      groups,
+      cwd: ctx.cwd,
+      ...(lastDecided === undefined ? {} : { last: lastDecided }),
+      contextPercent: () => ctx.getContextUsage()?.percent,
+      ...(git === undefined ? {} : { git }),
+      tools: () => deps.rich?.tools() ?? [],
+      agents: () => deps.rich?.agents(ctx.cwd) ?? [],
+    });
     const state = mainState({
       prompt: event.prompt,
       items: branchItems(entries),
       platforms: deps.platforms(ctx.cwd),
+      rich,
     });
     const prev = previousTurnId(entries);
-    const from = level();
-    const at = deps.now();
     const rec: TurnRecord = {
       turnId: deps.newId(),
       at,
@@ -643,6 +668,13 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
 
   /** Correction line, `main` line, then the `jev-turn` entry. A failed ledger write never skips the entry. */
   function write(rec: TurnRecord, aborted: boolean, ctx: Ctx | undefined): void {
+    if (rec.answered) {
+      const effort = rec.effective ?? rec.requested;
+      lastDecided = {
+        ...(effort === undefined ? {} : { effort }),
+        ...(rec.strategy === undefined ? {} : { strategy: rec.strategy }),
+      };
+    }
     const base = { v: 1, at: rec.at, session: rec.sessionId };
     try {
       if (
@@ -739,6 +771,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       // A run from the replaced session may still settle; it must not touch the new one.
       current = undefined;
       overlay = undefined;
+      lastDecided = undefined;
       record = undefined;
       undo = undefined;
     },
