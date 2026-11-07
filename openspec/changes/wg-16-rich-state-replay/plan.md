@@ -50,6 +50,8 @@
 | `--pass 2 --kept <groups>` | new CLI flag | comma-separated `RichGroup` names shipped after pass 1 | yes (operator tool) |
 | `buildRichInputs` | new, `src/host/rich.ts` | see Task 5 | no |
 | `MainDeps.rich`, `MainDeps.record` | new (optional) | see Tasks 5 and 6 | no |
+| `MainSample.turnId` | new optional field (deviation, Task 8: the git join needs the first `jev-turn` after the prompt, which the branch ending at the prompt cannot show) | `turnId?: string` | no |
+| `RebuiltMain`, `RebuiltWorker`, `rebuildMain` | new, `scripts/replay/inputs.ts` (named in Task 9 without a shape; shaped by controller ruling) | `RebuiltMain = { sample: MainSample; rich: RichInputs; missing: RichGroup[]; items: BranchItem[]; platforms: string[] }`; `RebuiltWorker = { sample: WorkerSample; agent?: AgentFacts }` | no |
 | `readLedgerLines` | new, `scripts/replay/sessions.ts` | `(dir: string) => Map<string, { effective?: string; strategy?: string; from?: string }>` | no |
 | `replay-git.jsonl` | new file format | one JSON line: `{ "v": 1, "at": number, "session": string, "turnId": string, "changedFiles": number, "diffLines": number }` | yes (local file, documented in `docs/privacy.md`) |
 | `JEV_REPLAY_GIT` | new env var | `"1"` enables the recorder; any other value or unset disables it | yes (documented in `docs/testing.md`) |
