@@ -16,4 +16,4 @@
 
 ## 4. Check
 
-- [ ] 4.1 Update `docs/architecture.md` if module names changed; run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass (Pure and Pi-free)
+- [x] 4.1 Update `docs/architecture.md` if module names changed; run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass (Pure and Pi-free)
