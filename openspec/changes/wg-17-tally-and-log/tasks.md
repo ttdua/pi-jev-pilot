@@ -11,7 +11,7 @@
 
 ## 3. Wiring
 
-- [ ] 3.1 `src/host/setup.ts`: create the observer, wrap `appendLedger` for `createMain` and `registerWorkerRouting` (`deps.append`), reset on main `session_start`, register the `jev-log` entry renderer (one line cut to width, try/catch)
+- [x] 3.1 `src/host/setup.ts`: create the observer, wrap `appendLedger` for `createMain` and `registerWorkerRouting` (`deps.append`), reset on main `session_start`, register the `jev-log` entry renderer (one line cut to width, try/catch)
 - [x] 3.2 `src/host/main.ts`: `tallyText` dependency, overlay set after a completed (not cancelled) Jev request on the 10th, 20th, ... prompt and cleared at the next eligible prompt start; `overlay()` accessor; `sessionStart` clears it; unit tests in `tests/host/main.test.ts` for prompts 9, 10, 11, miss, discarded, effort off
 - [x] 3.3 `src/host/commands.ts`: `tally` and `overlay` deps; `formatStatus` ends with the `session:` block; `drawStatus` redraws with the overlay; update `tests/host/commands.test.ts` (empty tally, tally after work, overlay kept across `/jev`)
 
