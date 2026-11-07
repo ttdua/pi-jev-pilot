@@ -8,6 +8,7 @@ import {
   pushHistory,
   supersede,
   nextValue,
+  stepTuning,
   type HistoryEntry,
   type TuningRecord,
 } from "../../src/policy/tuning.ts";
@@ -299,5 +300,139 @@ describe("supersede", () => {
 
   test("no tuned value, no event", () => {
     expect(supersede({}, 2000, 7000).event).toBeUndefined();
+  });
+});
+
+describe("non-mutation", () => {
+  test("evaluatePending leaves its inputs alone", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const ds = judgedLines(40, 8);
+    const [recCopy, dsCopy] = [structuredClone(rec), structuredClone(ds)];
+    evaluatePending(rec, ds, 9000);
+    expect(rec).toEqual(recCopy);
+    expect(ds).toEqual(dsCopy);
+  });
+
+  test("supersede leaves its input alone", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const copy = structuredClone(rec);
+    supersede(rec, 2000, 7000);
+    expect(rec).toEqual(copy);
+  });
+});
+
+describe("stepTuning", () => {
+  const timeout = (at: number): DecisionLine => line(at, { answered: false, miss: "timeout" });
+  /** 40 lines after `from`: `timeouts` timed out, the rest answered. */
+  const mixed = (from: number, timeouts: number): DecisionLine[] =>
+    Array.from({ length: 40 }, (_, i) => (i < timeouts ? timeout(from + i) : line(from + i)));
+  const step = (record: TuningRecord, ls: readonly DecisionLine[], untuned = 1500, now = 5000) =>
+    stepTuning({ record, untuned, lines: ls, now });
+  const history1000 = [entryAt(1000)];
+
+  test("nothing to do", () => {
+    expect(step({}, [])).toEqual({ record: {}, events: [] });
+  });
+
+  test("inputs unchanged", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 8 });
+    const ls = mixed(1001, 6);
+    const [recCopy, lsCopy] = [structuredClone(rec), structuredClone(ls)];
+    step(rec, ls);
+    expect(rec).toEqual(recCopy);
+    expect(ls).toEqual(lsCopy);
+  });
+
+  test("fires on a first full window", () => {
+    const out = step({}, mixed(1001, 8));
+    expect(out.events).toEqual([{ kind: "applied", from: 1500, to: 1700 }]);
+    expect(out.record.timeoutMs).toEqual({ value: 1700, base: 1500 });
+    expect(out.record.pending?.before).toEqual({ asked: 40, timeouts: 8 });
+  });
+
+  test("inside the cooldown", () => {
+    const rec = { history: history1000 };
+    expect(step(rec, mixed(1001, 8).slice(0, 39)).events).toEqual([]);
+  });
+
+  test("cooldown passed", () => {
+    const rec = { history: history1000 };
+    expect(step(rec, mixed(1001, 8)).events).toEqual([{ kind: "applied", from: 1500, to: 1700 }]);
+  });
+
+  test("decisions before the change do not count", () => {
+    const rec = { history: history1000 };
+    const old = Array.from({ length: 100 }, (_, i) => timeout(500 + i));
+    expect(step(rec, [...old, ...mixed(1001, 8).slice(0, 39)]).events).toEqual([]);
+  });
+
+  test("kept, then the rule fires", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 8 });
+    const out = step(rec, mixed(1001, 6));
+    expect(out.events).toEqual([
+      { kind: "kept", from: 1500, to: 1700 },
+      { kind: "applied", from: 1700, to: 1900 },
+    ]);
+  });
+
+  test("no fire right after a revert", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 2 });
+    const out = step(rec, mixed(1001, 8));
+    expect(out.events).toEqual([{ kind: "reverted", from: 1700, to: 1500 }]);
+    expect(out.record.timeoutMs).toBeUndefined();
+  });
+
+  test("no change right after superseding", () => {
+    const rec: TuningRecord = { timeoutMs: { value: 1700, base: 1500 }, history: history1000 };
+    const out = step(rec, mixed(1001, 8), 2000);
+    expect(out.events).toEqual([{ kind: "superseded", from: 1700, to: 2000 }]);
+    expect(out.record.timeoutMs).toBeUndefined();
+  });
+
+  test("off stops everything", () => {
+    const rec: TuningRecord = { off: true, timeoutMs: { value: 1700, base: 1500 } };
+    expect(step(rec, mixed(1001, 8), 2000)).toEqual({ record: rec, events: [] });
+  });
+
+  test("correction lines ignored", () => {
+    const corrections = Array.from({ length: 40 }, (_, i) =>
+      line(1001 + i, { kind: "correction", answered: false, miss: "timeout" }),
+    );
+    const rec = { history: history1000 };
+    const out = step(rec, [...corrections, ...mixed(1100, 8).slice(0, 39)]);
+    expect(out.events).toEqual([]);
+  });
+
+  test("line order does not matter", () => {
+    const shared = Array.from({ length: 40 }, (_, i) =>
+      i % 4 === 0 ? timeout(1001 + Math.floor(i / 8)) : line(1001 + Math.floor(i / 8), { ms: i }),
+    );
+    const a = step({}, shared);
+    const b = step({}, [...shared].reverse());
+    expect(a.events.length).toBe(1);
+    expect(b).toEqual(a);
+  });
+
+  test("inconsistent record does not throw", () => {
+    const rec: TuningRecord = {
+      pending: { from: 1500, to: 1700, at: 1000, before: { asked: 40, timeouts: 8 } },
+    };
+    const out = step(rec, []);
+    expect(out.events).toEqual([]);
+    expect(out.record.pending).toBeUndefined();
+  });
+
+  test("untuned value out of range is not tuned", () => {
+    const plain: TuningRecord = { history: history1000 };
+    expect(step(plain, mixed(1001, 8), 9000)).toEqual({ record: plain, events: [] });
+    const tuned: TuningRecord = { timeoutMs: { value: 1700, base: 1500 }, history: history1000 };
+    expect(step(tuned, mixed(1001, 8), 9000)).toEqual({ record: tuned, events: [] });
+  });
+
+  test("idempotent on same inputs", () => {
+    const ls = mixed(1001, 8);
+    const first = step({}, ls);
+    expect(first.events).toHaveLength(1);
+    expect(step(first.record, ls)).toEqual({ record: first.record, events: [] });
   });
 });

@@ -1,6 +1,16 @@
 // Tuning rules: record shape, events and constants. Pure; no I/O.
 
-import { after, counts, decisions, p90, shareAbove, type DecisionLine } from "./tuning-window.ts";
+import {
+  after,
+  counts,
+  decisions,
+  p90,
+  shareAbove,
+  type Counts,
+  type DecisionLine,
+} from "./tuning-window.ts";
+
+export type { Counts };
 
 export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
 
@@ -79,8 +89,11 @@ export function nextValue(
   return value > current ? value : undefined;
 }
 
-export type Counts = { asked: number; timeouts: number };
 export type StepResult = { record: TuningRecord; event?: TuningEvent };
+
+function entry(at: number, from: number, to: number, cause: TuningCause): HistoryEntry {
+  return { at, parameter: "timeoutMs", from, to, cause };
+}
 
 /** Appends `entry`, keeping the latest `TUNING.history` entries. */
 export function pushHistory(history: TuningRecord["history"], entry: HistoryEntry): HistoryEntry[] {
@@ -97,10 +110,6 @@ export function applyChange(
     pending: { from: c.from, to: c.to, at: c.now, before: { ...c.before } },
     history: pushHistory(record.history, entry(c.now, c.from, c.to, "rule")),
   };
-}
-
-function entry(at: number, from: number, to: number, cause: TuningCause): HistoryEntry {
-  return { at, parameter: "timeoutMs", from, to, cause };
 }
 
 /** Judges a pending change once `TUNING.window` decisions follow it; otherwise no event. */
@@ -154,4 +163,56 @@ export function supersede(record: TuningRecord, untuned: number, now: number): S
     },
     event: { kind: "superseded", from: tuned.value, to: untuned },
   };
+}
+
+export type StepInput = {
+  record: TuningRecord;
+  untuned: number;
+  lines: readonly DecisionLine[];
+  now: number;
+};
+
+const inRange = (x: number): boolean => x >= TUNING.min && x <= TUNING.max;
+
+/** Drops a `pending` that has no tuned value to belong to. */
+function dropOrphanPending(record: TuningRecord): TuningRecord {
+  if (record.pending === undefined || record.timeoutMs !== undefined) return record;
+  const { pending: _orphan, ...rest } = record;
+  return rest;
+}
+
+/** The latest 40 decisions once 40 have followed the latest history entry; else none. */
+function cooledWindow(record: TuningRecord, ds: readonly DecisionLine[]): DecisionLine[] {
+  const lastAt = Math.max(0, ...(record.history ?? []).map((h) => h.at));
+  const since = after(ds, lastAt);
+  return since.length < TUNING.cooldown ? [] : since.slice(-TUNING.window);
+}
+
+/** Applies the rule when the window fires; the block counts only while active. */
+function fireRule(input: StepInput, record: TuningRecord): StepResult {
+  const { untuned, lines, now } = input;
+  const ds = decisions(lines);
+  const window = cooledWindow(record, ds);
+  if (!fires(window)) return { record };
+  const from = record.timeoutMs?.value ?? untuned;
+  const block = blockActive(record.block, lines) ? record.block : undefined;
+  const to = nextValue(from, window, block);
+  if (to === undefined) return { record };
+  const change = { from, to, base: untuned, before: counts(window), now };
+  return { record: applyChange(record, change), event: { kind: "applied", from, to } };
+}
+
+const present = (events: Array<TuningEvent | undefined>): TuningEvent[] =>
+  events.filter((e) => e !== undefined);
+
+/** One tuning step: supersede, judge a pending change, then maybe raise the timeout. */
+export function stepTuning(input: StepInput): { record: TuningRecord; events: TuningEvent[] } {
+  const { record, untuned, lines, now } = input;
+  if (record.off === true || !inRange(untuned)) return { record, events: [] };
+  const superseded = supersede(dropOrphanPending(record), untuned, now);
+  const judged = evaluatePending(superseded.record, lines, now);
+  const head = [superseded.event, judged.event];
+  if (judged.event?.kind === "reverted") return { record: judged.record, events: present(head) };
+  const fired = fireRule(input, judged.record);
+  return { record: fired.record, events: present([...head, fired.event]) };
 }
