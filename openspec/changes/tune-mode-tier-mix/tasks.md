@@ -23,10 +23,10 @@
 ## 5. Host wiring
 
 - [x] 5.1 Add `src/host/cutpoint-window.ts`: load the window from `readLedger` at main `session_start`, add each validated eligible worker line this session builds (also when the write fails), keep it empty on an unreadable ledger, and keep no window in a child. Tests in `tests/host/cutpoint-window.test.ts` cover "Cut-point window"
-- [ ] 5.2 In `src/host/worker.ts`, compute each launch's cut points when its request is built (siblings share one window state; a launch classified alone uses the current window), pass them to the decision, and write `score`, `rubric` and `expertOffered` and no `expertNeeded` on the worker line. Update `tests/host/worker-routing.test.ts` and `tests/host/worker-ledger.test.ts` for "Cut points of a launch", "Mode of a launch" (Premium launch end to end, mode change, Jev down) and every `worker-ledger` "Decision fields" scenario
+- [x] 5.2 In `src/host/worker.ts`, compute each launch's cut points when its request is built (siblings share one window state; a launch classified alone uses the current window), pass them to the decision, and write `score`, `rubric` and `expertOffered` and no `expertNeeded` on the worker line. Update `tests/host/worker-routing.test.ts` and `tests/host/worker-ledger.test.ts` for "Cut points of a launch", "Mode of a launch" (Premium launch end to end, mode change, Jev down) and every `worker-ledger` "Decision fields" scenario
 - [ ] 5.3 In `src/host/commands.ts`, add the `mix` line and the `cut points: seed` line to the status report, with no mix line without the executor. Update `tests/host/commands.test.ts` for every new `jev-command` "Status report" scenario
 - [ ] 5.4 Hide `why cut` in the worker log line in `src/host/status.ts` (`verbose-log` "Worker log line segments") and update `tests/host/verbose-log.test.ts`
-- [ ] 5.5 Update the remaining host tests that assert old reasons or per-mode requests (`tests/host/q1-q7-worker-mutation.test.ts`, `tests/host/worker.test.ts`, `tests/host/tally.test.ts`, `tests/host/status.test.ts` and any other failing file) without changing their intent
+- [x] 5.5 Update the remaining host tests that assert old reasons or per-mode requests (`tests/host/q1-q7-worker-mutation.test.ts`, `tests/host/worker.test.ts`, `tests/host/tally.test.ts`, `tests/host/status.test.ts` and any other failing file) without changing their intent
 
 ## 6. Docs, evidence and gate
 
