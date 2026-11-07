@@ -10,12 +10,17 @@ export type SlotTarget = `slot::${string}`;
 /** What a worker launch can route to: a tier or a slot. */
 export type Target = TierName | SlotTarget;
 
-export function isSlot(target: Target): target is SlotTarget {
+export function isSlot(target: string): target is SlotTarget {
   return target.startsWith(SLOT_PREFIX);
 }
 
 export function slotTarget(name: string): SlotTarget {
   return `${SLOT_PREFIX}${name}`;
+}
+
+/** The slot name inside a slot target. */
+export function slotName(target: SlotTarget): string {
+  return target.slice(SLOT_PREFIX.length);
 }
 
 export const LOCKABLE_FIELDS = [

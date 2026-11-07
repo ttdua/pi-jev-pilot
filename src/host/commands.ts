@@ -1,7 +1,6 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DECISION_FEATURES, FEATURES, MODES, type Feature, type Mode } from "../store/defaults.ts";
 import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
-import { parseSlotArgs, runSlot, type SlotArgs } from "./slots.ts";
 import type { Issue } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import {
@@ -13,6 +12,7 @@ import {
   type Exec,
 } from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
+import { parseSlotArgs, runSlot, type SlotArgs } from "./slots.ts";
 import {
   EMPTY_TALLY,
   drawStatus,

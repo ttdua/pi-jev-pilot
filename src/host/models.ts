@@ -46,5 +46,6 @@ export function resolveModel(
   slots: readonly Slot[],
 ): string | undefined {
   const slot = slots.find((s) => slotTarget(s.name) === target);
+  // Slots matched above; every other Target is a TierName.
   return slot !== undefined ? slot.model : tiers[target as TierName];
 }

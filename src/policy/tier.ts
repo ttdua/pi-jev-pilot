@@ -1,6 +1,6 @@
 // Pure tier decision and fallback. Imports nothing outside src/policy/.
 
-import { isSlot, slotTarget, TIER_LADDER, type Target, type TierName } from "./launch.ts";
+import { isSlot, slotName, slotTarget, TIER_LADDER, type Target, type TierName } from "./launch.ts";
 import { expertAdmitted, type ModeName } from "./modes.ts";
 import type { Answer } from "./answers.ts";
 import type { WorkerAnswers } from "./worker.ts";
@@ -109,7 +109,7 @@ export function decideTier(
   // Rule slot: an offered slot the model is sure of.
   const bySlot = slotDecision(choice, slots);
   if (bySlot !== undefined) return bySlot;
-  if (!choice.choice.startsWith("slot::")) {
+  if (!isSlot(choice.choice)) {
     return decideFromTierChoice(choice.choice, choice, offered);
   }
   const substitute = substituteTier(choice, offered);
@@ -135,7 +135,7 @@ export function chooseFallback(
   slots: readonly string[] = [],
 ): FallbackResult {
   if (isSlot(target)) {
-    if (slots.includes(target.slice("slot::".length)) && canRun(target)) {
+    if (slots.includes(slotName(target)) && canRun(target)) {
       return { kind: "keep", tier: target };
     }
     const moved = firstRunning(SLOT_FALLBACK, offered, canRun);

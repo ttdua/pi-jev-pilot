@@ -495,10 +495,15 @@ describe("runJev slots", () => {
     expect(existsSync(join(dir, "config.json"))).toBe(false);
   });
 
-  test("Next launch sees the slot; a removed slot is not offered", async () => {
+  test("Next launch sees the slot", async () => {
     const dir = jevDir();
     await run(ADD, dir);
     expect(offered(dir)).toContain("slot::reviewer");
+  });
+
+  test("Removed slot not offered", async () => {
+    const dir = jevDir();
+    await run(ADD, dir);
     await run("remove reviewer", dir);
     expect(offered(dir).some((o) => o.startsWith("slot::"))).toBe(false);
   });

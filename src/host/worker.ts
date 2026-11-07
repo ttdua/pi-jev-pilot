@@ -14,7 +14,7 @@ import {
   effectiveLaunch,
   type AgentFacts,
   isSlot,
-  slotTarget,
+  slotName,
   type EffectiveLaunch,
   type Target,
   type TierName,
@@ -185,13 +185,11 @@ function slotOptions(ctx: ExtensionContext, slots: readonly Slot[]): SlotOption[
 
 /** Where to fix a target that cannot run: a slot's model or a tier's model. */
 function fixHint(target: Target): string {
-  return isSlot(target)
-    ? `crew.slots "${target.slice(slotTarget("").length)}" model`
-    : `tiers.${target}`;
+  return isSlot(target) ? `crew.slots "${slotName(target)}" model` : `tiers.${target}`;
 }
 
 function targetLabel(target: Target): string {
-  return isSlot(target) ? `slot ${target.slice(slotTarget("").length)}` : `tier ${target}`;
+  return isSlot(target) ? `slot ${slotName(target)}` : `tier ${target}`;
 }
 
 export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
