@@ -1,11 +1,11 @@
-# Superspec schema v6 for pi-superspec.
+# Superspec schema v7 for pi-superspec.
 #
 # Forked from Superspec v4 by Daniel Hanold (MIT License, see LICENSE),
 # upstream commit e1c8f417ee3601208416d988ba3b37d83ddb63f2.
 name: superspec
-version: 6
+version: 7
 x-pi-superspec:
-  version: 6
+  version: 7
 description: >
   Spec-driven workflow integrated with Superpowers skills.
   brainstorm → proposal → specs → tasks → plan → apply → verify → finalize.
@@ -28,6 +28,11 @@ artifacts:
         brainstorming design output directly to this change's `brainstorm.md`.
       - Keep technical decisions out of brainstorm.md; they belong in
         design.md. The two must not repeat each other.
+      - Before brainstorming, read the living spec in `openspec/specs/` of
+        each capability the change plausibly touches (judge from capability
+        names and Purpose lines) and cite the existing requirements involved.
+        Do not re-decide a specified requirement silently: state explicitly
+        when the change alters a specified requirement.
 
       After brainstorming completes, write the validated design to this
       change's `brainstorm.md` first, using the template structure. Then
@@ -58,6 +63,7 @@ artifacts:
       - **Capabilities**: Identify which specs will be created or modified:
         - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<name>/spec.md`. Use kebab-case names.
         - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Check `openspec/specs/` for existing spec names.
+          List a capability here only after confirming in its living spec that existing requirements change.
       - **Impact**: Affected code, APIs, dependencies, or systems.
 
       Since brainstorming already explored the problem space,
@@ -114,6 +120,7 @@ artifacts:
       Create one spec file per capability listed in the proposal's Capabilities section.
       - New capabilities: use the exact kebab-case name from the proposal (specs/<capability>/spec.md).
       - Modified capabilities: use the existing spec folder name from openspec/specs/<capability>/ when creating the delta spec at specs/<capability>/spec.md.
+        For every `MODIFIED` requirement, first copy the full current requirement block from `openspec/specs/<capability>/spec.md`, then edit it. `MODIFIED`, `REMOVED` and `RENAMED` `FROM` headers MUST match the main spec header exactly. If a `MODIFIED` block drops a scenario, name the dropped scenario as intentional in the requirement text or the proposal.
 
       Delta operations (use ## headers):
       - **ADDED Requirements**: New capabilities
