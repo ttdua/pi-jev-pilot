@@ -33,6 +33,7 @@ export type JevArgs =
   | { kind: "all"; on: boolean }
   | { kind: "mode"; mode: Mode }
   | { kind: "reset" }
+  | { kind: "cli-review-switch"; on: boolean }
   | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
   | { kind: "slot"; args: SlotArgs }
   | { kind: "tune"; sub: TuneSub }
@@ -42,6 +43,9 @@ const USAGE: JevArgs = { kind: "usage" };
 
 function parseCliReview(words: string[]): JevArgs {
   const [, cli, model, effort] = words;
+  if (words.length === 2 && (cli === "on" || cli === "off")) {
+    return { kind: "cli-review-switch", on: cli === "on" };
+  }
   if (words.length < 2 || words.length > 4) return USAGE;
   if (cli !== "codex" && cli !== "opencode") return USAGE;
   return {
@@ -95,6 +99,7 @@ export function usageText(): string {
     "  /jev all on|off           switch the seven decision features",
     "  /jev mode budget|standard|premium  choose the worker mode",
     "  /jev reset                reset switches, mode and CLI review default",
+    "  /jev cli-review on|off    turn the CLI review on or off",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
     "  /jev <slot> <provider/model> [when <text>]",
     "  /jev <slot>",
@@ -193,6 +198,8 @@ function applyChange(
       return resetState(dir);
     case "mode":
       return updateState(dir, (st) => ({ ...st, mode: parsed.mode }));
+    case "cli-review-switch":
+      return updateState(dir, (st) => ({ ...st, cliReviewEnabled: parsed.on }));
     case "cli-review":
       return updateState(dir, (st) => ({
         ...st,
