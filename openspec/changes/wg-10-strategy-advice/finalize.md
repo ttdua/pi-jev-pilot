@@ -24,7 +24,7 @@ Project `AGENTS.md` overrides:
 - **Branch**: `WG-10`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `TBD`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/31`
 
 ---
 
@@ -37,7 +37,7 @@ Project `AGENTS.md` overrides:
 
 ## PR comment
 
-- **PR comment status**: `TBD`
+- **PR comment status**: `posted`
 
 ---
 
