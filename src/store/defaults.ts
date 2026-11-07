@@ -53,7 +53,7 @@ export const DEFAULTS = {
   tools: { mode: "observe" },
   state: { parentRequest: false },
   subagents: { forkedLaunch: "untouched" },
-  review: { cli: "codex" },
+  review: { cli: "codex", enabled: false },
   mode: "standard" as Mode,
   switches: {
     effort: true,
