@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Status line text
-In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode. When the effective mode comes from a session mode (see `session-mode`), `<mode>` MUST read `<m> (session)`, for example `Jev · premium (session)`, in the base form and in the tally form, with every suffix after it. Without a session mode the text is unchanged.
+In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode. When the effective mode comes from a directory mode (see `directory-mode`), `<mode>` MUST read `<m> (local)`, for example `Jev · premium (local)`, in the base form and in the tally form, with every suffix after it. Without a directory mode the text is unchanged.
 
 When the text is `Jev · <mode>`, suffixes follow in this order:
 - **Effort suffix.** When `effort` is on and a main decision has been made in this session, ` · <level>` MUST follow, with the effective level of the latest applied, kept or held decision. ` · no answer` MUST follow instead when the latest request was not held and was a miss (whatever was asked), or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave this suffix as it was.
@@ -19,20 +19,20 @@ A session start MUST clear all suffixes and the tally form. Drawing the line MUS
 - **WHEN** the key is set and `state.json` sets the mode to `premium`
 - **THEN** the status line reads `Jev · premium`
 
-#### Scenario: Session mode marked
-- **WHEN** the key is set, `state.json` sets the mode to `standard` and the session mode is `premium`
-- **THEN** the status line reads `Jev · premium (session)`
+#### Scenario: Directory mode marked
+- **WHEN** the key is set, `state.json` sets the mode to `standard` and the directory mode is `premium`
+- **THEN** the status line reads `Jev · premium (local)`
 
-#### Scenario: Session mode with a suffix
-- **WHEN** the session mode is `budget` and a main decision applied `high` and attached no advice
-- **THEN** the status line reads `Jev · budget (session) · high`
+#### Scenario: Directory mode with a suffix
+- **WHEN** the directory mode is `budget` and a main decision applied `high` and attached no advice
+- **THEN** the status line reads `Jev · budget (local) · high`
 
-#### Scenario: Session mode in the tally form
-- **WHEN** the session mode is `premium` and the 10th prompt's request completes with no worker recorded
-- **THEN** the status line reads `Jev · premium (session) · 10 prompts · 0 workers · 0 fallbacks`
+#### Scenario: Directory mode in the tally form
+- **WHEN** the directory mode is `premium` and the 10th prompt's request completes with no worker recorded
+- **THEN** the status line reads `Jev · premium (local) · 10 prompts · 0 workers · 0 fallbacks`
 
-#### Scenario: Base state wins over a session mode
-- **WHEN** the session mode is `premium` and the operator runs `/jev all off`
+#### Scenario: Base state wins over a directory mode
+- **WHEN** the directory mode is `premium` and the operator runs `/jev all off`
 - **THEN** the status line reads `Jev · off`
 
 #### Scenario: No key
