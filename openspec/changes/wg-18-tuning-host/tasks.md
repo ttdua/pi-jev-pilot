@@ -16,7 +16,7 @@
 
 ## 4. Tuning texts
 
-- [ ] 4.1 Create `src/host/tuning-text.ts` with `issueLines` (moved from `commands.ts`), the change lines, the session-start line, the subcommand messages and the `/jev tune` report formatter; unit-test exact strings in `tests/host/tuning-text.test.ts`
+- [x] 4.1 Create `src/host/tuning-text.ts` with `issueLines` (moved from `commands.ts`), the change lines, the session-start line, the subcommand messages and the `/jev tune` report formatter; unit-test exact strings in `tests/host/tuning-text.test.ts`
 
 ## 5. Host tuning modules
 
