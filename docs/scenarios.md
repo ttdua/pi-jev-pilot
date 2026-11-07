@@ -45,7 +45,7 @@ Between two runs, 4.5–8% of tiers-only launches changed tier ([noise](evidence
 
 **What you do.** Name the model once. See [Configuration](configuration.md#crewslots).
 
-**What the package decides.** Where each launch goes. A review brief goes to the slot when Jev's slot probability is at least .6 and no earlier rule (`expert`, `risky`) applies; other launches follow the mode's cut points ([rules](domain-model.md#workerdecision)).
+**What the package decides.** Where each launch goes. Any launch, review or not, goes to the slot when Jev's slot probability is at least .6 and neither the `expert` nor the `risky` rule matched first. Otherwise the launch gets `expert`, `deep` (risky) or a tier from the mode's cut points; see [the rules](domain-model.md#workerdecision).
 
 **Measured.** 100 of 100 review briefs went to the slot in the report run, and 5 of 100 non-review briefs did too ([reviewer slot](evidence/2026-11-08-release.md#reviewer-slot)).
 
