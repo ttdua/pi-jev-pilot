@@ -5,7 +5,7 @@
 
 ## 2. Questions
 
-- [ ] 2.1 Turn `src/jev/rubrics.ts` tier criteria and `expert_needed` into records keyed by mode with the wording of `docs/jev-questions.md`; give `buildWorkerQuestions` in `src/jev/questions.ts` a `mode` parameter; extend `tests/jev/questions.test.ts` to every mode (worker-request: Worker questions, Question wording; worker-modes: What a mode selects)
+- [x] 2.1 Turn `src/jev/rubrics.ts` tier criteria and `expert_needed` into records keyed by mode with the wording of `docs/jev-questions.md`; give `buildWorkerQuestions` in `src/jev/questions.ts` a `mode` parameter; extend `tests/jev/questions.test.ts` to every mode (worker-request: Worker questions, Question wording; worker-modes: What a mode selects)
 
 ## 3. Ledger
 
