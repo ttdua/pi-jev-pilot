@@ -58,3 +58,16 @@ Project `AGENTS.md` overrides:
 ## Next step
 
 Wait for PR review. After approval, run `/opsx-archive` on this feature branch, so the commits land here. Push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI). That single merge lands both the implementation and the archive into main. The PR base is `main`, which has gained WG-11 (#30) since `WG-10` was cut; a trial merge showed no conflict.
+
+---
+
+## Post-finalize: rebase onto main
+
+`WG-10` was rebased onto `origin/main` (`180f8c8`) at the user's request, after WG-08 effort hold (#32) and WG-09 skill policy (#33) merged. It was then force-pushed with lease (`ad7de88` → `2261a61`). Commit SHAs in `apply.md`, `verify.md` and this receipt refer to the pre-rebase history; a backup ref `backup/WG-10-before-rebase` (local only) keeps it.
+
+Conflicts resolved:
+- `mainQuestions` takes both `askStrategy` and `skills`. Question order: `effort`, `risky`, `tier`, `strategy`, `corrects`, then `which` and the gates.
+- A held turn still gets strategy advice. A hold applies only while `effort` is on. See commit `feat(strategy-advice): advise on held turns too`.
+- Living specs `main-effort`, `main-ledger`, `status-line` and `effort-hold` now describe hold, skills and advice together.
+
+Tests after the rebase: `bun test` 990 pass, 0 fail. `typecheck`, `lint` and `fmt:check` are clean, and `openspec validate --specs` passes 27/27.
