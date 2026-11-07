@@ -16,7 +16,7 @@
 - Mode names are exactly `budget`, `standard`, `premium` (`MODES` / `MODE_NAMES`).
 - The entry custom type is `jev-mode`, and its data is exactly `{"mode":"<m>"}` or `{"mode":null}`.
 - Fixed copy: status `Jev · <m> (session)`; report `mode: <m> (session; saved <s>)`; `session mode <s> still applies here; saved mode is now <m>`; `no session mode set`; usage `/jev mode budget|standard|premium session` and `/jev mode session off`.
-- The session mode never calls Jev and never reads or writes `state.json` or `config.json`.
+- The session mode never calls Jev and never writes `state.json` or `config.json`; the `/jev` report after a session-mode command may read them, but setting or clearing never depends on that read.
 - Tests need no secrets, no paid calls and no network beyond loopback.
 - Repository text is in English.
 

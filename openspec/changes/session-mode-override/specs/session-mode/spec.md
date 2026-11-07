@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Set a session mode
-`/jev mode <m> session`, where `<m>` is `budget`, `standard` or `premium`, SHALL set the session mode of the current main session to `<m>` by appending a `jev-mode` session entry, then report the status and refresh the status line. It MUST NOT read or write `state.json` or `config.json`, and MUST NOT call Jev or any other network service. The new session mode SHALL apply from the next worker launch in this session; launches already classified keep their mode.
+`/jev mode <m> session`, where `<m>` is `budget`, `standard` or `premium`, SHALL set the session mode of the current main session to `<m>` by appending a `jev-mode` session entry, then report the status and refresh the status line. It MUST NOT write `state.json` or `config.json`, reads them only for the report, and MUST NOT call Jev. The new session mode SHALL apply from the next worker launch in this session; launches already classified keep their mode.
 
 #### Scenario: Set a session mode
 - **WHEN** `state.json` sets the mode to `standard` and the operator runs `/jev mode premium session`
@@ -20,7 +20,7 @@
 - **THEN** B's report contains `mode: standard`, with no `(session` text
 
 ### Requirement: Clear the session mode
-`/jev mode session off` SHALL clear the session mode of the current main session by appending a `jev-mode` entry that clears it, then report the status and refresh the status line, so the saved mode applies again from the next worker launch. With no session mode set, it SHALL report `no session mode set` as info, write no entry and change nothing. It MUST NOT read or write `state.json` and MUST NOT call Jev.
+`/jev mode session off` SHALL clear the session mode of the current main session by appending a `jev-mode` entry that clears it, then report the status and refresh the status line, so the saved mode applies again from the next worker launch. With no session mode set, it SHALL report `no session mode set` as info, write no entry and change nothing. It MUST NOT write `state.json` or `config.json`, reads them only to report the status, and MUST NOT call Jev.
 
 #### Scenario: Clear back to the saved mode
 - **WHEN** the session mode is `premium`, `state.json` sets the mode to `budget`, and the operator runs `/jev mode session off`
