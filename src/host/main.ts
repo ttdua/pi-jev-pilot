@@ -1,6 +1,7 @@
 import type {
   AgentSettledEvent,
   BeforeAgentStartEvent,
+  BeforeAgentStartEventResult,
   ExtensionAPI,
   ExtensionContext,
   TurnEndEvent,
@@ -8,8 +9,14 @@ import type {
 import type { askJev, JevOutcome } from "../jev/client.ts";
 import { mainQuestions, skillBatchQuestions } from "../jev/questions.ts";
 import { mainState } from "../jev/state.ts";
-import { readAnswers } from "../policy/answers.ts";
-import { skillBatches } from "../policy/skill.ts";
+import { readAnswers, type QuestionSpec, type ReadResult } from "../policy/answers.ts";
+import {
+  deliveryForm,
+  deliveryText,
+  pickSkill,
+  skillBatches,
+  type SkillPick,
+} from "../policy/skill.ts";
 import { isHeld } from "../policy/hold.ts";
 import {
   CORRECTION_THRESHOLD,
@@ -23,8 +30,14 @@ import type { WriteResult } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
-import type { SkillCommand } from "./skills.ts";
-import { explicitSkill, readCatalog, type CatalogSkill } from "./skills.ts";
+import {
+  SKILL_MESSAGE_TYPE,
+  explicitSkill,
+  loadedSkills,
+  readCatalog,
+  type CatalogSkill,
+  type SkillCommand,
+} from "./skills.ts";
 import { drawStatus, type Decision } from "./status.ts";
 
 export type MainDeps = {
@@ -79,11 +92,12 @@ type Prepared = {
   askEffort: boolean;
   questions: ReturnType<typeof mainQuestions>;
   state: ReturnType<typeof mainState>;
-  /** Skill batches after the first, which rides on the main request. */
-  rest: CatalogSkill[][];
-  /** Outcomes of `rest`, in order; Task 6's skill pick consumes them. */
-  later?: Promise<JevOutcome>[];
+  /** All skill batches; the first rides on the main request, the rest go out beside it. */
+  batches: CatalogSkill[][];
+  effortOn: boolean;
 };
+
+type Answered = Exclude<JevOutcome, { kind: "cancelled" }>;
 
 type Ctx = Pick<
   ExtensionContext,
@@ -112,10 +126,13 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     drawStatus(ctx, snapshot, decision);
   }
 
-  async function beforeAgentStart(event: BeforeAgentStartEvent, ctx: Ctx): Promise<undefined> {
+  async function beforeAgentStart(
+    event: BeforeAgentStartEvent,
+    ctx: Ctx,
+  ): Promise<BeforeAgentStartEventResult | undefined> {
     const mine: { rec?: TurnRecord } = {};
     try {
-      await decide(event, ctx, mine);
+      return await decide(event, ctx, mine);
     } catch {
       // A failure before the apply leaves the level unchanged; after it the applied level stays.
       // Only this run's own record is dropped, never a newer one.
@@ -123,17 +140,17 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         record = undefined;
         undo = undefined;
       }
+      return undefined;
     }
-    return undefined;
   }
 
   async function decide(
     event: BeforeAgentStartEvent,
     ctx: Ctx,
     mine: { rec?: TurnRecord },
-  ): Promise<void> {
+  ): Promise<BeforeAgentStartEventResult | undefined> {
     const p = prepare(event, ctx);
-    if (p === undefined) return;
+    if (p === undefined) return undefined;
     const { rec, snapshot } = p;
     mine.rec = rec;
     const common = {
@@ -145,7 +162,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
     };
     const asked = deps.ask({ ...common, questions: p.questions.wire });
-    p.later = askBatches(p.rest, common);
+    const later = askBatches(p.batches.slice(1), common);
     const outcome = await asked;
 
     if (outcome.kind === "cancelled") {
@@ -153,14 +170,81 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         record = undefined;
         undo = undefined;
       }
-      return;
+      return undefined;
     }
     rec.ms = outcome.ms;
-    if (p.held) {
-      holdOutcome(rec, ctx, snapshot, outcome, p.questions.specs);
-      return;
+    const read = readOf(outcome, p.questions.specs);
+    const message = skillMessage(await skillPick(p, read, later), p.batches, ctx, snapshot);
+    if (p.held) holdOutcome(rec, ctx, snapshot, outcome, read);
+    else applyEffort(p, ctx, outcome, read);
+    return message;
+  }
+
+  /** The answers of a successful reply; undefined for a miss. */
+  function readOf(
+    outcome: Answered,
+    specs: Readonly<Record<string, QuestionSpec>>,
+  ): ReadResult | undefined {
+    return outcome.kind === "ok" ? readAnswers(specs, outcome.body) : undefined;
+  }
+
+  const whichOptions = (specs: Readonly<Record<string, QuestionSpec>>): readonly string[] => {
+    const which = specs["which"];
+    return which?.type === "choice" ? which.options : [];
+  };
+
+  /** Pick one skill over the main reply and the later batches' replies; a cancel or miss reads as undefined. */
+  async function skillPick(
+    p: Prepared,
+    mainRead: ReadResult | undefined,
+    later: readonly Promise<JevOutcome>[],
+  ): Promise<SkillPick> {
+    if (p.batches.length === 0) return pickSkill([]);
+    const outcomes = await Promise.all(later);
+    const rest = p.batches.slice(1).map((batch, i) => {
+      const { specs } = skillBatchQuestions(batch);
+      const outcome = outcomes[i];
+      return {
+        options: whichOptions(specs),
+        read:
+          outcome === undefined || outcome.kind === "cancelled"
+            ? undefined
+            : readOf(outcome, specs),
+      };
+    });
+    return pickSkill([{ options: whichOptions(p.questions.specs), read: mainRead }, ...rest]);
+  }
+
+  /** The hidden `jev-skill` message for a picked skill; any failure means no message. */
+  function skillMessage(
+    pick: SkillPick,
+    batches: readonly CatalogSkill[][],
+    ctx: Ctx,
+    snapshot: Snapshot,
+  ): BeforeAgentStartEventResult | undefined {
+    if (pick.kind !== "picked") return undefined;
+    try {
+      const catalog = batches.flat();
+      const skill = catalog.find((s) => s.name === pick.name);
+      if (skill === undefined) return undefined;
+      const loaded = loadedSkills(ctx.sessionManager.buildSessionProjection().entries, catalog);
+      const form = deliveryForm({
+        name: skill.name,
+        fingerprint: skill.fingerprint,
+        inject: snapshot.settings.skills.inject,
+        loaded,
+      });
+      return {
+        message: {
+          customType: SKILL_MESSAGE_TYPE,
+          display: false,
+          content: deliveryText(form, skill),
+          details: { name: skill.name, fingerprint: skill.fingerprint, form },
+        },
+      };
+    } catch {
+      return undefined;
     }
-    applyEffort(p, ctx, outcome);
   }
 
   /** Eligibility, the hold and the record; undefined when no request is due. */
@@ -195,7 +279,8 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         anchor,
       });
     const askEffort = effortOn && !held && canAskEffort(supported);
-    const [first, ...rest] = skills?.batches ?? [];
+    const batches = skills?.batches ?? [];
+    const first = batches[0];
     const questions =
       first === undefined
         ? mainQuestions({ askEffort })
@@ -229,7 +314,18 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     };
     record = rec;
     undo = { rec, ctx, snapshot, previous: current, drew: false };
-    return { rec, snapshot, apiKey, supported, held, askEffort, questions, state, rest };
+    return {
+      rec,
+      snapshot,
+      apiKey,
+      supported,
+      held,
+      askEffort,
+      questions,
+      state,
+      batches,
+      effortOn,
+    };
   }
 
   /** Skill batches for this prompt; undefined when skills do not apply. A read failure means they do not. */
@@ -239,7 +335,14 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   ): { batches: CatalogSkill[][] } | undefined {
     if (!snapshot.settings.switches.skills || explicitSkill(prompt) !== undefined) return undefined;
     try {
-      const batches = skillBatches(readCatalog(deps.commands(), deps.readFile)) as CatalogSkill[][];
+      const catalog = readCatalog(deps.commands(), deps.readFile);
+      const byName = new Map(catalog.map((skill) => [skill.name, skill]));
+      const batches = skillBatches(catalog).map((batch) =>
+        batch.flatMap((entry) => {
+          const skill = byName.get(entry.name);
+          return skill === undefined ? [] : [skill];
+        }),
+      );
       return batches.length === 0 ? undefined : { batches };
     } catch {
       return undefined;
@@ -265,21 +368,18 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   function applyEffort(
     p: Prepared,
     ctx: Ctx,
-    outcome: Exclude<Awaited<ReturnType<typeof askJev>>, { kind: "cancelled" }>,
+    outcome: Answered,
+    read: ReadResult | undefined,
   ): void {
     const { rec, snapshot, supported, askEffort } = p;
     const from = rec.from;
-    if (outcome.kind === "miss") {
-      rec.miss = outcome.miss;
-      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
-      return;
-    }
-    const read = readAnswers(p.questions.specs, outcome.body);
-    if (read.kind === "miss") {
-      rec.miss = read.miss;
-      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
-      return;
-    }
+    // A skills-only turn has no level to show, so a miss leaves the status alone.
+    const miss = (kind: string): void => {
+      rec.miss = kind;
+      if (p.effortOn) setDecision(rec, ctx, snapshot, { kind: "no-answer" });
+    };
+    if (outcome.kind === "miss") return miss(outcome.miss);
+    if (read === undefined || read.kind === "miss") return miss("schema");
     rec.answered = true;
     const effort = read.answers["effort"];
     const risky = read.answers["risky"];
@@ -316,20 +416,17 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     rec: TurnRecord,
     ctx: Ctx,
     snapshot: Snapshot,
-    outcome: Exclude<Awaited<ReturnType<typeof askJev>>, { kind: "cancelled" }>,
-    specs: ReturnType<typeof mainQuestions>["specs"],
+    outcome: Answered,
+    read: ReadResult | undefined,
   ): void {
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
+    } else if (read === undefined || read.kind === "miss") {
+      rec.miss = "schema";
     } else {
-      const read = readAnswers(specs, outcome.body);
-      if (read.kind === "miss") {
-        rec.miss = read.miss;
-      } else {
-        rec.answered = true;
-        const corrects = read.answers["corrects"];
-        if (corrects?.type === "noul") rec.corrects = corrects.noul;
-      }
+      rec.answered = true;
+      const corrects = read.answers["corrects"];
+      if (corrects?.type === "noul") rec.corrects = corrects.noul;
     }
     rec.effective = level();
     setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
