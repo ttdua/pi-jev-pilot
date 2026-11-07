@@ -19,6 +19,7 @@ One command shifts the whole distribution of models:
 /jev mode budget      more work goes to the fast tier
 /jev mode standard    the default
 /jev mode premium     more work goes to the deep and expert tiers
+/jev mode premium session    the same, for this session only (`/jev mode session off` clears it)
 ```
 
 ## Documentation

@@ -76,6 +76,7 @@ src/
     questions.ts         Builds the questions for each request kind
     state.ts             Builds main, worker and tool state from plain inputs
     branch.ts            Reads Pi-shaped session entries into branch items
+    session-mode.ts      Pure reader of the newest valid jev-mode entry
     workspace.ts         Reads platform markers by file name
 
   host/                  Everything that touches Pi or the executor.
@@ -102,13 +103,14 @@ src/
     skills.ts            Skill catalog, explicit skill, loaded-in-context scan
     status.ts            Status line, tally, log entries
     readiness.ts         Key and executor checks; snapshot of config and state
+    session-mode.ts      Per-session worker mode holder, rebuilt at session_start and session_tree
     setup.ts             Wires the handlers and /jev; the entry point delegates to it,
                          because lint keeps Pi imports in host/
 
   store/                 Files under <agentDir>/jev/.
     config.ts            config.json: reads and validates; writes only crew.slots
     state-file.ts        state.json: switches, mode, CLI review default
-    settings.ts          Effective settings: tuning > state > config > default
+    settings.ts          Effective settings: session (mode only) > tuning > state > config > default
     defaults.ts          Default values and feature and mode names
     atomic.ts            Atomic write: owner-only directory and file
     validate.ts          Small validators that collect issues with field paths
@@ -235,6 +237,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 
 - Outbound to TypeSafe: see [Privacy](privacy.md). All state is built in `jev/state.ts`, the single place to audit.
 - Stored locally: labels, numbers and outcomes. The ledger schema rejects free text beyond short identifiers.
+- Session mode: a `jev-mode` custom session entry holds `{"mode": "<m>"}` or `{"mode": null}`. It is never sent to the model, and nothing is written to `state.json` or `config.json`.
 - Secrets: read from the environment at call time, never written anywhere.
 
 ## Performance budget
