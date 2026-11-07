@@ -137,15 +137,10 @@ describe("settleTuning with fakes", () => {
 
   test("second settle with the same ledger is a no-op", () => {
     const ctx = fakeCtx(true);
-    const base = fakeDeps({ ledger: firing() });
-    // Feed the stored record back as the next snapshot.
-    const deps = {
-      ...base,
-      load: () => fakeDeps({ record: base.stored(), ledger: firing() }).load(),
-    };
+    const deps = fakeDeps({ ledger: firing(), loadFromStore: true });
     settleTuning(deps, ctx);
     settleTuning(deps, ctx);
-    expect(base.stored().history?.filter((h) => h.cause === "rule")).toHaveLength(1);
+    expect(deps.stored().history?.filter((h) => h.cause === "rule")).toHaveLength(1);
     expect(ctx.notifies).toEqual([APPLIED_LINE]);
   });
 });

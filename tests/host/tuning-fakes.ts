@@ -16,6 +16,10 @@ export type FakeOptions = {
   configTimeoutMs?: number;
   configValid?: boolean;
   tuningKind?: TuningRead["kind"];
+  /** Issues for a `malformed` or `unreadable` read; defaults to one message naming the kind. */
+  tuningIssues?: Issue[];
+  /** `load` reflects the fake store instead of the fixed `record`. */
+  loadFromStore?: boolean;
   ledger?: LedgerRead | readonly MainEntry[] | "throw";
   /** `{ok:false}` refuses the write without calling `mutate`; a function replaces the stored record first. */
   update?: WriteResult | ((stored: TuningDocument) => TuningDocument);
@@ -40,9 +44,11 @@ function snapshotOf(o: FakeOptions, record: TuningDocument): Snapshot {
     o.configTimeoutMs === undefined ? {} : { classifier: { timeoutMs: o.configTimeoutMs } };
   const kind = o.tuningKind ?? "ok";
   const tuningRead = (
-    kind === "ok" || kind === "missing"
-      ? { kind: "ok", record }
-      : { kind, record: {}, issues: [{ path: "", message: kind }] }
+    kind === "ok"
+      ? { kind, record }
+      : kind === "missing"
+        ? { kind, record: {} }
+        : { kind, record: {}, issues: o.tuningIssues ?? [{ path: "", message: kind }] }
   ) as TuningRead;
   return buildSnapshot({
     configRead:
@@ -71,7 +77,7 @@ export function fakeDeps(o: FakeOptions = {}): FakeDeps {
   return {
     dir: "/fake/jev",
     now: () => o.now ?? 5000,
-    load: () => snapshotOf(o, record),
+    load: () => snapshotOf(o, o.loadFromStore ? store : record),
     readLedger: () => {
       ledgerReads++;
       return ledgerOf(o);
