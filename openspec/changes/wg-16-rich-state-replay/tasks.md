@@ -14,7 +14,7 @@
 
 ## 3. Host wiring
 
-- [ ] 3.1 Add `src/host/rich.ts` (`buildRichInputs`), `src/host/git.ts` (`gitCounts`, which needs exit code 0 and a 500 ms race) and `listAgents` in `src/host/agents.ts`. In `src/host/main.ts`, keep `lastDecided` and make one rich call. Wire them in `src/host/setup.ts`. Add a host test that the default request stays minimal ("Rich inputs ignored unless shipped").
+- [x] 3.1 Add `src/host/rich.ts` (`buildRichInputs`), `src/host/git.ts` (`gitCounts`, which needs exit code 0 and a 500 ms race) and `listAgents` in `src/host/agents.ts`. In `src/host/main.ts`, keep `lastDecided` and make one rich call. Wire them in `src/host/setup.ts`. Add a host test that the default request stays minimal ("Rich inputs ignored unless shipped").
 - [ ] 3.2 Add `src/host/git-record.ts`: behind `JEV_REPLAY_GIT=1`, after the decision, append to `<agentDir>/jev/replay-git.jsonl` (owner-only, capped at 5000 lines, fail open), sharing the git result from 3.1. Test every `git-count-record` scenario.
 
 ## 4. Replay script
