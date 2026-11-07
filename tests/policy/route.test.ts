@@ -64,6 +64,7 @@ function input(overrides: Partial<RouteInput> = {}): RouteInput {
     answers: read({}),
     launch: launch(),
     offered: NO_EXPERT,
+    mode: "standard",
     forkedLaunch: "untouched",
     canRun: () => true,
     thinkingOf: (): ModelThinking => ({ reasoning: true }),
@@ -350,7 +351,7 @@ describe("Recorded results", () => {
       "expert-denied": routeLaunch(
         input({ answers: read({ tier: ["expert", { expert: 0.9 }] }), offered: TIER_LADDER }),
       ),
-      fable: routeLaunch(
+      "expert-admitted": routeLaunch(
         input({
           answers: read({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.95 }),
           offered: TIER_LADDER,

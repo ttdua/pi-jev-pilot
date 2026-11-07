@@ -10,9 +10,9 @@ Jev is often already sure of `balanced`, so thresholds barely moved workers, and
 
 ## Decision
 
-`budget`, `standard` and `premium` each define a rubric and a Fable rule, as data. No other rule varies by mode. A mode affects workers only.
+`budget`, `standard` and `premium` each define a rubric and an expert gate, as data. No other rule varies by mode. A mode affects workers only.
 
-`premium` uses its own Fable rule, because the `expert_needed` gate never fired in replay.
+`premium` uses its own expert gate, because the `expert_needed` gate never fired in replay.
 
 ## Consequences
 

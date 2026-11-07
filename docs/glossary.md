@@ -25,8 +25,8 @@ Use these words consistently in code, docs and the user interface.
 | **Rubric** | The set of descriptions that define the tiers in a question. Each mode has one. |
 | **Tier** | A role a model plays: `fast`, `balanced`, `deep`, `expert`. |
 | **Slot** | A named custom model with a `when` description, offered beside the tiers. |
-| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. Selects a rubric and a Fable rule. |
-| **Fable rule** | The per-mode condition for using the `expert` tier. |
+| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. Selects a rubric and an expert gate. |
+| **Expert gate** | The per-mode condition for using the `expert` tier. |
 | **Effort** | How much reasoning a turn gets. Jev's ladder: `low` to `max`. |
 | **Thinking level** | Pi's name for effort on a session or worker. |
 | **Requested / effective** | The effort the policy wanted, and what the model supports after clamping. |

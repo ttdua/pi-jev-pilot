@@ -2,16 +2,17 @@
 import type { QuestionSpec } from "../policy/answers.ts";
 import { EFFORT_LEVELS } from "../policy/effort.ts";
 import { TIER_LADDER, type TierName } from "../policy/launch.ts";
+import type { ModeName } from "../policy/modes.ts";
 import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
 import {
   type BareNoulQuestion,
   CORRECTS_QUESTION,
-  EXPERT_NEEDED_QUESTION,
+  EXPERT_NEEDED_QUESTIONS,
   GATE_QUESTIONS,
   MAIN_EFFORT_INSTRUCTION,
   NONE_CRITERION,
   RISKY_QUESTION,
-  STANDARD_TIER_CRITERIA,
+  TIER_CRITERIA,
   TIER_INSTRUCTION,
   WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
@@ -115,6 +116,7 @@ export function offeredTiers(
 export function buildWorkerQuestions(
   offered: readonly TierName[],
   displayNames: Partial<Record<TierName, string>>,
+  mode: ModeName,
 ): { questions: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> } {
   const questions: Record<string, WireQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
@@ -123,7 +125,7 @@ export function buildWorkerQuestions(
     const criteria: Record<string, string> = {};
     for (const tier of ordered) {
       const name = displayNames[tier];
-      const text = STANDARD_TIER_CRITERIA[tier];
+      const text = TIER_CRITERIA[mode][tier];
       criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
     }
     questions["tier"] = { type: "choice", instructions: TIER_INSTRUCTION, criteria };
@@ -134,7 +136,7 @@ export function buildWorkerQuestions(
   questions["risky"] = copy(RISKY_QUESTION);
   specs["risky"] = { type: "noul" };
   if (ordered.includes("expert")) {
-    questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTION);
+    questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTIONS[mode]);
     specs["expert_needed"] = { type: "noul" };
   }
   return { questions, specs };

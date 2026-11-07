@@ -153,6 +153,7 @@ export function fixtureModelsJson(baseUrl: string, opts: { keyless?: boolean } =
         },
         { id: "fixture-balanced", reasoning: true },
         { id: "fixture-fast", reasoning: true },
+        { id: "fixture-expert", reasoning: true },
       ],
     },
   };

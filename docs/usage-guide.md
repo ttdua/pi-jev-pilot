@@ -175,7 +175,7 @@ A CLI review does not need the Jev key and does not depend on the switches. It r
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
 
-From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: `mode` (WG-12), slot commands (WG-13) and `tune` (WG-18).
+From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: slot commands (WG-13) and `tune` (WG-18).
 
 ## Tool assessment
 
@@ -211,7 +211,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
 /jev reset                                   switches, mode and CLI review default back to config defaults
-/jev mode budget|standard|premium            WG-12
+/jev mode budget|standard|premium
 /jev <slot> <provider/model> [when <text>]   add or replace a slot (WG-13)
 /jev <slot>                                  show it (WG-13)
 /jev remove <slot>                           WG-13
@@ -219,7 +219,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev tune | /jev tune undo | /jev tune reset | /jev tune off   WG-18
 ```
 
-The first four lines work from WG-06. Forms marked with a later work group print the usage text until then.
+Forms without a work-group mark work now. Forms marked with a later work group print the usage text until that group lands.
 
 No command calls Jev. An unknown model in a slot command gets the three closest names from Pi's registry, without any network lookup.
 
@@ -231,7 +231,7 @@ No command calls Jev. An unknown model in a slot command gets the three closest 
 | Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a forked launch has `subagents.forkedLaunch` at its default `untouched`, or there is no executor | `/jev verbose on` |
 | Almost nothing uses the fast tier | Few bounded tasks reach subagents, since the main session does its own lookups | Try `/jev mode budget`, or delegate lookups to a read-only agent |
 | Worker effort is nearly always `high` | That is how the effort rubric currently reads delegated work | Known; a rubric revision is on the [roadmap](roadmap.md) |
-| Fable never runs | Its rule is strict outside `premium` | `/jev mode premium` |
+| Expert never runs | Its rule is strict outside `premium` | `/jev mode premium` |
 | The prompt cache keeps missing | Effort changes on a provider that loses cache | Add it to `effort.holdProviders` |
 | Vietnamese prompts seem misjudged | Jev is less accurate outside English | Report through `/jev verbose on` output, without sharing private text |
 

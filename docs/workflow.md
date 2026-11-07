@@ -132,7 +132,7 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 1. `/jev mode budget`.
 2. `state.json` is updated. No Jev call.
-3. The next launch uses the `budget` rubric and Fable rule. Running workers are unaffected.
+3. The next launch uses the `budget` rubric and expert gate. Running workers are unaffected.
 4. Each ledger line records its mode, so tuning signals are never mixed across modes.
 
 ## 5. Auto-tuning

@@ -252,6 +252,15 @@ describe("read", () => {
     expect(r.kind === "ok" && r.skipped).toBe(2);
   });
 
+  test("old reason line skipped", () => {
+    const { dir } = mk();
+    const old = { ...entry(1), reason: "fable", tier: "expert" };
+    writeFileSync(active(dir), `${J(old)}${J(entry(2))}`);
+    const r = readLedger(dir);
+    expect(chars(r)).toEqual([2]);
+    expect(r.kind === "ok" && r.skipped).toBe(1);
+  });
+
   test("torn last line skipped", () => {
     const { dir } = mk();
     writeFileSync(active(dir), J(entry(1)) + JSON.stringify(entry(2)));

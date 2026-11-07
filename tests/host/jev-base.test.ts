@@ -138,10 +138,10 @@ describe("status line and /jev through the real CLI", () => {
   );
 
   test(
-    "unknown mode notifies a warning",
+    "unknown command notifies a warning",
     async () => {
       const s = await host(await fixtureWith());
-      await command(s, "/jev mode premium");
+      await command(s, "/jev tune");
       await s.waitFor(() => notifies(s).length >= 1, "notify");
       expect(notifies(s).at(-1)?.notifyType).toBe("warning");
     },

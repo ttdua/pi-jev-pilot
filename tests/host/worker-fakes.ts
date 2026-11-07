@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { Snapshot } from "../../src/host/readiness.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker.ts";
+import type { Mode } from "../../src/store/defaults.ts";
 import { resolveSettings } from "../../src/store/settings.ts";
 import { tempDir } from "../helpers.ts";
 
@@ -9,7 +10,10 @@ export type Handler = (event: unknown, ctx: unknown) => Promise<unknown> | unkno
 
 export const TIERS = { fast: "fx/fast", balanced: "fx/balanced", deep: "fx/deep" };
 
+export const TIERS_X = { ...TIERS, expert: "fx/expert" };
+
 export type Opts = {
+  mode?: Mode;
   tiers?: Record<string, string>;
   switches?: Record<string, boolean>;
   valid?: boolean;
@@ -26,7 +30,10 @@ export function snap(o: Opts = {}): Snapshot {
       state: { parentRequest: o.parentRequest ?? false },
       subagents: { forkedLaunch: o.forkedLaunch ?? "untouched" },
     } as never,
-    state: { switches: { subagents: true, ...o.switches } } as never,
+    state: {
+      switches: { subagents: true, ...o.switches },
+      ...(o.mode === undefined ? {} : { mode: o.mode }),
+    } as never,
   });
   return {
     config: o.valid === false ? { valid: false, issues: [] } : { valid: true },
@@ -46,6 +53,15 @@ export function choice(tier: string, p = 0.9) {
     probabilities: { fast: 0, balanced: 0, deep: 0, [tier]: p },
   };
 }
+/** A tier answer whose probability keys are exactly the offered tiers. */
+export function choiceWith(pick: string, probabilities: Record<string, number>) {
+  return {
+    type: "choice",
+    choice: pick,
+    confidence: probabilities[pick] ?? 0,
+    probabilities,
+  };
+}
 export function effort(level: string) {
   return {
     type: "choice",
@@ -60,6 +76,16 @@ export function body(tier: string, eff = "medium") {
       tier: choice(tier),
       effort: effort(eff),
       risky: { type: "noul", noul: 0.1 },
+    },
+  };
+}
+export function bodyWith(tier: string, probabilities: Record<string, number>, eff = "medium") {
+  return {
+    answers: {
+      tier: choiceWith(tier, probabilities),
+      effort: effort(eff),
+      risky: { type: "noul", noul: 0.1 },
+      ...("expert" in probabilities ? { expert_needed: { type: "noul", noul: 0.1 } } : {}),
     },
   };
 }
@@ -92,6 +118,7 @@ export function harness(
     "fx/fast": { name: "Fixture Fast" },
     "fx/balanced": {},
     "fx/deep": {},
+    "fx/expert": {},
   };
   const finds: string[] = [];
   const notes: { text: string; type: string }[] = [];

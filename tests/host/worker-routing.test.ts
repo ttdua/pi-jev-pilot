@@ -84,14 +84,23 @@ function choice(pick: string, options: string[]): object {
 }
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
-function jevAnswers(opts: { tier?: string; tiers?: string[]; effort?: string }): FixtureRoute {
+function jevAnswers(opts: {
+  tier?: string;
+  tiers?: string[];
+  effort?: string;
+  probs?: Record<string, number>;
+}): FixtureRoute {
   const answers: Record<string, object> = {
     effort: choice(opts.effort ?? "medium", EFFORTS),
     risky: { type: "noul", noul: 0.2 },
   };
   if (opts.tier !== undefined) {
-    answers["tier"] = choice(opts.tier, opts.tiers ?? ["fast", "balanced"]);
+    answers["tier"] =
+      opts.probs === undefined
+        ? choice(opts.tier, opts.tiers ?? ["fast", "balanced"])
+        : { type: "choice", choice: opts.tier, probabilities: opts.probs, confidence: 0.5 };
   }
+  if (opts.probs?.["expert"] !== undefined) answers["expert_needed"] = { type: "noul", noul: 0.2 };
   return { json: { answers } };
 }
 
@@ -114,13 +123,19 @@ function writeJev(
 
 function config(
   jev: JevFixture,
-  extra: { timeoutMs?: number; deep?: boolean; forked?: "thinking" | "untouched" } = {},
+  extra: {
+    timeoutMs?: number;
+    deep?: boolean;
+    expert?: boolean;
+    forked?: "thinking" | "untouched";
+  } = {},
 ): Record<string, unknown> {
   const tiers: Record<string, string> = {
     fast: "fixture/fixture-fast",
     balanced: "fixture/fixture-balanced",
   };
   if (extra.deep) tiers["deep"] = "fixture2/fixture-deep";
+  if (extra.expert) tiers["expert"] = "fixture/fixture-expert";
   return {
     classifier: { url: jev.url("/classify"), timeoutMs: extra.timeoutMs ?? 1500 },
     tiers,
@@ -415,6 +430,52 @@ describe("worker routing through the real CLI", () => {
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-fast");
       expect(child?.reasoningEffort).toBe("medium");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Premium launch end to end",
+    async () => {
+      const jev = await newJev(
+        jevAnswers({
+          tier: "deep",
+          effort: "xhigh",
+          probs: { fast: 0.05, balanced: 0.15, deep: 0.5, expert: 0.3 },
+        }),
+      );
+      const { fixture, session } = await setup(script([subagentCall(launch())]));
+      writeJev(session.agentDir, {
+        config: config(jev, { deep: true, expert: true }),
+        state: { version: 1, mode: "premium" },
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      expect(childOf(fixture)?.model).toBe("fixture-expert");
+      expect(workerLines(session)[0]).toMatchObject({
+        mode: "premium",
+        reason: "expert-admitted",
+        tier: "expert",
+      });
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Jev down in premium",
+    async () => {
+      const jev = await newJev({ json: {}, status: 500 });
+      const { fixture, session } = await setup(script([subagentCall(launch())]));
+      writeJev(session.agentDir, {
+        config: config(jev, { deep: true, expert: true }),
+        state: { version: 1, mode: "premium" },
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      const child = childOf(fixture);
+      expect(child?.model).toBe("fixture-balanced");
+      expect(child?.reasoningEffort).toBe("low");
+      expect(workerLines(session)[0]).toMatchObject({ mode: "premium", reason: "miss" });
     },
     TIMEOUT,
   );
