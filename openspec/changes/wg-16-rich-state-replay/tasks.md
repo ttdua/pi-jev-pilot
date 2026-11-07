@@ -44,6 +44,6 @@
 
 ## 6. Pass 2: git (dropped by the operator, design D10)
 
-- [ ] 6.1 Remove the `git` rich group, `parseShortstat`/`GitCounts`, `src/host/git.ts`, `src/host/git-record.ts`, `MainDeps.record`/`rich.git`, `JEV_REPLAY_GIT`, and pass 2 of `scripts/replay` (`--pass 2`, `--kept`, `readGitMap`, git variants), with their tests.
-- [ ] 6.2 Update `docs/jev-contract.md`, `docs/privacy.md`, `docs/testing.md`, `docs/architecture.md`, `docs/project-brief.md` and the evidence: git is removed and nothing is pending.
-- [ ] 6.3 Mark WG-16 Done in `docs/roadmap.md`, and remove the "Rich state fields stay off until WG-16" working agreement line, or mark it settled.
+- [x] 6.1 Remove the `git` rich group, `parseShortstat`/`GitCounts`, `src/host/git.ts`, `src/host/git-record.ts`, `MainDeps.record`/`rich.git`, `JEV_REPLAY_GIT`, and pass 2 of `scripts/replay` (`--pass 2`, `--kept`, `readGitMap`, git variants), with their tests.
+- [x] 6.2 Update `docs/jev-contract.md`, `docs/privacy.md`, `docs/testing.md`, `docs/architecture.md`, `docs/project-brief.md` and the evidence: git is removed and nothing is pending.
+- [x] 6.3 Mark WG-16 Done in `docs/roadmap.md`, and remove the "Rich state fields stay off until WG-16" working agreement line, or mark it settled.

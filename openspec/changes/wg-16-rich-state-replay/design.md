@@ -56,7 +56,7 @@ Past tool sets and past diffs are not recorded anywhere.
 
 **D3a. Host units.**
 - `src/host/rich.ts`: `buildRichInputs` gathers the inputs of the shipped groups. Each group is wrapped so it fails open on its own. `decide` makes one call.
-- `src/host/git.ts`: `gitCounts(exec, cwd)`, where `setup.ts` passes `pi.exec`.
+- `src/host/git.ts`: `gitCounts(exec, cwd)`, where `setup.ts` passes `pi.exec`. (Superseded by D10: removed.)
 - `listAgents` is exported from `src/host/agents.ts`. It uses the same precedence as `readAgent` (project, then global, then built-ins), and both live capabilities and the snapshot procedure use it.
 - Wiring goes in `src/host/setup.ts`, because `extension.ts` may import only `host/`.
 
@@ -85,7 +85,7 @@ Arguments:
 | Flag | Role |
 |---|---|
 | `--pass 1\|2` | Which pass to run |
-| `--kept <groups>` | Pass 2 only: the groups shipped after pass 1 |
+| `--kept <groups>` | Pass 2 only: the groups shipped after pass 1. (Superseded by D10: removed.) |
 | `--seed` | Sampling seed |
 | `--main` | Number of main prompts (default 100) |
 | `--workers` | Number of worker briefs (default 46) |
@@ -99,7 +99,7 @@ Variants:
   - `minimal`, `rerun-a`, `rerun-b`, `full`;
   - add-one for each of 4 groups, and leave-one-out for each of 4 groups;
   - `effort-reversed`, on the minimal state.
-- Main, pass 2: `minimal`, two reruns, `full`, `+git`, `full-git`. Here `full` is the groups kept after pass 1 plus `git`, given with `--kept`.
+- Main, pass 2: `minimal`, two reruns, `full`, `+git`, `full-git`. Here `full` is the groups kept after pass 1 plus `git`, given with `--kept`. (Superseded by D10: pass 2 removed.)
 - Workers:
   - `base`, `rerun-a`, `rerun-b`;
   - `parent-request`;
@@ -173,7 +173,7 @@ D4 and the git parts of D3, D5 and D8 are superseded.
 | Capabilities and languages are rebuilt from today's state, not the state at the time | The evidence labels them; languages excludes samples whose `cwd` is gone |
 | About 100 samples give a coarse noise estimate | Two reruns; both numbers shown; the operator reads the cases |
 | Moving `branchItems` and `scanPlatforms` breaks imports | `host/context.ts` re-exports them; existing tests run unchanged |
-| The git exec adds latency once git ships | 500 ms timeout, started in parallel with the other inputs; on timeout the field is omitted |
+| The git exec adds latency once git ships (moot after D10) | 500 ms timeout, started in parallel with the other inputs; on timeout the field is omitted |
 | The case table holds the operator's real prompts | Owner-only under `<agentDir>`, never in the repository; the procedure says to delete it after the decision |
 | Cost of a run | The dry run prints the estimate. About 1300 main and 280 worker requests in pass 1, at about 7 KB and 6 KB each, comes to roughly 10–15 US cents |
 
