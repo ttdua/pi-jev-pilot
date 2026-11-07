@@ -3,9 +3,14 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
 import { toolNames, withoutReview } from "./bodies";
-import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
+import {
+  startFixture,
+  type Fixture,
+  type RecordedRequest,
+  type ScriptEntry,
+} from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
-import type { RpcEvent } from "./rpc";
+import { command, notifies, uiRequests, type UiRequest } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -21,10 +26,17 @@ const KEY = { TYPESAFE_API_KEY: "test-key" };
 const TIMEOUT = 60_000;
 
 const mainReply = (delayMs?: number): ScriptEntry[] => [
-  { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" }, delayMs },
+  {
+    name: "main",
+    match: (r) => r.model === "fixture-main",
+    reply: { text: "ok" },
+    delayMs,
+  },
 ];
 
-async function fixtureWith(script: ScriptEntry[] = mainReply()): Promise<Fixture> {
+async function fixtureWith(
+  script: ScriptEntry[] = mainReply(),
+): Promise<Fixture> {
   const f = await startFixture(script);
   fixtures.push(f);
   return f;
@@ -45,28 +57,10 @@ async function host(
   return s;
 }
 
-type UiRequest = RpcEvent & {
-  method?: string;
-  widgetKey?: string;
-  widgetLines?: string[];
-  widgetPlacement?: string;
-  message?: string;
-  notifyType?: string;
-};
-
-const uiRequests = (s: HostSession): UiRequest[] =>
-  s.events.filter((e) => e.type === "extension_ui_request") as UiRequest[];
 const jevWidgets = (s: HostSession): UiRequest[] =>
-  uiRequests(s).filter((e) => e.method === "setWidget" && e.widgetKey === "jev");
-const notifies = (s: HostSession): UiRequest[] =>
-  uiRequests(s).filter((e) => e.method === "notify");
-
-/** Sends a slash command as a prompt and waits for its response. */
-async function command(s: HostSession, text: string): Promise<Record<string, unknown> | undefined> {
-  const r = await s.send({ type: "prompt", message: text });
-  expect(r.success).toBe(true);
-  return r.data;
-}
+  uiRequests(s).filter(
+    (e) => e.method === "setWidget" && e.widgetKey === "jev",
+  );
 
 describe("status line and /jev through the real CLI", () => {
   test(
@@ -104,8 +98,13 @@ describe("status line and /jev through the real CLI", () => {
       expect(n.length).toBe(1);
       expect(n[0]?.notifyType).toBe("info");
       const msgs = await s.send({ type: "get_messages" });
-      const all = (msgs.data?.messages ?? []) as { role?: string; content?: unknown }[];
-      const userText = all.filter((m) => m.role === "user").map((m) => JSON.stringify(m.content));
+      const all = (msgs.data?.messages ?? []) as {
+        role?: string;
+        content?: unknown;
+      }[];
+      const userText = all
+        .filter((m) => m.role === "user")
+        .map((m) => JSON.stringify(m.content));
       expect(userText.some((c) => c.includes("/jev"))).toBe(false);
     },
     TIMEOUT,
@@ -115,10 +114,21 @@ describe("status line and /jev through the real CLI", () => {
     "all decision features off shows off",
     async () => {
       const s = await host(await fixtureWith());
-      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert", "review"]) {
+      for (const f of [
+        "effort",
+        "subagents",
+        "skills",
+        "strategy",
+        "tools",
+        "expert",
+        "review",
+      ]) {
         await command(s, `/jev ${f} off`);
       }
-      await s.waitFor(() => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off", "off widget");
+      await s.waitFor(
+        () => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off",
+        "off widget",
+      );
       expect(jevWidgets(s).at(-1)?.widgetLines).toEqual(["Jev · off"]);
     },
     TIMEOUT,
@@ -177,11 +187,14 @@ describe("status line and /jev through the real CLI", () => {
     async () => {
       const fixture = await fixtureWith(mainReply(3000));
       const s = await host(fixture);
-      const settledBefore = s.events.filter((e) => e.type === "agent_settled").length;
+      const settledBefore = s.events.filter(
+        (e) => e.type === "agent_settled",
+      ).length;
       const first = await s.send({ type: "prompt", message: "hello" });
       expect(first.success).toBe(true);
       await s.waitFor(() => fixture.requests.length >= 1, "request in flight");
-      const settledCount = (): number => s.events.filter((e) => e.type === "agent_settled").length;
+      const settledCount = (): number =>
+        s.events.filter((e) => e.type === "agent_settled").length;
       // The run must still be streaming when the command is sent.
       expect(settledCount()).toBe(settledBefore);
       await command(s, "/jev skills off");
@@ -227,7 +240,9 @@ describe("status line and /jev through the real CLI", () => {
 });
 
 function noReview(f: Fixture): boolean {
-  return f.requests.every((r: RecordedRequest) => !toolNames(r.body).includes("jev_review"));
+  return f.requests.every(
+    (r: RecordedRequest) => !toolNames(r.body).includes("jev_review"),
+  );
 }
 
 describe("print and JSON mode", () => {
@@ -268,11 +283,15 @@ describe("print and JSON mode", () => {
       const bodies = (f: Fixture): string[] =>
         f.requests.map((r: RecordedRequest) => JSON.stringify(r.body));
       const hasReview = (f: Fixture): boolean =>
-        f.requests.every((r: RecordedRequest) => toolNames(r.body).includes("jev_review"));
+        f.requests.every((r: RecordedRequest) =>
+          toolNames(r.body).includes("jev_review"),
+        );
       expect(hasReview(withPkg)).toBe(true);
       expect(noReview(plain)).toBe(true);
       expect(
-        withPkg.requests.map((r: RecordedRequest) => JSON.stringify(withoutReview(r.body))),
+        withPkg.requests.map((r: RecordedRequest) =>
+          JSON.stringify(withoutReview(r.body)),
+        ),
       ).toEqual(bodies(plain));
     },
     TIMEOUT,
@@ -355,10 +374,14 @@ describe("print and JSON mode", () => {
 describe("executor child", () => {
   test("a child session draws no second jev widget", async () => {
     const msgs = (r: RecordedRequest): { role?: string }[] =>
-      Array.isArray(r.body.messages) ? (r.body.messages as { role?: string }[]) : [];
-    const text = (r: RecordedRequest): string => JSON.stringify(r.body.messages);
+      Array.isArray(r.body.messages)
+        ? (r.body.messages as { role?: string }[])
+        : [];
+    const text = (r: RecordedRequest): string =>
+      JSON.stringify(r.body.messages);
     const isChild = (r: RecordedRequest): boolean =>
-      JSON.stringify(msgs(r).at(-1)).includes("CHILD-TASK") && msgs(r).at(-1)?.role === "user";
+      JSON.stringify(msgs(r).at(-1)).includes("CHILD-TASK") &&
+      msgs(r).at(-1)?.role === "user";
     const fixture = await fixtureWith([
       { name: "child", match: isChild, reply: { text: "child done" } },
       {
@@ -382,12 +405,17 @@ describe("executor child", () => {
         },
         times: 1,
       },
-      { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+      {
+        name: "main-after",
+        match: (r) => r.model === "fixture-main",
+        reply: { text: "done" },
+      },
     ]);
     const s = await host(fixture, {
       executor: true,
       agents: {
-        "smoke-worker": "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
+        "smoke-worker":
+          "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
       },
     });
     await s.prompt("START-MAIN");
