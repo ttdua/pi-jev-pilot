@@ -8,7 +8,7 @@ import {
   type ThinkingLevel,
 } from "./effort.ts";
 import type { EffectiveLaunch, Target, TierName } from "./launch.ts";
-import type { ModeName } from "./modes.ts";
+import type { CutPoints } from "./cutpoints.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
 import type { WorkerAnswers } from "./worker.ts";
 
@@ -27,7 +27,7 @@ export type RouteInput = {
   answers: WorkerAnswers | undefined;
   launch: EffectiveLaunch;
   offered: readonly TierName[];
-  mode: ModeName;
+  cuts: CutPoints;
   forkedLaunch: ForkedLaunch;
   canRun: (t: Target) => boolean;
   thinkingOf: (t: Target) => ModelThinking | undefined;
@@ -101,7 +101,7 @@ export function routeLaunch(input: RouteInput): Route {
   }
 
   const decision: TierDecision = kind.tierQuestion
-    ? decideTier(answers, input.offered, input.mode, input.slots)
+    ? decideTier(answers, input.offered, input.cuts, input.slots)
     : { kind: "none" };
   if (decision.kind === "none") {
     return thinkingOnly(input, answers, { reason: "untouched", ...locked });

@@ -8,6 +8,7 @@ import { askJev, type JevOutcome } from "../jev/client.ts";
 import { buildWorkerQuestions, offeredTiers, type SlotOption } from "../jev/questions.ts";
 import { buildWorkerState } from "../jev/state.ts";
 import type { QuestionSpec } from "../policy/answers.ts";
+import { cutPointsFor } from "../policy/cutpoints.ts";
 import type { ModeName } from "../policy/modes.ts";
 import type { ModelThinking } from "../policy/effort.ts";
 import {
@@ -405,7 +406,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       answers,
       launch: entry.launch,
       offered: entry.offered,
-      mode: entry.mode,
+      cuts: cutPointsFor([], entry.mode),
       forkedLaunch: settings.subagents.forkedLaunch,
       canRun: (t) => !writesModel || checkOf(t).ok,
       thinkingOf: (t) => {

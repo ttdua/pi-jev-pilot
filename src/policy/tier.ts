@@ -1,15 +1,16 @@
 // Pure tier decision and fallback. Imports nothing outside src/policy/.
 
 import { isSlot, slotName, slotTarget, TIER_LADDER, type Target, type TierName } from "./launch.ts";
-import { expertAdmitted, type ModeName } from "./modes.ts";
 import type { Answer } from "./answers.ts";
+import type { CutPoints } from "./cutpoints.ts";
+import { difficultyScore } from "./score.ts";
 import type { WorkerAnswers } from "./worker.ts";
 
 export type TierDecision =
   | {
       kind: "decided";
       tier: Target;
-      reason: "expert-admitted" | "risky" | "expert-denied" | "fast-unsure" | "choice" | "slot";
+      reason: "expert" | "risky" | "slot" | "cut";
     }
   | { kind: "none"; reason?: "miss" };
 
@@ -33,89 +34,96 @@ function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
   return offered.includes("deep") ? "deep" : highestBelowExpert(offered);
 }
 
-type ChoiceAnswer = Extract<Answer, { type: "choice" }>;
-
 const SLOT_BAR = 0.6;
+const RISK_BAR = 0.7;
+const CUT_LADDER = ["fast", "balanced", "deep"] as const;
 
-// A slot choice below the bar becomes the offered tier of highest probability.
-// Ties keep the lower tier, because the ladder is scanned upward.
-function substituteTier(choice: ChoiceAnswer, offered: readonly TierName[]): TierName | undefined {
-  let best: TierName | undefined;
-  let bestP = -1;
-  for (const t of TIER_LADDER) {
-    if (!offered.includes(t)) continue;
-    const p = choice.probabilities[t] ?? 0;
-    if (p > bestP) {
-      best = t;
-      bestP = p;
-    }
+// Rule expert: the score reaches the launch's expert cut and the model asked for high effort.
+function expertRule(
+  answers: Record<string, Answer>,
+  score: number | undefined,
+  offered: readonly TierName[],
+  cuts: CutPoints,
+): TierDecision | undefined {
+  if (score === undefined || !offered.includes("expert") || score < cuts.expertMin) {
+    return undefined;
   }
-  return best;
+  const effort = answers["effort"];
+  const high = effort?.type === "choice" && (effort.choice === "xhigh" || effort.choice === "max");
+  return high ? decide("expert", "expert") : undefined;
 }
 
-function slotDecision(choice: ChoiceAnswer, slots: readonly string[]): TierDecision | undefined {
-  const offeredSlot = slots.map(slotTarget).find((s) => s === choice.choice);
+// Rule risky: the risk floor lifts the launch to deep, else the highest tier below expert.
+function riskRule(
+  answers: Record<string, Answer>,
+  offered: readonly TierName[],
+): TierDecision | undefined {
+  const risky = answers["risky"];
+  if (risky?.type !== "noul" || risky.noul <= RISK_BAR) return undefined;
+  const target = deepOrHighest(offered);
+  return target === undefined ? undefined : decide(target, "risky");
+}
+
+// Rule slot: an offered slot the model is sure of.
+function slotRule(
+  answers: Record<string, Answer>,
+  slots: readonly string[],
+): TierDecision | undefined {
+  const tier = answers["tier"];
+  if (tier?.type !== "choice") return undefined;
+  const offeredSlot = slots.map(slotTarget).find((s) => s === tier.choice);
   if (offeredSlot === undefined) return undefined;
-  return (choice.probabilities[offeredSlot] ?? 0) >= SLOT_BAR
+  return (tier.probabilities[offeredSlot] ?? 0) >= SLOT_BAR
     ? decide(offeredSlot, "slot")
     : undefined;
 }
 
-// Rules 3 to 5, on a choice that is a tier.
-function decideFromTierChoice(
-  picked: string,
-  choice: ChoiceAnswer,
-  offered: readonly TierName[],
-): TierDecision {
-  // Rule 3: expert denied.
-  if (picked === "expert") {
-    const target = deepOrHighest(offered);
-    return target === undefined ? { kind: "none" } : decide(target, "expert-denied");
-  }
-  // Rule 4: unsure fast.
-  if (picked === "fast" && (choice.probabilities["fast"] ?? 0) < 0.6) {
-    const target = (["balanced", "deep"] as const).find((t) => offered.includes(t));
-    if (target !== undefined) return decide(target, "fast-unsure");
-  }
-  // Rule 5: choice.
-  return decide(picked as TierName, "choice");
+// The tier a score falls on between the cut points.
+function cutTier(score: number, cuts: CutPoints): (typeof CUT_LADDER)[number] {
+  if (score <= cuts.fastMax) return "fast";
+  return score <= cuts.balancedMax ? "balanced" : "deep";
 }
 
+// The wanted tier if offered, else the nearest offered below it, else the nearest above. Never expert.
+function nearestOffered(
+  wanted: (typeof CUT_LADDER)[number],
+  offered: readonly TierName[],
+): TierName | undefined {
+  const at = CUT_LADDER.indexOf(wanted);
+  const below = CUT_LADDER.slice(0, at + 1).reverse();
+  const above = CUT_LADDER.slice(at + 1);
+  return [...below, ...above].find((t) => offered.includes(t));
+}
+
+function cutRule(
+  score: number | undefined,
+  offered: readonly TierName[],
+  cuts: CutPoints,
+): TierDecision | undefined {
+  if (score === undefined) return undefined;
+  const target = nearestOffered(cutTier(score, cuts), offered);
+  return target === undefined ? undefined : decide(target, "cut");
+}
+
+// Rules in order: expert, risky, slot, cut. The first match wins.
 export function decideTier(
   answers: WorkerAnswers,
   offered: readonly TierName[],
-  mode: ModeName,
+  cuts: CutPoints,
   slots: readonly string[] = [],
 ): TierDecision {
   if (answers.kind === "miss") return { kind: "none", reason: "miss" };
   if (answers.kind === "cancelled") return { kind: "none" };
   if (offered.length === 0 && slots.length === 0) return { kind: "none" };
 
-  const tier = answers.answers["tier"];
-  const choice = tier?.type === "choice" ? tier : undefined;
-  const risky = answers.answers["risky"];
-  const riskyValue = risky?.type === "noul" ? risky.noul : undefined;
-
-  // Rule 1: expert admitted by the mode's gate.
-  if (offered.includes("expert") && expertAdmitted(mode, answers.answers)) {
-    return decide("expert", "expert-admitted");
-  }
-  // Rule 2: risk floor.
-  if (riskyValue !== undefined && riskyValue > 0.7) {
-    const target = deepOrHighest(offered);
-    if (target !== undefined) return decide(target, "risky");
-  }
-  if (choice === undefined) return { kind: "none" };
-  // Rule slot: an offered slot the model is sure of.
-  const bySlot = slotDecision(choice, slots);
-  if (bySlot !== undefined) return bySlot;
-  if (!isSlot(choice.choice)) {
-    return decideFromTierChoice(choice.choice, choice, offered);
-  }
-  const substitute = substituteTier(choice, offered);
-  return substitute === undefined
-    ? { kind: "none" }
-    : decideFromTierChoice(substitute, choice, offered);
+  const given = answers.answers;
+  const score = difficultyScore(given);
+  return (
+    expertRule(given, score, offered, cuts) ??
+    riskRule(given, offered) ??
+    slotRule(given, slots) ??
+    cutRule(score, offered, cuts) ?? { kind: "none" }
+  );
 }
 
 const SLOT_FALLBACK: readonly TierName[] = ["balanced", "fast"];

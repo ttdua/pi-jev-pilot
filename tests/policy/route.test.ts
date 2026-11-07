@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Answer } from "../../src/policy/answers.ts";
+import { SEED_CUTPOINTS } from "../../src/policy/seed.ts";
 import type { ModelThinking } from "../../src/policy/effort.ts";
 import {
   TIER_LADDER,
@@ -45,7 +46,12 @@ function read(input: {
   const unanswered: Record<string, "missing"> = {};
   if (input.tier !== undefined) {
     const [choice, given] = input.tier;
-    const probabilities: Record<string, number> = { fast: 0, balanced: 0, deep: 0, expert: 0 };
+    const probabilities: Record<string, number> = {
+      fast: 0,
+      balanced: 0,
+      deep: 0,
+      expert: 0,
+    };
     for (const [k, v] of Object.entries(given)) probabilities[k] = v;
     out["tier"] = { type: "choice", choice, probabilities };
   } else unanswered["tier"] = "missing";
@@ -69,7 +75,7 @@ function input(overrides: Partial<RouteInput> = {}): RouteInput {
     answers: read({}),
     launch: launch(),
     offered: NO_EXPERT,
-    mode: "standard",
+    cuts: SEED_CUTPOINTS.standard,
     forkedLaunch: "untouched",
     canRun: () => true,
     thinkingOf: (): ModelThinking => ({ reasoning: true }),
@@ -95,10 +101,16 @@ describe("launchKind", () => {
     });
   });
   test("resume is untouched", () => {
-    expect(kind({ resume: true })).toEqual({ kind: "untouched", locked: false });
+    expect(kind({ resume: true })).toEqual({
+      kind: "untouched",
+      locked: false,
+    });
   });
   test("forked untouched is untouched", () => {
-    expect(kind({ inheritContext: true })).toEqual({ kind: "untouched", locked: false });
+    expect(kind({ inheritContext: true })).toEqual({
+      kind: "untouched",
+      locked: false,
+    });
   });
   test("both locked is untouched and locked", () => {
     expect(kind({ modelLocked: true, thinkingLocked: true })).toEqual({
@@ -120,10 +132,17 @@ describe("launchKind", () => {
     });
   });
   test("no tier offered asks without a tier question", () => {
-    expect(kind({}, [])).toEqual({ kind: "ask", tierQuestion: false, locked: false });
+    expect(kind({}, [])).toEqual({
+      kind: "ask",
+      tierQuestion: false,
+      locked: false,
+    });
   });
   test("no tier offered with thinking locked is untouched", () => {
-    expect(kind({ thinkingLocked: true }, [])).toEqual({ kind: "untouched", locked: true });
+    expect(kind({ thinkingLocked: true }, [])).toEqual({
+      kind: "untouched",
+      locked: true,
+    });
   });
   test("otherwise asks with a tier question", () => {
     expect(kind({ modelLocked: true })).toEqual({
@@ -140,7 +159,10 @@ describe("Route result", () => {
       routeLaunch(
         input({
           launch: launch({ thinkingLocked: true }),
-          answers: read({ tier: ["balanced", { balanced: 0.9 }], effort: "high" }),
+          answers: read({
+            tier: ["balanced", { balanced: 0.9 }],
+            effort: "high",
+          }),
         }),
       ),
     );
@@ -186,17 +208,25 @@ describe("Launches left untouched", () => {
     expect(r).toEqual({ kind: "untouched", locked: true });
   });
   test("Missing answers on an asked launch skip", () => {
-    expect(routeLaunch(input({ answers: undefined }))).toEqual({ kind: "skip" });
+    expect(routeLaunch(input({ answers: undefined }))).toEqual({
+      kind: "skip",
+    });
   });
 });
 
 describe("Route on Jev failure", () => {
   test("Cancelled", () => {
-    expect(routeLaunch(input({ answers: { kind: "cancelled" } }))).toEqual({ kind: "skip" });
+    expect(routeLaunch(input({ answers: { kind: "cancelled" } }))).toEqual({
+      kind: "skip",
+    });
   });
   test("Miss", () => {
     const r = routeLaunch(input({ answers: { kind: "miss", miss: "timeout" } }));
-    expect(r).toEqual({ kind: "routed", write: {}, record: { reason: "miss" } });
+    expect(r).toEqual({
+      kind: "routed",
+      write: {},
+      record: { reason: "miss" },
+    });
   });
 });
 
@@ -233,11 +263,18 @@ describe("Route writes thinking only", () => {
   });
   test("No effort answer", () => {
     const r = routeLaunch(input({ answers: read({ risky: 0.2 }) }));
-    expect(r).toEqual({ kind: "routed", write: {}, record: { reason: "untouched" } });
+    expect(r).toEqual({
+      kind: "routed",
+      write: {},
+      record: { reason: "untouched" },
+    });
   });
   test("No tier decided with thinking locked", () => {
     const r = routeLaunch(
-      input({ launch: launch({ thinkingLocked: true }), answers: read({ effort: "high" }) }),
+      input({
+        launch: launch({ thinkingLocked: true }),
+        answers: read({ effort: "high" }),
+      }),
     );
     expect(r).toEqual({
       kind: "routed",
@@ -251,25 +288,31 @@ describe("Routed launch", () => {
   test("Chosen tier written", () => {
     const r = routeLaunch(
       input({
-        answers: read({ tier: ["balanced", { balanced: 0.95 }], effort: "high" }),
+        answers: read({
+          tier: ["balanced", { balanced: 0.95 }],
+          effort: "high",
+        }),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: { model: "fx/balanced", thinking: "high" },
-      record: { reason: "choice", tier: "balanced", effort: "high" },
+      record: { reason: "cut", tier: "balanced", effort: "high" },
     });
   });
   test("Clamped to the model", () => {
     const r = routeLaunch(
       input({
-        answers: read({ tier: ["balanced", { balanced: 0.95 }], effort: "xhigh" }),
+        answers: read({
+          tier: ["balanced", { balanced: 0.95 }],
+          effort: "xhigh",
+        }),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: { model: "fx/balanced", thinking: "high" },
-      record: { reason: "choice", tier: "balanced", effort: "high" },
+      record: { reason: "cut", tier: "balanced", effort: "high" },
     });
   });
   test("Cascade with xhigh", () => {
@@ -283,7 +326,12 @@ describe("Routed launch", () => {
     expect(r).toEqual({
       kind: "routed",
       write: { model: "fx/balanced", thinking: "high" },
-      record: { reason: "choice", tier: "balanced", fallback: "deep", effort: "high" },
+      record: {
+        reason: "cut",
+        tier: "balanced",
+        fallback: "deep",
+        effort: "high",
+      },
     });
   });
 });
@@ -292,21 +340,28 @@ describe("Nothing can run", () => {
   test("All lower tiers unusable", () => {
     const r = routeLaunch(
       input({
-        answers: read({ tier: ["balanced", { balanced: 0.95 }], effort: "high" }),
+        answers: read({
+          tier: ["balanced", { balanced: 0.95 }],
+          effort: "high",
+        }),
         canRun: (t) => t === "deep",
       }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: {},
-      record: { reason: "choice", tier: "balanced", fallback: "balanced" },
+      record: { reason: "cut", tier: "balanced", fallback: "balanced" },
     });
   });
   test("Expert never a cascade target", () => {
     const r = routeLaunch(
       input({
         offered: TIER_LADDER,
-        answers: read({ tier: ["fast", { fast: 0.9 }], risky: 0.9, effort: "high" }),
+        answers: read({
+          tier: ["fast", { fast: 0.9 }],
+          risky: 0.9,
+          effort: "high",
+        }),
         canRun: (t) => t === "expert",
       }),
     );
@@ -329,7 +384,7 @@ describe("Locks in the route", () => {
     expect(r).toEqual({
       kind: "routed",
       write: { thinking: "high" },
-      record: { reason: "choice", tier: "fast", effort: "high", locked: true },
+      record: { reason: "cut", tier: "fast", effort: "high", locked: true },
     });
   });
   test("Model locked without a decided tier", () => {
@@ -350,7 +405,7 @@ describe("Locks in the route", () => {
     expect(r).toEqual({
       kind: "routed",
       write: { model: "fx/fast" },
-      record: { reason: "choice", tier: "fast", locked: true },
+      record: { reason: "cut", tier: "fast", locked: true },
     });
   });
 });
@@ -403,19 +458,30 @@ describe("Slot routes", () => {
   });
   test("Unusable slot alone", () => {
     const r = routeLaunch(
-      slotInput({ offered: [], answers: read({ tier: SLOT_PICK }), canRun: () => false }),
+      slotInput({
+        offered: [],
+        answers: read({ tier: SLOT_PICK }),
+        canRun: () => false,
+      }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: {},
-      record: { reason: "slot", tier: "slot::reviewer", fallback: "slot::reviewer" },
+      record: {
+        reason: "slot",
+        tier: "slot::reviewer",
+        fallback: "slot::reviewer",
+      },
     });
   });
   test("Slot below the bar with no tier", () => {
     const r = routeLaunch(
       slotInput({
         offered: [],
-        answers: read({ tier: ["slot::reviewer", { "slot::reviewer": 0.5 }], effort: "medium" }),
+        answers: read({
+          tier: ["slot::reviewer", { "slot::reviewer": 0.5 }],
+          effort: "medium",
+        }),
       }),
     );
     expect(r).toEqual({
@@ -434,7 +500,12 @@ describe("Slot routes", () => {
     expect(r).toEqual({
       kind: "routed",
       write: { thinking: "high" },
-      record: { reason: "slot", tier: "slot::reviewer", effort: "high", locked: true },
+      record: {
+        reason: "slot",
+        tier: "slot::reviewer",
+        effort: "high",
+        locked: true,
+      },
     });
   });
 });
@@ -442,15 +513,11 @@ describe("Slot routes", () => {
 describe("Recorded results", () => {
   test("Recorded results validate", () => {
     const reasons: Record<RouteReason, Route> = {
-      choice: routeLaunch(input({ answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
+      cut: routeLaunch(input({ answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
       risky: routeLaunch(input({ answers: read({ risky: 0.9 }) })),
-      "fast-unsure": routeLaunch(input({ answers: read({ tier: ["fast", { fast: 0.4 }] }) })),
-      "expert-denied": routeLaunch(
-        input({ answers: read({ tier: ["expert", { expert: 0.9 }] }), offered: TIER_LADDER }),
-      ),
-      "expert-admitted": routeLaunch(
+      expert: routeLaunch(
         input({
-          answers: read({ tier: ["expert", { expert: 0.9 }], expertNeeded: 0.95 }),
+          answers: read({ tier: ["expert", { expert: 0.9 }], effort: "xhigh" }),
           offered: TIER_LADDER,
         }),
       ),
