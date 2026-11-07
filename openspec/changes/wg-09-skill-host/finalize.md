@@ -16,7 +16,7 @@
 - **Branch**: `wg-09-skill-host`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/37`
 
 Deviations from the canonical flow (per AGENTS.md):
 - **No merge step.** There is no feature branch: `WG-09` is stale after the #33 squash-merge. The worktree branch `wg-09-skill-host` was created from `main` and rebased onto `origin/main` `66a0577` before review, so steps 3–4 (checkout and ff-merge into a feature branch) were skipped.
@@ -33,7 +33,7 @@ Deviations from the canonical flow (per AGENTS.md):
 
 ## PR comment
 
-- **PR comment status**: `pending`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/37#issuecomment-6702255450)
 
 ---
 
