@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { main } from "../../scripts/replay/cli.ts";
-import { parseArgs, readConfig, UsageError } from "../../scripts/replay/config.ts";
+import { parseArgs, readConfig, UsageError, workersFor } from "../../scripts/replay/config.ts";
 import { type JevFixture, startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
 import { mainBody } from "./helpers.ts";
@@ -378,7 +378,9 @@ describe("report pass", () => {
   });
 
   test("workers default to 200 for report and 46 for pass 1", () => {
-    expect(parseArgs(["--pass", "report"]).workers).toBeUndefined();
-    expect(parseArgs(["--pass", "report", "--workers", "5"]).workers).toBe(5);
+    expect(workersFor(parseArgs(["--pass", "report"]))).toBe(200);
+    expect(workersFor(parseArgs(["--pass", "1"]))).toBe(46);
+    expect(workersFor(parseArgs(["--pass", "report", "--workers", "5"]))).toBe(5);
+    expect(workersFor(parseArgs(["--pass", "1", "--workers", "5"]))).toBe(5);
   });
 });

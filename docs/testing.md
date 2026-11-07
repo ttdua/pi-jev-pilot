@@ -70,7 +70,7 @@ A manual procedure (not in CI) that sends real prompts to real Jev with and with
 3. Get the operator's approval of the printed counts and cost.
 4. Run it: the same command plus `--send`. The key is read from the environment variable named by `classifier.apiKeyEnv` (default `TYPESAFE_API_KEY`).
 
-Options: `--pass 1` (the only value; pass 2 was removed), `--seed N` (1), `--main N` (100), `--workers N` (46), `--sessions DIR` (`<agentDir>/sessions`), `--url URL` (must be https or loopback http), `--only a,b` (run only the bases, the reruns and the listed variants, for example `--only effort-reversed`). `--models FILE` is still accepted but does nothing: the context percentage it served was removed.
+Options: `--pass 1|report` (pass 2 was removed), `--seed N` (1), `--main N` (100), `--workers N` (46 for pass 1, 200 for report), `--sessions DIR` (`<agentDir>/sessions`), `--url URL` (must be https or loopback http), `--only a,b` (run only the bases, the reruns and the listed variants, for example `--only effort-reversed`). `--models FILE` is still accepted but does nothing: the context percentage it served was removed.
 
 Outputs go under `<agentDir>/jev/replay/<run-id>/`: `aggregates.json` (counts only) and `cases.md` (the differing prompts and briefs). They are private and owner-only. Copy only aggregates into evidence, and delete the directory after the decision.
 

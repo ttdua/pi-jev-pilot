@@ -12,6 +12,13 @@ export const USAGE =
 
 export class UsageError extends Error {}
 
+const PASS1_WORKERS = 46;
+const REPORT_WORKERS = 200;
+
+/** The worker sample size: `--workers` when given, else the pass default. */
+export const workersFor = (args: Pick<Args, "pass" | "workers">): number =>
+  args.workers ?? (args.pass === "report" ? REPORT_WORKERS : PASS1_WORKERS);
+
 function passOf(value: string | undefined): 1 | "report" {
   if (value === "1") return 1;
   if (value === "report") return "report";

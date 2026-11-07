@@ -10,6 +10,7 @@ import {
   type ReplayConfig,
   USAGE,
   UsageError,
+  workersFor,
 } from "./config.ts";
 import { mainSamples, mainStratum, sample, workerKind, workerSamples } from "./corpus.ts";
 import {
@@ -48,9 +49,6 @@ function printDryRun(
   console.log(`cost: $${e.usd.toFixed(2)} (exact $${e.usd.toFixed(4)})`);
   console.log("note: retries are not in the estimate");
 }
-
-const PASS1_WORKERS = 46;
-const REPORT_WORKERS = 200;
 
 type Setup = {
   config: ReplayConfig;
@@ -109,7 +107,7 @@ function sendOptions(setup: Setup) {
 
 async function replayPass1(args: Args, setup: Setup): Promise<number> {
   const { config } = setup;
-  const { main, workers } = sampleInputs(args, setup, args.workers ?? PASS1_WORKERS);
+  const { main, workers } = sampleInputs(args, setup, workersFor(args));
   const input: PlanInput = {
     main,
     workers,
@@ -150,7 +148,7 @@ async function replayPass1(args: Args, setup: Setup): Promise<number> {
 
 async function replayReport(args: Args, setup: Setup): Promise<number> {
   const { config } = setup;
-  const { main, workers } = sampleInputs(args, setup, args.workers ?? REPORT_WORKERS);
+  const { main, workers } = sampleInputs(args, setup, workersFor(args));
   const plan = planReport({
     main,
     workers,
