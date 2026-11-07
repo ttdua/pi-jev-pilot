@@ -68,7 +68,7 @@ The package SHALL split the catalog into as few batches as hold at most 254 skil
 - **THEN** only the first `review` entry is in a batch
 
 ### Requirement: Skill questions
-When skill questions are asked, the first batch's request SHALL carry, after the existing main questions, a `which` choice and the three gates `gate::acts_on_user_system`, `gate::would_follow_documented_procedure` and `gate::prose_suffices`; each later batch's request MUST carry only its own `which`. When skill questions are not asked, the main questions MUST be unchanged. Which requests carry skill questions is decided in `wg-09-skill-host`.
+When skill questions are asked, the first batch's request SHALL carry, after the existing main questions, a `which` choice and the three gates `gate::acts_on_user_system`, `gate::would_follow_documented_procedure` and `gate::prose_suffices`; each later batch's request MUST carry only its own `which`. When skill questions are not asked, the main questions MUST be unchanged. Which requests carry skill questions is defined by the `skill-delivery` capability.
 
 #### Scenario: First batch with effort
 - **WHEN** main questions are built with effort asked and a first batch of three skills
