@@ -1,6 +1,6 @@
 // Tuning rules: record shape, events and constants. Pure; no I/O.
 
-import { after, counts, decisions, p90, type DecisionLine } from "./tuning-window.ts";
+import { after, counts, decisions, p90, shareAbove, type DecisionLine } from "./tuning-window.ts";
 
 export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
 
@@ -77,4 +77,81 @@ export function nextValue(
   let value = clamp(wanted);
   if (block !== undefined && value >= block.value) value = block.value - TUNING.roundTo;
   return value > current ? value : undefined;
+}
+
+export type Counts = { asked: number; timeouts: number };
+export type StepResult = { record: TuningRecord; event?: TuningEvent };
+
+/** Appends `entry`, keeping the latest `TUNING.history` entries. */
+export function pushHistory(history: TuningRecord["history"], entry: HistoryEntry): HistoryEntry[] {
+  return [...(history ?? []), entry].slice(-TUNING.history);
+}
+
+export function applyChange(
+  record: TuningRecord,
+  c: { from: number; to: number; base: number; before: Counts; now: number },
+): TuningRecord {
+  return {
+    ...record,
+    timeoutMs: { value: c.to, base: c.base },
+    pending: { from: c.from, to: c.to, at: c.now, before: { ...c.before } },
+    history: pushHistory(record.history, entry(c.now, c.from, c.to, "rule")),
+  };
+}
+
+function entry(at: number, from: number, to: number, cause: TuningCause): HistoryEntry {
+  return { at, parameter: "timeoutMs", from, to, cause };
+}
+
+/** Judges a pending change once `TUNING.window` decisions follow it; otherwise no event. */
+export function evaluatePending(
+  record: TuningRecord,
+  ds: readonly DecisionLine[],
+  now: number,
+): StepResult {
+  const { pending } = record;
+  if (pending === undefined) return { record };
+  const judged = after(decisions(ds), pending.at).slice(0, TUNING.window);
+  if (judged.length < TUNING.window) return { record };
+  const result = counts(judged);
+  const worse = result.asked >= TUNING.minAsked && shareAbove(result, pending.before);
+  const { pending: _cleared, ...rest } = record;
+  if (!worse) return { record: rest, event: { kind: "kept", from: pending.from, to: pending.to } };
+  return { record: revertedRecord(rest, pending, now), event: revertedEvent(pending) };
+}
+
+function revertedEvent(p: { from: number; to: number }): TuningEvent {
+  return { kind: "reverted", from: p.to, to: p.from };
+}
+
+function revertedRecord(
+  rest: TuningRecord,
+  p: { from: number; to: number },
+  now: number,
+): TuningRecord {
+  const { timeoutMs, ...others } = rest;
+  const restored =
+    timeoutMs === undefined || p.from === timeoutMs.base
+      ? {}
+      : { timeoutMs: { ...timeoutMs, value: p.from } };
+  return {
+    ...others,
+    ...restored,
+    block: { value: p.to, at: now },
+    history: pushHistory(rest.history, entry(now, p.to, p.from, "revert")),
+  };
+}
+
+/** Drops tuning state when the config's untuned value no longer matches the tuned base. */
+export function supersede(record: TuningRecord, untuned: number, now: number): StepResult {
+  const tuned = record.timeoutMs;
+  if (tuned === undefined || tuned.base === untuned) return { record };
+  const { timeoutMs: _t, pending: _p, block: _b, ...rest } = record;
+  return {
+    record: {
+      ...rest,
+      history: pushHistory(record.history, entry(now, tuned.value, untuned, "superseded")),
+    },
+    event: { kind: "superseded", from: tuned.value, to: untuned },
+  };
 }

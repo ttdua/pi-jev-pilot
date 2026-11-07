@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   TUNING,
   blockActive,
+  applyChange,
+  evaluatePending,
   fires,
+  pushHistory,
+  supersede,
   nextValue,
   type HistoryEntry,
   type TuningRecord,
@@ -127,5 +131,173 @@ describe("blockActive", () => {
   });
   test("no block is never active", () => {
     expect(blockActive(undefined, [])).toBe(false);
+  });
+});
+
+const entryAt = (at: number): HistoryEntry => ({
+  at,
+  parameter: "timeoutMs",
+  from: 1,
+  to: 2,
+  cause: "rule",
+});
+
+const pendingRecord = (
+  from: number,
+  to: number,
+  before: { asked: number; timeouts: number },
+  base = 1500,
+): TuningRecord => ({
+  timeoutMs: { value: to, base },
+  pending: { from, to, at: 1000, before },
+  history: [{ at: 1000, parameter: "timeoutMs", from, to, cause: "rule" }],
+});
+
+/** 40 lines after 1000: `timeouts` timed out, `asked - timeouts` answered, the rest silent. */
+const judgedLines = (asked: number, timeouts: number): DecisionLine[] =>
+  Array.from({ length: 40 }, (_, i) => {
+    if (i < timeouts) return line(1001 + i, { answered: false, miss: "timeout" });
+    if (i < asked) return line(1001 + i);
+    return line(1001 + i, { answered: false });
+  });
+
+describe("applyChange", () => {
+  const before = { asked: 40, timeouts: 8 };
+
+  test("first change recorded", () => {
+    const r = applyChange({}, { from: 1500, to: 1700, base: 1500, before, now: 1000 });
+    expect(r.timeoutMs).toEqual({ value: 1700, base: 1500 });
+    expect(r.pending).toEqual({ from: 1500, to: 1700, at: 1000, before });
+    expect(r.history?.at(-1)).toEqual({
+      at: 1000,
+      parameter: "timeoutMs",
+      from: 1500,
+      to: 1700,
+      cause: "rule",
+    });
+  });
+
+  test("second step", () => {
+    const start: TuningRecord = { timeoutMs: { value: 1700, base: 1500 } };
+    const r = applyChange(start, { from: 1700, to: 1900, base: 1500, before, now: 2000 });
+    expect(r.timeoutMs).toEqual({ value: 1900, base: 1500 });
+    expect(r.pending?.from).toBe(1700);
+  });
+
+  test("does not mutate its input", () => {
+    const start: TuningRecord = { history: [entryAt(1)] };
+    applyChange(start, { from: 1, to: 2, base: 1, before, now: 5 });
+    expect(start).toEqual({ history: [entryAt(1)] });
+  });
+});
+
+describe("pushHistory", () => {
+  test("oldest dropped", () => {
+    const full = Array.from({ length: 50 }, (_, i) => entryAt(i));
+    const next = pushHistory(full, entryAt(99));
+    expect(next).toHaveLength(50);
+    expect(next[0]?.at).toBe(1);
+    expect(next.at(-1)?.at).toBe(99);
+    expect(full).toHaveLength(50);
+  });
+});
+
+describe("evaluatePending", () => {
+  test("worse is judged a revert", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const out = evaluatePending(rec, judgedLines(40, 8), 9000);
+    expect(out.event).toEqual({ kind: "reverted", from: 1700, to: 1500 });
+  });
+
+  test("revert to the untuned value", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const out = evaluatePending(rec, judgedLines(40, 8), 9000);
+    expect(out.record.timeoutMs).toBeUndefined();
+    expect(out.record.pending).toBeUndefined();
+    expect(out.record.block).toEqual({ value: 1700, at: 9000 });
+    expect(out.record.history?.at(-1)).toEqual({
+      at: 9000,
+      parameter: "timeoutMs",
+      from: 1700,
+      to: 1500,
+      cause: "revert",
+    });
+  });
+
+  test("revert to an earlier tuned value", () => {
+    const rec = pendingRecord(1700, 1900, { asked: 40, timeouts: 6 });
+    const out = evaluatePending(rec, judgedLines(40, 8), 9000);
+    expect(out.record.timeoutMs).toEqual({ value: 1700, base: 1500 });
+  });
+
+  test("equal, kept", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 8 });
+    const out = evaluatePending(rec, judgedLines(40, 8), 9000);
+    expect(out.event).toEqual({ kind: "kept", from: 1500, to: 1700 });
+    expect(out.record.pending).toBeUndefined();
+    expect(out.record.timeoutMs).toEqual({ value: 1700, base: 1500 });
+    expect(out.record.history).toEqual(rec.history);
+  });
+
+  test("too few asked, kept", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const out = evaluatePending(rec, judgedLines(10, 10), 9000);
+    expect(out.event?.kind).toBe("kept");
+  });
+
+  test("not yet judged", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const out = evaluatePending(rec, judgedLines(40, 8).slice(0, 39), 9000);
+    expect(out.event).toBeUndefined();
+    expect(out.record).toEqual(rec);
+  });
+
+  test("pending survives an empty ledger", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const empty = evaluatePending(rec, [], 9000);
+    expect(empty.event).toBeUndefined();
+    expect(empty.record.pending).toEqual(rec.pending);
+    const later = evaluatePending(rec, judgedLines(40, 8), 9000);
+    expect(later.event?.kind).toBe("reverted");
+  });
+
+  test("judges only the first 40 after the change", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
+    const extra = lines(20, 2000, { answered: false, miss: "timeout" });
+    const out = evaluatePending(rec, [...judgedLines(40, 6), ...extra], 9000);
+    expect(out.event?.kind).toBe("kept");
+  });
+});
+
+describe("supersede", () => {
+  const rec: TuningRecord = {
+    timeoutMs: { value: 1700, base: 1500 },
+    pending: { from: 1500, to: 1700, at: 1, before: { asked: 1, timeouts: 0 } },
+    block: { value: 1900, at: 2 },
+  };
+
+  test("operator edits config", () => {
+    const out = supersede(rec, 2000, 7000);
+    expect(out.record.timeoutMs).toBeUndefined();
+    expect(out.record.pending).toBeUndefined();
+    expect(out.record.block).toBeUndefined();
+    expect(out.record.history?.at(-1)).toEqual({
+      at: 7000,
+      parameter: "timeoutMs",
+      from: 1700,
+      to: 2000,
+      cause: "superseded",
+    });
+    expect(out.event).toEqual({ kind: "superseded", from: 1700, to: 2000 });
+  });
+
+  test("matching base untouched", () => {
+    const out = supersede(rec, 1500, 7000);
+    expect(out.event).toBeUndefined();
+    expect(out.record).toEqual(rec);
+  });
+
+  test("no tuned value, no event", () => {
+    expect(supersede({}, 2000, 7000).event).toBeUndefined();
   });
 });
