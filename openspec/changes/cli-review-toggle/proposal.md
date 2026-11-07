@@ -25,6 +25,12 @@
 - `state.json` gains the optional boolean `cliReviewEnabled`. `config.json` gains the optional boolean `review.enabled`.
 - `/jev all on|off` does not touch the CLI review.
 
+**The `review` feature switch**
+- From: nine feature switches, including `review`. `/jev all` sets seven decision features, and `Jev · off` needs all seven off. No code reads `switches.review`.
+- To: eight feature switches with no `review`. `/jev all` sets six decision features, `Jev · off` needs all six off, and `/jev review on|off` reports usage. A legacy `switches.review` in `state.json` is accepted on read, ignored, and dropped at the next write.
+- Reason: the switch does nothing, and its name suggests it controls the CLI review, which it never did.
+- Impact: **breaking** for anyone who scripts `/jev review on|off`, though the command had no effect. Existing state files keep working.
+
 ## Capabilities
 
 ### New Capabilities
@@ -38,10 +44,13 @@ None.
 - `state-file`: adds `cliReviewEnabled`, and reset clears it.
 - `config-file`: adds the `review.enabled` field rule.
 - `settings-resolution`: resolves the effective on/off setting (default off). The state's reviewer default replaces only the config's `review.cli`, no longer the whole `review` section.
+- `status-line`: `Jev · off` counts six decision features. The refresh scenario no longer uses `/jev review off`.
+- `jev-command` (also): the feature list loses `review`, and `/jev all` sets six features.
+- `state-file` (also): the feature list loses `review`, and a legacy `switches.review` is accepted and dropped.
 
 ## Impact
 
-- Code: `src/store/state-file.ts`, `src/store/config.ts`, `src/store/defaults.ts`, `src/store/settings.ts`, `src/host/review.ts`, `src/host/setup.ts` and `src/host/commands.ts`.
+- Code: `src/store/state-file.ts`, `src/store/config.ts`, `src/store/defaults.ts`, `src/store/settings.ts`, `src/host/review.ts`, `src/host/setup.ts` and `src/host/commands.ts`. Removing the switch touches `FEATURES`, `DECISION_FEATURES` and `DEFAULTS.switches` in `src/store/defaults.ts`, and the state validator in `src/store/state-file.ts`.
 - Tests:
   - Unit tests for the store, commands and the review tool.
   - Host tests that assert `jev_review` is present in main requests: `cli-review`, `jev-base`, `main-effort` and `strategy-advice`. With the default off, the package-on runs now match a run without the package with no filtering.
@@ -51,4 +60,5 @@ None.
   - `docs/privacy.md` (off by default).
   - `docs/testing.md` (the Jev-down comparison no longer needs to ignore `jev_review`).
   - `docs/architecture.md` (what `review.ts` and `state-file.ts` hold).
+  - `docs/usage-guide.md` and `docs/workflow.md` again, for the removed `review` switch (feature list, "six decision features", `Jev · off`).
 - No new dependency, no network or Jev call, and no change to the registered tools, commands or handlers (`package-loading` holds).

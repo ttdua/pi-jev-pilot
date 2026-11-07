@@ -60,6 +60,14 @@ The same sync runs after every `/jev` change that can flip the setting, so the n
 
 With the default off, package-on runs in `jev-base`, `main-effort` and `strategy-advice` declare no `jev_review`. Those tests drop the `withoutReview` filter and compare raw bodies, which is a stricter check. Their assertions change from "has `jev_review`" to "has no `jev_review`". `cli-review.test.ts` turns the review on through a new harness option that writes `review.enabled: true` into the test `config.json`.
 
+### D6. Remove the `review` feature switch, and tolerate the legacy key
+
+- **Removal:** `review` leaves `FEATURES`, `DECISION_FEATURES` and `DEFAULTS.switches` in `src/store/defaults.ts`. The `Feature` type follows from `FEATURES`, so the compiler finds every other use. Nothing reads the switch, so no behaviour beyond the command, the status report and `Jev · off` changes.
+- **Reserved name:** `review` stays in `RESERVED_SLOT_NAMES`. `parseSlotArgs` therefore still skips it, and `parseJevArgs` falls through to usage, because `review` is no longer a feature.
+- **Legacy key:** the state validator still accepts `switches.review` when it is a boolean, so an old file is not malformed. `parseState` then drops it from the returned state, and drops `switches` too when nothing else is left in it. Callers never see the key, and `updateState` writes what it read, so the key is gone after the next write.
+- **Why not keep it as an unknown key:** the store rejects unknown keys and moves a malformed file aside at the next change. That would lose the mode, the other switches and the CLI review setting of every user who ever ran `/jev review off` or `/jev all off`.
+- **Why not keep the switch as an alias of the CLI review:** its default was on, while the CLI review is off by default. `/jev all off` would also turn the CLI review off, which the spec keeps independent.
+
 ## Risks / Trade-offs
 
 - [Breaking change: every user loses the tool after the update] → Documented in `docs/usage-guide.md` and `docs/configuration.md`, and to be named in the PR description. Turning it back on is one command or one config key.
@@ -70,6 +78,9 @@ With the default off, package-on runs in `jev-base`, `main-effort` and `strategy
 - [A Pi build without `setActiveTools`] → The sync is wrapped and fails silently. The execution guard still refuses calls while off.
 
 ## Migration Plan
+
+After the upgrade, a `switches.review` left in `state.json` is ignored and removed by the next `/jev` change. No manual step is needed.
+
 
 No data migration. On upgrade the setting resolves to off. Rollback is the previous package version. That build rejects unknown keys, so it reports `state.json` as malformed when it holds `cliReviewEnabled`, and `config.json` as invalid when it holds `review.enabled`. A rollback must therefore remove `review.enabled` from `config.json`. A malformed state is moved aside at the next `/jev` change, as today.
 

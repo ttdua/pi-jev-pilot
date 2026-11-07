@@ -19,6 +19,18 @@ This is a breaking change for current users. After the update, `jev_review` disa
 
 Affected living specs: `cli-review` (independence and the main-session offer), `jev-command` (status report, usage text, reset, CLI review default), `state-file` (state fields), `config-file` (field rules for `review`), `settings-resolution` (defaults and state overrides).
 
+### Added after the first implementation: remove the `review` feature switch
+
+The operator asked whether `/jev review off` already turns `jev_review` off. It does not. The living `cli-review` spec says the tool runs "whatever the feature switches (including `review`) say". No code reads `switches.review` either: the switch only counts toward `Jev · off` on the status line. Since ADR 0004, review routing goes through an ordinary crew slot, so the switch does nothing. Two things called "review" that look alike but act differently mislead the operator, so the operator decided to remove the switch in this change.
+
+What the operator sees:
+
+- The features become `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status` and `verbose`. `/jev all on|off` sets the six decision features, and `Jev · off` means all six are off.
+- `/jev review on|off` is no longer a form and reports usage, like any unknown input. `review` stays a reserved slot name, so `/jev review ...` never becomes a slot form.
+- A `state.json` written by an older version may still hold `switches.review`. It is accepted on read, its value is ignored, and it is gone after the next state write. It is not treated as a malformed state, which would move the whole file aside and lose the mode, the other switches and the CLI review setting. (Operator's choice.)
+
+Affected living specs, in addition: `jev-command` (feature switches, all features, usage text), `state-file` (legacy key), `status-line` (`Jev · off` and its refresh scenario), `cli-review` (the independence requirement no longer names a `review` switch).
+
 ## Alternatives Considered
 
 ### Alternative A: A tenth feature switch `cli-review`
@@ -51,7 +63,10 @@ Alternative C. It keeps the CLI review apart from Jev and the feature switches, 
 - Off applies to every user after the update, including those who already have `cliReview` in the state. The breaking change is documented. (Operator's choice.)
 - `/jev reset` brings the CLI review back to off, or to the config's `review.enabled`. (Operator's choice.)
 - `/jev all on|off` does not touch the CLI review.
-- The CLI review stays independent of the API key, Jev and the nine feature switches. Only its own setting gates it.
+- The CLI review stays independent of the API key, Jev and the feature switches. Only its own setting gates it.
+- The `review` feature switch is removed in this change rather than in a follow-up. It does nothing today. (Operator's choice.)
+- A legacy `switches.review` in `state.json` is read without error, ignored, and dropped at the next write. A non-boolean value there is still a malformed state, as before. (Operator's choice.)
+- `review` stays a reserved slot name.
 - In a child session the tool stays hidden and refused whatever the setting says.
 - The repository has no changelog file, so the breaking change is recorded in `docs/usage-guide.md`, `docs/configuration.md` and the commit and PR description.
 

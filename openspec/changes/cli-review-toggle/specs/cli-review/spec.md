@@ -41,10 +41,11 @@ If `jev_review` executes while the CLI review is off, it MUST return an error re
 ## MODIFIED Requirements
 
 ### Requirement: Independent of Jev and switches
-`jev_review` MUST NOT call Jev. While the CLI review is on, it SHALL stay offered and run whether or not the API key is set, whatever the feature switches (including `review`) say, and when `config.json` is invalid. With an invalid config, the config contributes nothing: the reviewer defaults to `codex` unless the state sets one, and the CLI review is on only if the state turns it on. `/jev all on|off` MUST NOT change the CLI review.
+`jev_review` MUST NOT call Jev. While the CLI review is on, it SHALL stay offered and run whether or not the API key is set, whatever the feature switches say, and when `config.json` is invalid. With an invalid config, the config contributes nothing: the reviewer defaults to `codex` unless the state sets one, and the CLI review is on only if the state turns it on. `/jev all on|off` MUST NOT change the CLI review.
 
 #### Scenario: No key, review switch off
-- **WHEN** the CLI review is on, the API key is not set, the `review` switch is off, and `jev_review` is called with a brief
+<!-- Intentional change: the `review` feature switch is removed; the scenario keeps its name and now turns every feature switch off. -->
+- **WHEN** the CLI review is on, the API key is not set, every feature switch is off, and `jev_review` is called with a brief
 - **THEN** the CLI runs and no request reaches Jev
 
 #### Scenario: Invalid config, on from state

@@ -16,7 +16,7 @@
 ## Global Constraints
 
 - **Surface.** No new registration (tool, command, handler, flag or shortcut). `tests/load.test.ts` stays green.
-- **Independence.** The CLI review never calls Jev and does not depend on the key, the nine switches or config validity. An invalid config contributes nothing, so only the state can turn it on then.
+- **Independence.** The CLI review never calls Jev and does not depend on the key, the feature switches or config validity. An invalid config contributes nothing, so only the state can turn it on then.
 - **Children.** `hideReviewInChild` and the child refusal are unchanged and run whatever the setting.
 - **Failures.** The sync swallows every error. The guard treats an unreadable setting as off.
 - **Network.** Tests use loopback only and need no secrets. Fake `codex` and `opencode` scripts as today.
@@ -29,6 +29,7 @@
 3. **The reviewer form writing half a change.** A refused model must not set `cliReviewEnabled`. Pinned in Task 7 ("Refused model leaves the review off").
 4. **`state.cliReview` wiping a config `review.enabled`.** Pinned in Task 3 ("Reviewer from state keeps the config's enabled").
 5. **Raw-body equality in the Jev-down host tests.** Once `withoutReview` is gone, any leftover review declaration fails the test. Pinned in Task 10.
+6. **A user's state lost on upgrade.** An old `state.json` with `switches.review` must not become malformed: that would move the whole file aside at the next change. Pinned in Task 14 ("Legacy review switch accepted and dropped" and "Legacy review switch gone after a write").
 
 ---
 
@@ -50,6 +51,10 @@
 | `JevArgs` (`src/host/commands.ts`) | modified | adds `{ kind: "cli-review-switch"; on: boolean }` | no |
 | `runJev` deps | modified | adds optional `sync?: (snapshot: Snapshot) => void`, called after a successful state change | no |
 | `startHostSession` option (`tests/host/harness.ts`) | modified | `jevConfig.reviewEnabled?: boolean`, written as `review.enabled` | no |
+| `/jev <feature> on\|off` | modified | features are `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`; `/jev review on\|off` is usage | public (CLI) |
+| `/jev all on\|off`, `Jev · off` | modified | six decision features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert` | public (CLI, output) |
+| `state.json` `switches` | modified | keys are the eight features; a boolean legacy `review` is accepted on read and dropped from the returned state (empty `switches` dropped too); non-boolean is malformed | public (file format) |
+| `FEATURES`, `DECISION_FEATURES`, `DEFAULTS.switches` (`src/store/defaults.ts`) | modified | without `review`; `Feature` type follows; `RESERVED_SLOT_NAMES` unchanged | no |
 
 ---
 
@@ -250,6 +255,56 @@
 
 - [ ] **Step 1:** Run `bun run typecheck && bun run lint && bun run fmt:check && bun test`. Expected: every command exits 0.
 
+## Task 13: Drop `review` from the features — implements 7.1, 7.3
+
+**Files:** `src/store/defaults.ts`, `tests/store/validate.test.ts`, `tests/store/settings.test.ts`, `tests/host/commands.test.ts`, `tests/host/status.test.ts`, `tests/host/jev-base.test.ts`
+
+- [ ] **Step 1:** Change and add tests:
+  - `validate.test.ts` `constants`: `FEATURES` equals `["effort", "subagents", "skills", "strategy", "tools", "expert", "status", "verbose"]`, and `RESERVED_SLOT_NAMES` still contains `review`.
+  - `settings.test.ts` `Everything defaulted`: the switches object has no `review` key.
+  - `commands.test.ts`:
+    - `Removed review switch`: `parseJevArgs("review off")` and `parseJevArgs("review on")` are usage. Through `runJev`, `/jev review off` reports usage as a warning and leaves `state.json` byte-identical.
+    - `Status lists eight features`: the `features:` block lists exactly the eight names in order, and the report has no `  review:` line.
+    - `all off then all on`: still iterates `DECISION_FEATURES`, and now also checks that `DECISION_FEATURES` has length 6.
+  - `status.test.ts` `Everything off`: six decision features off gives `Jev · off`.
+  - `jev-base.test.ts` `all decision features off shows off`: loop over the six names, without `review`.
+- [ ] **Step 2:** Run `bun test tests/store tests/host/commands.test.ts tests/host/status.test.ts`. Expected: FAIL.
+- [ ] **Step 3:** Remove `review` from `FEATURES`, `DECISION_FEATURES`, `DEFAULTS.switches` and the doc comment ("The six decision features"). Change the usage line to `switch the six decision features`. Run `bun run typecheck` and fix any compile fallout.
+- [ ] **Step 4:** Run the same tests. Expected: PASS, except `state-file.test.ts` cases that seed `switches.review`, which Task 14 handles. Note them.
+- [ ] **Step 5:** Commit `feat(jev-command): remove the unused review feature switch`.
+
+**Interfaces:** `FEATURES`, `DECISION_FEATURES` (Contracts).
+
+## Task 14: Tolerate a legacy `switches.review` — implements 7.2
+
+**Files:** `src/store/state-file.ts`, `tests/store/state-file.test.ts`
+
+- [ ] **Step 1:** Update the local `FEATURES` list in `state-file.test.ts` to the eight names, then add the tests:
+  - `Legacy review switch accepted and dropped`: `{"version":1,"mode":"budget","switches":{"review":false,"skills":false}}` reads `{ kind: "ok", state: { mode: "budget", switches: { skills: false } } }`.
+  - `Legacy review switch alone`: `{"version":1,"switches":{"review":true}}` reads `{ kind: "ok", state: {} }`.
+  - `Legacy review switch gone after a write`: seed `switches.review: false`, then `updateState(dir, (s) => ({ ...s, mode: "premium" }))`. The raw file JSON has `mode: "premium"` and no `switches`.
+  - `Non-boolean legacy review switch`: `"off"` is malformed with paths `["switches.review"]`.
+- [ ] **Step 2:** Run `bun test tests/store/state-file.test.ts`. Expected: FAIL.
+- [ ] **Step 3:** In `stateValidator`, validate `switches` with the eight features plus `review: boolean()`. In `parseState`, after validation, delete `switches.review`, and delete `switches` when it is then empty. Keep `State.switches` typed as `Partial<Record<Feature, boolean>>`.
+- [ ] **Step 4:** Run `bun test tests/store`. Expected: PASS.
+- [ ] **Step 5:** Commit `feat(state-file): accept and drop a legacy review switch`.
+
+## Task 15: Docs for the removed switch — implements 7.4
+
+**Files:** `docs/usage-guide.md`, `docs/workflow.md`
+
+- [ ] **Step 1:** `docs/usage-guide.md`:
+  - Remove `review` from both feature lists.
+  - Change every "seven decision features" to "six decision features", including the `Jev · off` row and the command tables.
+  - In the Upgrading note, add: "The `review` feature switch is removed: it never controlled anything. `/jev review on|off` now prints the usage text. A `switches.review` left in `state.json` is ignored and removed at the next change."
+- [ ] **Step 2:** `docs/workflow.md` §6: change the sentence to "The review needs no Jev key and ignores the feature switches and `/jev all off`. It needs the CLI review to be on, and runs whenever the operator asks."
+- [ ] **Step 3:** Run `grep -rn "seven decision\|expert, review\|\`review\` switch" docs`. Expected: no hits outside `docs/evidence/`. Then run `bun run fmt:check`. Expected: PASS.
+- [ ] **Step 4:** Commit `docs: remove the review feature switch`.
+
+## Task 16: Full gate — implements 7.5
+
+- [ ] **Step 1:** Run `bun run typecheck && bun run lint && bun run fmt:check && bun test`. Expected: every command exits 0.
+
 ---
 
 ## Scenario → test
@@ -263,7 +318,7 @@
 - Other tools untouched → `review-tool.test.ts` "Other tools untouched"
 - Refused while off → `review-tool.test.ts` "Refused while off", and `cli-review.test.ts` "Refused while off"
 - Unreadable setting counts as off → `review-tool.test.ts` "Unreadable setting counts as off"
-- No key, review switch off → `review-tool.test.ts` "independent of key and switches" (enabled: true)
+- No key, review switch off (now: every feature switch off) → `review-tool.test.ts` "independent of key and switches" (enabled: true; the tool never reads switches)
 - Invalid config, on from state → `cli-review.test.ts` "Invalid config, on from state"
 - Offered in the main session → `cli-review.test.ts` "offered in the main session"
 - Absent in a child session → `cli-review.test.ts` "absent in a child session"
@@ -279,6 +334,9 @@
 - Reset turns the CLI review off → `commands.test.ts` "Reset turns the CLI review off"
 - Command from a later work group, Usage lists the tune form, Unknown mode, Usage lists the mode form, Unknown feature, Bad value, Extra words, Extra words after cli-review, Whitespace only, Usage lists the slot forms → existing `commands.test.ts` tests, unchanged
 - Extra words after cli-review off → `commands.test.ts` parser "cli-review off now is usage"
+- Removed review switch → `commands.test.ts` "Removed review switch" (Task 13)
+- Turn a feature off, Switch survives a restart, Turn a feature back on → existing `commands.test.ts` tests, unchanged
+- Status lists eight features → `commands.test.ts` "Status lists eight features" (Task 13)
 - Usage lists the cli-review switch → `commands.test.ts` "Usage lists the cli-review switch"
 - Bare reviewer → `commands.test.ts` "bare reviewer stores, reports and redraws"
 - Choosing a reviewer turns the review on → `commands.test.ts` "Choosing a reviewer turns the review on"
@@ -291,10 +349,17 @@
 - Refused switch → `commands.test.ts` "Refused switch"
 
 **state-file**
-- Valid state read, OpenCode model id accepted, Model that looks like a flag, Every documented feature accepted, Literal default rejected, Unknown feature → existing `state-file.test.ts` tests
+- Valid state read, OpenCode model id accepted, Model that looks like a flag, Literal default rejected, Unknown feature → existing `state-file.test.ts` tests
+- Every documented feature accepted → `state-file.test.ts` "Every documented feature accepted" (eight features, Task 14)
+- Legacy review switch accepted and dropped, Legacy review switch alone, Legacy review switch gone after a write, Non-boolean legacy review switch → `state-file.test.ts` tests of the same names (Task 14)
 - CLI review switch read → `state-file.test.ts` "CLI review switch read"
 - Non-boolean CLI review switch → `state-file.test.ts` "Non-boolean CLI review switch"
 - Reset clears everything → `state-file.test.ts` "Reset clears everything" (extended)
+
+**status-line**
+- Everything off → `status.test.ts` "Everything off" (six features, Task 13); host: `jev-base.test.ts` "all decision features off shows off"
+- Refreshed after a switch change → `jev-base.test.ts` "all decision features off shows off" (the last `/jev expert off` redraws `Jev · off`)
+- Every other status-line scenario → existing `status.test.ts` and host tests, unchanged
 
 **config-file**
 - Duplicate hold provider, Hold provider bounds, Non-boolean parentRequest, Enum values, Forked launch setting accepted, Forked launch setting rejected → existing `config-read.test.ts` tests
