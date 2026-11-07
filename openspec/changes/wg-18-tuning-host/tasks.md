@@ -1,7 +1,7 @@
 ## 1. Seen marker in the store and the policy
 
-- [ ] 1.1 Add optional `seenAt` to `TuningDocument` and its validator in `src/store/tuning-file.ts`, and to `TuningRecord` in `src/policy/tuning.ts`; extend `tests/store/tuning-file.test.ts` (Seen marker read, Bad seen marker) and keep the mutual-assignability test passing
-- [ ] 1.2 Add a pure `markSeen(record, at)` in `src/policy/tuning.ts` that never lowers `seenAt`, and `unseenEntries(record)`; table-test both in `tests/policy/tuning.test.ts`
+- [x] 1.1 Add optional `seenAt` to `TuningDocument` and its validator in `src/store/tuning-file.ts`, and to `TuningRecord` in `src/policy/tuning.ts`; extend `tests/store/tuning-file.test.ts` (Seen marker read, Bad seen marker) and keep the mutual-assignability test passing
+- [x] 1.2 Add a pure `markSeen(record, at)` in `src/policy/tuning.ts` that never lowers `seenAt`, and `unseenEntries(record)`; table-test both in `tests/policy/tuning.test.ts`
 
 ## 2. Pure signals
 
