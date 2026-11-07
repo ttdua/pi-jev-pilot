@@ -40,7 +40,7 @@
   - Cancelled gives no advice and restores the status.
   - Ledger fields: advised true and false, and absent.
   - Status updates.
-- [ ] 4.3 Add a host test `tests/host/strategy-advice.test.ts` through the real CLI and the Jev fixture:
+- [x] 4.3 Add a host test `tests/host/strategy-advice.test.ts` through the real CLI and the Jev fixture:
   - The `delegate` block in the first provider request.
   - `direct` leaves the request without the block.
   - Jev 500 leaves requests equal to a run without the package.
