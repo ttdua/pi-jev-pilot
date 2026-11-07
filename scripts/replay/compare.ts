@@ -98,7 +98,7 @@ function mainKeys(answers: Record<string, Answer>): Decided {
   return { keys: out, answers };
 }
 
-const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
+export const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
   resume: false,
   inheritContext: false,
   runInBackground,
@@ -106,13 +106,18 @@ const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
   thinkingLocked: false,
 });
 
-function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): Decided | undefined {
-  const answers = readWorkerOutcome({ kind: "ok", body }, req.specs);
-  if (answers.kind !== "read") return undefined;
-  const modelOf = (t: Target): string =>
+/** The model a target resolves to in a plain config; empty when unconfigured. */
+export function modelOfConfig(config: PlainConfig): (t: Target) => string {
+  return (t) =>
     isSlot(t)
       ? (config.slots.find((s) => s.name === slotName(t))?.model ?? "")
       : (config.tiers[t] ?? "");
+}
+
+function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): Decided | undefined {
+  const answers = readWorkerOutcome({ kind: "ok", body }, req.specs);
+  if (answers.kind !== "read") return undefined;
+  const modelOf = modelOfConfig(config);
   const route = routeLaunch({
     answers,
     launch: REPLAY_LAUNCH(runsInBackground(req)),
