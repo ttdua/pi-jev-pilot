@@ -141,7 +141,7 @@ describe("status line and /jev through the real CLI", () => {
     "unknown command notifies a warning",
     async () => {
       const s = await host(await fixtureWith());
-      await command(s, "/jev tune");
+      await command(s, "/jev tune apply");
       await s.waitFor(() => notifies(s).length >= 1, "notify");
       expect(notifies(s).at(-1)?.notifyType).toBe("warning");
     },

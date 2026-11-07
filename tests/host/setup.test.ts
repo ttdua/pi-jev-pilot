@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY, isChild } from "../../src/host/child.ts";
@@ -7,6 +7,7 @@ import { setup } from "../../src/host/setup.ts";
 import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tool-service.ts";
 import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
+import { firing } from "./tuning-fakes.ts";
 import { body, TIERS } from "./worker-fakes.ts";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
@@ -397,6 +398,33 @@ describe("setup", () => {
       fakeCtx("kid", () => calls++),
     );
     expect(calls).toBe(0);
+  });
+
+  test("child session start and settle leave tuning alone", async () => {
+    const dir = join(agentDir, "jev");
+    mkdirSync(dir, { recursive: true });
+    const tuning = JSON.stringify({
+      history: [{ at: 1000, parameter: "timeoutMs", from: 1500, to: 1700, cause: "rule" }],
+    });
+    writeFileSync(join(dir, "tuning.json"), tuning);
+    writeFileSync(
+      join(dir, "ledger.jsonl"),
+      firing()
+        .map((e) => JSON.stringify(e))
+        .join("\n") + "\n",
+    );
+    const f = fakePi();
+    setup(f.pi);
+    f.emit(CREATED, { sessionId: "kid" });
+    let notified = 0;
+    const ctx = {
+      ...fakeCtx("kid", () => {}),
+      ui: { setWidget: () => {}, notify: () => notified++ },
+    };
+    await f.handlers.get("session_start")![0]!({}, ctx);
+    await f.handlers.get("agent_settled")![0]!({}, ctx);
+    expect(readFileSync(join(dir, "tuning.json"), "utf8")).toBe(tuning);
+    expect(notified).toBe(0);
   });
 
   test("shutdown unsubscribes; a new instance keeps the registry ids", async () => {
