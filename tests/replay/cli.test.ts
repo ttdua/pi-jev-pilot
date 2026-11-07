@@ -192,6 +192,23 @@ describe("main", () => {
     expect(parseArgs(["--pass", "1", "--models", "x.txt"])).toEqual(parseArgs(["--pass", "1"]));
   });
 
+  test("--only parses a list and needs a value", () => {
+    expect(parseArgs(["--pass", "1", "--only", "effort-order,full"]).only).toEqual([
+      "effort-order",
+      "full",
+    ]);
+    expect(() => parseArgs(["--pass", "1", "--only"])).toThrow();
+    expect(() => parseArgs(["--pass", "1", "--only", ","])).toThrow();
+  });
+
+  test("unknown --only variant exits 2", async () => {
+    const r = await run(["--pass", "1", "--only", "effort-ordr", "--sessions", sessions], {
+      PI_CODING_AGENT_DIR: agentDir(),
+    });
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("effort-ordr");
+  });
+
   test("bad --kept exits 2", async () => {
     const r = await run(
       ["--pass", "2", "--kept", "last_decision,nonsense", "--sessions", sessions],

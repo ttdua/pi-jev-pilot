@@ -8,13 +8,14 @@ import type { PlainConfig } from "./variants.ts";
 
 export const USAGE =
   "usage: bun scripts/replay/cli.ts --pass 1|2 [--kept GROUPS] [--seed N] [--main N] [--workers N] " +
-  "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--send]";
+  "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--only VARIANTS] [--send]";
 
 export class UsageError extends Error {}
 
 export type Args = {
   pass: 1 | 2;
   kept?: RichGroup[];
+  only?: string[];
   seed: number;
   main: number;
   workers: number;
@@ -24,7 +25,7 @@ export type Args = {
   send: boolean;
 };
 
-const TEXT_FLAGS = ["--sessions", "--capabilities", "--models", "--url"] as const;
+const TEXT_FLAGS = ["--sessions", "--capabilities", "--models", "--url", "--only"] as const;
 const NUMBER_FLAGS = ["--seed", "--main", "--workers"] as const;
 
 function count(flag: string, value: string | undefined): number {
@@ -43,6 +44,12 @@ function keptGroups(value: string | undefined): RichGroup[] {
   const unknown = names.filter((n) => !known.has(n));
   if (unknown.length > 0) throw new UsageError(`unknown group in --kept: ${unknown.join(", ")}`);
   return names as RichGroup[];
+}
+
+function onlyVariants(value: string | undefined): string[] {
+  const names = (value ?? "").split(",").filter((n) => n !== "");
+  if (names.length === 0) throw new UsageError("--only needs a comma-separated list of variants");
+  return names;
 }
 
 export function parseArgs(argv: readonly string[]): Args {
@@ -88,6 +95,7 @@ export function parseArgs(argv: readonly string[]): Args {
     ...(text["--sessions"] === undefined ? {} : { sessions: text["--sessions"] }),
     ...(text["--capabilities"] === undefined ? {} : { capabilities: text["--capabilities"] }),
     ...(text["--url"] === undefined ? {} : { url: text["--url"] }),
+    ...(text["--only"] === undefined ? {} : { only: onlyVariants(text["--only"]) }),
     send,
   };
 }

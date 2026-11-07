@@ -55,6 +55,24 @@ describe("compare", () => {
     expect(agg.variants["full"]?.flips["risky"]).toBe(1);
   });
 
+  test("effort-order is placed against minimal, worker:effort-order against worker:base", () => {
+    const b = mainReq("minimal", "minimal", 0);
+    const v = mainReq("effort-order", "minimal", 0);
+    const wb = { ...mainReq("base", "base", 0), kind: "worker" as const };
+    const wv = { ...mainReq("effort-order", "base", 0), kind: "worker" as const };
+    const plan = planOf([b, v, wb, wv], {
+      excluded: { "worker:effort-order": 2, "effort-order": 1 },
+    });
+    const agg = compare(plan, [ok(b, mainBody()), ok(v, mainBody({ effort: "max" }))], meta);
+    expect(agg.variants["effort-order"]).toMatchObject({ kind: "main", base: "minimal" });
+    expect(agg.variants["effort-order"]?.flips["effort"]).toBe(1);
+    expect(agg.variants["worker:effort-order"]).toMatchObject({
+      kind: "worker",
+      base: "worker:base",
+    });
+    expect(agg.variants["worker:effort-order"]?.excluded).toBe(2);
+  });
+
   test("miss on either side excludes the pair and counts for the variant", () => {
     const b0 = mainReq("minimal", "minimal", 0);
     const v0 = mainReq("full", "minimal", 0);

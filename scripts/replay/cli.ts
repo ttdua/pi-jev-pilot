@@ -15,7 +15,7 @@ import {
 import { writeOutputs } from "./outputs.ts";
 import { estimate, runPlan } from "./run.ts";
 import { readLedgerLines } from "./sessions.ts";
-import { type Plan, planPass } from "./variants.ts";
+import { type Plan, type PlanInput, planPass, variantIds } from "./variants.ts";
 
 type Env = Record<string, string | undefined>;
 
@@ -67,13 +67,18 @@ async function replay(args: Args, env: Env): Promise<number> {
       return { sample: w, ...(agent === undefined ? {} : { agent }) };
     },
   );
-  const plan = planPass(args.pass, {
+  const input: PlanInput = {
     main: rebuilt,
     workers,
     config: config.plain,
     hasSnapshot: snapshot !== undefined,
     ...(args.kept === undefined ? {} : { kept: args.kept }),
-  });
+    ...(args.only === undefined ? {} : { only: args.only }),
+  };
+  const known = variantIds(args.pass, input);
+  const unknown = (args.only ?? []).filter((id) => !known.includes(id));
+  if (unknown.length > 0) throw new UsageError(`unknown variant in --only: ${unknown.join(", ")}`);
+  const plan = planPass(args.pass, input);
   const counts = { main: rebuilt.length, workers: workers.length };
   if (!args.send) {
     printDryRun(plan, counts, { url, model: config.model });

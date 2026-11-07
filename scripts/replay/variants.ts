@@ -1,12 +1,8 @@
 // Plans the requests of a replay run: one change per variant, each with a named base.
 import type { QuestionSpec } from "../../src/policy/answers.ts";
 import { buildWorkerState, mainState, pickRich, type RichGroup } from "../../src/jev/state.ts";
-import {
-  buildWorkerQuestions,
-  mainQuestions,
-  offeredTiers,
-  type MainQuestions,
-} from "../../src/jev/questions.ts";
+import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
+import type { WireQuestion } from "../../src/jev/rubrics.ts";
 import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
 import type { ModeName } from "../../src/policy/modes.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
@@ -55,7 +51,21 @@ export type PlanInput = {
   config: PlainConfig;
   hasSnapshot: boolean;
   kept?: readonly RichGroup[];
+  /** When set, only the bases, the reruns and these variants are planned. */
+  only?: readonly string[];
 };
+
+/** Variants every run keeps: the bases and the reruns they are measured against. */
+const ALWAYS = new Set(["minimal", "rerun-a", "rerun-b", "base"]);
+
+/** The operator's candidate option order for effort: most to least used. */
+const EFFORT_ORDER_CANDIDATE: readonly string[] = ["high", "medium", "xhigh", "low", "max"];
+
+function selected(id: string, only: readonly string[] | undefined): boolean {
+  if (only === undefined || ALWAYS.has(id) || only.includes(id)) return true;
+  // `full` is the base of every `full-G`.
+  return id === "full" && only.some((o) => o.startsWith("full-"));
+}
 
 const PASS1_GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
 
@@ -65,7 +75,7 @@ type MainVariant = {
   groups: readonly RichGroup[];
   /** Groups a sample must have; a sample missing one is excluded from this variant. */
   needs: readonly RichGroup[];
-  reversed?: true;
+  order?: "reversed" | "candidate";
 };
 
 function mainVariants(pass: 1 | 2, input: PlanInput): MainVariant[] {
@@ -85,8 +95,21 @@ function mainVariants(pass: 1 | 2, input: PlanInput): MainVariant[] {
     groups: candidates.filter((c) => c !== g),
     needs: candidates, // the same sample set as `full`, so each request has a `full` pair
   }));
-  const tail: MainVariant[] = pass === 1 ? [{ ...plain("effort-reversed"), reversed: true }] : [];
+  const tail: MainVariant[] =
+    pass === 1
+      ? [
+          { ...plain("effort-reversed"), order: "reversed" },
+          { ...plain("effort-order"), order: "candidate" },
+        ]
+      : [];
   return [...head, full, ...addOne, ...leaveOne, ...tail];
+}
+
+/** Every variant id a pass can plan, main and worker, for validating `--only`. */
+export function variantIds(pass: 1 | 2, input: PlanInput): string[] {
+  const main = mainVariants(pass, input).map((v) => v.id);
+  const workers = pass === 1 ? WORKER_VARIANTS.map((v) => v.id) : [];
+  return [...new Set([...main, ...workers])];
 }
 
 function deepFreeze<T>(value: T): T {
@@ -97,25 +120,36 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function reverseRecord<T>(record: Record<string, T>): Record<string, T> {
-  return Object.fromEntries(Object.entries(record).reverse());
-}
+type Questions = { wire: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> };
 
-function withReversedEffort(q: MainQuestions): MainQuestions {
+/** Rebuilds the effort question with its options in `order`, on the wire and in the specs. */
+function withEffortOrder<Q extends Questions>(q: Q, order: readonly string[]): Q {
   const effort = q.wire["effort"];
   const spec = q.specs["effort"];
   if (effort === undefined || spec?.type !== "choice") return q;
+  const criteria = Object.fromEntries(
+    order.flatMap((level) => (level in effort.criteria ? [[level, effort.criteria[level]]] : [])),
+  );
   return {
-    wire: { ...q.wire, effort: { ...effort, criteria: reverseRecord(effort.criteria) } },
-    specs: { ...q.specs, effort: { ...spec, options: [...spec.options].reverse() } },
+    ...q,
+    wire: { ...q.wire, effort: { ...effort, criteria } },
+    specs: { ...q.specs, effort: { ...spec, options: Object.keys(criteria) } },
   };
 }
 
+const reversedOrder = (q: Questions): readonly string[] => {
+  const spec = q.specs["effort"];
+  return spec?.type === "choice" ? [...spec.options].reverse() : [];
+};
+
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
   const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
-  const reversed = deepFreeze(withReversedEffort(base));
+  const byOrder = {
+    reversed: deepFreeze(withEffortOrder(base, reversedOrder(base))),
+    candidate: deepFreeze(withEffortOrder(base, EFFORT_ORDER_CANDIDATE)),
+  };
   for (const v of variants) {
-    const q = v.reversed === true ? reversed : base;
+    const q = v.order === undefined ? base : byOrder[v.order];
     main.forEach((m, sample) => {
       if (v.needs.some((g) => m.missing.includes(g))) {
         const key = variantKey("main", v.id);
@@ -153,6 +187,8 @@ type WorkerVariant = {
   /** True when the edit would leave the state equal to `base`; such a sample is excluded. */
   noop?: (w: RebuiltWorker & { agent: AgentFacts }) => boolean;
   edit: (s: WorkerState, w: RebuiltWorker) => void;
+  /** Reorders the effort options instead of changing the state. */
+  order?: "candidate";
 };
 
 const WORKER_VARIANTS: WorkerVariant[] = [
@@ -184,6 +220,7 @@ const WORKER_VARIANTS: WorkerVariant[] = [
       s.agent.instructions_excerpt = "";
     },
   },
+  { id: "effort-order", edit: () => {}, order: "candidate" },
 ];
 
 function workerQuestions(config: PlainConfig) {
@@ -192,9 +229,21 @@ function workerQuestions(config: PlainConfig) {
   return buildWorkerQuestions(offered, {}, config.mode, slots);
 }
 
-function planWorkers(workers: RebuiltWorker[], config: PlainConfig, plan: Plan): void {
-  const { questions, specs } = deepFreeze(workerQuestions(config));
-  for (const v of WORKER_VARIANTS) {
+function planWorkers(
+  workers: RebuiltWorker[],
+  config: PlainConfig,
+  plan: Plan,
+  only: readonly string[] | undefined,
+): void {
+  const plain = deepFreeze(workerQuestions(config));
+  const candidate = deepFreeze(
+    (({ questions: wire, specs }) => {
+      const r = withEffortOrder({ wire, specs }, EFFORT_ORDER_CANDIDATE);
+      return { questions: r.wire, specs: r.specs };
+    })(plain),
+  );
+  for (const v of WORKER_VARIANTS.filter((w) => selected(w.id, only))) {
+    const { questions, specs } = v.order === undefined ? plain : candidate;
     workers.forEach((w, sample) => {
       if (w.agent === undefined || v.noop?.({ ...w, agent: w.agent }) === true) {
         const key = variantKey("worker", v.id);
@@ -219,7 +268,8 @@ function planWorkers(workers: RebuiltWorker[], config: PlainConfig, plan: Plan):
 export function planPass(pass: 1 | 2, input: PlanInput): Plan {
   const plan: Plan = { requests: [], skipped: [], excluded: {} };
   if (pass === 1 && !input.hasSnapshot) plan.skipped.push("capabilities", "workers");
-  planMain(mainVariants(pass, input), input.main, plan);
-  if (pass === 1 && input.hasSnapshot) planWorkers(input.workers, input.config, plan);
+  const variants = mainVariants(pass, input).filter((v) => selected(v.id, input.only));
+  planMain(variants, input.main, plan);
+  if (pass === 1 && input.hasSnapshot) planWorkers(input.workers, input.config, plan, input.only);
   return plan;
 }
