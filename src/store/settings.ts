@@ -14,7 +14,10 @@ export type Settings = {
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; model?: string; effort?: string };
+  /** Effective mode: the session override when set, else the saved mode. */
   mode: Mode;
+  modeSource: "session" | "saved";
+  savedMode: Mode;
   switches: Record<Feature, boolean>;
 };
 
@@ -41,8 +44,10 @@ export function resolveSettings(input: {
   config: Config;
   state: State;
   tuning?: Tuning;
+  sessionMode?: Mode;
 }): Settings {
-  const { config, state, tuning } = input;
+  const { config, state, tuning, sessionMode } = input;
+  const savedMode = state.mode ?? DEFAULTS.mode;
   const c = config.classifier;
   const untuned = untunedTimeout(config);
 
@@ -77,7 +82,9 @@ export function resolveSettings(input: {
         (DEFAULTS.subagents.forkedLaunch as "untouched" | "thinking"),
     },
     review,
-    mode: state.mode ?? DEFAULTS.mode,
+    mode: sessionMode ?? savedMode,
+    modeSource: sessionMode ? "session" : "saved",
+    savedMode,
     switches,
   };
 }
