@@ -11,9 +11,9 @@
 
 ## 2. Main questions
 
-- [ ] 2.1 Add `STRATEGY_QUESTION` and `MAIN_TIER_QUESTION` (standard criteria for `fast`, `balanced`, `deep`, no prefix) to `src/jev/rubrics.ts`.
-- [ ] 2.2 Change `mainQuestions` in `src/jev/questions.ts` to take `{ askEffort, askStrategy }`, in the order `effort`, `risky`, `tier`, `strategy`, `corrects`. Update its callers.
-- [ ] 2.3 Extend `tests/jev/questions.test.ts`:
+- [x] 2.1 Add `STRATEGY_QUESTION` and `MAIN_TIER_QUESTION` (standard criteria for `fast`, `balanced`, `deep`, no prefix) to `src/jev/rubrics.ts`.
+- [x] 2.2 Change `mainQuestions` in `src/jev/questions.ts` to take `{ askEffort, askStrategy }`, in the order `effort`, `risky`, `tier`, `strategy`, `corrects`. Update its callers.
+- [x] 2.3 Extend `tests/jev/questions.test.ts`:
   - The key sets for each switch combination.
   - Wording verbatim in the docs.
   - The tier criteria without a prefix.
