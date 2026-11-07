@@ -1,6 +1,6 @@
-import type { WindowEntry } from "./cutpoints";
-import { EFFORT_LEVELS, type EffortLevel } from "./effort";
-import { TIER_LADDER, type TierName } from "./launch";
+import type { WindowEntry } from "./cutpoints.ts";
+import { EFFORT_LEVELS, type EffortLevel } from "./effort.ts";
+import { TIER_LADDER, type TierName } from "./launch.ts";
 
 export const WINDOW_MAX = 200;
 export const WINDOW_MIN = 100;
@@ -42,7 +42,7 @@ function modalEffort(effortP: WindowLine["effortP"]): EffortLevel {
       bestP = p;
     }
   }
-  return bestP === -Infinity ? "high" : best;
+  return best;
 }
 
 function toEntry(line: WindowLine): WindowEntry | undefined {

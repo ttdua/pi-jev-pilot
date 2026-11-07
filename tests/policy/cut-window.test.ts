@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { recentMix, windowEntries, WINDOW_MAX, type WindowLine } from "../../src/policy/cut-window";
+import {
+  recentMix,
+  windowEntries,
+  WINDOW_MAX,
+  type WindowLine,
+} from "../../src/policy/cut-window.ts";
 
 const line = (o: Partial<WindowLine> = {}): WindowLine => ({
   kind: "worker",
