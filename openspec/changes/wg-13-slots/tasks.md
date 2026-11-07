@@ -6,8 +6,8 @@
 
 - [x] 2.1 Add `SlotTarget`, `Target` and `isSlot` to `src/policy/launch.ts`; widen `workerEffort`'s `tier` to `Target` in `src/policy/effort.ts` with the slot no-cap and slot-move scenarios in `tests/policy/effort.test.ts` (worker-decision: Worker effort, Effort after fallback)
 - [x] 2.2 Give `decideTier` in `src/policy/tier.ts` a `slots` parameter. Add rule `slot` after `risky`, plus the below-the-bar substitution (highest-probability offered tier, ties to the lower tier) and the slot-only risky fall-through. Add slot rows and the scenarios from Slot rule, Slot below the bar, Rules without a qualifying tier and the Decision order "Slot in every mode" to `tests/policy/tier.test.ts` (worker-decision: Decision order, Slot rule, Slot below the bar, Rules without a qualifying tier)
-- [ ] 2.3 Extend `chooseFallback` in `src/policy/tier.ts` for slot targets (keep; else `balanced`, `fast`; never `deep`/`expert`) with the Fallback choice scenarios in `tests/policy/tier.test.ts` (worker-decision: Fallback choice)
-- [ ] 2.4 Thread `slots` and `Target` through `RouteInput`, `launchKind` and `routeLaunch` in `src/policy/route.ts`. A slot counts as offered for the untouched case (d) and for `tierQuestion`. `canRun`, `thinkingOf` and `modelOf` take `Target`. Add the slot scenarios of Routed launch, Nothing can run, Route writes thinking only, Launches left untouched and Locks in the route to `tests/policy/route.test.ts` (worker-decision: those requirements)
+- [x] 2.3 Extend `chooseFallback` in `src/policy/tier.ts` for slot targets (keep; else `balanced`, `fast`; never `deep`/`expert`) with the Fallback choice scenarios in `tests/policy/tier.test.ts` (worker-decision: Fallback choice)
+- [x] 2.4 Thread `slots` and `Target` through `RouteInput`, `launchKind` and `routeLaunch` in `src/policy/route.ts`. A slot counts as offered for the untouched case (d) and for `tierQuestion`. `canRun`, `thinkingOf` and `modelOf` take `Target`. Add the slot scenarios of Routed launch, Nothing can run, Route writes thinking only, Launches left untouched and Locks in the route to `tests/policy/route.test.ts` (worker-decision: those requirements)
 
 ## 3. Questions
 
