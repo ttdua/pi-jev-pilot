@@ -56,10 +56,11 @@ classDiagram
     }
     class LedgerEntry
     class TuningChange {
-      parameter
       from
       to
-      revertedAt
+      at
+      before
+      base
     }
 
     Operator --> Config : edits
@@ -268,9 +269,11 @@ Stored in `tuning.json`, never in `config.json`.
 
 **Phase 1 automatically changes `timeoutMs` only:**
 
-- Fires when more than 10% of at least 20 asked requests went unanswered.
+- Fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count).
 - New value: `max(current + 200, p90 × 1.25 rounded up to 100)`.
 - Range 300–5000.
+- **Block:** after a revert or an undo, the same raise is held back for 200 decisions. A raise to the blocked value or above is lowered to `blocked − 100`.
+- **Base value:** a tuned value records the `base` it was tuned from. It applies only while the config value (or the default) equals that base. If you edit `timeoutMs` in config, the tuned value, the pending change and the block are dropped, and that counts as a change for the cooldown.
 
 **Signals observed and shown by `/jev tune`, per mode, not applied:**
 

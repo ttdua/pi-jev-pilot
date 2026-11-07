@@ -146,7 +146,9 @@ Default is `observe`, so workers keep all their tools until the operator switche
 flowchart TD
     A["agent_settled"] --> B{"Tuning on, and<br/>cooldown passed?"}
     B -- no --> Z["Stop"]
-    B -- yes --> C["Read ledger since last change"]
+    B -- yes --> B2{"Config still matches<br/>the tuned base?"}
+    B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
+    B2 -- yes --> C["Read ledger since last change"]
     C --> D{"A pending change<br/>to evaluate?"}
     D -- yes --> E{"Worse than the<br/>40 before it?"}
     E -- yes --> F["Revert, show a line"]
@@ -156,7 +158,10 @@ flowchart TD
     H -- no --> Z
     H -- yes --> I{"Parameter allowlisted<br/>for automatic change?"}
     I -- no --> J["Keep as a signal for /jev tune"]
-    I -- yes --> K["Apply one step, show a line"]
+    I -- yes --> L{"Value blocked by a<br/>recent revert or undo?"}
+    L -- yes --> M["Lower to blocked − 100,<br/>or drop if not above current"]
+    L -- no --> K["Apply one step, show a line"]
+    M --> K
 ```
 
 Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
