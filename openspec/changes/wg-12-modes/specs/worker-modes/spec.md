@@ -1,3 +1,6 @@
+## Purpose
+The operator's mode (`budget`, `standard`, `premium`) and what it selects for worker requests: one tier rubric, one `expert_needed` wording and one expert gate, with everything else the same in every mode.
+
 ## ADDED Requirements
 
 ### Requirement: Mode names
