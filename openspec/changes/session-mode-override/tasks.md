@@ -30,5 +30,5 @@
 
 ## 7. Docs
 
-- [ ] 7.1 Update `docs/usage-guide.md`, `README.md`, `docs/architecture.md` (precedence and the `jev-mode` entry) and `docs/glossary.md` (session mode)
-- [ ] 7.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 7.1 Update `docs/usage-guide.md`, `README.md`, `docs/architecture.md` (precedence and the `jev-mode` entry) and `docs/glossary.md` (session mode)
+- [x] 7.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
