@@ -59,9 +59,9 @@
 
 ## 13. End-to-end host tests
 
-- [ ] 13.1 Replace `tests/host/session-mode-e2e.test.ts` with RPC tests for the directory mode: new session in the same directory, set before the first message then restart, other directory keeps the global mode, second process sees a change, worker routed with the directory mode (child model and ledger `mode`), and `.gitignore` untouched
+- [x] 13.1 Replace `tests/host/session-mode-e2e.test.ts` with RPC tests for the directory mode: new session in the same directory, set before the first message then restart, other directory keeps the global mode, second process sees a change, worker routed with the directory mode (child model and ledger `mode`), and `.gitignore` untouched
 
 ## 14. Docs
 
-- [ ] 14.1 Rewrite the docs for the directory mode and the breaking change: `docs/usage-guide.md` (commands, `git status` warning, breaking change), `README.md`, `docs/architecture.md` (precedence, `src/store/local-mode.ts`, `src/host/main-cwd.ts`, the file) and `docs/glossary.md` (directory mode)
-- [ ] 14.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 14.1 Rewrite the docs for the directory mode and the breaking change: `docs/usage-guide.md` (commands, `git status` warning, breaking change), `README.md`, `docs/architecture.md` (precedence, `src/store/local-mode.ts`, `src/host/main-cwd.ts`, the file) and `docs/glossary.md` (directory mode)
+- [x] 14.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
