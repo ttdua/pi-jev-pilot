@@ -16,8 +16,8 @@
 ## 4. Host routing
 
 - [x] 4.1 Add `src/shared/text.ts` `editDistance(a, b)` with tests in `tests/shared/text.test.ts`. Add `src/host/models.ts` with `splitModel`, `checkModel(registry, id)` (moved from `checkTier` in `src/host/worker.ts`) and `nearestModels(registry, id, 3)` over `getAvailable()`, with tests in a new `tests/host/models.test.ts` (slot-commands: Model check, Nearest names)
-- [ ] 4.2 In `src/host/worker.ts`, pass configured slot names to the route, resolve a target's model from `settings.tiers` or `settings.crew.slots`, add slot display names to the request, check slot models, and warn for a slot with `crew.slots "<name>" model`, keyed by target and model. Tests in `tests/host/worker.test.ts` and `tests/host/worker-ledger.test.ts`, with helpers in `tests/host/worker-fakes.ts` (worker-routing: Worker request content, Target check before writing, Fallback warning; worker-ledger: Decision fields)
-- [ ] 4.3 Host test with the loopback Jev fixture and the real executor, in `tests/host/worker-routing.test.ts`. Add a usable `fixture/fixture-review` model to `tests/host/fixture.ts`. Cover:
+- [x] 4.2 In `src/host/worker.ts`, pass configured slot names to the route, resolve a target's model from `settings.tiers` or `settings.crew.slots`, add slot display names to the request, check slot models, and warn for a slot with `crew.slots "<name>" model`, keyed by target and model. Tests in `tests/host/worker.test.ts` and `tests/host/worker-ledger.test.ts`, with helpers in `tests/host/worker-fakes.ts` (worker-routing: Worker request content, Target check before writing, Fallback warning; worker-ledger: Decision fields)
+- [x] 4.3 Host test with the loopback Jev fixture and the real executor, in `tests/host/worker-routing.test.ts`. Add a usable `fixture/fixture-review` model to `tests/host/fixture.ts`. Cover:
   - a review launch answered `slot::reviewer` .92 runs on the slot model in foreground and background;
   - a slot without credentials falls back to `balanced` with one warning;
   - Jev down keeps the caller input;
