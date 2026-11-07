@@ -16,6 +16,8 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: b
   const renderers = new Map<string, (entry: unknown, o: unknown, t: unknown) => unknown>();
   const entries: { type: string; data: unknown }[] = [];
   let level = "low";
+  let active = ["read", "jev_review"];
+  const setCalls: string[][] = [];
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
   const subs: { channel: string; live: boolean; handler: (d: unknown) => void }[] = [];
@@ -41,7 +43,15 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: b
       level = l;
     },
     exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
-    getAllTools: () => (opts.executor === true ? [{ name: "subagent" }] : []),
+    getAllTools: () => [
+      { name: "jev_review" },
+      ...(opts.executor === true ? [{ name: "subagent" }] : []),
+    ],
+    getActiveTools: () => [...active],
+    setActiveTools: (names: string[]) => {
+      setCalls.push(names);
+      active = [...names];
+    },
     events: {
       on: (channel: string, handler: (d: unknown) => void) => {
         order.push(`events:${channel}`);
@@ -66,6 +76,11 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: b
     emit,
     renderers,
     entries,
+    active: () => active,
+    setActive: (names: string[]) => {
+      active = names;
+    },
+    setCalls,
   };
 }
 
@@ -556,6 +571,40 @@ describe("setup", () => {
       } finally {
         await fx.stop();
       }
+    });
+
+    test("child before_agent_start never calls setActiveTools", async () => {
+      const f = fakePi();
+      setup(f.pi);
+      f.emit(CREATED, { sessionId: "kid" });
+      const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "kid" } };
+      await f.handlers.get("before_agent_start")![0]!(
+        { messageType: "user", prompt: "p", systemPromptOptions: { selectedTools: ["read"] } },
+        ctx,
+      );
+      expect(f.setCalls).toEqual([]);
+    });
+
+    test("main before_agent_start hides jev_review while off", async () => {
+      const f = fakePi();
+      setup(f.pi);
+      const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "main" } };
+      await f.handlers.get("before_agent_start")![0]!({ messageType: "user", prompt: "p" }, ctx);
+      expect(f.active()).toEqual(["read"]);
+    });
+
+    test("main before_agent_start shows jev_review when the state turns it on", async () => {
+      mkdirSync(join(agentDir, "jev"), { recursive: true });
+      writeFileSync(
+        join(agentDir, "jev", "state.json"),
+        JSON.stringify({ version: 1, cliReviewEnabled: true }),
+      );
+      const f = fakePi();
+      f.setActive(["read"]);
+      setup(f.pi);
+      const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "main" } };
+      await f.handlers.get("before_agent_start")![0]!({ messageType: "user", prompt: "p" }, ctx);
+      expect(f.active()).toEqual(["read", "jev_review"]);
     });
 
     test("an assessment failure still leaves the review tool hidden", async () => {
