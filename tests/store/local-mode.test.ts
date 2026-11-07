@@ -94,7 +94,7 @@ describe("directory mode file content", () => {
 describe("clearing and other project files", () => {
   test("clearLocalMode removes the file", () =>
     withCwd((cwd) => {
-      writeLocalMode(cwd, "premium");
+      expect(writeLocalMode(cwd, "premium")).toEqual({ ok: true });
       expect(clearLocalMode(cwd)).toEqual({ ok: true });
       expect(existsSync(join(cwd, LOCAL_MODE_FILE))).toBe(false);
       expect(readLocalMode(cwd)).toEqual({ kind: "missing" });
@@ -109,7 +109,7 @@ describe("clearing and other project files", () => {
     withCwd((cwd) => {
       const gitignore = "node_modules/\n.env\n";
       writeFileSync(join(cwd, ".gitignore"), gitignore);
-      writeLocalMode(cwd, "premium");
+      expect(writeLocalMode(cwd, "premium")).toEqual({ ok: true });
       clearLocalMode(cwd);
       expect(readFileSync(join(cwd, ".gitignore"), "utf8")).toBe(gitignore);
       expect(readdirSync(cwd).sort()).toEqual([".gitignore", ".pi"]);

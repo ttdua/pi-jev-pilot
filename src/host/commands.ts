@@ -250,6 +250,11 @@ function runLocalForm(parsed: JevArgs, cwd: string): LocalOutcome | undefined {
   return undefined;
 }
 
+/** The state reset succeeded but the directory mode file could not be removed. */
+function partialResetLine(cleanupError: string): string {
+  return `global settings reset; directory mode not removed: ${cleanupError}`;
+}
+
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
@@ -337,6 +342,7 @@ export async function runJev(
       notify(local.message, "error");
       return;
     }
+    let partialReset: string | undefined;
     if (local === undefined && parsed.kind !== "status" && parsed.kind !== "mode-clear") {
       const result = applyChange(parsed, deps.dir, cliReview);
       if (!result.ok) {
@@ -347,19 +353,17 @@ export async function runJev(
         return;
       }
       const reset = parsed.kind === "reset" ? resetDirectoryMode(ctx.cwd) : undefined;
-      if (reset?.kind === "failed") {
-        notify(reset.message, "error");
-        return;
-      }
+      if (reset?.kind === "failed") partialReset = partialResetLine(reset.message);
     }
     const snapshot = deps.load(ctx.cwd);
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
     const lines = [formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.())];
+    if (partialReset !== undefined) lines.unshift(partialReset);
     const { mode, modeSource } = snapshot.settings;
     if (parsed.kind === "mode" && parsed.target === "global" && modeSource === "local") {
       lines.push(shadowedLine(mode, parsed.mode));
     }
-    notify(lines.join("\n"), "info");
+    notify(lines.join("\n"), partialReset === undefined ? "info" : "warning");
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");

@@ -179,6 +179,7 @@ describe("formatStatus", () => {
       }),
     );
     expect(text).toContain("problems:");
+    expect(text).toContain("mode: standard");
     expect(text).toContain("  local mode (malformed) (file): jev-mode.json is not valid JSON");
   });
   test("Malformed tuning reported", () => {
@@ -724,6 +725,7 @@ describe("runJev directory mode", () => {
     expect(stateBytes(dir)).toBe(before);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
     expect(rec.notes[0]![0]).toContain("state (unreadable)");
+    expect(rec.notes[0]![0]).toContain("mode: premium (this directory; global standard)");
   });
 
   test.skipIf(process.getuid?.() === 0)("Directory not writable", async () => {
@@ -746,7 +748,7 @@ describe("runJev directory mode", () => {
     expect(existsSync(localFile(cwd))).toBe(false);
     expect(rec.notes[0]![1]).toBe("info");
     expect(rec.notes[0]![0]).toContain("mode: standard");
-    expect(rec.notes[0]![0]).not.toContain("(session");
+    expect(rec.notes[0]![0]).not.toContain("(this directory");
     expect(rec.widgets).toHaveLength(1);
   });
 
@@ -880,6 +882,29 @@ describe("runJev directory mode", () => {
     chmodSync(join(dir, "state.json"), 0o600);
     expect(rec.notes[0]![1]).toBe("error");
     expect(localOf(cwd)).toBe("premium");
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Partial reset reports a warning and redraws", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("skills off", dir);
+    await run("mode premium global", dir);
+    await run("mode budget", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(cwd, ".pi"), 0o500);
+    let rec: ReturnType<typeof fakeCtx>["rec"];
+    try {
+      rec = await run("reset", dir, fakeCtx(true, "main", cwd));
+    } finally {
+      chmodSync(join(cwd, ".pi"), 0o700);
+    }
+    expect(JSON.parse(readFileSync(join(dir, "state.json"), "utf8"))).toEqual({ version: 1 });
+    expect(localOf(cwd)).toBe("budget");
+    expect(rec.notes.map((n) => n[1])).toEqual(["warning"]);
+    expect(rec.notes[0]![0]).toContain("global settings reset; directory mode not removed:");
+    expect(rec.notes[0]![0]).toContain("EACCES");
+    expect(rec.notes[0]![0]).toContain("mode: budget (this directory; global standard)");
+    expect(rec.widgets).toHaveLength(1);
+    expect(rec.widgets[0]![1]).toEqual(["Jev · budget (local)"]);
   });
 
   test("Command in a child", async () => {
