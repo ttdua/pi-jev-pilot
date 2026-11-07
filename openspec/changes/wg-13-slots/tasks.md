@@ -1,6 +1,6 @@
 ## 1. Config
 
-- [ ] 1.1 Make `when` required in `slotsValidator` (`src/store/config.ts`); add `when` to every slot fixture in `tests/store/config-read.test.ts`, `tests/store/config-write.test.ts` and any other test config with slots; add the scenarios "Slot without when" and "Slot writer refuses a slot without when" (config-file: Tier and slot field rules)
+- [x] 1.1 Make `when` required in `slotsValidator` (`src/store/config.ts`); add `when` to every slot fixture in `tests/store/config-read.test.ts`, `tests/store/config-write.test.ts` and any other test config with slots; add the scenarios "Slot without when" and "Slot writer refuses a slot without when" (config-file: Tier and slot field rules)
 
 ## 2. Policy
 
