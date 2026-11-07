@@ -30,8 +30,8 @@
 
 ## 5. Pass 1 (operator approval required)
 
-- [ ] 5.1 Dry-run pass 1, then send the counts and the estimated cost to the operator. Wait for approval.
-- [ ] 5.2 Run pass 1 with `--send`. Share `aggregates.json` and `cases.md` privately with the operator.
+- [x] 5.1 Dry-run pass 1, then send the counts and the estimated cost to the operator. Wait for approval.
+- [x] 5.2 Run pass 1 with `--send`. Share `aggregates.json` and `cases.md` privately with the operator.
 - [ ] 5.3 Record the operator's decision per group (`last_decision`, `context_used_percent`, `languages`, `capabilities`), the effort option order, and each worker field.
 - [ ] 5.4 Write `docs/evidence/<date>-state-replay.md`, aggregates only.
 - [ ] 5.5 Apply the pass 1 decisions:

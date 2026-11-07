@@ -31,10 +31,6 @@ The replay SHALL rebuild each rich input from local data by the rules in this ch
 - **WHEN** the branch holds a `jev-pilot:effort` entry with `requested` `high` and strategy `direct`, before the sampled prompt
 - **THEN** the rebuilt `last_decision` is `{ effort: "high", strategy: "direct" }`
 
-#### Scenario: Missing cwd
-- **WHEN** two sampled sessions have a `cwd` that no longer exists
-- **THEN** the languages variants exclude them, and the report says 2 excluded
-
 #### Scenario: Unmatched git count
 - **WHEN** a pass 2 sample has no recorder line with its `turnId`
 - **THEN** it is excluded from the git variants and counted as excluded
@@ -59,8 +55,8 @@ Each variant SHALL differ from its base in exactly one thing:
 Every run MUST include two plain reruns of each base.
 
 #### Scenario: Add-one variant
-- **WHEN** the replay builds the `+languages` variant for a sample
-- **THEN** its state equals the minimal state plus `workspace.languages`
+- **WHEN** the replay builds the `+last_decision` variant for a sample
+- **THEN** its state equals the minimal state plus `conversation.last_decision`
 
 #### Scenario: Reversed options
 - **WHEN** the replay builds the `effort-reversed` variant

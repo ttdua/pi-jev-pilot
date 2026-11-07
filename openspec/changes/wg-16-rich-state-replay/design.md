@@ -38,13 +38,13 @@ Past tool sets and past diffs are not recorded anywhere.
   - Live: `createMain` keeps a `lastDecided` value, set when an answered turn settles (`effective` or `requested`, `strategy`) and cleared on `session_start`. After a reload the field is omitted.
   - Replay: taken from the nearest earlier `jev-pilot:effort` entry on the branch (`requested`, `decision.strategy`), or from the nearest earlier `jev-turn` entry joined with the ledger by `turnId`.
   - Omitted on the first turn.
-- **`context_used_percent`** = integer `round(percent)`, clamped to 0–100.
+- **`context_used_percent`** (removed by D9) = integer `round(percent)`, clamped to 0–100.
   - Live: `ctx.getContextUsage()`. The field is omitted when it reports `null`, for example right after compaction.
   - Replay: `totalTokens` of the last assistant message before the prompt, divided by the model's context window from the `--models` file (saved `pi --list-models` output). Omitted after a compaction entry with no assistant message since.
 - **`workspace.git`** = `{ changed_files, diff_lines }`, parsed from `git diff HEAD --shortstat`. `diff_lines` is insertions plus deletions; untracked files are not counted. A directory that is not a repository, or a command that fails, omits the field.
   - Live: a host helper runs `pi.exec` with a 500 ms timeout, plus a 500 ms `Promise.race`. A result with a non-zero `code`, or `killed` or `truncated` set, gives no field. It starts before the first `await` in `decide`, and its result is shared with the recorder.
   - Replay: joined from the recorder by `turnId`.
-- **`workspace.languages`** = at most 5 language names, most files first, with ties broken by name.
+- **`workspace.languages`** (removed by D9) = at most 5 language names, most files first, with ties broken by name.
   - Scope: names only, at most 3 levels deep, at most 5000 entries, with the platform scan's skipped directories and symlinks skipped.
   - Extensions map to a fixed table of about 25 languages. A language needs at least 3 files and at least 5% of the recognised files.
   - When nothing qualifies, the value is `["none found"]`.
@@ -128,6 +128,23 @@ Main questions are effort, risky, tier, strategy and corrects, with skills off. 
 - A removed group has its builder, tests and contract rule deleted.
 - The worker outcome edits `buildWorkerState` and the `worker-request` spec only when a field is dropped. If `parent_request` should become the default, that changes a documented default and needs the operator's explicit yes.
 - If the reversed `effort` order shifts beyond noise, the operator picks the order, which is then fixed in `src/jev/questions.ts`.
+
+**D9. Pass 1 decisions (operator, 2026-11-07).** The decisions come from the pass 1 main-side replay: 917 requests, run `2026-11-07T12-12-30-027Z-pass1`.
+
+- **`capabilities`: kept.** It is added to `SHIPPED_MAIN_GROUPS`. Against noise it changed effort 9 vs 3 and tier 9 vs 5. The operator read the cases and preferred the new answers.
+- **`last_decision`: kept.** It is added to `SHIPPED_MAIN_GROUPS`. Against noise it changed effort 5 vs 3 and tier 6 vs 5. The operator read the cases and preferred them.
+  - The operator's reason: a short reply such as "agreed" or "install it" only makes sense next to what the agent asked before. The previous turn's level is part of that context. The assistant's question itself is already in `conversation.recent`.
+- **`context_used_percent` and `languages`: removed.** Both were within noise.
+  - Their builders are deleted: `shapeContextPercent`, `scanLanguages` and the host and replay inputs for them.
+  - `RichGroup` drops them.
+  - The contract records the removal.
+- **Worker variants: dropped from WG-16.**
+  - In the real corpus, 45 of 46 briefs launch agents through the `pi-subagents` executor. The package does not list those agents, so a replay cannot show whether description or instructions do harm.
+  - The defaults are kept: `description` and `instructions_excerpt` stay on, and `parent_request` stays off.
+  - The worker-variant code in `scripts/replay` stays, so a later replay can reuse it.
+- **Effort option order: the operator chose `high, medium, xhigh, low, max`.** That is the observed order of use, from most to least.
+  - Its scope (main, worker, or both) and whether a confirming replay runs first are still open with the operator.
+  - Until both are decided, the order is not changed in code.
 
 ## Risks / Trade-offs
 
