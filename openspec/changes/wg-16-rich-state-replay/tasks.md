@@ -19,8 +19,8 @@
 
 ## 4. Replay script
 
-- [ ] 4.1 `scripts/replay/sessions.ts`: read session files into entries and branches, find the main prompts and `subagent` launches, and read the ledger with a local line parser. Test it with fixture sessions under `tests/fixtures/replay/`.
-- [ ] 4.2 `scripts/replay/corpus.ts`: seeded, stratified sampling with exclusions, plus the "Same seed" and "Exclusions" tests.
+- [x] 4.1 `scripts/replay/sessions.ts`: read session files into entries and branches, find the main prompts and `subagent` launches, and read the ledger with a local line parser. Test it with fixture sessions under `tests/fixtures/replay/`.
+- [x] 4.2 `scripts/replay/corpus.ts`: seeded, stratified sampling with exclusions, plus the "Same seed" and "Exclusions" tests.
 - [ ] 4.3 `scripts/replay/inputs.ts`: rebuild `last_decision`, `context_used_percent`, `languages`, `capabilities` and `git`, with exclusion counts, and test the "Replay inputs" and "Capabilities snapshot" scenarios. Add a test that the main state equals the host's ("Same state as live").
 - [ ] 4.4 `scripts/replay/variants.ts`: build the pass 1 and pass 2 plans, including the reversed `effort` options and the worker variants, with tests.
 - [ ] 4.5 `scripts/replay/run.ts`: concurrency 8, a 5000 ms timeout, one retry, and miss counting. Test the dry run, the send and the Jev failure scenarios against the loopback fixture.
