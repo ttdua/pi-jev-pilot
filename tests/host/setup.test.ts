@@ -10,7 +10,10 @@ import { body, TIERS } from "./worker-fakes.ts";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
 
-function fakePi(opts: { throwOnOff?: boolean; executor?: boolean } = {}) {
+function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: boolean } = {}) {
+  const renderers = new Map<string, (entry: unknown, o: unknown, t: unknown) => unknown>();
+  const entries: { type: string; data: unknown }[] = [];
+  let level = "low";
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
   const subs: { channel: string; live: boolean; handler: (d: unknown) => void }[] = [];
@@ -22,6 +25,19 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean } = {}) {
     },
     registerCommand: (name: string, def: unknown) => commands.set(name, def),
     registerTool: () => {},
+    ...(opts.noRenderer === true
+      ? {}
+      : {
+          registerEntryRenderer: (
+            type: string,
+            r: (e: unknown, o: unknown, t: unknown) => unknown,
+          ) => renderers.set(type, r),
+        }),
+    appendEntry: (type: string, data: unknown) => entries.push({ type, data }),
+    getThinkingLevel: () => level,
+    setThinkingLevel: (l: string) => {
+      level = l;
+    },
     exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
     getAllTools: () => (opts.executor === true ? [{ name: "subagent" }] : []),
     events: {
@@ -39,7 +55,16 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean } = {}) {
   const emit = (channel: string, data: unknown) => {
     for (const s of subs) if (s.live && s.channel === channel) s.handler(data);
   };
-  return { pi: pi as unknown as ExtensionAPI, handlers, commands, subs, order, emit };
+  return {
+    pi: pi as unknown as ExtensionAPI,
+    handlers,
+    commands,
+    subs,
+    order,
+    emit,
+    renderers,
+    entries,
+  };
 }
 
 function fakeCtx(sessionId: string, setWidget: () => void) {
@@ -154,6 +179,126 @@ describe("setup", () => {
       await launch("c3");
       expect(notes.length).toBe(before + 1);
       expect(notes.at(-1)).toContain("tier deep");
+    } finally {
+      await fx.stop();
+    }
+  });
+
+  const mainEntry = {
+    v: 1,
+    at: 1,
+    session: "s1",
+    mode: "standard",
+    answered: true,
+    kind: "main",
+    turnId: "t1",
+    outcome: "ok",
+    from: "low",
+    effective: "high",
+    ms: 512,
+    effortP: { low: 0.05, medium: 0.1, high: 0.7, xhigh: 0.1, max: 0.05 },
+  };
+  const MAIN_TEXT =
+    "jev · main · low → high · 0.5s · p low 0.05 medium 0.10 high 0.70 xhigh 0.10 max 0.05";
+
+  test("registers jev-log renderer", () => {
+    const f = fakePi();
+    setup(f.pi);
+    const r = f.renderers.get("jev-log")!;
+    const wide = r({ data: mainEntry }, {}, {}) as { render: (w: number) => string[] };
+    expect(wide.render(200)).toEqual([MAIN_TEXT]);
+    const narrow = wide.render(10);
+    expect(narrow).toHaveLength(1);
+    expect(narrow[0]).toHaveLength(10);
+  });
+
+  test("renderer swallows", () => {
+    const f = fakePi();
+    setup(f.pi);
+    const r = f.renderers.get("jev-log")!;
+    expect(r({ data: { kind: "other" } }, {}, {})).toBeUndefined();
+    const bad = {
+      get data(): unknown {
+        throw new Error("boom");
+      },
+    };
+    expect(r(bad, {}, {})).toBeUndefined();
+  });
+
+  test("older Pi without registerEntryRenderer", async () => {
+    const f = fakePi({ noRenderer: true });
+    expect(() => setup(f.pi)).not.toThrow();
+    const notes: string[] = [];
+    const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+    await jev.handler("", {
+      cwd: agentDir,
+      hasUI: true,
+      mode: "rpc",
+      ui: { setWidget: () => {}, notify: (t: string) => notes.push(t) },
+      sessionManager: { getSessionId: () => "main-1", getBranch: () => [] },
+    });
+    expect(notes.length).toBeGreaterThan(0);
+  });
+
+  async function runPrompt() {
+    const probabilities = { low: 0.1, medium: 0.1, high: 0.6, xhigh: 0.1, max: 0.1 };
+    const fx = await startJevFixture({
+      "/ask": {
+        json: {
+          answers: {
+            effort: { type: "choice", choice: "high", probabilities },
+            risky: { type: "noul", noul: 0.1 },
+            corrects: { type: "noul", noul: 0.05 },
+          },
+        },
+      },
+    });
+    mkdirSync(join(agentDir, "jev", "ledger.jsonl"), { recursive: true });
+    writeFileSync(
+      join(agentDir, "jev", "config.json"),
+      JSON.stringify({ classifier: { url: fx.url("/ask") }, tiers: TIERS }),
+    );
+    const f = fakePi();
+    setup(f.pi);
+    const notes: string[] = [];
+    const ctx = {
+      cwd: agentDir,
+      hasUI: true,
+      mode: "rpc",
+      model: { id: "m", provider: "p", name: "m", reasoning: true },
+      ui: { setWidget: () => {}, notify: (t: string) => notes.push(t) },
+      sessionManager: { getSessionId: () => "main-1", getBranch: () => [] },
+    };
+    const fire = async (name: string, event: unknown) => {
+      for (const h of f.handlers.get(name) ?? []) await h(event, ctx);
+    };
+    const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+    const status = async () => {
+      await jev.handler("", ctx);
+      return notes.at(-1) ?? "";
+    };
+    await fire("session_start", { reason: "startup" });
+    await fire("before_agent_start", { messageType: "user", prompt: "hello", systemPrompt: "" });
+    await fire("before_provider_request", { payload: {} });
+    await fire("agent_settled", { aborted: false });
+    return { fx, fire, status };
+  }
+
+  test("tally counts with failed append", async () => {
+    const { fx, status } = await runPrompt();
+    try {
+      expect(await status()).toContain("  prompts 1");
+    } finally {
+      await fx.stop();
+    }
+  });
+
+  test.each(["new", "resume"])("session_start resets the tally (%s)", async (reason) => {
+    const { fx, fire, status } = await runPrompt();
+    try {
+      expect(await status()).toContain("  prompts 1");
+      await fire("session_start", { reason });
+      expect(await status()).toContain("  prompts 0");
     } finally {
       await fx.stop();
     }
