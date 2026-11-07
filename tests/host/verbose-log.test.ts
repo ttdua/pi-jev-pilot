@@ -123,9 +123,14 @@ describe("verbose log through the real CLI", () => {
       const entries = logEntries(s);
       expect(entries.length).toBeGreaterThanOrEqual(1);
       expect(entries.some((d) => Bun.deepEquals(d, first))).toBe(true);
-      const body = JSON.stringify(fixture.requests[1]!.body);
+      const turnId = first["turnId"];
+      expect(typeof turnId).toBe("string");
+      expect((turnId as string).length).toBeGreaterThan(0);
+      const mains = fixture.requests.filter((r) => r.model === "fixture-main");
+      expect(mains.length).toBeGreaterThanOrEqual(2);
+      const body = JSON.stringify(mains[1]!.body);
       expect(body).not.toContain("jev-log");
-      expect(body).not.toContain(String(first["turnId"]));
+      expect(body).not.toContain(turnId as string);
     },
     TIMEOUT,
   );
@@ -136,6 +141,11 @@ describe("verbose log through the real CLI", () => {
       const { s } = await setup({ verbose: false, jev: okAnswer });
       await turn(s, "one", 1);
       await turn(s, "two", 2);
+      const dir = join(s.agentDir, "sessions");
+      expect(existsSync(dir)).toBe(true);
+      const files = walk(dir);
+      expect(files.length).toBeGreaterThanOrEqual(1);
+      expect(files.some((f) => readFileSync(f, "utf8").includes('"jev-turn"'))).toBe(true);
       expect(logEntries(s)).toEqual([]);
     },
     TIMEOUT,
