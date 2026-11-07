@@ -7,7 +7,7 @@
 
 **Change**: `wg-17-tally-and-log`
 **Finalized at**: `2026-11-07 04:14 UTC`
-**Outcome**: `pr-updated` (merged locally into the feature branch; **push held**, see Deviations)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `WG-17`. It was fast-forwarded from `7a018f4` to `924ad86` (`git merge --ff-only wg-17-tally-and-log`).
 - **Base branch**: `main`
-- **Final state**: merged locally into `WG-17`, not pushed. `WG-17` has no remote branch yet (`git ls-remote --heads origin WG-17` returns nothing).
-- **PR URL**: N/A. No PR exists for `WG-17` (`gh pr view WG-17` reports "no pull requests found").
+- **Final state**: `pr-open`. `WG-17` was pushed to `origin` after archive, with the operator's approval in the Inbox ("Archive first, then push WG-17 and open a PR to main").
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/36
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/36#issuecomment-6702137106)
 
 ---
 
@@ -53,9 +53,7 @@
 
 ## Deviations
 
-- **Push and PR held.**
-  - The project `AGENTS.md` overrides finalize steps 10 and 11: "no push, merge or PR without the user's explicit approval in chat". The code review approval does not cover pushing.
-  - `git push origin WG-17` has not run, and no PR was created. The operator decides when.
+- **Push and PR deferred until after archive.** The project `AGENTS.md` requires the operator's explicit approval to push or open a PR, and the code review approval did not cover either. The receipt was first committed with the push held. After the operator chose "Archive first, then push WG-17 and open a PR to main", archive ran (`c20cfee` sync, `17fd61e` archive). `WG-17` was then pushed and PR #36 was opened against `main`.
 - **Feature branch updated in its own worktree.**
   - `WG-17` is checked out in `/Users/naicoi/Projects/oss/pi-jev-pilot.WG-17`, so the fast-forward ran there instead of `git checkout` in the main checkout.
   - `git pull` was skipped because the branch has no upstream.
@@ -66,6 +64,4 @@
 
 ## Next step
 
-1. Run `/opsx-archive wg-17-tally-and-log` on `WG-17`. It syncs the delta specs into `openspec/specs/` and archives the change.
-2. With your explicit approval, push `WG-17` and open a PR to `main`, for example `feat(status-line): wg-17-tally-and-log`. Wait for PR review, then merge.
-3. After the merge, run `wt remove wg-17-tally-and-log` from the main worktree.
+Wait for the code review on PR #36 (the logic pre-review happened at the planning gates). The change is already archived on this branch, so merging the PR lands both the implementation and the archive in `main`. After the merge, run `wt remove wg-17-tally-and-log` from the main worktree, then `wt remove WG-17`, or `wt step prune`.
