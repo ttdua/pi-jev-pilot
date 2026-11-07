@@ -21,6 +21,6 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Update `docs/jev-contract.md`, `docs/jev-questions.md`, `docs/domain-model.md`, `docs/workflow.md`, `docs/usage-guide.md` and `docs/architecture.md` (host seams, layout, performance budget) for the agreed behaviour
-- [ ] 5.2 Add the service lookup section to `docs/evidence/2026-11-05-host-seams.md` from task 4.2, and set WG-14 to Done in `docs/roadmap.md`
-- [ ] 5.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 5.1 Update `docs/jev-contract.md`, `docs/jev-questions.md`, `docs/domain-model.md`, `docs/workflow.md`, `docs/usage-guide.md` and `docs/architecture.md` (host seams, layout, performance budget) for the agreed behaviour
+- [x] 5.2 Add the service lookup section to `docs/evidence/2026-11-05-host-seams.md` from task 4.2, and set WG-14 to Done in `docs/roadmap.md`
+- [x] 5.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
