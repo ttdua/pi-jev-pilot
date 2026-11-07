@@ -344,6 +344,33 @@ describe("setup", () => {
       }
     });
 
+    test("an assessment failure still leaves the review tool hidden", async () => {
+      mkdirSync(join(agentDir, "jev"), { recursive: true });
+      writeFileSync(join(agentDir, "jev", "config.json"), JSON.stringify({}));
+      (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = { listAgents: () => [] };
+      const f = fakePi();
+      setup(f.pi);
+      await start(f, "main");
+      f.emit(CREATED, { sessionId: "kid" });
+      const selectedTools = ["read", "jev_review"];
+      const ctx = {
+        cwd: agentDir,
+        sessionManager: {
+          getSessionId: () => "kid",
+          getSessionFile: (): never => {
+            throw new Error("no session file");
+          },
+        },
+      };
+      const event = {
+        messageType: "user",
+        prompt: "do it",
+        systemPromptOptions: { selectedTools },
+      };
+      expect(await f.handlers.get("before_agent_start")![0]!(event, ctx)).toBeUndefined();
+      expect(selectedTools).toEqual(["read"]);
+    });
+
     test("a throwing event leaves before_agent_start returning undefined", async () => {
       const f = fakePi();
       setup(f.pi);
