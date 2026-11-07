@@ -46,6 +46,10 @@ With `verbose` on, the same labels and numbers as the ledger are also saved as `
 
 Hidden skill and advice messages are saved in your Pi session files, as any context is. A skill message holds the skill's own text (its body, or only its path for `suggest`), and its details hold the skill name, a SHA-256 of the body and the form. No prompt text.
 
+`<agentDir>/jev/replay-git.jsonl`, owner-readable only, written **only** when you set `JEV_REPLAY_GIT=1` (off by default): per turn, a session id, a turn id, a time and two numbers (changed files, changed diff lines), at most 5000 lines. No paths, names or text. Delete it when you no longer need it.
+
+`<agentDir>/jev/replay/<run-id>/`, written only when you run the replay tool by hand with `--send` (see [Testing](testing.md#rich-state-replay)): private and owner-only. It holds counts and the prompts and briefs of differing pairs. It never leaves your machine unless you copy it; delete it after the decision.
+
 Delete the ledger at any time (both files); nothing depends on it except tuning signals.
 
 ## Credentials

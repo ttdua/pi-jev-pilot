@@ -61,6 +61,23 @@ Host tests pin Pi and `@gotgenes/pi-subagents`. Upgrading either reruns them, an
 - Changes one thing per variant.
 - Reports where Jev routes, and never claims that a route is better without separate evidence.
 
+### Rich state replay
+
+A manual procedure (not in CI) that sends real prompts to real Jev with and without the extra state fields, to decide which fields to ship. Run it only after the operator approves the data and the cost.
+
+1. Save the model list outside the repository: `pi --list-models > <scratch>/models.txt`.
+2. Save the capabilities snapshot: `bun tests/host/manual/capabilities-snapshot.ts <scratch>/capabilities.json`. It starts Pi against your real agent directory, needs no model call, and prints counts only. The file is written owner-only.
+3. Do a dry run (no request is sent): `bun scripts/replay/cli.ts --pass 1 --capabilities <scratch>/capabilities.json --models <scratch>/models.txt`. It prints sample counts, variants, exclusions, the request count and the estimated cost. Retries are not in the estimate.
+4. Get the operator's approval of the printed counts and cost.
+5. Run it: the same command plus `--send`. The key is read from the environment variable named by `classifier.apiKeyEnv` (default `TYPESAFE_API_KEY`).
+6. Pass 2 repeats this with `--pass 2 --kept <groups>` (the groups that pass 1 kept) and uses the git counts recorded by `JEV_REPLAY_GIT`.
+
+Options: `--seed N` (1), `--main N` (100), `--workers N` (46), `--sessions DIR` (`<agentDir>/sessions`), `--url URL` (must be https or loopback http).
+
+Outputs go under `<agentDir>/jev/replay/<run-id>/`: `aggregates.json` (counts only) and `cases.md` (the differing prompts and briefs). They are private and owner-only. Copy only aggregates into evidence, and delete the directory after the decision.
+
+**`JEV_REPLAY_GIT=1`** makes the extension record, for each main turn, one line in `<agentDir>/jev/replay-git.jsonl`: the session id, the turn id, the time and two numbers (changed files, changed diff lines). No paths, names or text. The file stops growing at 5000 lines. Turn it off by unsetting the variable (any value other than `1` is off), and delete the file when pass 2 is done.
+
 ## Not in CI, deliberately
 
 Live Jev calls, paid models, and CLI reviews with real logins. They would add cost and flakiness, and would need secrets.
