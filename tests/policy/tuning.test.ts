@@ -12,6 +12,8 @@ import {
   undoTuning,
   resetTuning,
   setTuningOff,
+  markSeen,
+  unseenEntries,
   type HistoryEntry,
   type TuningRecord,
 } from "../../src/policy/tuning.ts";
@@ -600,5 +602,47 @@ describe("setTuningOff", () => {
     };
     expect(setTuningOff(rec, true)).toEqual({ ...rec, off: true });
     expect(setTuningOff({ ...rec, off: true }, false)).toEqual({ ...rec, off: false });
+  });
+});
+
+describe("seen helpers", () => {
+  test("markSeen sets the marker when absent", () => {
+    expect(markSeen({}, 5).seenAt).toBe(5);
+  });
+  test("markSeen never lowers the marker", () => {
+    expect(markSeen({ seenAt: 9 }, 5).seenAt).toBe(9);
+  });
+  test("markSeen keeps other fields and does not mutate", () => {
+    const rec: TuningRecord = {
+      off: true,
+      timeoutMs: { value: 1700, base: 1500 },
+      history: [rule(10, 1500, 1700)],
+    };
+    const copy = structuredClone(rec);
+    expect(markSeen(rec, 5)).toEqual({ ...copy, seenAt: 5 });
+    expect(rec).toEqual(copy);
+  });
+  test("unseenEntries returns all without a marker", () => {
+    const history = [rule(1000, 1500, 1700), rule(2000, 1700, 1900)];
+    expect(unseenEntries({ history })).toEqual(history);
+    expect(unseenEntries({})).toEqual([]);
+  });
+  test("unseenEntries returns entries after the marker", () => {
+    const a = rule(1000, 1500, 1700);
+    const b = rule(2000, 1700, 1900);
+    const c = rule(3000, 1900, 2100);
+    expect(unseenEntries({ seenAt: 1000, history: [a, b, c] })).toEqual([b, c]);
+  });
+  test("transitions keep seenAt", () => {
+    const rec: TuningRecord = {
+      seenAt: 7,
+      timeoutMs: { value: 1700, base: 1500 },
+      history: [rule(10, 1500, 1700)],
+    };
+    const undone = undoTuning(rec, 100);
+    expect(undone.record.seenAt).toBe(7);
+    expect(resetTuning(rec, 1500, 100).seenAt).toBe(7);
+    expect(setTuningOff(rec, true).seenAt).toBe(7);
+    expect(stepTuning({ record: rec, untuned: 1500, lines: [], now: 100 }).record.seenAt).toBe(7);
   });
 });

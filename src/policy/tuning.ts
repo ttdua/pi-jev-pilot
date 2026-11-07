@@ -262,3 +262,14 @@ export function resetTuning(record: TuningRecord, untuned: number, now: number):
 export function setTuningOff(record: TuningRecord, off: boolean): TuningRecord {
   return { ...record, off };
 }
+
+/** Raises the seen marker to `at`; never lowers it. */
+export function markSeen(record: TuningRecord, at: number): TuningRecord {
+  return { ...record, seenAt: Math.max(record.seenAt ?? at, at) };
+}
+
+/** History entries newer than the seen marker (all when absent), in history order. */
+export function unseenEntries(record: TuningRecord): HistoryEntry[] {
+  const seenAt = record.seenAt ?? -1;
+  return (record.history ?? []).filter((h) => h.at > seenAt);
+}
