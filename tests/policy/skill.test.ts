@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 import type { Answer, ChoiceAnswer, ReadResult } from "../../src/policy/answers.ts";
 import {
   type SkillEntry,
   batchLeader,
+  deliveryForm,
+  deliveryText,
   gateMean,
   pickSkill,
   skillBatches,
@@ -209,5 +212,75 @@ describe("pickSkill", () => {
   test("Unreadable which", () => {
     const pick = pickSkill([{ options, read: read({}, { which: "missing" }) }]);
     expect(pick).toEqual({ kind: "none", reason: "failed" });
+  });
+});
+
+describe("deliveryForm", () => {
+  const base = { name: "debug", fingerprint: "f1" };
+  test("First pick on the branch", () => {
+    expect(deliveryForm({ ...base, inject: "content", loaded: [] })).toBe("content");
+  });
+  test("Same body already in context", () => {
+    const loaded = [{ name: "debug", fingerprint: "f1" }];
+    expect(deliveryForm({ ...base, inject: "content", loaded })).toBe("reference");
+  });
+  test("Skill edited since", () => {
+    const loaded = [{ name: "debug", fingerprint: "f0" }];
+    expect(deliveryForm({ ...base, inject: "content", loaded })).toBe("content");
+  });
+  test("Suggest configured", () => {
+    expect(deliveryForm({ ...base, inject: "suggest", loaded: [] })).toBe("suggest");
+  });
+  test("Another skill in context", () => {
+    const loaded = [{ name: "plan", fingerprint: "f1" }];
+    expect(deliveryForm({ ...base, inject: "content", loaded })).toBe("content");
+  });
+});
+
+describe("deliveryText", () => {
+  const skill = {
+    name: "debug",
+    path: "/s/debug/SKILL.md",
+    baseDir: "/s/debug",
+    body: "Step one.",
+  };
+  const docs = readFileSync("docs/jev-questions.md", "utf8");
+  function template(form: string): string {
+    const at = docs.indexOf(`**\`${form}\`**`);
+    const open = docs.indexOf("```text\n", at) + "```text\n".length;
+    return docs.slice(open, docs.indexOf("\n```", open));
+  }
+  function expected(form: string, s: typeof skill): string {
+    return template(form)
+      .split("<name>")
+      .join(s.name)
+      .split("<path>")
+      .join(s.path)
+      .split("<baseDir>")
+      .join(s.baseDir)
+      .split("<body>")
+      .join(s.body);
+  }
+  test("Content form", () => {
+    const text = deliveryText("content", skill);
+    expect(text).toBe(expected("content", skill));
+    expect(text.split("Step one.").length - 1).toBe(1);
+  });
+  test("Suggest form", () => {
+    const text = deliveryText("suggest", skill);
+    expect(text).toBe(expected("suggest", skill));
+    expect(text).not.toContain("Step one.");
+  });
+  test("Reference form", () => {
+    const text = deliveryText("reference", skill);
+    expect(text).toBe(expected("reference", skill));
+    expect(text).not.toContain(skill.path);
+  });
+  test("Special characters in a path", () => {
+    const odd = { ...skill, path: "/s/$&/$1/SKILL.md", body: "cost $& more" };
+    const text = deliveryText("content", odd);
+    expect(text).toContain('location="/s/$&/$1/SKILL.md"');
+    expect(text).toContain("cost $& more");
+    expect(text).toBe(expected("content", odd));
   });
 });

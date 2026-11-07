@@ -120,3 +120,51 @@ export function pickSkill(batches: readonly PickBatch[]): SkillPick {
   if (sure || fits) return withGate({ kind: "picked", name: best.name, p: best.p }, gate);
   return withGate({ kind: "none", reason: "below", p: best.p }, gate);
 }
+
+export type DeliveryForm = "content" | "suggest" | "reference";
+
+/** Pure lookup: `reference` only when the same name with the same fingerprint is already in context. */
+export function deliveryForm(o: {
+  name: string;
+  fingerprint: string;
+  inject: "content" | "suggest";
+  loaded: readonly { name: string; fingerprint: string }[];
+}): DeliveryForm {
+  const same = o.loaded.some((l) => l.name === o.name && l.fingerprint === o.fingerprint);
+  return same ? "reference" : o.inject;
+}
+
+export function deliveryText(
+  form: DeliveryForm,
+  skill: { name: string; path: string; baseDir: string; body: string },
+): string {
+  const { name, path, baseDir, body } = skill;
+  const head = [
+    "<skill_relevance>",
+    `Relevant to the current request: ${name}. Ignore this if it does not fit what the user actually asked for.`,
+  ];
+  const tail = ["</skill_relevance>"];
+  if (form === "content") {
+    return [
+      ...head,
+      `<skill name="${name}" location="${path}">`,
+      `References are relative to ${baseDir}.`,
+      "",
+      body,
+      "</skill>",
+      ...tail,
+    ].join("\n");
+  }
+  if (form === "suggest") {
+    return [
+      ...head,
+      `Its instructions are in ${path}, with references relative to ${baseDir}. Read that file before you start if the skill fits.`,
+      ...tail,
+    ].join("\n");
+  }
+  return [
+    ...head,
+    `Skill ${name} is already loaded above; its instructions are unchanged.`,
+    ...tail,
+  ].join("\n");
+}
