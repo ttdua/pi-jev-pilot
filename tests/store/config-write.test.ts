@@ -115,6 +115,15 @@ describe("writeSlots", () => {
       expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(FULL);
     }));
 
+  test("Slot writer refuses a slot without when", () =>
+    withDir((dir) => {
+      writeFileSync(join(dir, "config.json"), FULL);
+      const r = writeSlots(dir, [{ name: "reviewer", model: "a/b" } as unknown as Slot]);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.issues.map((i) => i.path)).toEqual(["crew.slots[0].when"]);
+      expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(FULL);
+    }));
+
   test("New crew key goes last", () =>
     withDir((dir) => {
       writeFileSync(

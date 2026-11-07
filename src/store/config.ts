@@ -16,7 +16,7 @@ import {
   type WriteResult,
 } from "./validate.ts";
 
-export type Slot = { name: string; model: string; when?: string };
+export type Slot = { name: string; model: string; when: string };
 
 export type Config = {
   classifier?: { url?: string; model?: string; apiKeyEnv?: string; timeoutMs?: number };
@@ -69,7 +69,7 @@ export const slotsValidator: V<Slot[]> = (value, path, issues) => {
         model: modelId,
         when: string({ min: 1, max: 500, trim: true }),
       },
-      { required: ["name", "model"] },
+      { required: ["name", "model", "when"] },
     ),
     { max: 8 },
   )(value, path, issues) as Slot[] | undefined;
@@ -143,11 +143,7 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
   const raw = current.raw;
   const crew = { ...(raw.crew as Record<string, unknown> | undefined) };
   if (slots.length > 0) {
-    crew.slots = slots.map((s) => ({
-      name: s.name,
-      model: s.model,
-      ...(s.when === undefined ? {} : { when: s.when }),
-    }));
+    crew.slots = slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
   } else {
     delete crew.slots;
   }
