@@ -217,7 +217,7 @@ describe("decision", () => {
     t.ctxRaw.signal = ac.signal;
     await run(t, "why does src/a.ts fail?");
     const req = t.requests[0]!;
-    expect(req.questions).toEqual(mainQuestions({ askEffort: true }).wire);
+    expect(req.questions).toEqual(mainQuestions({ askEffort: true, askStrategy: false }).wire);
     expect(req.state).toEqual(
       mainState({ prompt: "why does src/a.ts fail?", items: [], platforms: ["none found"] }),
     );

@@ -1,6 +1,7 @@
 // Question sets for main and worker requests. Wording lives in ./rubrics.ts.
 import type { QuestionSpec } from "../policy/answers.ts";
 import { EFFORT_LEVELS } from "../policy/effort.ts";
+import { STRATEGIES } from "../policy/strategy.ts";
 import { TIER_LADDER, type TierName } from "../policy/launch.ts";
 import type { ModeName } from "../policy/modes.ts";
 import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
@@ -10,8 +11,10 @@ import {
   EXPERT_NEEDED_QUESTIONS,
   GATE_QUESTIONS,
   MAIN_EFFORT_INSTRUCTION,
+  MAIN_TIER_QUESTION,
   NONE_CRITERION,
   RISKY_QUESTION,
+  STRATEGY_QUESTION,
   TIER_CRITERIA,
   TIER_INSTRUCTION,
   WHICH_INSTRUCTION,
@@ -63,15 +66,24 @@ export function skillBatchQuestions(batch: readonly SkillEntry[]): MainQuestions
   return { wire: { which: wire }, specs: { which: spec } };
 }
 
-/** Questions for a main request; `effort` and `risky` only when `askEffort`. */
-export function mainQuestions(o: { askEffort: boolean; skills?: undefined }): MainQuestions;
+/**
+ * Questions for a main request: `effort` and `risky` when `askEffort`, `tier` and `strategy` when
+ * `askStrategy`, then `corrects`.
+ */
+export function mainQuestions(o: {
+  askEffort: boolean;
+  askStrategy?: boolean;
+  skills?: undefined;
+}): MainQuestions;
 /** With a non-empty first skill batch, appends `which` then the three gates. */
 export function mainQuestions(o: {
   askEffort: boolean;
+  askStrategy?: boolean;
   skills: readonly SkillEntry[];
 }): SkillQuestions;
 export function mainQuestions(o: {
   askEffort: boolean;
+  askStrategy?: boolean;
   skills?: readonly SkillEntry[] | undefined;
 }): SkillQuestions {
   const wire: Record<string, WireQuestion | BareNoulQuestion> = {};
@@ -86,6 +98,12 @@ export function mainQuestions(o: {
     specs["effort"] = { type: "choice", options: EFFORT_LEVELS };
     wire["risky"] = copy(RISKY_QUESTION);
     specs["risky"] = { type: "noul" };
+  }
+  if (o.askStrategy === true) {
+    wire["tier"] = copy(MAIN_TIER_QUESTION);
+    specs["tier"] = { type: "choice", options: Object.keys(MAIN_TIER_QUESTION.criteria) };
+    wire["strategy"] = copy(STRATEGY_QUESTION);
+    specs["strategy"] = { type: "choice", options: [...STRATEGIES] };
   }
   wire["corrects"] = copy(CORRECTS_QUESTION);
   specs["corrects"] = { type: "noul" };

@@ -136,7 +136,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       anchor,
     });
     const askEffort = !held && canAskEffort(supported);
-    const questions = mainQuestions({ askEffort });
+    const questions = mainQuestions({ askEffort, askStrategy: false });
     const state = mainState({
       prompt: event.prompt,
       items: branchItems(entries),

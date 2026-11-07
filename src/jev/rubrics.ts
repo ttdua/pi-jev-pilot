@@ -139,3 +139,29 @@ export const GATE_QUESTIONS: Record<GateKey, BareNoulQuestion> = {
       "Could a knowledgeable generalist fully satisfy this request in prose, with no tools, no documentation, and no access to the user's files or accounts?",
   },
 };
+
+export const STRATEGY_QUESTION: WireQuestion = {
+  type: "choice",
+  instructions:
+    "How should a coding assistant carry out the latest request, given the recent conversation? Prefer the simplest way that does it well.",
+  criteria: {
+    direct:
+      "The main conversation does it itself: a question, a lookup, a command, or a change to one or a few files. One job with one clear finish line. The right answer for most requests, including most follow-ups.",
+    delegate:
+      "One subagent on a cheaper model does a broad but mechanical part first (searching or reading across many files, a codebase sweep, bulk renames) and the main conversation acts on its short report.",
+    parallel:
+      "Fan out, then join: several independent pieces with no shared files or state (separate modules, services or investigations), each done by its own subagent at the same time, then combined in one place.",
+    graph:
+      "Work one conversation would lose track of: parts that depend on each other in waves, or distinct specialties that hand off (build, then an independent review, then fixes), with results fanning in to be checked. Only for large builds; most work, even big work, is direct or parallel.",
+  },
+};
+
+export const MAIN_TIER_QUESTION: WireQuestion = {
+  type: "choice",
+  instructions: TIER_INSTRUCTION,
+  criteria: {
+    fast: STANDARD_TIER_CRITERIA.fast,
+    balanced: STANDARD_TIER_CRITERIA.balanced,
+    deep: STANDARD_TIER_CRITERIA.deep,
+  },
+};
