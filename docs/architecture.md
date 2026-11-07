@@ -54,7 +54,7 @@ src/
     worker.ts            Reads worker answers
     tier.ts              Model decision order
     route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
-    modes.ts             Mode names, Fable rules
+    modes.ts             Mode names, expert gates
     skill.ts             Skill pick from choice and gate answers
     strategy.ts          Advice gates and advice text
     tools.ts             Which tools are assessed, which are removed

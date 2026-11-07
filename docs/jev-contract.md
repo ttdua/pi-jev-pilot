@@ -205,7 +205,7 @@ The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/age
 | `tier` | choice | Configured tiers (active mode's rubric) and `slot::<name>` | Worker model |
 | `effort` | choice | Five levels, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
-| `expert_needed` | noul | Only when `tiers.expert` is set | Fable rule |
+| `expert_needed` | noul | Only when `tiers.expert` is set | Expert gate |
 
 ## Tool assessment
 
@@ -250,7 +250,7 @@ If the same body is already on the current branch, from a pick or an explicit `/
 | `effort.choice` | Authoritative | Effort, before floor, ceiling and clamp |
 | `risky` | `> .7` | Effort at least `high`; model at least `deep` |
 | `tier` probabilities | `fast` needs ≥ .6, slot needs ≥ .6 | See the [decision order](domain-model.md#workerdecision) |
-| `expert_needed`, `P(expert)` | Per mode | See the [Fable rules](domain-model.md#fable-rules) |
+| `expert_needed`, `P(expert)` | Per mode | See the [expert gates](domain-model.md#expert-gates) |
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |

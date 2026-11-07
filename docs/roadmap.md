@@ -171,7 +171,7 @@ The pre-launch tier cascade moved here from WG-13.
 
 ### WG-12: Modes and expert tier
 
-**Modes, H1.** Rubrics as data, `/jev mode`, Fable rules, softer `expert_needed` in `premium`, mode in the ledger.
+**Modes, H1.** Rubrics as data, `/jev mode`, expert gates, softer `expert_needed` in `premium`, mode in the ledger.
 
 - **Done when:** the [decision order](domain-model.md#workerdecision) has a table test per mode, and a replay of real briefs reproduces the [recorded distribution](evidence/2026-11-05-replay.md#routing-by-mode) within noise. That replay needs approval at the time.
 
@@ -232,7 +232,7 @@ Not committed. Each needs evidence or a decision first.
 | Quality check of the reviewer slot | Routing is proven, review quality is not | Real findings compared |
 | Decision on threshold tuning | Upstream's rules never fired on real data | About 200 decisions per signal, then keep or drop |
 | `enforce` by default for tool assessment | Unknown whether removals are right | Would-remove counts reviewed |
-| Calibrating Fable rules | Two cases in replay | More data |
+| Calibrating expert gates | Two cases in replay | More data |
 | More work reaching the fast tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
 | OpenRouter or Vercel backends | Excluded for now | Demand |
 

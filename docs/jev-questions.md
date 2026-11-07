@@ -68,7 +68,7 @@ Noul. Asked in worker requests when `tiers.expert` is configured.
 - `true`: A concrete, consequential technical decision remains genuinely unresolved despite adequate constraints and evidence, and an ordinary deep-tier approach would materially fail to settle it: strongly coupled trade-offs, conflicting cross-subsystem evidence, or a blocker that resisted distinct, evidence-based investigations. A reusable decision, diagnosis or plan is the requested outcome.
 - `false`: Routine architecture explanation or design using known patterns; ordinary review; implementing a settled plan; collecting evidence; formatting or saving Markdown; a long task; a security or production label; missing requirements; or lack of evidence. Being difficult, high effort or high risk is not enough.
 
-**In `premium`:** asked and logged for calibration, and not part of its Fable rule.
+**In `premium`:** asked and logged for calibration, and not part of its expert gate.
 
 > This task needs the strongest available reasoning rather than competent execution of a settled plan: architecture or design across many components, long multi-step work with tightly coupled parts, a bug that resisted earlier attempts, or concurrency or data-integrity reasoning where a wrong call is expensive to undo.
 
