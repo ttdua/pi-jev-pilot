@@ -75,7 +75,7 @@ Noul. Asked in worker requests when `tiers.expert` is configured.
 
 ## `effort`
 
-Choice. The same five criteria for main and worker requests:
+Choice. The same five criteria for main and worker requests. The table lists them by rank. The options are sent in the order `high`, `medium`, `xhigh`, `low`, `max`, because Jev leans toward the first option ([replay](evidence/2026-11-07-state-replay.md#effort-option-order)).
 
 | Level | Criterion |
 |---|---|
