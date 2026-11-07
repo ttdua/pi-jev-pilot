@@ -2,7 +2,7 @@
 import type { QuestionSpec } from "../policy/answers.ts";
 import { EFFORT_LEVELS } from "../policy/effort.ts";
 import { STRATEGIES } from "../policy/strategy.ts";
-import { TIER_LADDER, type TierName } from "../policy/launch.ts";
+import { slotTarget, TIER_LADDER, type TierName } from "../policy/launch.ts";
 import type { ModeName } from "../policy/modes.ts";
 import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
 import {
@@ -14,6 +14,7 @@ import {
   MAIN_TIER_QUESTION,
   NONE_CRITERION,
   RISKY_QUESTION,
+  SLOT_CRITERION_INFIX,
   STRATEGY_QUESTION,
   TIER_CRITERIA,
   TIER_INSTRUCTION,
@@ -132,23 +133,34 @@ export function offeredTiers(
   });
 }
 
+/** A configured slot as offered to the worker question. */
+export type SlotOption = { name: string; model: string; when: string; displayName?: string };
+
+function slotCriterion(slot: SlotOption): string {
+  const name =
+    slot.displayName === undefined || slot.displayName === "" ? slot.model : slot.displayName;
+  return `${name}${SLOT_CRITERION_INFIX}${slot.when}`;
+}
+
 export function buildWorkerQuestions(
   offered: readonly TierName[],
   displayNames: Partial<Record<TierName, string>>,
   mode: ModeName,
+  slots: readonly SlotOption[] = [],
 ): { questions: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> } {
   const questions: Record<string, WireQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
   const ordered = TIER_LADDER.filter((tier) => offered.includes(tier));
-  if (ordered.length > 0) {
+  if (ordered.length > 0 || slots.length > 0) {
     const criteria: Record<string, string> = {};
     for (const tier of ordered) {
       const name = displayNames[tier];
       const text = TIER_CRITERIA[mode][tier];
       criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
     }
+    for (const slot of slots) criteria[slotTarget(slot.name)] = slotCriterion(slot);
     questions["tier"] = { type: "choice", instructions: TIER_INSTRUCTION, criteria };
-    specs["tier"] = { type: "choice", options: ordered };
+    specs["tier"] = { type: "choice", options: Object.keys(criteria) };
   }
   questions["effort"] = copy(WORKER_EFFORT_QUESTION);
   specs["effort"] = { type: "choice", options: Object.keys(WORKER_EFFORT_QUESTION.criteria) };

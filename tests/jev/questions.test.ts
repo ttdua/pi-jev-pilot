@@ -9,6 +9,8 @@ import {
   skillBatchQuestions,
   type WireQuestion,
 } from "../../src/jev/questions.ts";
+import type { QuestionSpec } from "../../src/policy/answers.ts";
+import { readWorkerOutcome } from "../../src/policy/worker.ts";
 import {
   CORRECTS_QUESTION,
   EXPERT_NEEDED_QUESTIONS,
@@ -16,6 +18,7 @@ import {
   MAIN_EFFORT_INSTRUCTION,
   NONE_CRITERION,
   RISKY_QUESTION,
+  SLOT_CRITERION_INFIX,
   TIER_CRITERIA,
   TIER_INSTRUCTION,
   WHICH_INSTRUCTION,
@@ -432,5 +435,106 @@ describe("buildToolQuestions", () => {
     expect(next.questions["tool::read"]!.criteria["true"]).not.toBe("x");
     expect(next.questions["tool::read"]!.instructions).not.toBe("x");
     expect(next.specs["tool::read"]).toEqual({ type: "noul" });
+  });
+});
+
+describe("Slot questions", () => {
+  const reviewer = {
+    name: "reviewer",
+    model: "9router/gpt-6.1-sol",
+    when: "Choose for reviews. Not for fixing.",
+    displayName: "GPT-6.1 Sol",
+  };
+  const bulk = { name: "bulk", model: "a/b", when: "Bulk." };
+  const optionsOf = (s: QuestionSpec | undefined): string[] =>
+    s?.type === "choice" ? [...s.options] : [];
+
+  test("Slots after tiers", () => {
+    const { questions, specs } = buildWorkerQuestions(["fast", "balanced"], {}, "standard", [
+      reviewer,
+      bulk,
+    ]);
+    const expected = ["fast", "balanced", "slot::reviewer", "slot::bulk"];
+    expect(optionsOf(specs["tier"])).toEqual(expected);
+    expect(Object.keys(questions["tier"]!.criteria)).toEqual(expected);
+  });
+  test("No slot, request unchanged", () => {
+    const names = { fast: "Haiku" };
+    for (const mode of MODE_NAMES) {
+      const a = buildWorkerQuestions(["fast", "deep", "expert"], names, mode);
+      const b = buildWorkerQuestions(["fast", "deep", "expert"], names, mode, []);
+      expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    }
+  });
+  test("Slot alone", () => {
+    const { questions, specs } = buildWorkerQuestions([], {}, "standard", [reviewer]);
+    expect(Object.keys(questions)).toEqual(["tier", "effort", "risky"]);
+    expect(optionsOf(specs["tier"])).toEqual(["slot::reviewer"]);
+  });
+  test("Reviewer criterion", () => {
+    const { questions } = buildWorkerQuestions([], {}, "standard", [reviewer]);
+    expect(questions["tier"]!.criteria["slot::reviewer"]).toBe(
+      "GPT-6.1 Sol (a custom model). Choose for reviews. Not for fixing.",
+    );
+  });
+  test("No display name", () => {
+    const { questions } = buildWorkerQuestions([], {}, "standard", [
+      bulk,
+      { ...reviewer, displayName: undefined },
+    ]);
+    expect(
+      questions["tier"]!.criteria["slot::reviewer"]!.startsWith(
+        "9router/gpt-6.1-sol (a custom model). ",
+      ),
+    ).toBe(true);
+  });
+  test("Same in every mode", () => {
+    const texts = MODE_NAMES.map(
+      (mode) =>
+        buildWorkerQuestions([], {}, mode, [reviewer]).questions["tier"]!.criteria[
+          "slot::reviewer"
+        ],
+    );
+    expect(new Set(texts).size).toBe(1);
+  });
+  test("Slot answer read", () => {
+    const { specs } = buildWorkerQuestions(["fast"], {}, "standard", [reviewer]);
+    const body = {
+      answers: {
+        tier: {
+          type: "choice",
+          choice: "slot::reviewer",
+          probabilities: { fast: 0.1, "slot::reviewer": 0.9 },
+        },
+      },
+    };
+    const r = readWorkerOutcome({ kind: "ok", body }, specs);
+    if (r.kind !== "read") throw new Error("expected read");
+    const tier = r.answers["tier"];
+    if (tier?.type !== "choice") throw new Error("expected choice");
+    expect(tier.choice).toBe("slot::reviewer");
+    expect(tier.probabilities).toEqual({ fast: 0.1, "slot::reviewer": 0.9 });
+  });
+  test("Main request with a slot configured", () => {
+    const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
+    expect(JSON.stringify(wire)).not.toContain("slot::");
+  });
+  test("Expert offered", () => {
+    const { questions } = buildWorkerQuestions(["fast", "expert"], {}, "standard", [reviewer]);
+    expect(Object.keys(questions["tier"]!.criteria)).toEqual(["fast", "expert", "slot::reviewer"]);
+    expect(Object.keys(questions)).toContain("expert_needed");
+  });
+  test("Asked and accepted agree with a slot", () => {
+    const { questions, specs } = buildWorkerQuestions(["fast", "deep"], {}, "standard", [reviewer]);
+    const expected = ["fast", "deep", "slot::reviewer"];
+    expect(optionsOf(specs["tier"])).toEqual(expected);
+    expect(Object.keys(questions["tier"]!.criteria)).toEqual(expected);
+  });
+  test("No tier and no slot", () => {
+    const { questions } = buildWorkerQuestions([], {}, "standard", []);
+    expect(Object.keys(questions)).toEqual(["effort", "risky"]);
+  });
+  test("Wording matches the docs", () => {
+    expect(docs).toContain(SLOT_CRITERION_INFIX);
   });
 });

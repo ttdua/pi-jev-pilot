@@ -24,6 +24,7 @@ import type { Answer } from "../policy/answers.ts";
 import { appendLedger } from "../store/ledger.ts";
 import { readAgent } from "./agents.ts";
 import { isChild } from "./child.ts";
+import { checkModel, splitModel } from "./models.ts";
 import { loadSnapshot, type Snapshot } from "./readiness.ts";
 import { jevDir } from "./stores.ts";
 import { takeToolCounts } from "./tool-counts.ts";
@@ -146,27 +147,11 @@ function lastUserText(ctx: ExtensionContext): string | undefined {
   return undefined;
 }
 
-function splitModel(id: string): [string, string] | undefined {
-  const at = id.indexOf("/");
-  return at <= 0 || at === id.length - 1 ? undefined : [id.slice(0, at), id.slice(at + 1)];
-}
-
 // Slot behavior arrives with the host slot support; until then a slot cannot run.
 const SLOT_UNSUPPORTED: Check = { ok: false, why: "slots are not supported yet" };
 
 function modelFor(tiers: Partial<Record<TierName, string>>, target: Target): string {
   return isSlot(target) ? "" : (tiers[target] ?? "");
-}
-
-function checkTier(ctx: ExtensionContext, id: string): Check {
-  const parts = splitModel(id);
-  const model = parts === undefined ? undefined : ctx.modelRegistry.find(parts[0], parts[1]);
-  if (model === undefined) return { ok: false, why: "not in the model registry" };
-  if (!ctx.modelRegistry.hasConfiguredAuth(model)) return { ok: false, why: "no credentials" };
-  return {
-    ok: true,
-    thinking: { reasoning: model.reasoning, thinkingLevelMap: model.thinkingLevelMap },
-  };
 }
 
 export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
@@ -377,7 +362,9 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const checkOf = (tier: Target): Check => {
       let c = checks.get(tier);
       if (c === undefined) {
-        c = isSlot(tier) ? SLOT_UNSUPPORTED : checkTier(ctx, modelFor(settings.tiers, tier));
+        c = isSlot(tier)
+          ? SLOT_UNSUPPORTED
+          : checkModel(ctx.modelRegistry, modelFor(settings.tiers, tier));
         checks.set(tier, c);
       }
       return c;
