@@ -144,24 +144,30 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 ```mermaid
 flowchart TD
-    A["agent_settled"] --> B{"Tuning on, and<br/>cooldown passed?"}
+    A["agent_settled"] --> B{"Tuning on?"}
     B -- no --> Z["Stop"]
     B -- yes --> B2{"Config still matches<br/>the tuned base?"}
     B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
-    B2 -- yes --> C["Read ledger since last change"]
-    C --> D{"A pending change<br/>to evaluate?"}
+    B3 --> Z
+    B2 -- yes --> D{"A pending change with<br/>40 decisions after it?"}
     D -- yes --> E{"Worse than the<br/>40 before it?"}
     E -- yes --> F["Revert, show a line"]
+    F --> Z
     E -- no --> G["Mark kept"]
-    D -- no --> H{"A rule fires?"}
-    G --> H
+    D -- no --> CD
+    G --> CD{"Cooldown passed?<br/>(40 decisions since the last change)"}
+    CD -- no --> Z
+    CD -- yes --> H{"A rule fires?"}
     H -- no --> Z
     H -- yes --> I{"Parameter allowlisted<br/>for automatic change?"}
     I -- no --> J["Keep as a signal for /jev tune"]
-    I -- yes --> L{"Value blocked by a<br/>recent revert or undo?"}
-    L -- yes --> M["Lower to blocked − 100,<br/>or drop if not above current"]
-    L -- no --> K["Apply one step, show a line"]
-    M --> K
+    I -- yes --> N["Compute and clamp the value"]
+    N --> L{"Value blocked by a<br/>recent revert or undo?"}
+    L -- yes --> M["Lower to blocked − 100"]
+    L -- no --> Q{"Above current?"}
+    M --> Q
+    Q -- no --> Z
+    Q -- yes --> K["Apply one step, show a line"]
 ```
 
 Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
