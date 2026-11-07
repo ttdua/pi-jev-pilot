@@ -30,6 +30,10 @@ export type TuneOutcome = { ok: boolean; message: string };
 
 const joinIssues = (issues: readonly Issue[]): string => issues.map((i) => i.message).join("; ");
 
+/** Each config problem as `<path or (file)>: <message>`; never includes config values. */
+const pathedIssues = (issues: readonly Issue[]): string =>
+  issues.map((i) => `${i.path === "" ? "(file)" : i.path}: ${i.message}`).join("; ");
+
 const refused = (message: string): TuneOutcome => ({ ok: false, message });
 
 /** Whether the tuned value is in force: config valid and the value built on today's untuned one. */
@@ -79,7 +83,7 @@ export function buildTuneView(snapshot: Snapshot, ledger: LedgerRead): TuneView 
 /** The refusal for `undo` and `reset` while the config is invalid. */
 function configRefusal(snapshot: Snapshot): TuneOutcome | undefined {
   if (snapshot.config.valid) return undefined;
-  return refused(`Jev tune: fix the config first. ${joinIssues(snapshot.config.issues)}`);
+  return refused(`Jev tune: fix the config first. ${pathedIssues(snapshot.config.issues)}`);
 }
 
 /** Runs one write; `message` is shown when it succeeds. */

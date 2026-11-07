@@ -37,7 +37,7 @@ export type FakeDeps = TuningDeps & {
   lastResult: () => TuningDocument | undefined;
 };
 
-const invalidIssues: Issue[] = [{ path: "", message: "bad config" }];
+const invalidIssues: Issue[] = [{ path: "classifier.timeoutMs", message: "bad config" }];
 
 function snapshotOf(o: FakeOptions, record: TuningDocument): Snapshot {
   const config =

@@ -135,7 +135,9 @@ describe("runTune", () => {
   test("invalid config", () => {
     const deps = fakeDeps({ configValid: false, record: tuned });
     for (const sub of ["reset", "undo"] as const) {
-      expect(runTune(deps, sub, fakeCtx(true)).ok).toBe(false);
+      const out = runTune(deps, sub, fakeCtx(true));
+      expect(out.ok).toBe(false);
+      expect(out.message).toContain("classifier.timeoutMs: bad config");
     }
     expect(deps.updates()).toBe(0);
   });
