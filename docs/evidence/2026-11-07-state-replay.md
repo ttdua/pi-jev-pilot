@@ -46,7 +46,9 @@ Most changed cases were close calls, for example `fast` .41 against `balanced` .
 
 Reversing the order of the `effort` options, with the state otherwise minimal, flipped effort in **12 of 100**, against a noise of 3. **10 of the 12 moved up**, mostly `low` to `medium`. This confirms the lean toward the first option that TypeSafe documents. The order in use, `low` first, pulls main effort down.
 
-The operator chose `high, medium, xhigh, low, max`, which is the observed order of use, from most to least. The scope of that order and its confirming replay are recorded separately.
+The operator chose `high, medium, xhigh, low, max`, which is the observed order of use, from most to least. The confirming run replayed 400 requests: 100 main prompts and 0 workers, because their agents are not in the snapshot. Effort flipped in **12**, against noise of 6 and 3. **11 of the 12 moved up**, mostly from `low`. Tier stayed within noise.
+
+**Decision:** shipped for both the main and the worker question, which share one criteria object. The worker side is unmeasured. Policy still ranks `low` to `max`.
 
 ## Workers
 

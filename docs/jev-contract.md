@@ -157,7 +157,7 @@ A forked launch with `subagents.forkedLaunch` set to `thinking`, or a launch wit
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
-| `effort` | choice | `low`, `medium`, `high`, `xhigh`, `max` | Main thinking level |
+| `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max` | Main thinking level |
 | `risky` | noul | | Risk floor |
 | `tier` | choice | `fast`, `balanced`, `deep` (`standard` rubric only) | Strategy gates. **Never a model** |
 | `strategy` | choice | `direct`, `delegate`, `parallel`, `graph` | Advice |
@@ -195,12 +195,14 @@ The 4000-character cap covers about 90% of real briefs. Replay at 2000 versus fu
 
 The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/agents/`, and otherwise from a table of the executor's built-in agents (`general-purpose`, `Explore`, `Plan`).
 
+The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.md), because Jev leans toward the first option. Policy still ranks `low` to `max`.
+
 ## Worker questions
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
 | `tier` | choice | Configured tiers (active mode's rubric) and `slot::<name>` | Worker model |
-| `effort` | choice | Five levels, worker wording | Worker thinking level |
+| `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max`, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
 | `expert_needed` | noul | Only when `tiers.expert` is set | Expert gate |
 
@@ -294,4 +296,4 @@ From [TypeSafe's documentation](https://docs.typesafe.ai/model-jaggedness.md):
 - It reads instructions literally, so boundary cases belong in the criteria.
 - It does not count reliably, so counts are computed in code.
 - Irrelevant state lowers accuracy, so each field must serve a question.
-- It can lean toward the first option of a choice. `effort` lists `low` first; [WG-16](roadmap.md#wg-16-rich-state-replay) tests this.
+- It can lean toward the first option of a choice. The `effort` options are ordered `high, medium, xhigh, low, max` for this reason, following the [replay](evidence/2026-11-07-state-replay.md). Policy still ranks `low` to `max`.

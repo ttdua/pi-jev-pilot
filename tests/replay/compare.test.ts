@@ -179,7 +179,8 @@ describe("compare", () => {
     });
     const base = req("base");
     const alt = req("no-description");
-    const effort = specs["effort"]?.type === "choice" ? (specs["effort"].options[0] ?? "") : "";
+    // `low` survives every tier unchanged; the option order is irrelevant to the rank.
+    const effort = "low";
     const agg = compare(
       planOf([base, alt]),
       [ok(base, answer("fast", effort)), ok(alt, answer("deep", effort))],

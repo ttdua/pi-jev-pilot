@@ -25,7 +25,7 @@ import {
   WORKER_EFFORT_QUESTION,
 } from "../../src/jev/rubrics.ts";
 import { GATE_KEYS, skillCriterion } from "../../src/policy/skill.ts";
-import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
+import { EFFORT_LEVELS, EFFORT_OPTION_ORDER } from "../../src/policy/effort.ts";
 import { MODE_NAMES } from "../../src/policy/modes.ts";
 
 const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
@@ -44,7 +44,7 @@ describe("mainQuestions", () => {
 
   test("specs for effort, risky, tier, strategy and corrects", () => {
     const { specs } = mainQuestions({ askEffort: true, askStrategy: true });
-    expect(specs["effort"]).toEqual({ type: "choice", options: EFFORT_LEVELS });
+    expect(specs["effort"]).toEqual({ type: "choice", options: EFFORT_OPTION_ORDER });
     expect(specs["risky"]).toEqual({ type: "noul" });
     expect(specs["tier"]).toEqual({ type: "choice", options: ["fast", "balanced", "deep"] });
     expect(specs["strategy"]).toEqual({
@@ -68,7 +68,7 @@ describe("mainQuestions", () => {
     const effort = mainQuestions({ askEffort: true, askStrategy: true }).wire["effort"]!;
     expect(Object.keys(effort).sort()).toEqual(["criteria", "instructions", "type"]);
     expect(effort.type).toBe("choice");
-    expect(Object.keys(effort.criteria)).toEqual([...EFFORT_LEVELS]);
+    expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
   });
 
   test("noul questions have true and false criteria", () => {
@@ -168,7 +168,7 @@ describe("Worker questions", () => {
     expect(specs["expert_needed"]).toEqual({ type: "noul" });
     expect(specs["effort"]).toEqual({
       type: "choice",
-      options: ["low", "medium", "high", "xhigh", "max"],
+      options: ["high", "medium", "xhigh", "low", "max"],
     });
   });
   test("Asked and accepted agree", () => {
@@ -206,10 +206,10 @@ describe("Question wording", () => {
     expect(Object.keys(RISKY_QUESTION.criteria)).toEqual(["true", "false"]);
     expect(Object.keys(EXPERT_NEEDED_QUESTIONS.standard.criteria)).toEqual(["true", "false"]);
     expect(Object.keys(WORKER_EFFORT_QUESTION.criteria)).toEqual([
-      "low",
-      "medium",
       "high",
+      "medium",
       "xhigh",
+      "low",
       "max",
     ]);
     const quote = DOC.split("**Worker instruction:**")[1]!.split("\n")[2]!.replace(/^> /, "");

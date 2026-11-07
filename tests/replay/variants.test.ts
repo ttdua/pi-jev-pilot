@@ -83,16 +83,16 @@ describe("planPass", () => {
     const [rev] = find(p, "effort-reversed");
     const [min] = find(p, "minimal");
     const q = rev?.questions as { effort: { criteria: object } };
-    expect(Object.keys(q.effort.criteria)).toEqual(["max", "xhigh", "high", "medium", "low"]);
+    expect(Object.keys(q.effort.criteria)).toEqual(["max", "low", "xhigh", "medium", "high"]);
     expect(rev?.specs["effort"]).toEqual({
       type: "choice",
-      options: ["max", "xhigh", "high", "medium", "low"],
+      options: ["max", "low", "xhigh", "medium", "high"],
     });
     expect(rev?.state).toEqual(min?.state);
     expect(rev?.base).toBe("minimal");
   });
 
-  test("effort-order puts the candidate order on the wire and in the specs", () => {
+  test("effort-order is a no-op: the shipped order equals the base order", () => {
     const p = plan1();
     const order = ["high", "medium", "xhigh", "low", "max"];
     const [min] = find(p, "minimal");

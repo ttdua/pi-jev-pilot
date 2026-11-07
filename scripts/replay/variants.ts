@@ -4,6 +4,7 @@ import { buildWorkerState, mainState, pickRich, type RichGroup } from "../../src
 import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
 import type { WireQuestion } from "../../src/jev/rubrics.ts";
 import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
+import { EFFORT_OPTION_ORDER } from "../../src/policy/effort.ts";
 import type { ModeName } from "../../src/policy/modes.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
 
@@ -58,8 +59,8 @@ export type PlanInput = {
 /** Variants every run keeps: the bases and the reruns they are measured against. */
 const ALWAYS = new Set(["minimal", "rerun-a", "rerun-b", "base"]);
 
-/** The operator's candidate option order for effort: most to least used. */
-const EFFORT_ORDER_CANDIDATE: readonly string[] = ["high", "medium", "xhigh", "low", "max"];
+/** The shipped option order; `effort-order` is a no-op against the base since iteration 4. */
+const EFFORT_ORDER_CANDIDATE: readonly string[] = EFFORT_OPTION_ORDER;
 
 function selected(id: string, only: readonly string[] | undefined): boolean {
   if (only === undefined || ALWAYS.has(id) || only.includes(id)) return true;
