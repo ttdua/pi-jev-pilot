@@ -85,7 +85,7 @@ When the state store refuses a change (an unreadable `state.json`, or a write er
 - **THEN** the old bytes move to `state.json.bad`, and `state.json` holds only `version` and `switches.skills` `false`
 
 ### Requirement: Usage text for other input
-Any other argument SHALL produce usage text as a warning and change nothing. The usage text MUST list exactly the forms `/jev`, `/jev <feature> on|off` with the nine feature names, `/jev all on|off`, `/jev mode budget|standard|premium`, `/jev reset` and `/jev cli-review <codex|opencode> [model|default] [effort|default]`. Arguments are split on whitespace and matched case-sensitively; extra words make the input unknown.
+Any other argument SHALL produce usage text as a warning and change nothing. The usage text MUST list exactly the forms `/jev`, `/jev <feature> on|off` with the nine feature names, `/jev all on|off`, `/jev mode budget|standard|premium`, `/jev reset`, `/jev cli-review <codex|opencode> [model|default] [effort|default]`, `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>` and `/jev remove <slot>`. A first word that is a valid, non-reserved slot name, or `remove`, MUST be handled by the slot forms (see `slot-commands`), not by this requirement. Arguments are split on whitespace and matched case-sensitively; extra words make the input unknown, except the text after `when` in the slot add form.
 
 #### Scenario: Command from a later work group
 - **WHEN** the operator runs `/jev tune`
@@ -100,7 +100,8 @@ Any other argument SHALL produce usage text as a warning and change nothing. The
 - **THEN** it contains `/jev mode budget|standard|premium`
 
 #### Scenario: Unknown feature
-- **WHEN** the operator runs `/jev colors off`
+<!-- Intentional change: lower-case `colors` is now slot-shaped; see `slot-commands` "Name-shaped typo of a feature". -->
+- **WHEN** the operator runs `/jev Colors off`
 - **THEN** usage text is reported and `state.json` is unchanged
 
 #### Scenario: Bad value
@@ -118,6 +119,10 @@ Any other argument SHALL produce usage text as a warning and change nothing. The
 #### Scenario: Whitespace only
 - **WHEN** the operator runs `/jev` followed only by spaces
 - **THEN** the status is reported, as with no argument
+
+#### Scenario: Usage lists the slot forms
+- **WHEN** usage text is reported
+- **THEN** it contains `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>` and `/jev remove <slot>`
 
 ### Requirement: Command failures stay inside the package
 An unexpected error while running `/jev` MUST be caught inside the package. It SHALL be reported as an error notification when `ctx.hasUI`, and MUST NOT propagate to Pi or print anything in print or JSON mode.

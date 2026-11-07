@@ -40,7 +40,7 @@ The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the e
 - **THEN** a line with `status` `error` is written
 
 ### Requirement: Decision fields
-The line SHALL carry `mode` (the mode captured when the launch was classified, see `worker-routing`); `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent; `agent` and `briefChars` (code points of the brief); the raw `tierP`, `effortP`, `risky` and `expertNeeded`; the route's recorded fields; and `toolsScored` and `toolsFlagged` when that launch started a worker session whose tool assessment got an answer, omitted otherwise (a resumed launch starts no new session). The line MUST NOT contain the brief, the description, tool names or tool arguments.
+The line SHALL carry `mode` (the mode captured when the launch was classified, see `worker-routing`); `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent; `agent` and `briefChars` (code points of the brief); the raw `tierP`, `effortP`, `risky` and `expertNeeded`; the route's recorded fields, where `tier` and `fallback` hold a tier or a `slot::<name>` target and `tierP` holds a key for every offered tier and slot that Jev returned; and `toolsScored` and `toolsFlagged` when that launch started a worker session whose tool assessment got an answer, omitted otherwise (a resumed launch starts no new session). The line MUST NOT contain the brief, the description, tool names or tool arguments.
 
 #### Scenario: Routed fields
 - **WHEN** a launch is routed to `balanced` with thinking `high` and the caller asked for `fixture/fixture-main`
@@ -93,6 +93,14 @@ The line SHALL carry `mode` (the mode captured when the launch was classified, s
 #### Scenario: Resumed launch carries no counts
 - **WHEN** a launch resumes a worker that was assessed earlier and completes
 - **THEN** its line has no `toolsScored` and no `toolsFlagged`
+
+#### Scenario: Slot decision recorded
+- **WHEN** a launch is routed to slot `reviewer` with thinking `high`
+- **THEN** the line has `tier` `slot::reviewer`, `reason` `slot`, `model` the slot's model, `effort` `high`, and `tierP` with a `slot::reviewer` key
+
+#### Scenario: Slot fallback recorded
+- **WHEN** a launch decided for slot `reviewer` falls back to `balanced`
+- **THEN** the line has `tier` `balanced`, `reason` `slot` and `fallback` `slot::reviewer`, and it passes the ledger schema
 
 ### Requirement: Caller model field
 The line's `callerModel` SHALL hold the caller's `model` input when it is present and fits the ledger's rule, and MUST be omitted otherwise.
