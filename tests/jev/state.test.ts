@@ -7,6 +7,7 @@ import {
   buildToolState,
   buildWorkerState,
   mainState,
+  parseShortstat,
   pickRich,
   SHIPPED_MAIN_GROUPS,
   type RichInputs,
@@ -372,7 +373,7 @@ describe("mainState rich groups", () => {
   });
   test("pickRich keeps only listed groups", () => {
     expect(pickRich(all, ["git", "languages"])).toEqual({
-      git: all.git!,
+      git: { changed_files: 2, diff_lines: 10 },
       languages: ["TypeScript"],
     });
     expect(pickRich(all, [])).toEqual({});
@@ -382,5 +383,104 @@ describe("mainState rich groups", () => {
   });
   test("shipped list starts empty", () => {
     expect(SHIPPED_MAIN_GROUPS).toEqual([]);
+  });
+});
+
+describe("mainState rich shaping", () => {
+  const base = { prompt: "hi", items: [user("a")], platforms: [] as string[] };
+  const shaped = (rich: RichInputs) => mainState({ ...base, rich });
+  const descr = (n: number) => "x".repeat(n);
+
+  test("last decision kept", () => {
+    expect(
+      shaped({ lastDecision: { effort: "high", strategy: "direct" } }).conversation,
+    ).toMatchObject({
+      last_decision: { effort: "high", strategy: "direct" },
+    });
+  });
+  test("last decision key omitted", () => {
+    const s = shaped({ lastDecision: { effort: "high" } });
+    expect(s.conversation.last_decision).toEqual({ effort: "high" });
+    expect(Object.keys(s.conversation.last_decision!)).toEqual(["effort"]);
+  });
+  test("last decision empty omitted", () => {
+    expect("last_decision" in shaped({ lastDecision: {} }).conversation).toBe(false);
+  });
+  test("context rounded", () => {
+    expect(shaped({ contextPercent: 33.6 }).conversation.context_used_percent).toBe(34);
+  });
+  test("context clamped", () => {
+    expect(shaped({ contextPercent: 140 }).conversation.context_used_percent).toBe(100);
+    expect(shaped({ contextPercent: -3 }).conversation.context_used_percent).toBe(0);
+  });
+  test("context null omitted", () => {
+    expect("context_used_percent" in shaped({ contextPercent: null }).conversation).toBe(false);
+  });
+  test("first sentence", () => {
+    const s = shaped({
+      capabilities: {
+        tools: [
+          { name: "read", description: "Read a file. Supports images." },
+          { name: "web", description: "Fetch v1.2 now! Then stop" },
+          { name: "none", description: descr(250) },
+        ],
+        agents: [],
+      },
+    });
+    expect(s.capabilities!.tools.map((t) => t.summary)).toEqual([
+      descr(200),
+      "Read a file.",
+      "Fetch v1.2 now!",
+    ]);
+  });
+  test("tool cap 40 by name", () => {
+    const tools = Array.from({ length: 45 }, (_, i) => ({
+      name: `t${String(44 - i).padStart(2, "0")}`,
+      description: "d",
+    }));
+    const out = shaped({ capabilities: { tools, agents: [] } }).capabilities!.tools;
+    expect(out).toHaveLength(40);
+    expect(out[0]!.name).toBe("t00");
+    expect(out[39]!.name).toBe("t39");
+  });
+  test("agent cap 30 by name, description 200 code points", () => {
+    const agents = Array.from({ length: 35 }, (_, i) => ({
+      name: `a${String(34 - i).padStart(2, "0")}`,
+      description: "😀".repeat(250),
+      tools: null,
+    }));
+    const out = shaped({ capabilities: { tools: [], agents } }).capabilities!.subagents;
+    expect(out).toHaveLength(30);
+    expect(out[0]!.name).toBe("a00");
+    expect(Array.from(out[0]!.description)).toHaveLength(200);
+  });
+  test("no model or thinking in subagents", () => {
+    const agent = { name: "a", description: "d", tools: ["read"], model: "m", thinking: "high" };
+    const out = shaped({ capabilities: { tools: [], agents: [agent] } }).capabilities!.subagents;
+    expect(Object.keys(out[0]!)).toEqual(["name", "description", "tools"]);
+  });
+});
+
+describe("parseShortstat", () => {
+  test("parses counts", () => {
+    expect(parseShortstat(" 3 files changed, 70 insertions(+), 14 deletions(-)")).toEqual({
+      changed_files: 3,
+      diff_lines: 84,
+    });
+    expect(parseShortstat(" 1 file changed, 5 insertions(+)")).toEqual({
+      changed_files: 1,
+      diff_lines: 5,
+    });
+    expect(parseShortstat(" 2 files changed, 4 deletions(-)")).toEqual({
+      changed_files: 2,
+      diff_lines: 4,
+    });
+  });
+  test("empty output is a clean tree", () => {
+    expect(parseShortstat("")).toEqual({ changed_files: 0, diff_lines: 0 });
+    expect(parseShortstat("  \n")).toEqual({ changed_files: 0, diff_lines: 0 });
+  });
+  test("garbage is undefined", () => {
+    expect(parseShortstat("garbage")).toBeUndefined();
   });
 });
