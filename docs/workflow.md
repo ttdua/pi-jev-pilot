@@ -87,12 +87,12 @@ sequenceDiagram
 
 Classification of sibling launches happens at `message_end`, which finishes before `tool_call` preflight (verified, [Q2](evidence/2026-11-05-host-seams.md#q2)). Launches issued by another tool (nested, with `parentToolCallId`) have no `message_end` batch, so they are classified at `tool_call`. The outcome is read from `subagents:completed`, `subagents:failed` or `subagents:resumed`.
 
-**Model selection example** with the default `standard` mode:
+**Model selection example** with the default `standard` mode. The tier follows the difficulty score and the mode's cut points; the table shows only typical reads:
 
 | Brief reads as | Jev answers | Result |
 |---|---|---|
-| Fix three named wording issues, check named | `fast` .86 | Haiku, effort capped at `medium` |
-| Same, but less certain | `fast` .52 | Sonnet |
+| Fix three named wording issues, check named | `fast` .86 (low score) | Haiku, effort capped at `medium` |
+| Same, but less certain | `fast` .52 (score near the cut) | Haiku or Sonnet, by the cut |
 | Implement a feature to a written spec | `balanced` .95 | Sonnet |
 | Task spanning many crates | `deep` .66 | Opus |
 | Review a pull request | `slot::reviewer` .92 | The `reviewer` slot's model |
@@ -138,7 +138,7 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 1. `/jev mode budget`.
 2. `state.json` is updated. No Jev call.
-3. The next launch uses the `budget` rubric and expert gate. Running workers are unaffected.
+3. The next launch uses the `budget` target table and its cut points, from the same window. The worker request is identical. Running workers are unaffected.
 4. Each ledger line records its mode, so tuning signals are never mixed across modes.
 
 ## 5. Auto-tuning

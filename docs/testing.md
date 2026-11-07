@@ -18,7 +18,7 @@ Unit, contract and host tests run in CI: no secrets, no paid calls, no network b
 
 - Answer reading: valid, missing, unknown choice, out-of-range numbers, mixed good and bad.
 - Effort rules: table over choice, `risky`, current level and supported levels.
-- Worker decision order: table per mode, including every boundary (.6, .7, .9, .1).
+- Worker decision order: table per mode, including every boundary: .6 slot, .7 risky, a score at a cut going to the lower tier, and the expert cut with effort `xhigh` or `max`.
 - Skill pick: all paths, including batches and `(none)`.
 - Strategy gates: each boundary.
 - Tuning: fire, cooldown, range, revert, allowlist.

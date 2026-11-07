@@ -474,7 +474,7 @@ describe("worker routing through the real CLI", () => {
         jevAnswers({
           tier: "deep",
           effort: "xhigh",
-          probs: { fast: 0.05, balanced: 0.15, deep: 0.5, expert: 0.3 },
+          probs: { fast: 0, balanced: 0.1, deep: 0.9, expert: 0 },
         }),
       );
       const { fixture, session } = await setup(script([subagentCall(launch())]));
@@ -487,7 +487,8 @@ describe("worker routing through the real CLI", () => {
       expect(childOf(fixture)?.model).toBe("fixture-expert");
       expect(workerLines(session)[0]).toMatchObject({
         mode: "premium",
-        reason: "expert-admitted",
+        reason: "expert",
+        score: 2.275,
         tier: "expert",
       });
     },
@@ -509,6 +510,7 @@ describe("worker routing through the real CLI", () => {
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
       expect(workerLines(session)[0]).toMatchObject({ mode: "premium", reason: "miss" });
+      expect(workerLines(session)[0]).not.toHaveProperty("score");
     },
     TIMEOUT,
   );

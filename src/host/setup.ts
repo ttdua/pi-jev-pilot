@@ -5,6 +5,7 @@ import { runJev } from "./commands.ts";
 import { updateTuning } from "../store/tuning-file.ts";
 import { askJev } from "../jev/client.ts";
 import { appendLedger, readLedger } from "../store/ledger.ts";
+import { createCutpointWindow, type CutpointWindow } from "./cutpoint-window.ts";
 import { scanPlatforms } from "./context.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
@@ -28,7 +29,10 @@ function registerLogRenderer(pi: ExtensionAPI): void {
       try {
         const t = logLine(entry.data);
         if (t === undefined) return undefined;
-        return { render: (w: number) => [t.slice(0, Math.max(0, w))], invalidate() {} };
+        return {
+          render: (w: number) => [t.slice(0, Math.max(0, w))],
+          invalidate() {},
+        };
       } catch {
         return undefined;
       }
@@ -38,18 +42,40 @@ function registerLogRenderer(pi: ExtensionAPI): void {
   }
 }
 
+export type SetupDeps = {
+  /** Test seams: the window instance and the ledger reader (default `readLedger`). */
+  window?: CutpointWindow;
+  readLines?: () => readonly unknown[];
+};
+
+function ledgerLines(): readonly unknown[] {
+  const read = readLedger(jevDir());
+  return read.kind === "ok" ? read.entries : [];
+}
+
 /** Register the status line, the /jev command and the child registry on one extension instance. */
-export function setup(pi: ExtensionAPI): void {
+export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
   const off = subscribeChildren(pi.events);
-  const log = createSessionLog(pi, { verbose: () => loadSnapshot(pi).settings.switches.verbose });
+  const log = createSessionLog(pi, {
+    verbose: () => loadSnapshot(pi).settings.switches.verbose,
+  });
+  const window = deps.window ?? createCutpointWindow();
   const append = (e: unknown) => {
     try {
       return appendLedger(jevDir(), e);
     } finally {
       log.record(e);
+      try {
+        window.add(e);
+      } catch {
+        /* swallow: the window stays as it was */
+      }
     }
   };
-  const routing = registerWorkerRouting(pi, { append });
+  const routing = registerWorkerRouting(pi, {
+    append,
+    window: () => window.entries(),
+  });
   const tools = createToolAssessment(pi);
   const tuningDeps = (): TuningDeps => ({
     dir: jevDir(),
@@ -79,6 +105,11 @@ export function setup(pi: ExtensionAPI): void {
       if (isChild(ctx.sessionManager.getSessionId())) return;
       captureMainService();
       main.sessionStart();
+      try {
+        window.load((deps.readLines ?? ledgerLines)());
+      } catch {
+        window.clear();
+      }
       log.reset(ctx.sessionManager.getSessionId());
       drawStatus(ctx, loadSnapshot(pi), main.decision());
     } catch {
@@ -168,6 +199,7 @@ export function setup(pi: ExtensionAPI): void {
         load: () => loadSnapshot(pi),
         decision: main.decision,
         tally: log.tally,
+        window: () => window.entries(),
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
         tune: (sub, c) => runTune(tuningDeps(), sub, c),

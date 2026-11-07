@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { logLine } from "../../src/host/status.ts";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { startFixture, type Fixture } from "./fixture";
 import { tempDir } from "../helpers";
@@ -111,6 +112,29 @@ async function setup(opts: { verbose: boolean; jev: FixtureRoute }): Promise<{
   sessions.push(s);
   return { s, fixture };
 }
+
+describe("worker log line reasons", () => {
+  const worker = {
+    v: 1,
+    at: 1,
+    session: "s1",
+    mode: "standard",
+    answered: true,
+    kind: "worker",
+    briefChars: 10,
+    status: "completed",
+    agent: "worker",
+    tier: "balanced",
+    effort: "high",
+    ms: 300,
+  };
+  test("Cut reason hidden", () => {
+    expect(logLine({ ...worker, reason: "cut" })).toBe("jev · worker → balanced · high · 0.3s");
+  });
+  test("Expert reason shown", () => {
+    expect(logLine({ ...worker, reason: "expert" })).toContain(" · why expert");
+  });
+});
 
 describe("verbose log through the real CLI", () => {
   test(

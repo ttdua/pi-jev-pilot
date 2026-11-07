@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { putToolCounts, takeToolCounts, TOOL_COUNTS_KEY } from "../../src/host/tool-counts.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
-import { base, body, effort, harness, ok } from "./worker-fakes.ts";
+import { base, body, effort, harness, ok, TIERS_X } from "./worker-fakes.ts";
 
 const saved = process.env.TYPESAFE_API_KEY;
 beforeEach(() => {
@@ -219,7 +219,10 @@ describe("Decision fields", () => {
       agent: "general-purpose",
       briefChars: 10,
       tier: "balanced",
-      reason: "choice",
+      reason: "cut",
+      score: 1.25,
+      rubric: 2,
+      expertOffered: false,
       model: "fx/balanced",
       effort: "high",
       callerModel: "fixture/fixture-main",
@@ -231,6 +234,41 @@ describe("Decision fields", () => {
     expect(h.lines[0]).not.toHaveProperty("fallback");
   });
 
+  test("Expert offered recorded", async () => {
+    const h = harness({ tiers: TIERS_X });
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ expertOffered: true, rubric: 2 });
+  });
+
+  test("Expert switched off recorded", async () => {
+    const h = harness({ tiers: TIERS_X, switches: { expert: false } });
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ expertOffered: false, rubric: 2 });
+  });
+
+  test("Tier asked, nothing decided", async () => {
+    const h = harness({ tiers: TIERS_X });
+    h.setScript(() =>
+      ok({ answers: { effort: effort("medium"), risky: { type: "noul", noul: 0.1 } } }),
+    );
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ reason: "untouched", rubric: 2, expertOffered: true });
+    expect(h.lines[0]).not.toHaveProperty("tier");
+    expect(h.lines[0]).not.toHaveProperty("score");
+  });
+
+  test("No expert needed field", async () => {
+    const h = harness({ tiers: TIERS_X });
+    h.setScript(() =>
+      ok({
+        ...body("deep"),
+        answers: { ...body("deep").answers, expert_needed: { type: "noul", noul: 0.4 } },
+      }),
+    );
+    await foreground(h);
+    expect(h.lines[0]).not.toHaveProperty("expertNeeded");
+  });
+
   test("Fallback recorded", async () => {
     const h = harness({ reg: { "fx/fast": {}, "fx/balanced": {}, "fx/deep": { auth: false } } });
     h.setScript(() => ok(body("deep")));
@@ -240,9 +278,9 @@ describe("Decision fields", () => {
 
   test("Nothing could run recorded", async () => {
     const h = harness({ reg: {} });
-    h.setScript(() => ok(body("balanced")));
+    h.setScript(() => ok(body("balanced", "high")));
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ tier: "balanced", reason: "choice", fallback: "balanced" });
+    expect(h.lines[0]).toMatchObject({ tier: "balanced", reason: "cut", fallback: "balanced" });
     expect(h.lines[0]).not.toHaveProperty("model");
     expect(h.lines[0]).not.toHaveProperty("effort");
   });
@@ -257,6 +295,8 @@ describe("Decision fields", () => {
     expect(h.lines[0]).not.toHaveProperty("tierP");
     expect(h.lines[0]).not.toHaveProperty("expertNeeded");
     expect(h.lines[0]).toHaveProperty("risky");
+    expect(h.lines[0]).not.toHaveProperty("score");
+    expect(h.lines[0]).not.toHaveProperty("rubric");
   });
 
   test("Miss recorded", async () => {
@@ -264,7 +304,9 @@ describe("Decision fields", () => {
     h.setScript(() => ({ kind: "miss", miss: "timeout", reason: "t", ms: 5 }));
     await foreground(h);
     expect(h.lines[0]).toMatchObject({ answered: false, miss: "timeout", reason: "miss", ms: 5 });
+    expect(h.lines[0]).toMatchObject({ rubric: 2, expertOffered: false });
     expect(h.lines[0]).not.toHaveProperty("tier");
+    expect(h.lines[0]).not.toHaveProperty("score");
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
   });
 
@@ -277,7 +319,8 @@ describe("Decision fields", () => {
     expect(h.asks).toHaveLength(0);
     expect(h.lines).toHaveLength(1);
     expect(h.lines[0]).toMatchObject({ reason: "untouched", answered: false, status: "completed" });
-    for (const k of ["tier", "model", "ms", "miss"]) expect(h.lines[0]).not.toHaveProperty(k);
+    for (const k of ["tier", "model", "ms", "miss", "score", "rubric"])
+      expect(h.lines[0]).not.toHaveProperty(k);
   });
 
   test("Locked recorded", async () => {

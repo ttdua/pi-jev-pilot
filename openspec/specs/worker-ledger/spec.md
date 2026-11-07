@@ -40,31 +40,56 @@ The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the e
 - **THEN** a line with `status` `error` is written
 
 ### Requirement: Decision fields
-The line SHALL carry `mode` (the mode captured when the launch was classified, see `worker-routing`); `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent; `agent` and `briefChars` (code points of the brief); the raw `tierP`, `effortP`, `risky` and `expertNeeded`; the route's recorded fields, where `tier` and `fallback` hold a tier or a `slot::<name>` target and `tierP` holds a key for every offered tier and slot that Jev returned; and `toolsScored` and `toolsFlagged` when that launch started a worker session whose tool assessment got an answer, omitted otherwise (a resumed launch starts no new session). The line MUST NOT contain the brief, the description, tool names or tool arguments.
+The line SHALL carry:
+- `mode`: the mode captured when the launch was classified (see `worker-routing`);
+- `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent;
+- `agent`, and `briefChars` (the code points of the brief);
+- the raw `tierP`, `effortP` and `risky`;
+- `score`, when the launch has a difficulty score; `rubric`, the rubric version, whenever the `tier` question was asked; and `expertOffered`, whether `expert` was among the offered tiers, whenever the `tier` question was asked;
+- the route's recorded fields, where `tier` and `fallback` hold a tier or a `slot::<name>` target and `tierP` holds a key for every offered tier and slot that Jev returned;
+- `toolsScored` and `toolsFlagged`, when that launch started a worker session whose tool assessment got an answer, omitted otherwise. A resumed launch starts no new session.
+
+New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, the description, tool names or tool arguments.
 
 #### Scenario: Routed fields
-- **WHEN** a launch is routed to `balanced` with thinking `high` and the caller asked for `fixture/fixture-main`
-- **THEN** the line has `tier` `balanced`, `reason` `choice`, `model` the `balanced` model, `effort` `high` and `callerModel` `fixture/fixture-main`
+- **WHEN** a launch is routed by rule `cut` to `balanced` with thinking `high`, with score 1.3, and the caller asked for `fixture/fixture-main`
+- **THEN** the line has `tier` `balanced`, `reason` `cut`, `score` 1.3, `rubric` 2, `model` the `balanced` model, `effort` `high` and `callerModel` `fixture/fixture-main`
+
+#### Scenario: Expert offered recorded
+- **WHEN** all four tiers are offered and the launch is routed
+- **THEN** the line has `expertOffered` true
+
+#### Scenario: Expert switched off recorded
+- **WHEN** the `expert` switch is off and the launch is routed
+- **THEN** the line has `expertOffered` false
 
 #### Scenario: Fallback recorded
 - **WHEN** a launch cascades from `deep` to `balanced`
 - **THEN** the line has `tier` `balanced` and `fallback` `deep`
 
 #### Scenario: Nothing could run recorded
-- **WHEN** Jev decides `balanced` by choice and no tier from `balanced` down can run
-- **THEN** the line has `tier` `balanced`, `reason` `choice`, `fallback` `balanced`, and no `model` or `effort`
+- **WHEN** rule `cut` decides `balanced` and no tier from `balanced` down can run
+- **THEN** the line has `tier` `balanced`, `reason` `cut`, `fallback` `balanced`, and no `model` or `effort`
 
 #### Scenario: Thinking-only recorded
 - **WHEN** a forked launch with the setting `thinking` is asked and thinking `high` is written
-- **THEN** the line has `answered` true, `reason` `untouched`, `effort` `high`, and no `tier` or `model`
+- **THEN** the line has `answered` true, `reason` `untouched`, `effort` `high`, and no `tier`, `model`, `score` or `rubric`
 
 #### Scenario: Miss recorded
 - **WHEN** Jev times out for a launch
-- **THEN** the line has `answered` false, `miss` `timeout`, `reason` `miss`, and no `tier`
+- **THEN** the line has `answered` false, `miss` `timeout`, `reason` `miss`, `rubric` 2, `expertOffered` as offered, and no `tier` or `score`
 
 #### Scenario: Untouched recorded
 - **WHEN** a resumed launch completes
-- **THEN** the line has `reason` `untouched`, `answered` false, and no `tier` or `model`
+- **THEN** the line has `reason` `untouched`, `answered` false, and no `tier`, `model`, `score` or `rubric`
+
+#### Scenario: Tier asked, nothing decided
+- **WHEN** tiers are offered, Jev answers `effort` but not `tier`, and no target is decided
+- **THEN** the line has `reason` `untouched`, `rubric` 2, `expertOffered`, and no `tier` or `score`
+
+#### Scenario: No expert needed field
+- **WHEN** any new worker line is written
+- **THEN** it has no `expertNeeded`
 
 #### Scenario: Locked recorded
 - **WHEN** a launch's agent locks `model`

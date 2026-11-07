@@ -3,12 +3,10 @@ import type { QuestionSpec } from "../policy/answers.ts";
 import { EFFORT_LEVELS } from "../policy/effort.ts";
 import { STRATEGIES } from "../policy/strategy.ts";
 import { slotTarget, TIER_LADDER, type TierName } from "../policy/launch.ts";
-import type { ModeName } from "../policy/modes.ts";
 import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
 import {
   type BareNoulQuestion,
   CORRECTS_QUESTION,
-  EXPERT_NEEDED_QUESTIONS,
   GATE_QUESTIONS,
   MAIN_EFFORT_INSTRUCTION,
   MAIN_TIER_QUESTION,
@@ -16,11 +14,11 @@ import {
   RISKY_QUESTION,
   SLOT_CRITERION_INFIX,
   STRATEGY_QUESTION,
-  TIER_CRITERIA,
   TIER_INSTRUCTION,
   TOOL_QUESTION,
   WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
+  WORKER_TIER_CRITERIA,
   type WireQuestion,
 } from "./rubrics.ts";
 
@@ -145,7 +143,6 @@ function slotCriterion(slot: SlotOption): string {
 export function buildWorkerQuestions(
   offered: readonly TierName[],
   displayNames: Partial<Record<TierName, string>>,
-  mode: ModeName,
   slots: readonly SlotOption[] = [],
 ): { questions: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> } {
   const questions: Record<string, WireQuestion> = {};
@@ -155,7 +152,7 @@ export function buildWorkerQuestions(
     const criteria: Record<string, string> = {};
     for (const tier of ordered) {
       const name = displayNames[tier];
-      const text = TIER_CRITERIA[mode][tier];
+      const text = WORKER_TIER_CRITERIA[tier];
       criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
     }
     for (const slot of slots) criteria[slotTarget(slot.name)] = slotCriterion(slot);
@@ -166,10 +163,6 @@ export function buildWorkerQuestions(
   specs["effort"] = { type: "choice", options: Object.keys(WORKER_EFFORT_QUESTION.criteria) };
   questions["risky"] = copy(RISKY_QUESTION);
   specs["risky"] = { type: "noul" };
-  if (ordered.includes("expert")) {
-    questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTIONS[mode]);
-    specs["expert_needed"] = { type: "noul" };
-  }
   return { questions, specs };
 }
 

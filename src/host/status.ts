@@ -136,6 +136,8 @@ function mainLine(e: Extract<LedgerEntry, { kind: "main" }>): string {
   return segs.join(" · ");
 }
 
+const HIDDEN_WHY: readonly string[] = ["cut", "choice", "untouched"];
+
 function workerLine(e: Extract<LedgerEntry, { kind: "worker" }>): string {
   const target = e.tier ?? (e.reason === "untouched" ? "untouched" : "-");
   const segs = [`jev · ${e.agent} → ${target} · ${e.effort ?? "-"}`];
@@ -148,7 +150,7 @@ function workerLine(e: Extract<LedgerEntry, { kind: "worker" }>): string {
     ];
     if (keys.length > 0) segs.push(`p ${probabilityPairs(keys, e.tierP)}`);
   }
-  if (e.reason !== "choice" && e.reason !== "untouched") segs.push(`why ${e.reason}`);
+  if (!HIDDEN_WHY.includes(e.reason)) segs.push(`why ${e.reason}`);
   if (e.miss !== undefined) segs.push(`miss ${e.miss}`);
   if (e.fallback !== undefined && e.fallback !== e.tier) segs.push(`fallback ${e.fallback}`);
   if (e.locked === true) segs.push("locked");

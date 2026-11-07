@@ -24,6 +24,8 @@ export type WorkerReason =
   | "expert-denied"
   | "fast-unsure"
   | "choice"
+  | "expert"
+  | "cut"
   | "untouched"
   | "miss";
 
@@ -72,6 +74,9 @@ export type WorkerEntry = Common &
     briefChars: number;
     tierP?: Record<string, number>;
     expertNeeded?: number;
+    score?: number;
+    rubric?: number;
+    expertOffered?: boolean;
     tier?: string;
     fallback?: string;
     model?: string;
@@ -126,6 +131,9 @@ export const LEDGER_FIELDS: Readonly<Record<LedgerKind, readonly string[]>> = {
     "briefChars",
     "tierP",
     "expertNeeded",
+    "score",
+    "rubric",
+    "expertOffered",
     "tier",
     "fallback",
     "model",
@@ -164,6 +172,8 @@ const DECIDING_REASONS: readonly string[] = [
   "expert-denied",
   "fast-unsure",
   "choice",
+  "expert",
+  "cut",
 ];
 const MAX_TARGETS = 12;
 
@@ -178,6 +188,15 @@ function probability(): V<number> {
       ? value
       : fail(issues, path, "expected a number from 0 to 1");
 }
+
+function score(): V<number> {
+  return (value, path, issues) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 3.5
+      ? value
+      : fail(issues, path, "expected a number from 0 to 3.5");
+}
+
+const rubricVersion = (): V<number> => integer({ min: 1, max: 99 });
 
 function target(): V<string> {
   const named = oneOf<string>(TIERS);
@@ -276,6 +295,9 @@ function shapeFor(kind: LedgerKind) {
         briefChars: count(),
         tierP: record(target(), probability(), MAX_TARGETS),
         expertNeeded: probability(),
+        score: score(),
+        rubric: rubricVersion(),
+        expertOffered: boolean(),
         tier: target(),
         fallback: target(),
         model: string({ pattern: MODEL, max: 128 }),

@@ -162,7 +162,7 @@ A forked launch with `subagents.forkedLaunch` set to `thinking`, or a launch wit
 |---|---|---|---|
 | `effort` | choice | `low`, `medium`, `high`, `xhigh`, `max` | Main thinking level |
 | `risky` | noul | | Risk floor |
-| `tier` | choice | `fast`, `balanced`, `deep` (`standard` rubric only) | Strategy gates. **Never a model** |
+| `tier` | choice | `fast`, `balanced`, `deep` (main wording) | Strategy gates. **Never a model** |
 | `strategy` | choice | `direct`, `delegate`, `parallel`, `graph` | Advice |
 | `corrects` | noul | | Marks the previous turn |
 | `which` | choice | Every skill, plus `(none)` | Skill pick |
@@ -202,10 +202,9 @@ The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/age
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
-| `tier` | choice | Configured tiers (active mode's rubric) and `slot::<name>` | Worker model |
+| `tier` | choice | Configured tiers (one worker rubric for every mode) and `slot::<name>` | Worker model, through the difficulty score |
 | `effort` | choice | Five levels, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
-| `expert_needed` | noul | Only when `tiers.expert` is set | Expert gate |
 
 ## Tool assessment
 
@@ -262,8 +261,7 @@ If the same name with the same body fingerprint is still in the context Pi sends
 |---|---|---|
 | `effort.choice` | Authoritative | Effort, before floor, ceiling and clamp |
 | `risky` | `> .7` | Effort at least `high`; model at least `deep` |
-| `tier` probabilities | `fast` needs ≥ .6, slot needs ≥ .6 | See the [decision order](domain-model.md#workerdecision) |
-| `expert_needed`, `P(expert)` | Per mode | See the [expert gates](domain-model.md#expert-gates) |
+| `tier` probabilities, `effort.choice` | Difficulty score against the mode's cut points; a slot needs ≥ .6 | See the [decision order](domain-model.md#workerdecision) and [cut points](domain-model.md#difficulty-score-and-cut-points) |
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |

@@ -20,6 +20,8 @@ import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
 import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
+import type { WindowEntry } from "../../src/policy/cutpoints.ts";
+import type { TierName } from "../../src/policy/launch.ts";
 
 function snap(
   o: {
@@ -165,6 +167,54 @@ describe("formatStatus", () => {
     const text = formatStatus(snap({ tools: [] }));
     expect(text).toContain("no executor");
     expect(text).toContain("worker routing and tool assessment are off");
+  });
+  describe("mix", () => {
+    const entries = (n: number, fast: number, balanced: number, deep: number): WindowEntry[] => {
+      const tiers = [
+        ...Array<TierName>(fast).fill("fast"),
+        ...Array<TierName>(balanced).fill("balanced"),
+        ...Array<TierName>(deep).fill("deep"),
+      ];
+      const expert = n - tiers.length;
+      return [...tiers, ...Array<TierName>(expert).fill("expert")].map((decided) => ({
+        score: 0.5,
+        effort: "high",
+        decided,
+      }));
+    };
+    test("standard, full window", () => {
+      const lines = formatStatus(snap(), undefined, entries(200, 38, 110, 48)).split("\n");
+      expect(lines).toContain(
+        "mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2",
+      );
+      expect(lines).not.toContain("cut points: seed");
+    });
+    test("budget target", () => {
+      const text = formatStatus(
+        snap({ state: { mode: "budget" } }),
+        undefined,
+        entries(120, 60, 48, 12),
+      );
+      expect(text).toContain("mix (last 120, budget):");
+      expect(text).toContain(" · target 50/40/10/≤0");
+      expect(text).not.toContain("cut points: seed");
+    });
+    test("short window shows seed", () => {
+      const lines = formatStatus(snap(), undefined, entries(40, 8, 20, 10)).split("\n");
+      const i = lines.findIndex((l) => l.startsWith("mix (last 40, "));
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(lines[i + 1]).toBe("cut points: seed");
+    });
+    test("empty window", () => {
+      const lines = formatStatus(snap(), undefined, []).split("\n");
+      const i = lines.indexOf("mix: no routed workers yet");
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(lines[i + 1]).toBe("cut points: seed");
+    });
+    test("no executor: no mix line", () => {
+      const text = formatStatus(snap({ tools: [] }), undefined, entries(200, 38, 110, 48));
+      expect(text).not.toContain("mix");
+    });
   });
   test("config issue", () => {
     const text = formatStatus(
@@ -486,9 +536,8 @@ describe("runJev slots", () => {
   const slotsOf = (dir: string) => load(dir)().settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
-      buildWorkerQuestions(["fast", "balanced", "deep"], {}, "standard", slotsOf(dir)).questions[
-        "tier"
-      ]!.criteria!,
+      buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
+        .criteria!,
     );
 
   test("Unknown feature", async () => {

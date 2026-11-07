@@ -32,7 +32,7 @@ Lengths SHALL count Unicode code points. `task.brief` MUST be the first 4000 cha
 - **THEN** `parent_request` is its first 500 characters
 
 ### Requirement: Offered tiers
-The request builder SHALL offer, in the order `fast`, `balanced`, `deep`, `expert`, each tier that is configured, then each configured slot as `slot::<name>`, in config order. `expert` MUST be offered only when it is configured and the `expert` switch is on. Slots MUST be offered in every mode.
+The request builder SHALL offer, in the order `fast`, `balanced`, `deep`, `expert`, each tier that is configured, then each configured slot as `slot::<name>`, in config order. `expert` MUST be offered only when it is configured and the `expert` switch is on. Slots MUST always be offered.
 
 #### Scenario: Partial configuration
 - **WHEN** only `fast` and `deep` are configured
@@ -48,49 +48,30 @@ The request builder SHALL offer, in the order `fast`, `balanced`, `deep`, `exper
 
 #### Scenario: No slot, request unchanged
 - **WHEN** a request is built with all four tiers and no slot
-- **THEN** its questions equal those built before slots existed, byte for byte
-
-### Requirement: Worker questions
-The request builder SHALL take the mode, and SHALL ask `effort` and `risky` in every worker request, `tier` when at least one tier or slot is offered, and `expert_needed` only when `expert` is offered. The builder MUST also return, from the same option lists, the question specs used to read the answers. The set of questions and their specs MUST NOT depend on the mode.
-
-#### Scenario: No tier configured
-- **WHEN** no tier and no slot is configured
-- **THEN** the questions are exactly `effort` and `risky`
-
-#### Scenario: Slot alone
-- **WHEN** no tier is configured and slot `reviewer` is
-- **THEN** the questions are `tier`, `effort` and `risky`, and the `tier` options are exactly `slot::reviewer`
-
-#### Scenario: Expert offered
-- **WHEN** `expert` is offered
-- **THEN** the questions are `tier`, `effort`, `risky` and `expert_needed`, and the `tier` options, before any slot, end with `expert`
-
-#### Scenario: Expert still asked in premium
-- **WHEN** the mode is `premium` and `expert` is offered
-- **THEN** `expert_needed` is asked, so its answer can be recorded for calibration
-
-#### Scenario: Asked and accepted agree
-- **WHEN** a request offers `fast`, `deep` and slot `reviewer`
-- **THEN** the `tier` criteria keys and the `tier` spec options are both `fast`, `deep`, `slot::reviewer`
+- **THEN** its `tier` options are exactly `fast`, `balanced`, `deep`, `expert`, with no `slot::` key
 
 ### Requirement: Question wording
-Each worker question MUST carry `type`, `instructions` and `criteria`, with the wording of `docs/jev-questions.md`. `tier` SHALL use the same instruction in every mode and the active mode's rubric criteria for the offered tiers, each prefixed with the configured model's display name and `. ` when one is given. `effort` SHALL use the worker instruction and the five level criteria. `risky` SHALL use its instruction and `true` and `false` criteria. `expert_needed` SHALL use the `standard` wording in `budget` and `standard`, and the softer `premium` wording in `premium`.
+Each worker question MUST carry `type`, `instructions` and `criteria`, with the wording of `docs/jev-questions.md`. `tier` SHALL use one instruction and one set of criteria for the offered tiers, the worker rubric, each prefixed with the configured model's display name and `. ` when one is given. `effort` SHALL use the worker instruction and the five level criteria. `risky` SHALL use its instruction and `true` and `false` criteria. The main request's `tier` question SHALL keep its own copy of the `fast`, `balanced` and `deep` criteria, so that a change to the worker rubric does not change the main request.
 
 #### Scenario: Wording matches the docs
-- **WHEN** a request offering all four tiers is built in each of `budget`, `standard` and `premium`
-- **THEN** every instruction and criterion equals the text in `docs/jev-questions.md` for its question and mode
+- **WHEN** a request offering all four tiers is built
+- **THEN** every instruction and criterion equals the text in `docs/jev-questions.md` for its question
 
 #### Scenario: Standard request unchanged
-- **WHEN** a request offering all four tiers is built in `standard`
-- **THEN** its `tier` criteria and `expert_needed` question equal the `standard` text in `docs/jev-questions.md`, and the `fast` criterion starts with `Fast and low cost, for bounded work with nothing to decide`
+- **WHEN** a request offering all four tiers is built
+- **THEN** its `tier` criteria equal the worker rubric text in `docs/jev-questions.md`, and the `fast` criterion starts with `Fast and low cost, for bounded work with nothing to decide`
 
 #### Scenario: Budget expert criterion
-- **WHEN** a request offering `expert` is built in `budget`
-- **THEN** the `expert` criterion equals the `standard` one
+- **WHEN** a request offering `expert` is built
+- **THEN** the `expert` criterion starts with `Rare. Choose only for exceptionally difficult architectural or advisory reasoning`
 
 #### Scenario: Premium wording
-- **WHEN** a request offering all four tiers is built in `premium`
-- **THEN** the `deep` criterion starts with `The default for real engineering` and the `expert_needed` instruction starts with `This task needs the strongest available reasoning`
+- **WHEN** a request offering all four tiers is built
+- **THEN** the `deep` criterion starts with `For careful judgment or long work`, and no `expert_needed` question is asked
+
+#### Scenario: Main criteria held apart
+- **WHEN** the main request's `tier` criteria are compared with the worker rubric
+- **THEN** they are equal in text but are separate data, so a test replacing the worker rubric leaves the main criteria unchanged
 
 #### Scenario: Display name prefix
 - **WHEN** `fast` is configured with display name `Claude Haiku 5.5`
@@ -120,7 +101,7 @@ A worker request's outcome SHALL be read into worker answers: on an `ok` outcome
 - **THEN** the result is cancelled, with no answers and no miss
 
 ### Requirement: Slot criterion
-Each offered slot's `tier` criterion SHALL be `<display name> (a custom model). <when>`, with the wording of `docs/jev-questions.md`, the same in every mode. The display name MUST be the slot model's display name when one is given, and otherwise the slot's configured `provider/id`. The `when` MUST be the slot's configured text, trimmed.
+Each offered slot's `tier` criterion SHALL be `<display name> (a custom model). <when>`, with the wording of `docs/jev-questions.md`. The display name MUST be the slot model's display name when one is given, and otherwise the slot's configured `provider/id`. The `when` MUST be the slot's configured text, trimmed.
 
 #### Scenario: Reviewer criterion
 - **WHEN** slot `reviewer` has display name `GPT-6.1 Sol` and `when` `Choose for reviews. Not for fixing.`
@@ -131,8 +112,8 @@ Each offered slot's `tier` criterion SHALL be `<display name> (a custom model). 
 - **THEN** its criterion starts with `9router/gpt-6.1-sol (a custom model). `
 
 #### Scenario: Same in every mode
-- **WHEN** the same slot is offered in `budget`, `standard` and `premium`
-- **THEN** its criterion is identical in the three requests
+- **WHEN** the same slot is offered while the mode is `budget`, then `premium`
+- **THEN** its criterion is identical in the two requests, since the builder takes no mode
 
 #### Scenario: Slot answer read
 - **WHEN** a request offers slot `reviewer` and Jev answers `tier` `slot::reviewer` with probabilities over every option
@@ -144,3 +125,33 @@ When a main request asks a `tier` question, it MUST NOT offer any slot, whatever
 #### Scenario: Main request with a slot configured
 - **WHEN** slot `reviewer` is configured and a main request is built
 - **THEN** no `slot::` key appears in its questions or specs
+
+### Requirement: Rubric version
+The package SHALL hold one integer rubric version next to the worker `tier` wording, starting at `2` for this wording (the per-mode rubrics count as `1`). Any change to the worker `tier` instruction or criteria MUST raise it. The worker ledger line SHALL record it.
+
+#### Scenario: Version of this rubric
+- **WHEN** the rubric version is read
+- **THEN** it is `2`
+
+#### Scenario: Wording pinned to the version
+- **WHEN** the worker `tier` instruction and criteria are compared with the snapshot kept for rubric version `2`
+- **THEN** they are equal, so changing the wording without raising the version fails a test
+
+### Requirement: Worker question set
+The request builder SHALL ask `effort` and `risky` in every worker request, and `tier` when at least one tier or slot is offered. It MUST NOT take a mode, and MUST NOT ask `expert_needed`. The builder MUST also return, from the same option lists, the question specs used to read the answers.
+
+#### Scenario: No tier configured
+- **WHEN** no tier and no slot is configured
+- **THEN** the questions are exactly `effort` and `risky`
+
+#### Scenario: Slot alone
+- **WHEN** no tier is configured and slot `reviewer` is
+- **THEN** the questions are `tier`, `effort` and `risky`, and the `tier` options are exactly `slot::reviewer`
+
+#### Scenario: Expert offered
+- **WHEN** `expert` is offered
+- **THEN** the questions are exactly `tier`, `effort` and `risky`, and the `tier` options, before any slot, end with `expert`
+
+#### Scenario: Asked and accepted agree
+- **WHEN** a request offers `fast`, `deep` and slot `reviewer`
+- **THEN** the `tier` criteria keys and the `tier` spec options are both `fast`, `deep`, `slot::reviewer`

@@ -18,8 +18,8 @@ classDiagram
     }
     class Mode {
       name
-      rubric
-      expertGate
+      targets
+      expertCap
     }
     class Tier {
       name
@@ -66,7 +66,7 @@ classDiagram
     Operator --> Config : edits
     Operator --> Switches : /jev
     Switches --> Mode : selects one
-    Mode "1" --> "1..4" Tier : describes
+    Mode "1" --> "1..4" Tier : targets
     Config "1" --> "0..8" Slot
     JevRequest --> JevAnswers : returns
     JevAnswers --> MainDecision : policy
@@ -101,7 +101,15 @@ All tiers are optional. An unconfigured tier is never offered.
 
 ### Mode
 
-`budget`, `standard` (default), `premium`. A mode selects **one rubric and one expert gate**. Nothing else changes: not the questions, not the thresholds for slots or `fast`, not the main session.
+`budget`, `standard` (default), `premium`. A mode is a **target table**: the share of tier-routed worker launches for `fast`, `balanced` and `deep`, and a cap for `expert` (see [ADR 0008](decisions/0008-mode-target-cutpoints.md)). Nothing else changes: not the questions, not the worker rubric, not the thresholds for slots or risk, not the main session.
+
+| Mode | `fast` | `balanced` | `deep` | `expert` cap |
+|---|---|---|---|---|
+| `budget` | 50% | 40% | 10% | 0% |
+| `standard` | 20% | 53% | 25% | ≤ 2% |
+| `premium` | 0% | 50% | 45% | ≤ 5% |
+
+Each share is meant to stay within ±10 points over recent tier-routed launches. Expert is a cap, not a quota. The targets never change automatically.
 
 ### Slot
 
@@ -128,12 +136,12 @@ Made once per eligible main prompt.
 
 Made once per `subagent` launch, in this order. The first match wins.
 
-1. The mode's expert gate passes: `expert`.
+1. `expert`: `expert` is offered, the [difficulty score](#difficulty-score-and-cut-points) is at least the expert cut, and effort is `xhigh` or `max`.
 2. `risky > .7`: `deep`, or the highest configured tier below `expert`.
-3. A slot with probability ≥ .6: that slot. Below .6, continue with the offered tier of highest probability.
-4. `expert` that did not pass the expert gate: `deep`, or the highest configured tier below `expert`. With no tier below `expert`, nothing is decided.
-5. `fast`: only with probability ≥ .6, otherwise `balanced`, or the lowest configured tier above `fast` and below `expert`.
-6. Otherwise the chosen tier.
+3. A slot with probability ≥ .6: that slot. Below .6, continue with the cut.
+4. `cut`: the score gives `fast` (at or below the first cut), `balanced` (at or below the second) or `deep`. A tier that is not configured moves to the nearest configured tier below it, else the nearest above it, never `expert`. With no tier configured, nothing is decided.
+
+The ledger reason is `expert`, `risky`, `slot` or `cut`.
 
 Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, capped at `medium` on `fast`, clamped to the final model. After a fallback move, effort is `xhigh` on every tier, without the `fast` cap.
 
@@ -141,14 +149,27 @@ Then **availability**: an unusable tier warns, naming the setting, and moves dow
 
 A launch with `resume` is always left untouched. A forked launch (`inherit_context`) follows `subagents.forkedLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
 
-### Expert gates
+### Difficulty score and cut points
 
-| Mode | Rule |
-|---|---|
-| `budget`, `standard` | `tier` is `expert` and `expert_needed > .9` |
-| `premium` | `tier` is `deep` or `expert`, `P(expert) ≥ .1`, and `effort` is `xhigh` or `max` |
+`score = Σ rank(t) · P̂(t) + effortRank / 8`, rounded to 3 decimals. Tier ranks are `fast` 0, `balanced` 1, `deep` 2, `expert` 3. `P̂` is the worker `tier` probabilities restricted to tier keys and renormalised, so slots and unconfigured tiers do not shift the scale. Effort ranks are `low` 0 to `max` 4; an unanswered effort counts as `high`. The range is 0–3.5.
 
-These read Jev's raw answers (`tier.choice`, `effort.choice`), before any cap or clamp. An admitted `expert` stands even on high risk, since it is not a cheaper choice.
+Cut points come from a window of the latest 200 eligible `worker` ledger lines: rubric version 2, with a `score`, with `expertOffered`, and with reason `expert`, `risky` or `cut`. The window is pooled across modes, loaded from the ledger at session start and grown in memory as this session writes lines. It is recomputed before each batch of sibling launches, using each launch's mode.
+
+Each window entry's effort is the most likely level of its `effortP`; ties go to the higher level, and `high` when there is no `effortP`.
+
+- `fastMax` and `balancedMax` sit at the score where the cumulative target share ends (rounded half up in integers); equal scores go to the lower tier.
+- `expertMin` is the lowest score above `balancedMax` where entries at or above it with effort `xhigh` or `max` stay within the expert cap. It is infinite when the cap is 0.
+- With fewer than 100 eligible lines, the **seed** applies. It comes from the 2026-11-07 replay:
+
+| Mode | `fastMax` | `balancedMax` | `expertMin` |
+|---|---|---|---|
+| `budget` | 1.42 | 2.135 | none |
+| `standard` | 1.165 | 1.81 | 2.345 |
+| `premium` | none | 1.42 | 2.125 |
+
+Jev's `expert` answer is not asked for any more. An admitted `expert` stands even on high risk, since it is not a cheaper choice.
+
+This is not tuning under [ADR 0005](decisions/0005-bounded-auto-tuning.md): the targets never change automatically and nothing is stored.
 
 Strategy gates compare probabilities, where upstream compared `confidence`. That makes them slightly easier to clear, which is acceptable for advice.
 
@@ -238,9 +259,10 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | | `corrects` | This prompt's read of whether it corrects the previous turn |
 | | `toolCalls`, `failures`, `outcome`, `durationMs`, `inputTokens`, `outputTokens` | Filled at turn end. `outcome` is `ok`, `error` or `aborted` |
 | Worker | `agent`, `briefChars` | Agent name and brief length |
-| | `tierP`, `expertNeeded`, `risky` | All raw answers, with `effortP` |
+| | `tierP`, `risky` | All raw answers, with `effortP`. Lines from before ADR 0008 may also hold `expertNeeded` |
+| | `score`, `rubric`, `expertOffered` | Difficulty score, rubric version and whether `expert` was offered; they make the line eligible for the cut-point window |
 | | `tier`, `model`, `effort` | The decision. `tier` is a slot name when a slot won |
-| | `reason` | Which rule decided the model: `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
+| | `reason` | Which rule decided the model: `expert`, `risky`, `slot`, `cut`, `untouched` or `miss`; older lines may hold `expert-admitted`, `expert-denied`, `fast-unsure` or `choice`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
 | | `toolsScored`, `toolsFlagged` | Tool assessment counts; only when the worker got an answer, never on a resumed launch's line |
