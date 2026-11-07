@@ -6,8 +6,8 @@
 > from "keep as-is" to PR later).
 
 **Change**: `wg-16-rich-state-replay`
-**Finalized at**: `2026-11-07 14:10` (UTC). This receipt was first written at 12:05 for the code part, and was re-entered for iterations 3–5.
-**Outcome**: `merge-locally` (partial: pass 1 decided and shipped, pass 2 git pending; see Deviations)
+**Finalized at**: `2026-11-07 14:55` (UTC). This is the third entry: the first was at 12:05 (code part), the second at 14:10 (iterations 3–5), and this one covers iteration 6.
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,12 +15,10 @@
 
 - **Branch**: `WG-16` (feature branch)
 - **Base branch**: `main`
-- **Final state**: `merged`. `wg-16-rich-state-replay` was fast-forwarded into `WG-16` twice:
-  - at `bc55c49` (code part);
-  - at `9d97789` (iterations 3–5: pass 1 decisions and effort option order).
-
-  This receipt is committed on top. Nothing has been pushed.
-- **PR URL**: N/A. `WG-16` has no upstream, and no PR exists.
+- **Final state**: `pr-open`.
+  - `wg-16-rich-state-replay` was fast-forwarded into `WG-16` three times: at `bc55c49`, `9d97789` and `24f85a0`.
+  - `WG-16` was then pushed to `origin`.
+- **PR URL**: see the PR comment section below. It is filled in after `gh pr create`.
 
 ---
 
@@ -28,50 +26,62 @@
 
 - **Worktree**: `/Users/naicoi/Projects/oss/pi-jev-pilot.wg-16-rich-state-replay`
 - **Cleanup**: `preserved (harness-owned)`.
-  - The worktree is managed by Worktrunk (`wt`) and lies outside `.worktrees/`, so the provenance guard leaves it in place.
-  - The branch `wg-16-rich-state-replay` is also kept on purpose, for the operator-gated Tasks 12–14. When the change is closed, remove both with `wt remove wg-16-rich-state-replay`.
+  - The worktree is managed by Worktrunk (`wt`), and its branch is kept until the PR merges.
+  - After the merge, run `wt remove wg-16-rich-state-replay` from the `main` worktree.
 
 ---
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: filled in after posting.
 
 ---
 
 ## Code review
 
-- **Code review**: `approved`, twice. The operator approved the code review gate in the Plannotator Inbox, thread "wg-16-rich-state-replay", for each range.
-- **Reviewer tier**: human operator, through the Plannotator Inbox. Before that, there were per-task `superspec.task-reviewer` reviews and one final whole-branch review.
+- **Code review**: `approved`. The operator approved each of the three ranges in the Plannotator Inbox, thread "wg-16-rich-state-replay".
+- **Reviewer tier**: human operator, through the Plannotator Inbox. Before that, a `superspec.task-reviewer` reviewed each task and each iteration, and one final whole-branch review was done.
 - **Commit range reviewed**:
-  - `3ebb2e0..bc55c49`: 34 commits, 51 files, +4726 / −178;
-  - `fba404b..9d97789`: 11 commits, 38 files, +559 / −699.
+  - `3ebb2e0..bc55c49`: 34 commits;
+  - `fba404b..9d97789`: 11 commits;
+  - `a364744..24f85a0`: 4 commits.
 
 ---
 
 ## Tests
 
-- **Baseline status at finish**: `passing`.
-  - In the worktree, before the merge: `bun test` gave 1566 pass, 0 fail.
-  - On `WG-16`, after the first fast-forward: `bun test` gave 1566 pass, 0 fail; `bun run typecheck` was clean and `bun run lint` exited 0.
-  - On `WG-16`, after the second fast-forward (`9d97789`): `bun test` gave 1558 pass, 0 fail; typecheck was clean and lint exited 0.
+- **Baseline status at finish**: `passing`. On `WG-16` at `24f85a0`, `bun test` gives 1525 pass and 0 fail; `bun run typecheck` is clean and `bun run lint` exits 0.
+
+---
+
+## Outcome of WG-16
+
+These are design decisions D9 and D10, and the evidence is in `docs/evidence/2026-11-07-state-replay.md`.
+
+- **Shipped:**
+  - `last_decision` and `capabilities` in the main state;
+  - the effort option order `high, medium, xhigh, low, max` for main and worker. The rank order is unchanged.
+- **Removed:**
+  - `context_used_percent` and `languages`, which were within noise;
+  - `workspace.git`, dropped by the operator without being measured;
+  - the git recorder and pass 2.
+- **Unchanged:**
+  - the worker defaults: description and instructions are sent, `parent_request` is off;
+  - the worker variants, which were dropped because the real corpus uses an executor the package does not route.
 
 ---
 
 ## Deviations from the canonical closeout
 
-- **Push skipped.** Step 10 (`git push origin WG-16`) and step 11 (offering a PR) were not run. The project `AGENTS.md` forbids pushing, merging or opening a PR without the operator's explicit go-ahead in chat, and the operator approved only finalize of the code part.
-- **Pull skipped.** `WG-16` has no upstream branch, so step 3's `git pull` was skipped.
-- **Branch kept.** Step 7 (deleting the worktree branch) was skipped. The change is not complete: tasks 6.x (pass 2, git) still run in the same worktree. Pass 1 (5.x) is done and merged.
-- **Archive blocked.** `/opsx-archive` must wait until Tasks 12–14 are done and verified (verify W2).
+- **Earlier finalize runs:** they merged and did not push. The operator then approved push and PR in the Inbox. The project `AGENTS.md` requires an explicit go-ahead for this.
+- **`git pull`:** skipped, because `WG-16` had no upstream before this push.
+- **Worktree branch:** kept until the PR merges.
 
 ---
 
 ## Next step
 
-1. The operator records git counts for a few days, with `JEV_REPLAY_GIT=1` in the shell that runs Pi.
-2. Run pass 2 (Task 14) with the operator's approval.
-3. Apply the git decision. Apply is at its 5-iteration cap, so the operator chooses: a new iteration count, or a follow-up change.
-4. Verify, re-enter finalize, then run `/opsx-archive`.
-
-Pushing `WG-16` or opening a PR needs the operator's explicit go-ahead.
+1. Wait for PR code review.
+2. After approval, run `/opsx-archive` on `WG-16`. This syncs the `main-state` and `state-replay` delta specs into `openspec/specs/`.
+3. Push the archive commit.
+4. Merge the PR. This needs the operator's go-ahead.
