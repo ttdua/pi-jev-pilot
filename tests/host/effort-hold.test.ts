@@ -134,8 +134,11 @@ function turnAnchors(s: HostSession): Record<string, unknown>[] {
   return out;
 }
 
+/** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
 const questionKeys = (jev: JevFixture, i: number): string[] =>
-  Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions);
+  Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions).filter(
+    (k) => k !== "tier" && k !== "strategy",
+  );
 
 /** One prompt, then wait until its `main` line is in the ledger and the session file is flushed. */
 async function turn(s: HostSession, text: string, lines: number): Promise<void> {
