@@ -1,7 +1,7 @@
 ## 1. Policy
 
 - [x] 1.1 Add `src/policy/modes.ts` with `MODE_NAMES`, `ModeName` and `expertAdmitted(mode, answers)`, plus a test that `MODE_NAMES` equals `MODES` in `src/store/defaults.ts` (worker-modes: Mode names, Expert gate per mode)
-- [ ] 1.2 Give `decideTier` in `src/policy/tier.ts` a `mode` parameter, use `expertAdmitted` as rule 1, rename reason `fable` to `expert-admitted`; thread `mode` through `RouteInput` and `routeLaunch` in `src/policy/route.ts`; per-mode table tests in `tests/policy/tier.test.ts`, updated `tests/policy/route.test.ts` (worker-decision: Decision order, Expert admitted rule, Expert denied rule, Partial answers in the decision)
+- [x] 1.2 Give `decideTier` in `src/policy/tier.ts` a `mode` parameter, use `expertAdmitted` as rule 1, rename reason `fable` to `expert-admitted`; thread `mode` through `RouteInput` and `routeLaunch` in `src/policy/route.ts`; per-mode table tests in `tests/policy/tier.test.ts`, updated `tests/policy/route.test.ts` (worker-decision: Decision order, Expert admitted rule, Expert denied rule, Partial answers in the decision)
 
 ## 2. Questions
 
@@ -9,7 +9,7 @@
 
 ## 3. Ledger
 
-- [ ] 3.1 Replace `fable` with `expert-admitted` in `src/store/ledger-schema.ts` and its tests, in the same commit as 1.2 because the route test validates reasons against the schema (decision-ledger: Ledger line schema, Worker decisions record their tier)
+- [x] 3.1 Replace `fable` with `expert-admitted` in `src/store/ledger-schema.ts` and its tests, in the same commit as 1.2 because the route test validates reasons against the schema (decision-ledger: Ledger line schema, Worker decisions record their tier)
 
 ## 4. Host
 
