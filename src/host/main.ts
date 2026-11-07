@@ -64,6 +64,18 @@ export type TurnRecord = {
   lastStop?: string;
 };
 
+/** Everything `decide` needs once a prompt is eligible. */
+type Prepared = {
+  rec: TurnRecord;
+  snapshot: Snapshot;
+  apiKey: string;
+  supported: ReturnType<typeof supportedLevels>;
+  held: boolean;
+  askEffort: boolean;
+  questions: ReturnType<typeof mainQuestions>;
+  state: ReturnType<typeof mainState>;
+};
+
 type Ctx = Pick<
   ExtensionContext,
   "cwd" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
@@ -111,15 +123,48 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     ctx: Ctx,
     mine: { rec?: TurnRecord },
   ): Promise<void> {
-    if (event.messageType !== "user" || event.prompt.trim() === "") return;
+    const p = prepare(event, ctx);
+    if (p === undefined) return;
+    const { rec, snapshot } = p;
+    mine.rec = rec;
+    const outcome = await deps.ask({
+      url: snapshot.settings.classifier.url,
+      apiKey: p.apiKey,
+      model: snapshot.settings.classifier.model,
+      timeoutMs: snapshot.settings.classifier.timeoutMs,
+      state: p.state,
+      questions: p.questions.wire,
+      ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
+    });
+
+    if (outcome.kind === "cancelled") {
+      if (record === rec) {
+        record = undefined;
+        undo = undefined;
+      }
+      return;
+    }
+    rec.ms = outcome.ms;
+    if (p.held) {
+      holdOutcome(rec, ctx, snapshot, outcome, p.questions.specs);
+      return;
+    }
+    applyEffort(p, ctx, outcome);
+  }
+
+  /** Eligibility, the hold and the record; undefined when no request is due. */
+  function prepare(event: BeforeAgentStartEvent, ctx: Ctx): Prepared | undefined {
+    if (event.messageType !== "user" || event.prompt.trim() === "") return undefined;
     const sessionId = ctx.sessionManager.getSessionId();
-    if (isChild(sessionId)) return;
+    if (isChild(sessionId)) return undefined;
     const snapshot = deps.load();
-    if (!snapshot.config.valid || !snapshot.keySet || !snapshot.settings.switches.effort) return;
+    if (!snapshot.config.valid || !snapshot.keySet || !snapshot.settings.switches.effort) {
+      return undefined;
+    }
     const model = ctx.model;
-    if (model === undefined) return;
+    if (model === undefined) return undefined;
     const apiKey = deps.env()[snapshot.keyVar];
-    if (apiKey === undefined || apiKey === "") return;
+    if (apiKey === undefined || apiKey === "") return undefined;
 
     const supported = supportedLevels({
       reasoning: model.reasoning,
@@ -165,37 +210,24 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       outputTokens: 0,
     };
     record = rec;
-    mine.rec = rec;
     undo = { rec, ctx, snapshot, previous: current, drew: false };
+    return { rec, snapshot, apiKey, supported, held, askEffort, questions, state };
+  }
 
-    const outcome = await deps.ask({
-      url: snapshot.settings.classifier.url,
-      apiKey,
-      model: snapshot.settings.classifier.model,
-      timeoutMs: snapshot.settings.classifier.timeoutMs,
-      state,
-      questions: questions.wire,
-      ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-    });
-
-    if (outcome.kind === "cancelled") {
-      if (record === rec) {
-        record = undefined;
-        undo = undefined;
-      }
-      return;
-    }
-    rec.ms = outcome.ms;
-    if (held) {
-      holdOutcome(rec, ctx, snapshot, outcome, questions.specs);
-      return;
-    }
+  /** Read the answers and set the thinking level; records the outcome on `rec`. */
+  function applyEffort(
+    p: Prepared,
+    ctx: Ctx,
+    outcome: Exclude<Awaited<ReturnType<typeof askJev>>, { kind: "cancelled" }>,
+  ): void {
+    const { rec, snapshot, supported, askEffort } = p;
+    const from = rec.from;
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
       setDecision(rec, ctx, snapshot, { kind: "no-answer" });
       return;
     }
-    const read = readAnswers(questions.specs, outcome.body);
+    const read = readAnswers(p.questions.specs, outcome.body);
     if (read.kind === "miss") {
       rec.miss = read.miss;
       setDecision(rec, ctx, snapshot, { kind: "no-answer" });
