@@ -21,5 +21,5 @@
 
 ## 5. Docs and checks
 
-- [ ] 5.1 Update `docs/architecture.md` (Display surfaces: tally content without tools, log gated by `verbose`), `docs/usage-guide.md` (tally in `/jev`, what `verbose` shows, drop "WG-17" markers), `docs/privacy.md` (log entries stored in session files, labels and numbers only), `docs/glossary.md` (Log line), `docs/roadmap.md` (WG-17 Done)
-- [ ] 5.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test` and fix anything they report
+- [x] 5.1 Update `docs/architecture.md` (Display surfaces: tally content without tools, log gated by `verbose`), `docs/usage-guide.md` (tally in `/jev`, what `verbose` shows, drop "WG-17" markers), `docs/privacy.md` (log entries stored in session files, labels and numbers only), `docs/glossary.md` (Log line), `docs/roadmap.md` (WG-17 Done)
+- [x] 5.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test` and fix anything they report
