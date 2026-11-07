@@ -206,3 +206,16 @@ describe("Thinking clamp", () => {
     expect(clampLevel("high", supportedLevels({ reasoning: false }))).toBe("off");
   });
 });
+
+describe("workerEffort with slot targets", () => {
+  test("Slot without the fast cap", () => {
+    expect(
+      workerEffort({ effort: choice("high"), tier: "slot::reviewer", movedByFallback: false }),
+    ).toBe("high");
+  });
+  test("Slot fell back to fast", () => {
+    expect(workerEffort({ effort: choice("low"), tier: "fast", movedByFallback: true })).toBe(
+      "xhigh",
+    );
+  });
+});

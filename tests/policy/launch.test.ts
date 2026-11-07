@@ -4,6 +4,8 @@ import {
   TIER_LADDER,
   effectiveLaunch,
   isFieldLocked,
+  isSlot,
+  slotTarget,
   type AgentFacts,
 } from "../../src/policy/launch.ts";
 import { TIERS } from "../../src/store/defaults.ts";
@@ -95,5 +97,15 @@ describe("Effective launch fields", () => {
     expect(r.thinkingLocked).toBe(isFieldLocked(f, "thinking"));
     expect(r.modelLocked).toBe(true);
     expect(r.thinkingLocked).toBe(false);
+  });
+});
+
+describe("Slot targets", () => {
+  test("isSlot tells slots from tiers", () => {
+    expect(isSlot("slot::a")).toBe(true);
+    expect(isSlot("fast")).toBe(false);
+  });
+  test("slotTarget prefixes the name", () => {
+    expect(slotTarget("a")).toBe("slot::a");
   });
 });
