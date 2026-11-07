@@ -7,7 +7,7 @@
 
 **Change**: `tune-mode-tier-mix`
 **Finalized at**: `2026-11-07 20:45`
-**Outcome**: `pr-updated`
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `feat/tune-mode-tier-mix`
 - **Base branch**: `main`
-- **Final state**: `pr-updated`
-- **PR URL**: `N/A` (no PR existed at finalize; the push created the remote branch)
+- **Final state**: `pr-open`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/43` (opened at finalize step 11 with the operator's approval; no PR existed before)
 
 ---
 
@@ -33,7 +33,7 @@ Other deviations from the default flow, also per the project `AGENTS.md`:
 
 ## PR comment
 
-- **PR comment status**: see the follow-up below (updated after the PR prompt).
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/43#issuecomment-6707675058)
 
 ---
 
@@ -53,6 +53,6 @@ Other deviations from the default flow, also per the project `AGENTS.md`:
 
 ## Next step
 
-Wait for PR code review once a PR exists; the logic pre-review already happened through the artifact gates. After approval, run `/opsx-archive` on this feature branch, so the archive commits land here. Push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands both the implementation and the archive into `main`.
+Wait for PR review on #43; the logic pre-review already happened through the artifact gates. After approval, run `/opsx-archive` on this feature branch, so the archive commits land here. Push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands both the implementation and the archive into `main`.
 
 Follow-up outside this change: open an issue for the known limitation recorded in `docs/evidence/2026-11-07-tier-mix.md`. With no reviewer slot, non-review launches are routed cheaper than their mode's target.
