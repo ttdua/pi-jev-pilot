@@ -57,7 +57,9 @@
 | `JEV_REPLAY_GIT` | new env var | `"1"` enables the recorder; any other value or unset disables it | yes (documented in `docs/testing.md`) |
 | `scripts/replay` CLI | new | `bun scripts/replay/cli.ts --pass 1\|2 [--kept GROUPS] [--seed N=1] [--main N=100] [--workers N=46] [--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--send]` | yes (operator tool) |
 | Capabilities snapshot | new file format | `{ "v": 1, "tools": [{ "name", "description" }], "agents": [AgentFacts] }`; also the worker agent-facts source | no (private) |
-| `aggregates.json` | new file format | `{ v: 1, runId, pass, samples: { main, workers }, skipped: string[], variants: { [id]: { base, requests, misses, excluded, flips: { [key]: number }, noise: { [key]: number }, beyond: string[] } } }` | no (private, copied into evidence by hand) |
+| `aggregates.json` | new file format | `{ v: 1, runId, pass, samples: { main, workers }, skipped: string[], variants: { [variantKey]: { kind, base, requests, misses, excluded, flips: { [key]: number }, noise: { [key]: number }, incomparable: { [key]: number }, beyond: string[] } } }`. Deviation, Task 10: variants are keyed by `variantKey` (`worker:<id>` for workers), base variants are listed too, and `kind` and `incomparable` are added | no (private, copied into evidence by hand) |
+| `variantKey` | new, `scripts/replay/variants.ts` (deviation, Task 10) | `(kind: "main" \| "worker", id: string) => string` | no |
+| `compare` | new, `scripts/replay/compare.ts` (deviation, Task 10: needs a third `meta` argument) | `(plan: Plan, results: Result[], meta: { runId: string; pass: 1 \| 2; samples: { main: number; workers: number }; config: PlainConfig }) => Aggregates`; `writeOutputs` lives in `scripts/replay/outputs.ts` | no |
 
 `effortQuestionReversed` is not a contract. The variant reverses the key order of `wire.effort.criteria` and `specs.effort.options` locally in `variants.ts`.
 
