@@ -294,6 +294,7 @@ Stored in `tuning.json`, never in `config.json`.
 - Fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count).
 - New value: `max(current + 200, p90 × 1.25 rounded up to 100)`.
 - Range 300–5000.
+- **Blind spot:** tool assessment requests also use `timeoutMs`, but a tool assessment miss writes no ledger line, so the rule cannot see it. Phase 1 accepts this; the ledger schema is unchanged.
 - **Skipped** when the config is invalid (the untuned value would then be the code default, not yours), when `tuning.json` or the ledger is unreadable, and in child sessions.
 - **Block:** after a revert or an undo, the same raise is held back for 200 decisions. A raise to the blocked value or above is lowered to `blocked − 100`.
 - **Base value:** a tuned value records the `base` it was tuned from. It applies only while the config value (or the default) equals that base. If you edit `timeoutMs` in config, the tuned value, the pending change and the block are dropped, and that counts as a change for the cooldown.
