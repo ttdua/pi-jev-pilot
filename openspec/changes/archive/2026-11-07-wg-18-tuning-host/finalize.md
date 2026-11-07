@@ -16,7 +16,7 @@
 - **Branch**: `WG-18-host`
 - **Base branch**: `main`
 - **Final state**: `pr-open`. The worktree branch was fast-forwarded into the feature branch (`git merge --ff-only wg-18-tuning-host`, now at `4277e37`). The archive commit follows, then the push.
-- **PR URL**: to be added after the PR is created.
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/44
 
 ---
 
@@ -31,7 +31,7 @@
 
 ## PR comment
 
-- **PR comment status**: to be added after the PR is created.
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/44#issuecomment-6707719772)
 
 ---
 
@@ -59,14 +59,11 @@
 - **Push and PR only after the operator's go-ahead.** `AGENTS.md` requires an explicit go-ahead before any push or PR. The operator chose this order: write `finalize.md`, run `/opsx-archive`, then push and open the PR, as in #42. Because of that, the archive commit comes before the push, and this receipt is written before any push. The PR URL and the comment status are added after the PR exists.
 - **No pull in step 3.** `WG-18-host` has no upstream yet, so there was nothing to pull.
 - **Step 6 cleanup.** It used `wt remove` instead of `git worktree remove`, per the project rule.
+- **Archive before push.** Specs were synced in `311bd68` (three new main specs and five replaced requirements, with `openspec validate --specs` at 38 passed). The change was archived in `e38b309`.
+- **Merge check before push.** The active `gh` account was `ttdua`, which owns the remote. `origin/main` had no commits that are not on `WG-18-host` (0 behind, 36 ahead), and `git merge-tree` reported no conflicts.
 
 ---
 
 ## Next step
 
-1. Run `/opsx-archive` on this feature branch.
-2. Check that the active `gh` account owns the remote.
-3. Check the merge with `origin/main`.
-4. Push `WG-18-host` and open the PR.
-5. Post the code-reviewer comment and update this receipt.
-6. Wait for the PR code review, then merge the PR.
+Wait for the code review on PR #44. After approval, merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). The archive commits are already on this branch, so that one merge lands the implementation, the synced specs and the archive in `main`.
