@@ -21,8 +21,8 @@
 
 ## 5. Visible text
 
-- [ ] 5.1 Status line `(session)` marker in the base form and the tally form (`status-line` "Status line text"; design D7)
-- [ ] 5.2 `/jev` report `mode: <m> (session; saved <s>)`, with the mix line using the effective mode (`jev-command` "Status report")
+- [x] 5.1 Status line `(session)` marker in the base form and the tally form (`status-line` "Status line text"; design D7)
+- [x] 5.2 `/jev` report `mode: <m> (session; saved <s>)`, with the mix line using the effective mode (`jev-command` "Status report")
 
 ## 6. End-to-end host tests
 
