@@ -59,7 +59,7 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 | `Jev · no key` | `TYPESAFE_API_KEY` (or the variable named in config) is not set in this shell |
 | `Jev · config error` | `config.json` is malformed or invalid. `/jev` names the field |
 | `Jev · off` | All seven decision features are switched off |
-| `Jev · premium (session)` | A session mode is set here. It overrides the saved mode in this session only |
+| `Jev · premium (local)` | A directory mode is set for this directory. It overrides the global mode in every session started here |
 | `no executor` in `/jev` | Worker routing and tool assessment are off |
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
@@ -95,12 +95,19 @@ If you press Esc before any provider request, the status line also returns to it
 ## Modes
 
 ```text
-/jev mode budget      target mix leans to the fast tier
-/jev mode standard    the default
-/jev mode premium     target mix leans to the deep tier, with an expert cap
+/jev mode budget           target mix leans to the fast tier, in this directory
+/jev mode standard         the default, in this directory
+/jev mode premium          target mix leans to the deep tier, with an expert cap, in this directory
+/jev mode budget global    the same, for every directory without its own mode
+/jev mode clear            remove the directory mode
 ```
 
-`/jev mode <m> session` sets the mode for the current session only; `/jev mode session off` clears it. Nothing is written to `state.json` or `config.json`, and other sessions and Pi processes keep the saved mode. The session mode is stored as a `jev-mode` entry in the session file, so it survives resume and reload, carries into a fork, and follows `/tree`: navigating to a point before the entry drops it. A new session starts without one. While it is set, `/jev` shows `mode: premium (session; saved standard)`. `/jev mode <m>` without `session` still saves `m`; the report then says `session mode <s> still applies here; saved mode is now <m>`. `/jev reset` clears the session mode too. Only the mode has a session layer; switches, the CLI review default and slots stay global.
+`/jev mode <m>` sets the mode for this directory. It is stored in `<cwd>/.pi/jev-mode.json`, and every new, resumed, forked or reloaded Pi run in this directory uses it. Other directories, and subdirectories without their own file, keep the global mode. `/jev mode <m> global` sets the global mode in `state.json`, which is the saved mode. While a directory mode is set it still wins in its directory, and the report says `directory mode <d> still applies here; global mode is now <m>`. `/jev mode clear` removes the directory mode; with none set it reports `no directory mode set`. `/jev reset` removes it too. While it is set, `/jev` shows `mode: premium (this directory; global standard)`.
+
+> [!WARNING]
+> **Breaking change:** `/jev mode <m>` no longer changes every directory. Use `/jev mode <m> global` for the old effect. A mode already in `state.json` stays the global mode.
+
+The file `.pi/jev-mode.json` may show up in `git status`. The package never edits `.gitignore`. A damaged file is ignored, so the global mode applies, and `/jev` lists it as `local mode (malformed)` or `local mode (unreadable)`. `/jev mode <m>` overwrites it. Only the mode has a directory layer; switches, the CLI review default and slots stay global.
 
 Each mode is a target mix of tier-routed worker launches. Jev scores every launch for difficulty, and cut points recomputed from your recent launches keep the mix near the target ([ADR 0008](decisions/0008-mode-target-cutpoints.md)):
 
@@ -180,7 +187,7 @@ A CLI review does not need the Jev key and does not depend on the switches. It r
 /jev                     status and session tally
 /jev skills off          one feature
 /jev all off             the seven decision features
-/jev reset               switches, mode (saved and session) and CLI review default back to config defaults
+/jev reset               switches, mode (global and this directory) and CLI review default back to config defaults
 ```
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
@@ -249,9 +256,9 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev                                         status and session tally
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
-/jev reset                                   switches, mode (saved and session) and CLI review default back to config defaults
-/jev mode budget|standard|premium [session]
-/jev mode session off                        clear the session mode
+/jev reset                                   switches, mode (global and this directory) and CLI review default back to config defaults
+/jev mode budget|standard|premium [global]
+/jev mode clear                              remove the directory mode
 /jev <slot> <provider/model> [when <text>]   add or replace a slot
 /jev <slot>                                  show it
 /jev remove <slot>                           delete a slot

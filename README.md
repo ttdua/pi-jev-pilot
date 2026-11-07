@@ -16,10 +16,10 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 One command shifts the whole distribution of models:
 
 ```text
-/jev mode budget      more work goes to the fast tier
-/jev mode standard    the default
-/jev mode premium     more work goes to the deep and expert tiers
-/jev mode premium session    the same, for this session only (`/jev mode session off` clears it)
+/jev mode budget global      more work goes to the fast tier
+/jev mode standard global    the default
+/jev mode premium global     more work goes to the deep and expert tiers
+/jev mode premium            the same, for this directory only (`/jev mode clear` removes it)
 ```
 
 ## Documentation

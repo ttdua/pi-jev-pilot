@@ -26,7 +26,7 @@ Use these words consistently in code, docs and the user interface.
 | **Tier** | A role a model plays: `fast`, `balanced`, `deep`, `expert`. |
 | **Slot** | A named custom model with a `when` description, offered beside the tiers. |
 | **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. A target table of tier shares, with a cap for `expert`. |
-| **Session mode** | A mode set for the current session only with `/jev mode <m> session`. Stored as a `jev-mode` session entry, it overrides the saved mode for that session's worker routing. |
+| **Directory mode** | A mode set for one directory with `/jev mode <m>`, stored in `<cwd>/.pi/jev-mode.json`. Every Pi run in that directory uses it in place of the global mode for worker routing. |
 | **Difficulty score** | A number from 0 to 3.5 for one worker launch: the expected tier rank from Jev's `tier` probabilities, plus `effortRank / 8`. |
 | **Cut point** | A score that separates two tiers, recomputed from recent ledger scores so the mode's target mix holds. |
 | **Expert gate** | The condition for the `expert` tier: the score reaches the expert cut point and effort is `xhigh` or `max`. |

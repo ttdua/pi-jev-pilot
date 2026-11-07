@@ -76,7 +76,6 @@ src/
     questions.ts         Builds the questions for each request kind
     state.ts             Builds main, worker and tool state from plain inputs
     branch.ts            Reads Pi-shaped session entries into branch items
-    session-mode.ts      Pure reader of the newest valid jev-mode entry
     workspace.ts         Reads platform markers by file name
 
   host/                  Everything that touches Pi or the executor.
@@ -103,14 +102,15 @@ src/
     skills.ts            Skill catalog, explicit skill, loaded-in-context scan
     status.ts            Status line, tally, log entries
     readiness.ts         Key and executor checks; snapshot of config and state
-    session-mode.ts      Per-session worker mode holder, rebuilt at session_start and session_tree
+    main-cwd.ts          Cwd of the newest main session, for the directory mode
     setup.ts             Wires the handlers and /jev; the entry point delegates to it,
                          because lint keeps Pi imports in host/
 
   store/                 Files under <agentDir>/jev/.
     config.ts            config.json: reads and validates; writes only crew.slots
     state-file.ts        state.json: switches, mode, CLI review default
-    settings.ts          Effective settings: session (mode only) > tuning > state > config > default
+    local-mode.ts        <cwd>/.pi/jev-mode.json: reads and writes the directory mode
+    settings.ts          Effective settings: directory (mode only) > tuning > state > config > default
     defaults.ts          Default values and feature and mode names
     atomic.ts            Atomic write: owner-only directory and file
     validate.ts          Small validators that collect issues with field paths
@@ -205,7 +205,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Surface | How | Content |
 |---|---|---|
 | Status line | `ctx.ui.setWidget` above the editor, right-aligned in the terminal UI, only when `ctx.hasUI`. Separate from the executor's agents widget | `Jev · standard · high · parallel 72% · 2 workers` |
-| Base states | Drawn from WG-06 as `Jev · <mode>`, `Jev · no key`, `Jev · config error` or `Jev · off`. First that applies: config error > no key > off > mode. `/jev status off` clears the line. Nothing is drawn in print or JSON mode | `Jev · standard` |
+| Base states | Drawn from WG-06 as `Jev · <mode>` (`Jev · <mode> (local)` under a directory mode), `Jev · no key`, `Jev · config error` or `Jev · off`. First that applies: config error > no key > off > mode. `/jev status off` clears the line. Nothing is drawn in print or JSON mode | `Jev · standard` |
 | `/jev` output | `ctx.ui.notify` only, so nothing is printed without a UI | Status, features, key, executor, problems |
 | Tally | At the end of `/jev`, and on the status line every 10th prompt (replaces the level and advice suffixes for that prompt) | Prompts, workers by model, tokens on workers, fallbacks. Counts only, no dollars. Tools flagged arrives with WG-14 |
 | Log | Only while `verbose` is on. `pi.appendEntry("jev-log")` with `registerEntryRenderer`, not sent to the model | `jev · general-purpose → balanced · high · 0.5s` |
@@ -224,6 +224,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Malformed `config.json` | Package inert; file untouched | Error naming the field |
 | Malformed `state.json` | Defaults apply; file moved to `state.json.bad` on the next change | Problem reported to `/jev` |
 | Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
+| Malformed or unreadable `<cwd>/.pi/jev-mode.json` | Global mode applies; file left alone; `/jev mode <m>` overwrites it | `local mode (malformed)` or `local mode (unreadable)` in `/jev` |
 | Tier model unavailable | Next lower tier, with a warning shown once per tier and model per session | Warning; ledger `fallback` |
 | Slot model unavailable | `balanced`, then `fast`, with a warning naming `crew.slots "<name>" model` | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
@@ -237,7 +238,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 
 - Outbound to TypeSafe: see [Privacy](privacy.md). All state is built in `jev/state.ts`, the single place to audit.
 - Stored locally: labels, numbers and outcomes. The ledger schema rejects free text beyond short identifiers.
-- Session mode: a `jev-mode` custom session entry holds `{"mode": "<m>"}` or `{"mode": null}`. It is never sent to the model, and nothing is written to `state.json` or `config.json`.
+- Directory mode: `<cwd>/.pi/jev-mode.json` holds exactly `{"version":1,"mode":"<m>"}`, written atomically. It is never sent to the model, no other project file is touched, and nothing is written to `state.json` or `config.json`.
 - Secrets: read from the environment at call time, never written anywhere.
 
 ## Performance budget
