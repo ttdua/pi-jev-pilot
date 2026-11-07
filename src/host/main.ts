@@ -165,7 +165,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
     };
     const asked = deps.ask({ ...common, questions: p.questions.wire });
-    const later = askBatches(p.batches.slice(1), common);
+    const later = tryAskBatches(p.batches.slice(1), common);
     const outcome = await asked;
 
     if (outcome.kind === "cancelled") {
@@ -202,7 +202,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   async function safePick(
     p: Prepared,
     mainRead: ReadResult | undefined,
-    later: readonly Promise<JevOutcome>[],
+    later: readonly Promise<JevOutcome>[] | undefined,
   ): Promise<SkillPick> {
     try {
       return await skillPick(p, mainRead, later);
@@ -222,9 +222,11 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   async function skillPick(
     p: Prepared,
     mainRead: ReadResult | undefined,
-    later: readonly Promise<JevOutcome>[],
+    later: readonly Promise<JevOutcome>[] | undefined,
   ): Promise<SkillPick> {
     if (p.batches.length === 0) return pickSkill([]);
+    // Later batches that could not be built mean a failed batch, hence no skill.
+    if (later === undefined) return { kind: "none", reason: "failed" };
     const outcomes = await Promise.all(later);
     const rest = p.batches.slice(1).map((batch, i) => {
       const { specs } = skillBatchQuestions(batch);
@@ -369,6 +371,18 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         }),
       );
       return batches.length === 0 ? undefined : { batches };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The later batches' requests; undefined when building them threw, so the main request still proceeds. */
+  function tryAskBatches(
+    batches: readonly CatalogSkill[][],
+    common: Omit<Parameters<typeof askJev>[0], "questions">,
+  ): Promise<JevOutcome>[] | undefined {
+    try {
+      return askBatches(batches, common);
     } catch {
       return undefined;
     }

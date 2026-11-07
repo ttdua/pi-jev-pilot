@@ -39,7 +39,7 @@ sequenceDiagram
 
 **While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `effort` and `risky` are not asked. Only `corrects` is asked. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
 
-**If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again.
+**If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again. With a catalog over 254 skills the effort level is applied only once every batch has answered (still within one timeout), so a manual level change during that wait also discards the effort result.
 
 **If the operator presses Esc before the first provider request**, Pi aborts the run. When the run settles aborted with no provider request, the package puts back the level it replaced, only if the current level is still the one it set, and the status line returns to its previous text. No ledger line is written. Esc after a provider request started is a normal turn with `outcome: aborted`.
 

@@ -151,6 +151,7 @@ function setup(
     ({ type: "before_agent_start", messageType, prompt }) as never;
   return {
     main,
+    deps,
     pi,
     ctx: ctx as never,
     ctxRaw: ctx,
@@ -1423,6 +1424,26 @@ describe("skill fields on the main line", () => {
     expect(line["effective"]).toBe("high");
     expect(line["skill"]).toBe("debug");
     for (const k of ["effortP", "risky", "requested"]) expect(line).not.toHaveProperty(k);
+  });
+
+  test("a throw while building later batches fails open", async () => {
+    const t = setup({
+      skills: Array.from({ length: 300 }, (_, i) => ({ name: `s${i}`, body: "b" })),
+      outcomes: [answerWith({ effort: "high", which: ["s0", 0.9], gates: [0.9, 0.9, 0.1] })],
+    });
+    const ask = t.deps.ask;
+    t.deps.ask = (req) => {
+      const keys = Object.keys(req.questions as object);
+      if (keys.length === 1 && keys[0] === "which") throw new Error("sync boom");
+      return ask(req);
+    };
+    expect(await run(t)).toBeUndefined();
+    expect(t.level()).toBe("high");
+    await t.main.agentSettled(settled);
+    const main = t.appended.find((e) => (e as { kind?: string }).kind === "main")!;
+    expect(main).not.toHaveProperty("skill");
+    expect(main).not.toHaveProperty("skillP");
+    expect(main).not.toHaveProperty("gate");
   });
 
   test("a throw while picking fails open", async () => {
