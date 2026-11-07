@@ -10,5 +10,5 @@
 
 ## 3. Host proof and docs
 
-- [ ] 3.1 Harness option for `effort.holdProviders` (with a `tests/host/harness.test.ts` case) and host test `tests/host/effort-hold.test.ts` through the real CLI: no thinking change after the anchor, exactly one decision after a compaction, `held` lines, no entry text in provider requests
+- [x] 3.1 Harness option for `effort.holdProviders` (with a `tests/host/harness.test.ts` case) and host test `tests/host/effort-hold.test.ts` through the real CLI: no thinking change after the anchor, exactly one decision after a compaction, `held` lines, no entry text in provider requests
 - [ ] 3.2 Update `docs/workflow.md`, `docs/domain-model.md`, `docs/roadmap.md` (WG-08 Done) and `docs/usage-guide.md` if needed; run the full gate (`bun check`, `oxlint --deny-warnings .`, `oxfmt --check .`, `bun test`)
