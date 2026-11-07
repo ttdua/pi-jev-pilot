@@ -1,3 +1,4 @@
+import type { Answer, ChoiceAnswer, ReadResult } from "./answers.ts";
 import { cutCodePoints } from "../shared/text.ts";
 
 /** One catalog skill; `body` is already without frontmatter. */
@@ -32,4 +33,90 @@ export function skillBatches(entries: readonly SkillEntry[]): SkillEntry[][] {
   const count = Math.ceil(unique.length / MAX_BATCH);
   const size = Math.ceil(unique.length / count);
   return Array.from({ length: count }, (_, i) => unique.slice(i * size, (i + 1) * size));
+}
+
+/** Gate questions sent with the first batch, in request order. */
+export const GATE_KEYS = [
+  "gate::acts_on_user_system",
+  "gate::would_follow_documented_procedure",
+  "gate::prose_suffices",
+] as const;
+
+export type GateKey = (typeof GATE_KEYS)[number];
+
+// Thresholds follow upstream jev-pilot 0.12.1's skill-suggestion policy, which
+// replay measured on 16 prompts (docs/evidence/2026-11-05-replay.md, "Skill .5 and .3").
+
+/** Leader probability at which a skill is picked without a gate. */
+export const SURE_PICK = 0.5;
+
+/** Lowest leader probability at which the gate mean may support a pick. */
+export const FIT_PICK = 0.3;
+
+/** Lowest gate mean that supports a leader between `FIT_PICK` and `SURE_PICK`. */
+export const GATE_PICK = 0.3;
+
+export type SkillPick =
+  | { kind: "picked"; name: string; p: number; gate?: number }
+  | { kind: "none"; reason: "below"; p: number; gate?: number }
+  | { kind: "none"; reason: "none-leads"; gate?: number }
+  | { kind: "none"; reason: "no-batch" | "failed" };
+
+/** Option with the strict maximum probability (first in asked order); undefined when `(none)`. */
+export function batchLeader(
+  options: readonly string[],
+  answer: ChoiceAnswer,
+): { name: string; p: number } | undefined {
+  let best: { name: string; p: number } | undefined;
+  for (const name of options) {
+    const p = answer.probabilities[name];
+    if (p !== undefined && (best === undefined || p > best.p)) best = { name, p };
+  }
+  return best === undefined || best.name === NONE_OPTION ? undefined : best;
+}
+
+/** Mean over the gates present, `prose_suffices` as `1 - p`; undefined with none present. */
+export function gateMean(answers: Record<string, Answer>): number | undefined {
+  const values: number[] = [];
+  for (const key of GATE_KEYS) {
+    const answer = answers[key];
+    if (answer?.type !== "noul") continue;
+    values.push(key === "gate::prose_suffices" ? 1 - answer.noul : answer.noul);
+  }
+  if (values.length === 0) return undefined;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+type PickBatch = { options: readonly string[]; read: ReadResult | undefined };
+
+function whichAnswer(read: ReadResult | undefined): ChoiceAnswer | undefined {
+  if (read?.kind !== "read") return undefined;
+  const which = read.answers["which"];
+  return which?.type === "choice" ? which : undefined;
+}
+
+function withGate<T extends object>(base: T, gate: number | undefined): T & { gate?: number } {
+  return gate === undefined ? base : { ...base, gate };
+}
+
+/** Pick one skill from the batches' `which` answers; batch 0's gates support weaker leaders. */
+export function pickSkill(batches: readonly PickBatch[]): SkillPick {
+  if (batches.length === 0) return { kind: "none", reason: "no-batch" };
+  const whichAnswers = batches.map((batch) => whichAnswer(batch.read));
+  if (whichAnswers.some((answer) => answer === undefined)) {
+    return { kind: "none", reason: "failed" };
+  }
+  const first = batches[0]?.read;
+  const gate = first?.kind === "read" ? gateMean(first.answers) : undefined;
+  let best: { name: string; p: number } | undefined;
+  batches.forEach((batch, i) => {
+    const answer = whichAnswers[i];
+    const leader = answer === undefined ? undefined : batchLeader(batch.options, answer);
+    if (leader !== undefined && (best === undefined || leader.p > best.p)) best = leader;
+  });
+  if (best === undefined) return withGate({ kind: "none", reason: "none-leads" }, gate);
+  const sure = best.p >= SURE_PICK;
+  const fits = best.p >= FIT_PICK && gate !== undefined && gate >= GATE_PICK;
+  if (sure || fits) return withGate({ kind: "picked", name: best.name, p: best.p }, gate);
+  return withGate({ kind: "none", reason: "below", p: best.p }, gate);
 }
