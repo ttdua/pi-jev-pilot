@@ -9,7 +9,7 @@
 
 ## 3. Tuning rules
 
-- [ ] 3.1 Add `src/policy/tuning-window.ts` (counting helpers, `DecisionLine`) and `src/policy/tuning.ts` (`TuningRecord`, `TuningEvent`, `TUNING`): decision selection, ordering by `at` with the tie-break, "after an event" counts, asked/timeout counts, the window, nearest-rank p90 and the integer share comparisons. Unit tests in `tests/policy/tuning-window.test.ts` (correction lines ignored, line order, unasked lines, lines without `ms`)
+- [x] 3.1 Add `src/policy/tuning-window.ts` (counting helpers, `DecisionLine`) and `src/policy/tuning.ts` (`TuningRecord`, `TuningEvent`, `TUNING`): decision selection, ordering by `at` with the tie-break, "after an event" counts, asked/timeout counts, the window, nearest-rank p90 and the integer share comparisons. Unit tests in `tests/policy/tuning-window.test.ts` (correction lines ignored, line order, unasked lines, lines without `ms`)
 - [ ] 3.2 Add the timeout rule and the new value: fire threshold, `max(current+200, ceil100(p90×1.25))`, clamp, block, no-change check. Tests cover every scenario of "The timeout rule", "The new value" and "Block after a revert or an undo"
 - [ ] 3.3 Add the pending evaluation, the revert and `supersede`, plus apply (pending `from`/`to`/`at`/`before`, `rule` entry) and the bounded history. Tests cover "Applying a change", "Evaluating a pending change", "Reverting a change" and "Bounded history"
 - [ ] 3.4 Add `stepTuning`, which composes off, superseded, evaluation, cooldown and fire in the order of design D3 and returns the events. Tests cover "Pure tuning step", "Cooldown", "Config edit supersedes tuning" and "Tuning off" (step side), including inputs left unchanged
