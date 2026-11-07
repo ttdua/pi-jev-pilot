@@ -20,7 +20,7 @@
 
 ## 5. Host tuning modules
 
-- [ ] 5.1 Create `src/host/tuning-deps.ts` (`UiCtx`, `TuningDeps`), `src/host/tuning-step.ts` with `settleTuning(deps, ctx)`, and shared fakes in `tests/host/tuning-fakes.ts`: skip rules, two-pass step inside `updateTuning`, `seenAt` with UI only, lines after a successful write, failures swallowed; tests in `tests/host/tuning-step.test.ts`
+- [x] 5.1 Create `src/host/tuning-deps.ts` (`UiCtx`, `TuningDeps`), `src/host/tuning-step.ts` with `settleTuning(deps, ctx)`, and shared fakes in `tests/host/tuning-fakes.ts`: skip rules, two-pass step inside `updateTuning`, `seenAt` with UI only, lines after a successful write, failures swallowed; tests in `tests/host/tuning-step.test.ts`
 - [ ] 5.2 Create `src/host/tuning-seen.ts` with `showUnseenTuning(deps, ctx)`: write `seenAt` first, then show the summary line; tests in `tests/host/tuning-seen.test.ts`
 - [ ] 5.3 Create `src/host/tune-command.ts` with `buildTuneView` and `runTune(deps, sub, ctx)` for the report, `undo`, `reset`, `on` and `off`, with the invalid-config refusal, stale-base "nothing to undo", and refused writes; tests in `tests/host/tune-command.test.ts`
 
