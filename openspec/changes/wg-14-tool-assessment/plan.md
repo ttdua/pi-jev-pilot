@@ -48,7 +48,7 @@
 | `ToolStateInput`, `ToolState`, `buildToolState` | new | input `{ brief: string; description: string; agent: AgentFacts; tools: { name: string; description: string; source: string; parameters: Record<string, string> }[] }`; output `{ task: { brief; description }; agent: { name; source; description }; tools: Record<string, { description; source; parameters: Record<string, string> }> }` | no |
 | `captureMainService`, `clearMainService`, `mainService` | new | `(): void`, `(): void`, `(): ServiceLike \| undefined` in `src/host/tool-service.ts`; `ServiceLike = { listAgents(): unknown[] }` | no |
 | `putToolCounts`, `takeToolCounts` | new | `(agentId: string, c: ToolCounts) => void`, `(agentId: string) => ToolCounts \| undefined` in `src/host/tool-counts.ts`; map bounded at 256 | no |
-| `createToolAssessment` | new | `(pi: Pick<ExtensionAPI, "getAllTools">, deps?: { ask?: typeof askJev; snapshot?: () => Snapshot; agentDir?: string; service?: () => ServiceLike \| undefined }) => { beforeAgentStart(event: BeforeAgentStartEvent, ctx: ExtensionContext): Promise<void> }` | no |
+| `createToolAssessment` | new | `(pi: Pick<ExtensionAPI, "getAllTools">, deps?: { ask?: typeof askJev; snapshot?: () => Snapshot; agentDir?: string; service?: () => ServiceLike \| undefined }) => { beforeAgentStart(event: BeforeAgentStartEvent, ctx: ExtensionContext): Promise<void>; dispose(sessionId: string): void }` (`dispose` added in Task 6: drops the per-session outcome on `subagents:child:disposed`, so the map stays bounded; internal) | no |
 | `worker` ledger line | modified | gains optional `toolsScored`, `toolsFlagged` (already in `LEDGER_FIELDS`) | yes (file content, format unchanged) |
 
 ---
