@@ -119,6 +119,20 @@ describe("mainQuestions", () => {
 });
 
 const DOC = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
+
+describe("Strategy docs", () => {
+  test("docs state precedence", () => {
+    const contract = readFileSync(new URL("../../docs/jev-contract.md", import.meta.url), "utf8");
+    expect(contract).toContain(
+      "User and project instructions and a loaded skill keep authority over this advice.",
+    );
+  });
+  test("docs state no prefix", () => {
+    expect(DOC).toContain(
+      "The main request's `tier` uses these criteria for `fast`, `balanced` and `deep`, without the display-name prefix.",
+    );
+  });
+});
 const ALL = { fast: "a/b", balanced: "c/d", deep: "e/f", expert: "g/h" };
 
 describe("Offered tiers", () => {

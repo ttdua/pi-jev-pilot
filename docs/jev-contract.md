@@ -143,7 +143,7 @@ Nothing found sends `none found`.
 
 ## Eligibility
 
-A main request is sent when `messageType` is `user`, the text is not empty, and the session is not a child. An explicit `/skill:name` skips only the skill questions. When every applicable feature is off, or held, no request is made.
+A main request is sent when `messageType` is `user`, the text is not empty, and the session is not a child. An explicit `/skill:name` skips only the skill questions. When every applicable feature is off, or held, no request is made. `effort` and `risky` need `effort` on; `tier` and `strategy` need `strategy` on.
 
 Non-reasoning models, and models with one supported level, skip `effort` and `risky`. While effort is held, they are skipped too.
 
@@ -268,7 +268,7 @@ Strategy gates:
 | `parallel` | ≥ .6 | `tier` is not `fast` |
 | `graph` | ≥ .8 | `tier` is `deep` |
 
-User and project instructions keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
+An unanswered `tier` attaches nothing for `parallel` or `graph`. User and project instructions and a loaded skill keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
 
 **How much these thresholds can be trusted** is recorded in the [evidence](evidence/2026-11-05-replay.md#threshold-provenance).
 

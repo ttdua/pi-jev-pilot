@@ -20,6 +20,8 @@ Each criterion is prefixed with the configured model's display name from Pi's re
 
 Also used, without slots or `expert`, for the `tier` question of the main request.
 
+The main request's `tier` uses these criteria for `fast`, `balanced` and `deep`, without the display-name prefix.
+
 | Tier | Criterion |
 |---|---|
 | `fast` | Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms. |
