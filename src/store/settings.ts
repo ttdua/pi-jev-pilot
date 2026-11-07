@@ -31,6 +31,11 @@ function tunedTimeout(tuning: Tuning | undefined, untuned: number): number | und
   return inRange(t?.value) && inRange(t?.base) && t.base === untuned ? t.value : undefined;
 }
 
+/** The timeout before tuning: config value, else the default. */
+export function untunedTimeout(config: Config): number {
+  return config.classifier?.timeoutMs ?? DEFAULTS.classifier.timeoutMs;
+}
+
 /** Pure: tuning > state > config > default. Returns fresh objects and arrays. */
 export function resolveSettings(input: {
   config: Config;
@@ -39,7 +44,7 @@ export function resolveSettings(input: {
 }): Settings {
   const { config, state, tuning } = input;
   const c = config.classifier;
-  const untunedTimeout = c?.timeoutMs ?? DEFAULTS.classifier.timeoutMs;
+  const untuned = untunedTimeout(config);
 
   const switches = { ...DEFAULTS.switches } as Record<Feature, boolean>;
   for (const f of FEATURES) {
@@ -58,7 +63,7 @@ export function resolveSettings(input: {
       url: c?.url ?? DEFAULTS.classifier.url,
       model: c?.model ?? DEFAULTS.classifier.model,
       apiKeyEnv: c?.apiKeyEnv ?? DEFAULTS.classifier.apiKeyEnv,
-      timeoutMs: tunedTimeout(tuning, untunedTimeout) ?? untunedTimeout,
+      timeoutMs: tunedTimeout(tuning, untuned) ?? untuned,
     },
     tiers: { ...config.tiers },
     crew: { slots: (config.crew?.slots ?? []).map((s) => ({ ...s })) },

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../../src/store/defaults.ts";
-import { resolveSettings } from "../../src/store/settings.ts";
+import { resolveSettings, untunedTimeout } from "../../src/store/settings.ts";
 
 describe("resolveSettings", () => {
   test("Forked launch from config", () => {
@@ -157,5 +157,14 @@ describe("resolveSettings", () => {
     expect(DEFAULTS.effort.holdProviders).toEqual(["9router"]);
     expect(DEFAULTS.switches.verbose).toBe(false);
     expect(resolveSettings({ config: {}, state: {} }).effort.holdProviders).toEqual(["9router"]);
+  });
+});
+
+describe("untunedTimeout", () => {
+  test("defaults to 1500", () => {
+    expect(untunedTimeout({})).toBe(1500);
+  });
+  test("uses the configured value", () => {
+    expect(untunedTimeout({ classifier: { timeoutMs: 2000 } })).toBe(2000);
   });
 });
