@@ -16,8 +16,8 @@
 
 ## 4. Host tests
 
-- [ ] 4.1 Add `tests/host/tool-assessment.test.ts` with the real executor, the loopback provider and a loopback Jev fixture: `observe` keeps every tool in the child's first request and the `worker` line has the counts; `enforce` removes a flagged tool from the child's requests and a call to it returns an error result; Jev refused in `enforce` keeps every tool; an `Explore` worker sends no tool request; no prompt marker in the ledger
-- [ ] 4.2 In the same file, record evidence that the record is found at the child's first `before_agent_start` (the design's open timing question) and two concurrent background workers each name their own agent
+- [x] 4.1 Add `tests/host/tool-assessment.test.ts` with the real executor, the loopback provider and a loopback Jev fixture: `observe` keeps every tool in the child's first request and the `worker` line has the counts; `enforce` removes a flagged tool from the child's requests and a call to it returns an error result; Jev refused in `enforce` keeps every tool; an `Explore` worker sends no tool request; no prompt marker in the ledger
+- [x] 4.2 In the same file, record evidence that the record is found at the child's first `before_agent_start` (the design's open timing question) and two concurrent background workers each name their own agent
 
 ## 5. Docs
 
