@@ -41,7 +41,7 @@ Written by tuning, not by hand. Unknown keys are rejected, and the file is valid
 | `off` | Set when automatic changes are turned off |
 | `timeoutMs` | The tuned value: `value` and `base`, the untuned value it was tuned from. Both 300–5000 |
 | `pending` | The change still being judged: `from`, `to`, `at` and `before` (`asked`, `timeouts`, each 0–40) |
-| `block` | After a revert or undo: `value` and `at`. Holds back the same raise for 200 decisions |
+| `block` | After a revert or undo: `value` and `at`. For 200 decisions, a raise to the blocked value or above is lowered to `blocked − 100` |
 | `history` | At most 50 entries of `at`, `parameter`, `from`, `to` and `cause` (`rule`, `revert`, `undo`, `reset` or `superseded`) |
 
 Error messages name the field and what was expected, never the value found, so a secret pasted into the wrong key stays out of logs. A `state.json` is valid or rejected whole: nothing is salvaged from a partly valid file.

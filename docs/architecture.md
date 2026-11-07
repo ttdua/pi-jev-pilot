@@ -58,7 +58,8 @@ src/
     skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
     strategy.ts          Advice gates and advice text
     tools.ts             Candidates, the 32 cap, the flag threshold
-    tuning.ts            Tuning rules, revert rules
+    tuning-window.ts     Decision counting: order, window, p90, shares
+    tuning.ts            Tuning rules: step, revert, undo, reset, off
 
   shared/                Dependency-free rules used by more than one module
     urls.ts              The Jev URL rule
