@@ -1,10 +1,10 @@
 ## 1. Strategy policy (pure)
 
-- [ ] 1.1 Add `src/policy/strategy.ts`:
+- [x] 1.1 Add `src/policy/strategy.ts`:
   - `STRATEGIES`, `STRATEGY_THRESHOLD` (0.6) and `GRAPH_THRESHOLD` (0.8).
   - The `<how>` texts and the block builder, verbatim from `docs/jev-questions.md`.
   - `adviseStrategy` with the gates from specs/strategy-advice "Strategy gates" and "Advice text".
-- [ ] 1.2 Add `tests/policy/strategy.test.ts`:
+- [x] 1.2 Add `tests/policy/strategy.test.ts`:
   - Every gate boundary (.6/.59, .8/.79).
   - `parallel` on `fast`, `graph` off `deep`, `tier` unanswered, `delegate` without `tier`, `direct`, `strategy` unanswered, confidence ignored.
   - The block text for each strategy compared with the docs, with no `junior`.
