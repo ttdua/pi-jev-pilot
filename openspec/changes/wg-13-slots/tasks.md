@@ -26,7 +26,7 @@
 
 ## 5. Slot commands
 
-- [ ] 5.1 Add `src/host/slots.ts` with `parseSlotArgs` (the three forms, `when` text verbatim) and `runSlot` (add, replace keeping `when`, show, remove, check order, registry check with nearest names, invalid config, write errors, reports). Tests in a new `tests/host/slots.test.ts` (slot-commands: all requirements except output)
+- [x] 5.1 Add `src/host/slots.ts` with `parseSlotArgs` (the three forms, `when` text verbatim) and `runSlot` (add, replace keeping `when`, show, remove, check order, registry check with nearest names, invalid config, write errors, reports). Tests in a new `tests/host/slots.test.ts` (slot-commands: all requirements except output)
 - [ ] 5.2 Dispatch the slot forms from `parseJevArgs` and `runJev` in `src/host/commands.ts`. Existing forms keep precedence. Usage text lists the three slot forms. An unknown slot or a name-shaped typo shows the error with the usage text. Tests in `tests/host/commands.test.ts`, covering print mode, a child session, and the next launch seeing a new slot (jev-command: Usage text for other input; slot-commands: Slot command forms, Slot command output and failures)
 
 ## 6. Docs
