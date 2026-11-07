@@ -10,6 +10,7 @@ import {
   notifies,
   seedCorrections,
   seedLedger,
+  uiRequests,
   writeConfigFile,
   type SeedOptions,
 } from "./rpc-helpers";
@@ -126,10 +127,14 @@ async function closeSession(s: HostSession): Promise<void> {
   sessions.splice(sessions.indexOf(s), 1);
 }
 
-/** One prompt, then wait for its ledger line and let settle work finish. */
+const settledCount = (s: HostSession): number =>
+  s.events.filter((e) => e.type === "agent_settled").length;
+
+/** One prompt, then wait for its ledger line and the settle event; the sleep covers the rest. */
 async function turn(s: HostSession, lines: number): Promise<void> {
   await s.prompt("hello");
   await s.waitFor(() => mainLines(s.agentDir).length >= lines, `main line ${lines}`);
+  await s.waitFor(() => settledCount(s) >= 1, "agent_settled");
   await Bun.sleep(300);
 }
 
@@ -170,6 +175,7 @@ describe("tuning through the real CLI", () => {
       const s = await open(env);
       await s.prompt("hello");
       await s.waitFor(() => mainLines(env.agentDir).length >= 40, "turn line");
+      await s.waitFor(() => settledCount(s) >= 1, "agent_settled");
       const asked = env.jev.requests.length;
       await s.waitFor(() => existsSync(tuningPath(env.agentDir)), "tuning.json");
       await Bun.sleep(300);
@@ -245,8 +251,8 @@ describe("tuning through the real CLI", () => {
       await closeSession(first);
       const second = await open(env);
       await second.waitFor(
-        () => notifies(second).length >= 1 || second.events.length >= 1,
-        "second session started",
+        () => uiRequests(second).some((e) => e.method === "setWidget" && e.widgetKey === "jev"),
+        "second session status widget",
       );
       await Bun.sleep(500);
       expect(tuneNotifies(second)).toEqual([]);
