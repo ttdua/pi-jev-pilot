@@ -1,32 +1,38 @@
-# Session Mode Override Implementation Plan
+# Directory Mode Implementation Plan (iteration 2)
 
 > Executed via `/opsx-apply`, which chooses the executor.
 > Spec reference: this change's `specs/` and `design.md`.
 
-**Goal:** Let the operator set a worker mode for one session (`/jev mode <m> session`), recorded in the session file, that wins over the saved mode only in that session.
+**Goal:** `/jev mode <m>` sets the mode for the current directory in `<cwd>/.pi/jev-mode.json`, `/jev mode <m> global` sets the global mode in `state.json`, and `/jev mode clear` removes the directory mode. The directory mode wins over the global mode in every Pi session in that directory.
 
-**Architecture:** The pure resolver gains a `sessionMode` input. A pure reader in `src/jev/` takes the session mode from branch entries. A host holder, tagged with its session id, is rebuilt at `session_start`/`session_tree` and updated after a successful `pi.appendEntry`. `loadSnapshot` feeds the holder's value to the resolver, so its callers stay unchanged.
+**Architecture:** The pure resolver keeps one precedence function and gains a `localMode` input (renamed from iteration 1's `sessionMode`). A new store module reads, validates, writes and removes the directory file. `loadSnapshot` reads that file on every call, for the command's `ctx.cwd`, or for the cwd of the newest main `session_start` on paths without a `ctx`. The iteration 1 session-entry code is removed.
 
 **Tech Stack:** TypeScript on Pi (`@earendil-works/pi-coding-agent` 1.5.0), Bun test, oxlint, oxfmt.
 
 ## Global Constraints
 
-- Public Pi APIs only: `pi.appendEntry`, `ctx.sessionManager.getBranch()`, `ctx.sessionManager.getSessionId()`, `pi.on("session_start" | "session_tree")`.
-- `src/policy/`, `src/store/` and `src/jev/` import no Pi and do no host I/O; `scripts/` still imports no `src/host/` or `src/store/`.
-- Mode names are exactly `budget`, `standard`, `premium` (`MODES` / `MODE_NAMES`).
-- The entry custom type is `jev-mode`, and its data is exactly `{"mode":"<m>"}` or `{"mode":null}`.
-- Fixed copy: status `Jev · <m> (session)`; report `mode: <m> (session; saved <s>)`; `session mode <s> still applies here; saved mode is now <m>`; `no session mode set`; usage `/jev mode budget|standard|premium session` and `/jev mode session off`.
-- The session mode never calls Jev and never writes `state.json` or `config.json`; the `/jev` report after a session-mode command may read them, but setting or clearing never depends on that read.
-- Tests need no secrets, no paid calls and no network beyond loopback.
+- Public Pi APIs only. `ctx.cwd` is the session's working directory.
+- `src/policy/`, `src/store/` and `src/jev/` import no Pi. `src/store/` may do file I/O. `scripts/` imports no `src/host/` or `src/store/`.
+- Mode names are exactly `budget`, `standard`, `premium` (`MODES`).
+- The directory file is `<cwd>/.pi/jev-mode.json`, with content exactly `{"version":1,"mode":"<m>"}`. It is written with `writeFileAtomic`. No other project file is created or changed, and `.gitignore` is never touched.
+- Fixed copy:
+  - status: `Jev · <m> (local)`
+  - report: `mode: <m> (this directory; global <g>)`
+  - global note: `directory mode <d> still applies here; global mode is now <m>`
+  - clear with nothing set: `no directory mode set`
+  - problem labels: `local mode (malformed)`, `local mode (unreadable)`
+  - usage: `/jev mode budget|standard|premium [global]` and `/jev mode clear`
+- The directory mode never calls Jev and never writes `state.json` or `config.json`.
+- Tests need no secrets, no paid calls and no network beyond loopback. Every test that writes a directory file uses a temp cwd.
 - Repository text is in English.
 
 ## Review Focus
 
-1. **Append succeeds, holder update throws, or the reverse.** The holder must change only after `appendEntry` returns. Test: "Append fails" in Task 4.
-2. **A `/jev` run in session B right after a switch from A, before B's `session_start` handler runs.** The holder is tagged with A's id, so it must not apply. Test: `loadSnapshot ignores a holder of another session` in Task 3.
-3. **Whitespace and case in the command** (`mode  premium   session`, `mode premium Session`). Split on whitespace and match case-sensitively. Tests in Task 4's parse step.
-4. **A branch with a `jev-mode` entry whose data is `null`, a string, or `{mode: 1}`.** Skip it and read the next older entry. Test: `readSessionMode skips malformed data` in Task 2.
-5. **`/jev all off` with a session mode set.** The status line shows `Jev · off`, and the report still shows the session mode. Test: "Base state wins over a session mode" in Task 5.
+1. **A cwd whose `.pi` is a file, or is read-only.** The set is refused with the error code and `.pi/jev-mode.json`, and nothing else changes. Test: "Directory not writable" in Task 3.
+2. **A command in a session whose cwd differs from the last main `session_start` cwd.** The command must use `ctx.cwd`, not the holder. Test: `/jev uses ctx.cwd over the main cwd holder` in Task 3.
+3. **A file with extra keys, `version` 2, or `mode: null`.** All of these are malformed, and the global mode applies. Test: `readLocalMode rejects extra keys and other versions` in Task 2.
+4. **`/jev mode clear` when the file exists but cannot be removed (`EACCES`).** Report the error and keep the mode. Test: `clear refused keeps the file` in Task 3.
+5. **The symlinked temp dir on macOS (`/var` vs `/private/var`) in E2E.** Compare file contents, not paths. Covered by Task 5's use of `readFileSync(join(cwd, ".pi/jev-mode.json"))`.
 
 ---
 
@@ -34,218 +40,211 @@
 
 | Name | new / modified | Shape | public |
 |---|---|---|---|
-| `resolveSettings` input | modified | `{ config: Config; state: State; tuning?: Tuning; sessionMode?: Mode }` | no |
-| `Settings` | modified | adds `modeSource: "session" \| "saved"` and `savedMode: Mode`; `mode` stays the effective mode | no |
-| `SESSION_MODE_TYPE` | new | `const SESSION_MODE_TYPE = "jev-mode"` in `src/jev/session-mode.ts` | no |
-| `readSessionMode` | new | `(entries: readonly SessionEntryLike[]) => Mode \| undefined` in `src/jev/session-mode.ts` | no |
-| `jev-mode` session entry | new | custom entry, `customType: "jev-mode"`, `data: { mode: Mode \| null }`, nothing else | public (session file format) |
-| `SessionModeHolder` | new | `{ rebuild(sessionId: string, entries: readonly SessionEntryLike[]): void; ensure(sessionId: string, entries: readonly SessionEntryLike[]): void; set(sessionId: string, mode: Mode \| undefined): void; modeFor(sessionId: string \| undefined): Mode \| undefined }`, from `createSessionModeHolder()` in `src/host/session-mode.ts` | no |
-| `sessionModes()` | new | process-wide `SessionModeHolder` on `globalThis` under `Symbol.for("pi-jev-pilot.sessionMode")` | no |
-| `loadSnapshot` | modified | `(pi, sessionId?: string) => Snapshot`; it uses `sessionModes().modeFor(sessionId ?? currentMainSession())` | no |
-| `buildSnapshot` input | modified | adds `sessionMode?: Mode` | no |
-| `JevArgs` | modified | adds `{ kind: "session-mode"; mode: Mode \| undefined }` | no |
-| `runJev` deps | modified | adds `appendEntry: (type: string, data: unknown) => void` and `sessionModes: SessionModeHolder`; `load` takes the command session id: `(sessionId: string) => Snapshot` (final review: /jev must bind to its own session before session_start) | no |
-| `/jev mode <m> session`, `/jev mode session off` | new | CLI forms as in `specs/jev-command` and `specs/session-mode` | public |
-
-`currentMainSession()` is the id of the newest main session that ran `session_start`. The holder stores it at `rebuild`, so `modeFor(undefined)` resolves against that id. Hot paths without a `ctx` stay correct, because the holder holds only one session at a time.
+| `resolveSettings` input | modified | `{ config: Config; state: State; tuning?: Tuning; localMode?: Mode }` (was `sessionMode`) | no |
+| `Settings` | modified | `modeSource: "local" \| "global"` and `globalMode: Mode` (were `"session" \| "saved"` and `savedMode`) | no |
+| `LocalModeRead` | new | `{ kind: "missing" } \| { kind: "ok"; mode: Mode } \| { kind: "malformed" \| "unreadable"; issues: Issue[] }`, in `src/store/local-mode.ts` | no |
+| `readLocalMode` | new | `(cwd: string) => LocalModeRead`, never throws | no |
+| `writeLocalMode` | new | `(cwd: string, mode: Mode) => WriteResult`; failure issue message `cannot write .pi/jev-mode.json (<code>)` | no |
+| `clearLocalMode` | new | `(cwd: string) => WriteResult`; a missing file is `{ ok: true }`; failure message `cannot remove .pi/jev-mode.json (<code>)` | no |
+| `LOCAL_MODE_FILE` | new | `".pi/jev-mode.json"` | no |
+| `.pi/jev-mode.json` | new | `{"version":1,"mode":"<m>"}` | public (file format) |
+| `mainCwd()` / `setMainCwd(cwd)` | new | process-wide slot `Symbol.for("pi-jev-pilot.mainCwd")` in `src/host/main-cwd.ts`; `mainCwd(): string \| undefined` | no |
+| `loadSnapshot` | modified | `(pi, cwd?: string) => Snapshot`; uses `readLocalMode(cwd ?? mainCwd() ?? process.cwd())` | no |
+| `buildSnapshot` input / `Snapshot` | modified | input `localModeRead?: LocalModeRead` (replaces `sessionMode`); `Snapshot.localMode: { kind: LocalModeRead["kind"]; issues: Issue[] }` | no |
+| `JevArgs` | modified | `{ kind: "mode"; mode: Mode; target: "local" \| "global" }` and `{ kind: "mode-clear" }`; `session-mode` removed | no |
+| `runJev` deps | modified | `load: (cwd: string) => Snapshot`; `appendEntry` and `sessionModes` removed | no |
+| `/jev mode <m>`, `/jev mode <m> global`, `/jev mode clear` | modified / new | CLI forms as in `specs/jev-command` and `specs/directory-mode`; `/jev mode <m> session` and `/jev mode session off` removed | public |
+| removed | removed | `src/jev/session-mode.ts`, `src/host/session-mode.ts`, `jev-mode` session entry, `session_tree` handler | no |
 
 ---
 
-## Task 1: Resolver session layer — implements 1.1
+## Task 8: Resolver directory layer — implements 8.1
 
 **Files:**
-- Modify: `src/store/settings.ts`
-- Test: `tests/store/settings.test.ts`
+- Modify: `src/store/settings.ts`, `src/host/readiness.ts` (pass-through rename only), `src/host/status.ts` and `src/host/commands.ts` (field rename only)
+- Test: `tests/store/settings.test.ts`, plus field renames in `tests/host/status.test.ts`, `tests/host/commands.test.ts` and `tests/host/readiness.test.ts`
 
 **Interfaces:**
 - Produces: `resolveSettings` input and `Settings` from Contracts.
 
-- [ ] **Step 1: Write failing tests** in `describe("resolveSettings")`:
-  - `Session mode over state`: state `{mode:"premium"}`, `sessionMode:"budget"` → `mode "budget"`, `modeSource "session"`, `savedMode "premium"`.
-  - `Session mode over the default`: state `{}`, `sessionMode:"premium"` → `mode "premium"`, `modeSource "session"`, `savedMode "standard"`.
-  - `Session mode changes only the mode`: state `{switches:{skills:false}}`. With and without `sessionMode:"premium"`, the results are equal after deleting `mode` and `modeSource`.
-  - Extend `Everything defaulted` and `Mode from state` to expect `modeSource "saved"` and `savedMode` equal to `mode`.
-- [ ] **Step 2:** Run `bun test tests/store/settings.test.ts`. Expected: FAIL on the missing `modeSource`.
-- [ ] **Step 3:** Implement it. `savedMode = state.mode ?? DEFAULTS.mode`, `mode = sessionMode ?? savedMode`, `modeSource = sessionMode ? "session" : "saved"`.
-- [ ] **Step 4:** Run `bun test tests/store/settings.test.ts && bun run typecheck`. Expected: PASS. Fix any test literal of `Settings` that the type check flags.
-- [ ] **Step 5:** Commit `feat(settings-resolution): add a session mode layer`.
+- [ ] **Step 1:** Rename the tests. They become `Directory mode over state` (state premium, local budget → `mode "budget"`, `modeSource "local"`, `globalMode "premium"`), `Directory mode over the default` and `Directory mode changes only the mode`. `Everything defaulted` and `Mode from state` now expect `modeSource "global"`.
+- [ ] **Step 2:** Run `bun test tests/store/settings.test.ts`. Expected: FAIL.
+- [ ] **Step 3:** Rename `sessionMode`→`localMode`, `"session"`→`"local"`, `"saved"`→`"global"`, `savedMode`→`globalMode` in the resolver and every reader. Display strings stay unchanged here; Task 4 changes them.
+- [ ] **Step 4:** Run `bun run typecheck && bun test tests/store tests/host/status.test.ts tests/host/commands.test.ts tests/host/readiness.test.ts`. Expected: PASS.
+- [ ] **Step 5:** Commit `refactor(settings-resolution): name the mode layer local and global`.
 
-## Task 2: Session entry reader — implements 2.1
+## Task 9: Directory mode store — implements 9.1
 
 **Files:**
-- Create: `src/jev/session-mode.ts`
-- Test: `tests/jev/session-mode.test.ts`
+- Create: `src/store/local-mode.ts`
+- Test: `tests/store/local-mode.test.ts`
 
 **Interfaces:**
-- Consumes: `SessionEntryLike` from `src/jev/branch.ts`, `MODE_NAMES` from `src/policy/modes.ts`.
-- Produces: `SESSION_MODE_TYPE`, `readSessionMode`.
+- Consumes: `writeFileAtomic` (`src/store/atomic.ts`), the validators in `src/store/validate.ts`, `MODES`.
+- Produces: `LocalModeRead`, `readLocalMode`, `writeLocalMode`, `clearLocalMode`, `LOCAL_MODE_FILE`.
+
+- [ ] **Step 1: Write failing tests** with a temp cwd:
+  - `File content`: `writeLocalMode(cwd,"budget")` creates `.pi/` and the file parses to exactly `{version:1,mode:"budget"}`. `readLocalMode` returns `{kind:"ok",mode:"budget"}`.
+  - `missing`: no file → `{kind:"missing"}`.
+  - `Unknown mode name`: `{"version":1,"mode":"ultra"}` → `malformed`, with an issue at `mode`.
+  - `readLocalMode rejects extra keys and other versions`: `{"version":2,"mode":"budget"}`, `{"version":1,"mode":"budget","x":1}` and `{"version":1,"mode":null}` → `malformed`. Invalid JSON → `malformed` at `(file)`.
+  - `unreadable` (skip as root): file mode `0000` → `unreadable` naming `EACCES`.
+  - `clearLocalMode` removes the file. On a missing file it returns ok. `No other project file touched`: a `.gitignore` in cwd is byte-identical after write and clear, and the cwd lists only `.gitignore` and `.pi`.
+  - `Directory not writable` (skip as root): `.pi` exists as a regular file → `writeLocalMode` returns ok false, with a message that contains `.pi/jev-mode.json` and an error code.
+- [ ] **Step 2:** Run `bun test tests/store/local-mode.test.ts`. Expected: FAIL, module missing.
+- [ ] **Step 3:** Implement it, following `state-file.ts` (an `object` validator with `version` and `mode` `oneOf(MODES)` that rejects unknown keys, and `writeFileAtomic(join(cwd,".pi"),"jev-mode.json",...)`).
+- [ ] **Step 4:** Run `bun test tests/store/local-mode.test.ts tests/boundaries.test.ts`. Expected: PASS.
+- [ ] **Step 5:** Commit `feat(directory-mode): store the mode in .pi/jev-mode.json`.
+
+## Task 10: Snapshot, cwd holder and removal — implements 9.2, 10.1
+
+**Files:**
+- Create: `src/host/main-cwd.ts`
+- Modify: `src/host/readiness.ts`, `src/host/setup.ts`, `src/host/commands.ts` (drop the `ensure` call and the session-mode deps)
+- Delete: `src/jev/session-mode.ts`, `src/host/session-mode.ts`, `tests/jev/session-mode.test.ts`, `tests/host/session-mode.test.ts`
+- Test: `tests/host/readiness.test.ts`, `tests/host/setup.test.ts`, `tests/load.test.ts`
+
+**Interfaces:**
+- Consumes: `readLocalMode` (Task 9).
+- Produces: `mainCwd`, `setMainCwd`, `loadSnapshot(pi, cwd?)`, `buildSnapshot({localModeRead})`, `Snapshot.localMode`.
 
 - [ ] **Step 1: Write failing tests:**
-  - `Damaged entry skipped`: entries `[custom jev-mode {mode:"budget"}, custom jev-mode {mode:"ultra"}]` → `"budget"`.
-  - `Clear is the newest`: `[{mode:"premium"}, {mode:null}]` → `undefined`.
-  - `readSessionMode skips malformed data`: newest entries with data `null`, `"premium"`, `{mode:1}` and `{}` above `{mode:"premium"}` → `"premium"`.
-  - `no entry` → `undefined`. `other custom types ignored`: `jev-turn` with `{mode:"budget"}` → `undefined`.
-- [ ] **Step 2:** Run `bun test tests/jev/session-mode.test.ts`. Expected: FAIL, module missing.
-- [ ] **Step 3:** Implement it. Scan from newest to oldest, look only at `type === "custom" && customType === SESSION_MODE_TYPE`, and return on the first valid entry (a mode name, or `null` → `undefined`).
-- [ ] **Step 4:** Run `bun test tests/jev/session-mode.test.ts tests/boundaries.test.ts`. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(session-mode): read the session mode from the branch`.
+  - `readiness`: `buildSnapshot({localModeRead:{kind:"ok",mode:"premium"}})` → `settings.mode "premium"`, `modeSource "local"`. With `{kind:"malformed",issues:[...]}` → `mode "standard"`, `modeSource "global"`, and `snapshot.localMode.kind "malformed"` with those issues.
+  - `readiness`: `loadSnapshot(pi, cwdA)` reads A's file. `loadSnapshot(pi)` after `setMainCwd(cwdB)` reads B's file.
+  - `setup`: main `session_start` with `ctx.cwd = A`, where A holds premium, draws `Jev · premium (session)` (Task 4 changes this string). `Child start in another directory`: a child `session_start` with cwd B leaves `mainCwd()` at A.
+  - Remove `session_tree` from the handler lists in `tests/host/setup.test.ts` and `tests/load.test.ts`, and delete the tree and holder tests.
+- [ ] **Step 2:** Run the files above. Expected: FAIL.
+- [ ] **Step 3:** Implement `main-cwd.ts` (same slot pattern as `tool-service.ts`). In `setup.ts`, the main `session_start` calls `setMainCwd(ctx.cwd)` before `drawStatus`, the `session_tree` handler is removed, and `/jev` is wired as `load: (cwd) => loadSnapshot(pi, cwd)`. `readiness.ts` replaces the holder read with `readLocalMode`. Delete the session-mode modules and tests. `commands.ts` drops the `ensure` call and the `SessionModeDeps` type but keeps compiling: the session-mode forms are replaced in Task 11.
+- [ ] **Step 4:** Run `bun run typecheck && bun test tests/host tests/load.test.ts tests/jev`. Expected: PASS, except command tests for the old `session` forms. Delete those in this task, since Task 11 adds the new ones.
+- [ ] **Step 5:** Commit `refactor(directory-mode): read the mode from the directory, drop session entries`.
 
-## Task 3: Host holder and snapshot — implements 3.1, 3.2, 3.3
-
-**Files:**
-- Create: `src/host/session-mode.ts`
-- Modify: `src/host/readiness.ts`, `src/host/setup.ts`
-- Test: `tests/host/session-mode.test.ts`, `tests/host/setup.test.ts`, `tests/host/readiness.test.ts`
-
-**Interfaces:**
-- Consumes: `readSessionMode` (Task 2), the `resolveSettings` input (Task 1).
-- Produces: `SessionModeHolder`, `createSessionModeHolder`, `sessionModes()`, `loadSnapshot(pi, sessionId?)`, `buildSnapshot({..., sessionMode})`.
-
-- [ ] **Step 1: Write failing holder tests** in `tests/host/session-mode.test.ts`:
-  - `rebuild then modeFor` returns the branch mode for that id, and `modeFor(undefined)` returns the same.
-  - `Worker in a new session`: `rebuild("A", [premium])` then `rebuild("B", [])`, so `modeFor("A")` and `modeFor(undefined)` are both `undefined`.
-  - `set` for a different id than the current one is ignored.
-- [ ] **Step 2: Write failing snapshot tests** in `tests/host/readiness.test.ts`:
-  - `buildSnapshot` with `sessionMode:"premium"` has `settings.mode "premium"` and `modeSource "session"`.
-  - `loadSnapshot ignores a holder of another session`: the holder is rebuilt for `"A"` with premium, and `loadSnapshot(pi, "B")` gives the saved mode.
-- [ ] **Step 3: Write failing setup tests** in `tests/host/setup.test.ts`, using `fakePi` with `getBranch`:
-  - `session_start rebuilds the session mode`: the branch holds `jev-mode {mode:"budget"}`, `session_start` fires with each of `startup`, `reload`, `resume`, `fork`, `new`, and the widget reads `Jev · budget (session)`. Covers "Survives reload" at the fake-host level.
-  - `Tree navigation before the entry`: after a start with `[premium]`, `getBranch` returns `[]` and `session_tree` fires. The widget is redrawn as `Jev · standard` and `/jev` reports `mode: standard`.
-  - `Child start does not rebuild`: the holder is rebuilt for main with `budget`, then `session_start` fires for a child id whose `getBranch` is `[]`, and `modeFor(undefined)` stays `budget`.
-  - The handler list now includes `session_tree`. Update the existing `subscribes to both child events` expectation.
-- [ ] **Step 4:** Run `bun test tests/host/session-mode.test.ts tests/host/readiness.test.ts tests/host/setup.test.ts`. Expected: FAIL.
-- [ ] **Step 5:** Implement it.
-  - The holder lives in a `Symbol.for` slot on `globalThis`, like `tool-service.ts`.
-  - `loadSnapshot` reads `sessionModes().modeFor(sessionId)`.
-  - In `setup.ts`, the main `session_start` calls `sessionModes().rebuild(id, ctx.sessionManager.getBranch())` before `drawStatus`. A new `pi.on("session_tree")` (main only) rebuilds the holder and redraws, and errors are swallowed as in `session_start`.
-- [ ] **Step 6:** Run the Step 4 tests plus `bun run typecheck`. Expected: PASS.
-- [ ] **Step 7:** Commit `feat(session-mode): keep the session mode per main session`.
-
-## Task 4: Command forms — implements 4.1, 4.2, 4.3, 4.4
+## Task 11: Command forms — implements 11.1, 11.2, 11.3, 11.4
 
 **Files:**
-- Modify: `src/host/commands.ts`, `src/host/setup.ts` (wire `appendEntry` and `sessionModes` into `runJev`)
+- Modify: `src/host/commands.ts`
 - Test: `tests/host/commands.test.ts`
 
 **Interfaces:**
-- Consumes: `SESSION_MODE_TYPE` (Task 2), `SessionModeHolder` (Task 3).
-- Produces: the `JevArgs` `session-mode` kind and the `runJev` deps from Contracts.
+- Consumes: `writeLocalMode`, `clearLocalMode`, `readLocalMode` (Task 9), and `runJev` `load: (cwd) => Snapshot` (Task 10).
+- Produces: the `JevArgs` from Contracts.
 
-- [ ] **Step 1: Write failing parse tests** in `describe("parseJevArgs")`:
-  - `mode premium session` → `{kind:"session-mode", mode:"premium"}`.
-  - `mode session off` → `{kind:"session-mode", mode: undefined}`.
-  - `  mode  budget   session ` → the budget form.
-  - Usage for each of `mode premium Session`, `mode session`, `mode session on`, `mode premium session now`, `mode Session off`.
-- [ ] **Step 2: Write failing usage test.** `usageText()` contains `/jev mode budget|standard|premium session` and `/jev mode session off` (extend "Usage lists the mode form").
-- [ ] **Step 3: Write failing `describe("runJev session mode")` tests.** Use a fake `appendEntry` that records calls and a fresh holder rebuilt for `"main-1"`.
-  - `Set a session mode`: with state mode `standard`, `mode premium session` appends exactly `["jev-mode", {mode:"premium"}]`, leaves the `state.json` bytes unchanged, reports `mode: premium (session; saved standard)`, and draws the widget `Jev · premium (session)`.
-  - `Entry content`: `mode budget session` appends data deep-equal to `{mode:"budget"}`.
-  - `Set while state is unreadable` (skip as root): with `state.json` at mode `0000`, the entry is appended and the report contains `mode: budget (session` and `state (`.
-  - `Clear back to the saved mode`: holder set to premium, state budget, `mode session off` appends `{mode:null}`, the report contains `mode: budget` and no `(session`, and the widget reads `Jev · budget`.
-  - `Nothing to clear`: one `info` note `no session mode set`, no append, no widget.
-  - `Append fails`: `appendEntry` throws, so there is one `error` note, the handler resolves, and `modeFor("main-1")` is unchanged.
-  - `Saving keeps the session mode`: holder budget, `mode premium` writes state `premium`, makes no append, and the report contains `mode: budget (session; saved premium)` and `session mode budget still applies here; saved mode is now premium`. The widget reads `Jev · budget (session)`.
-  - `Reset clears the session mode`: holder premium, `reset` appends `{mode:null}`, the report shows `mode: standard`, and the widget reads `Jev · standard`.
-  - `Refused reset keeps the session mode` (skip as root): with `state.json` at `0000`, there is an `EACCES` error, no append, and the holder is still premium.
-  - `Command in a child`: the child id is in the registry, so there is no append, no note, and the holder is unchanged.
-- [ ] **Step 4:** Run `bun test tests/host/commands.test.ts`. Expected: FAIL.
-- [ ] **Step 5:** Implement it.
-  - Parse inside the `head === "mode"` branch.
-  - The `session-mode` path runs before `applyChange`. It never calls `updateState`. It appends, then calls `holder.set`, then loads the snapshot, draws and notifies.
-  - `reset` calls `holder.set(id, undefined)` and appends the clear entry only after `resetState` returns ok and a session mode exists.
-  - The `still applies here` line is added by `runJev` after a successful `mode` change while `modeSource === "session"`.
-  - `setup.ts` passes `appendEntry: (t, d) => pi.appendEntry(t, d)` and `sessionModes()`.
-- [ ] **Step 6:** Run `bun test tests/host/commands.test.ts && bun run typecheck`. Expected: PASS.
-- [ ] **Step 7:** Commit `feat(jev-command): add session mode forms`.
+- [ ] **Step 1: Write failing parse and usage tests:**
+  - `mode premium` → `{kind:"mode",mode:"premium",target:"local"}`.
+  - `mode premium global` → target `global`.
+  - `mode clear` → `{kind:"mode-clear"}`.
+  - Each of these is usage: `mode`, `mode Premium`, `mode premium now`, `mode premium Global`, `mode global`, `mode clear now`, `mode Clear`, `mode premium session`.
+  - `usageText()` contains `/jev mode budget|standard|premium [global]` and `/jev mode clear`.
+- [ ] **Step 2: Write failing `describe("runJev directory mode")` tests** with `ctx.cwd` set to a temp dir:
+  - `Set a directory mode`: state `standard`, then `mode premium`. The file holds premium, the state bytes are unchanged, the report contains `mode: premium (this directory; global standard)`, and the widget reads `Jev · premium (session)` (Task 12 changes this string).
+  - `Set while state is unreadable` (skip as root).
+  - `Directory not writable` (skip as root): `.pi` is a file. One `error` note contains `.pi/jev-mode.json`, and there is no widget.
+  - `Clear back to the global mode`, `Nothing to clear` (one `info` note `no directory mode set`, no file created, no widget), and `Clear removes a damaged file`.
+  - `clear refused keeps the file` (skip as root): with `.pi` at mode `0500`, there is an error and the file still holds the mode.
+  - `Overwrite a damaged file`.
+  - `Plain form targets the directory`, `Set premium` / `Mode survives a restart` / `Back to standard` / `Refused mode change` (now with `global`), and `Global set keeps the directory mode`. The latter writes state premium, leaves the file at budget, and adds the note line.
+  - `Reset removes the directory mode`, and `Refused reset keeps the directory mode` (skip as root).
+  - `Command in a child`: no file and no note.
+  - `/jev uses ctx.cwd over the main cwd holder`: `setMainCwd(B)`, then a command with `ctx.cwd = A` writes A's file and reports A's mode.
+- [ ] **Step 3:** Run `bun test tests/host/commands.test.ts`. Expected: FAIL.
+- [ ] **Step 4:** Implement it. The parse lives in the existing `mode` branch. The local set, clear and reset cleanup go in one small helper module or function, kept out of `runJev`'s body. Every snapshot is `deps.load(ctx.cwd)`. The global note is added only after a successful `global` set while `modeSource === "local"`.
+- [ ] **Step 5:** Run `bun test tests/host/commands.test.ts && bun run typecheck`. Expected: PASS.
+- [ ] **Step 6:** Commit `feat(jev-command): target the directory with /jev mode`.
 
-## Task 5: Visible text — implements 5.1, 5.2
+## Task 12: Visible text — implements 12.1
 
 **Files:**
 - Modify: `src/host/status.ts`, `src/host/commands.ts` (`formatStatus`)
-- Test: `tests/host/status.test.ts`, `tests/host/commands.test.ts`
+- Test: `tests/host/status.test.ts`, `tests/host/commands.test.ts`, `tests/host/setup.test.ts`
 
-**Interfaces:**
-- Consumes: `Settings.modeSource` and `savedMode` (Task 1).
+- [ ] **Step 1: Update the failing expectations:**
+  - `Directory mode marked` → `Jev · premium (local)`.
+  - `Directory mode with a suffix` → `Jev · budget (local) · high`.
+  - `Directory mode in the tally form` → `Jev · premium (local) · 10 prompts · 0 workers · 0 fallbacks`.
+  - `Base state wins over a directory mode` → `Jev · off`.
+  - `Directory mode in the report` (window of 120) → `mode: premium (this directory; global standard)` and `target 0/50/45/≤5`.
+  - `Malformed directory mode reported` → `local mode (malformed)` at `(file)`.
+  - Replace every `(session)` expectation from Tasks 10–11 with `(local)`.
+- [ ] **Step 2:** Run those files. Expected: FAIL.
+- [ ] **Step 3:** Change the marker and the report line, and add `problems.push(...issueLines(\`local mode (${s.localMode.kind})\`, s.localMode.issues))`.
+- [ ] **Step 4:** Run the files again. Expected: PASS.
+- [ ] **Step 5:** Commit `feat(status-line): mark a directory mode`.
 
-- [ ] **Step 1: Write failing `statusText` tests** with `buildSnapshot({..., sessionMode})`:
-  - `Session mode marked`: state `standard`, session `premium` → `Jev · premium (session)`.
-  - `Session mode with a suffix`: session `budget`, decision level `high` → `Jev · budget (session) · high`.
-  - `Session mode in the tally form`: session `premium`, overlay `10 prompts · 0 workers · 0 fallbacks` → `Jev · premium (session) · 10 prompts · 0 workers · 0 fallbacks`.
-  - `Base state wins over a session mode`: all decision features off, session `premium` → `Jev · off`.
-- [ ] **Step 2: Write failing `formatStatus` test.** `Session mode in the report`: state `standard`, session `premium`, a window of 120 entries. The output contains `mode: premium (session; saved standard)` and `mix (last 120, premium)` ending in `target 0/50/45/≤5`.
-- [ ] **Step 3:** Run `bun test tests/host/status.test.ts tests/host/commands.test.ts`. Expected: FAIL.
-- [ ] **Step 4:** Implement it. In `statusText`, the first part becomes ``Jev · ${mode}${source === "session" ? " (session)" : ""}``. In `formatStatus`, the mode line uses the report copy from Global Constraints.
-- [ ] **Step 5:** Run the Step 3 tests. Expected: PASS, and every existing status scenario stays green.
-- [ ] **Step 6:** Commit `feat(status-line): mark a session mode`.
-
-## Task 6: End-to-end host tests — implements 6.1
+## Task 13: End-to-end host tests — implements 13.1
 
 **Files:**
-- Create: `tests/host/session-mode-e2e.test.ts`
-- Test helpers used: `startHostSession`, `startFixture`, `startJevFixture` and the RPC `send`, as in `tests/host/effort-hold.test.ts` and `tests/host/worker-routing.test.ts`.
+- Replace: `tests/host/session-mode-e2e.test.ts` → `tests/host/directory-mode-e2e.test.ts`
 
-**Interfaces:**
-- Consumes: everything above, through real Pi in RPC mode.
+Keep the iteration 1 helpers that still apply: `widgetShows`, the `/jev` notify reader, and the worker routing setup that asserts the child model `fixture-fast` and the ledger `tier: fast`, `answered: true`, `mode: budget`.
 
-Real Pi RPC has `new_session`, `fork` and `--continue` (resume), but no command for `/reload` or `/tree`. Those two are covered at the fake-host level in Task 3, which is a stated limit.
+- [ ] **Step 1: Write the RPC tests:**
+  - `New session uses it`: set premium in A and close it. B starts in the same cwd (no `--continue`). Its `/jev` report contains `mode: premium (this directory; global standard)`, and its widget reads `Jev · premium (local)`.
+  - `Set before the first message`: a fresh session runs `/jev mode budget` with no prompt and closes. A new process in the same cwd reports `budget` for this directory.
+  - `Other directory keeps the global mode`: A has premium. A process with the same agentDir but another cwd reports `mode: standard` with no `(this directory`, and its widget reads `Jev · standard`.
+  - `Second process sees a change`: two processes share a cwd. One runs `/jev mode budget`, and the other's `/jev` then reports `budget` for this directory.
+  - `Next launch uses the directory mode`: global premium, local budget, then one worker launch. The child model is `fixture-fast`, and the ledger line has `mode budget`, `tier fast` and `answered true`.
+  - `No other project file touched`: `.gitignore` in cwd is unchanged after set and clear.
+- [ ] **Step 2:** Run `bun test tests/host/directory-mode-e2e.test.ts`. Expected: PASS. A failure is a defect in Tasks 9–12; fix it there with a failing unit test first.
+- [ ] **Step 3:** Commit `test(directory-mode): cover sessions, processes and routing end to end`.
 
-- [ ] **Step 1: Write the RPC tests.** Each reads `/jev` through the `notify` UI request and the widget through `setWidget`.
-  - `Survives resume`: persist session A, run `/jev mode premium session`, close, start B with `--continue` in the same dirs, and `/jev` contains `mode: premium (session; saved standard)` before any prompt.
-  - `Fork carries the session mode`: set budget, send one prompt, then `fork` from that prompt's entry id (from `get_fork_messages`), and `/jev` reports `budget` as the session mode. The entry precedes the forked message.
-  - `New session starts without one`: set premium, send `new_session`, and `/jev` contains `mode: standard` and no `(session`.
-  - `Next launch uses the session mode`: with state `premium` and the session mode `budget`, one worker launch through the fixture executor (as in `worker-routing.test.ts`) writes a ledger `worker` line with `mode` `budget`.
-  - `Other sessions keep the saved mode`: two RPC processes share an agent directory. A sets premium session, and `/jev` in B contains `mode: standard` with no `(session`.
-- [ ] **Step 2:** Run `bun test tests/host/session-mode-e2e.test.ts`. Expected: PASS. A failure here is a defect in Tasks 3–5; fix it there with a failing unit test first.
-- [ ] **Step 3:** Commit `test(session-mode): cover resume, fork, new session and routing end to end`.
-
-## Task 7: Docs and full check — implements 7.1, 7.2
+## Task 14: Docs and full check — implements 14.1, 14.2
 
 **Files:**
 - Modify: `docs/usage-guide.md`, `README.md`, `docs/architecture.md`, `docs/glossary.md`
 
-- [ ] **Step 1:** Update the docs.
-  - `docs/usage-guide.md`: the two forms, the lifetime (resume, reload, fork, `/tree`), saving while a session mode is set, and reset.
-  - `README.md`: one line under the mode commands.
-  - `docs/architecture.md`: the settings line becomes `session (mode only) > tuning > state > config > default`, and `src/jev/session-mode.ts`, `src/host/session-mode.ts` and the `jev-mode` entry are added.
-  - `docs/glossary.md`: a **Session mode** row.
-- [ ] **Step 2:** Run `bun run typecheck && bun run lint && bun run fmt:check && bun test`. Expected: all pass.
-- [ ] **Step 3:** Commit `docs(session-mode): document the session mode`.
+- [ ] **Step 1:** Rewrite the iteration 1 session-mode text.
+  - `docs/usage-guide.md`:
+    - the three forms, and that every session in the directory shares the mode
+    - a **breaking change** note: `/jev mode <m>` now targets the directory, so use `global` for the old effect
+    - the `git status` warning and `/jev mode clear`
+    - the status line row `Jev · premium (local)`
+    - the reset row
+    - the command table
+  - `README.md`: the mode block.
+  - `docs/architecture.md`:
+    - precedence `directory (mode only) > tuning > state > config > default`
+    - add `store/local-mode.ts` and `host/main-cwd.ts`
+    - remove both `session-mode.ts` lines
+    - the data-flow line about `.pi/jev-mode.json`
+  - `docs/glossary.md`: replace **Session mode** with **Directory mode**.
+- [ ] **Step 2:** Run `grep -rn "session mode\|jev-mode entry\|/jev mode .* session" docs README.md`. Expected: no match.
+- [ ] **Step 3:** Run `bun run typecheck && bun run lint && bun run fmt:check && bun test`. Expected: all pass.
+- [ ] **Step 4:** Commit `docs(directory-mode): document the directory mode`.
 
 ---
 
 ## Scenario → test
 
-**session-mode**
-- Set a session mode → `tests/host/commands.test.ts` "Set a session mode"
-- Next launch uses the session mode → `tests/host/session-mode-e2e.test.ts` "Next launch uses the session mode"
+**directory-mode**
+- Set a directory mode → `tests/host/commands.test.ts` "Set a directory mode"
+- Next launch uses the directory mode → `tests/host/directory-mode-e2e.test.ts` "Next launch uses the directory mode"
 - Set while state is unreadable → `tests/host/commands.test.ts` "Set while state is unreadable"
-- Other sessions keep the saved mode → `tests/host/session-mode-e2e.test.ts` "Other sessions keep the saved mode"
-- Clear back to the saved mode → `tests/host/commands.test.ts` "Clear back to the saved mode"
+- Directory not writable → `tests/store/local-mode.test.ts` and `tests/host/commands.test.ts` "Directory not writable"
+- Clear back to the global mode → `tests/host/commands.test.ts` "Clear back to the global mode"
 - Nothing to clear → `tests/host/commands.test.ts` "Nothing to clear"
-- Entry content → `tests/host/commands.test.ts` "Entry content"
-- Append fails → `tests/host/commands.test.ts` "Append fails"
-- Survives resume → `tests/host/session-mode-e2e.test.ts` "Survives resume"
-- Survives reload → `tests/host/setup.test.ts` "session_start rebuilds the session mode" (reason `reload`; fake host, as RPC has no reload command)
-- Fork carries the session mode → `tests/host/session-mode-e2e.test.ts` "Fork carries the session mode"
-- Tree navigation before the entry → `tests/host/setup.test.ts` "Tree navigation before the entry" (fake host, as RPC has no tree command)
-- New session starts without one → `tests/host/session-mode-e2e.test.ts` "New session starts without one"
-- Damaged entry skipped → `tests/jev/session-mode.test.ts` "Damaged entry skipped"
-- Clear is the newest → `tests/jev/session-mode.test.ts` "Clear is the newest"
-- Worker in a new session → `tests/host/session-mode.test.ts` "Worker in a new session"
+- Clear removes a damaged file → `tests/host/commands.test.ts` "Clear removes a damaged file"
+- File content → `tests/store/local-mode.test.ts` "File content"
+- No other project file touched → `tests/store/local-mode.test.ts` and `tests/host/directory-mode-e2e.test.ts` "No other project file touched"
+- New session uses it → `tests/host/directory-mode-e2e.test.ts` "New session uses it"
+- Set before the first message → `tests/host/directory-mode-e2e.test.ts` "Set before the first message"
+- Other directory keeps the global mode → `tests/host/directory-mode-e2e.test.ts` "Other directory keeps the global mode"
+- Second process sees a change → `tests/host/directory-mode-e2e.test.ts` "Second process sees a change"
+- Subdirectory is separate → `tests/host/readiness.test.ts` "Subdirectory is separate" (loadSnapshot on `<cwd>/sub`, added in Task 10)
+- Unknown mode name → `tests/store/local-mode.test.ts` "Unknown mode name", plus the report in `tests/host/commands.test.ts`
+- Overwrite a damaged file → `tests/host/commands.test.ts` "Overwrite a damaged file"
 - Command in a child → `tests/host/commands.test.ts` "Command in a child"
-- Child start does not rebuild → `tests/host/setup.test.ts` "Child start does not rebuild"
+- Child start in another directory → `tests/host/setup.test.ts` "Child start in another directory"
 
 **settings-resolution**
-- Everything defaulted, Config over default, Tuning over config, Forked launch from config, Switch off, CLI review default from state, Config review without state → existing tests in `tests/store/settings.test.ts`; "Everything defaulted" extended in Task 1
-- Mode from state → `tests/store/settings.test.ts` "Mode from state" (extended)
-- Session mode over state / over the default / changes only the mode → `tests/store/settings.test.ts`, same names
+- Directory mode over state / over the default / changes only the mode → `tests/store/settings.test.ts`, same names
+- Every other scenario → existing tests in `tests/store/settings.test.ts`
 
 **jev-command**
-- Session mode in the report → `tests/host/commands.test.ts` "Session mode in the report"
-- Unknown mode, Usage lists the mode form → `tests/host/commands.test.ts` parse and usage tests (extended in Task 4)
-- Reset clears the session mode, Refused reset keeps the session mode, Saving keeps the session mode → `tests/host/commands.test.ts`, same names
-- Every other scenario of Status report, Usage text for other input, Reset and Mode → unchanged existing tests in `tests/host/commands.test.ts`
+- Directory mode in the report, Malformed directory mode reported → `tests/host/commands.test.ts`, same names
+- Unknown mode, Usage lists the mode form → parse and usage tests in `tests/host/commands.test.ts`
+- Reset removes the directory mode, Refused reset keeps the directory mode → `tests/host/commands.test.ts`, same names
+- Set premium, Mode survives a restart, Back to standard, Refused mode change (now with `global`), Plain form targets the directory, Global set keeps the directory mode → `tests/host/commands.test.ts`, same names
+- Every other scenario → unchanged existing tests in `tests/host/commands.test.ts`
 
 **status-line**
-- Session mode marked, Session mode with a suffix, Session mode in the tally form, Base state wins over a session mode → `tests/host/status.test.ts`, same names
-- Every other scenario of Status line text → unchanged existing tests in `tests/host/status.test.ts`, `tests/host/setup.test.ts` and `tests/host/main*.test.ts`
+- Directory mode marked, with a suffix, in the tally form, Base state wins over a directory mode → `tests/host/status.test.ts`, same names
+- Every other scenario → unchanged existing tests
