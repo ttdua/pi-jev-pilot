@@ -69,6 +69,12 @@ async function report(s: HostSession, text: string): Promise<string> {
   return notifies(s)[before]?.message ?? "";
 }
 
+/** Waits for the status widget to show `want`, then returns its text. */
+async function widgetShows(s: HostSession, want: string): Promise<string> {
+  await s.waitFor(() => lastWidget(s).includes(want), `widget ${want}`);
+  return lastWidget(s);
+}
+
 /** Text of the last status widget the extension published. */
 function lastWidget(s: HostSession): string {
   const lines = uiRequests(s)
@@ -90,10 +96,10 @@ describe("session mode through the real CLI", () => {
       await a.waitFor(() => lastWidget(a).includes("Jev · premium (session)"), "session widget");
       // Pi writes the session file only once it holds a conversation message.
       await a.prompt("persist me");
-      await Bun.sleep(300);
       await a.close();
       const b = await open(fixture, dirs, ["--continue"]);
       expect(await report(b, "/jev")).toContain("mode: premium (session; saved standard)");
+      await widgetShows(b, "Jev · premium (session)");
     },
     TIMEOUT,
   );
@@ -106,13 +112,19 @@ describe("session mode through the real CLI", () => {
       const s = await open(fixture, dirs);
       await report(s, "/jev mode budget session");
       await s.prompt("fork me");
+      const sessionId = async (): Promise<unknown> =>
+        (await s.send({ type: "get_state" })).data?.["sessionId"];
+      const before = await sessionId();
       const forks = await s.send({ type: "get_fork_messages" });
       const messages = (forks.data?.["messages"] ?? []) as { entryId: string; text: string }[];
       const target = messages.find((m) => m.text.includes("fork me"));
       expect(target, JSON.stringify(messages)).toBeDefined();
       const forked = await s.send({ type: "fork", entryId: target!.entryId });
       expect(forked.success, String(forked.error)).toBe(true);
+      expect(forked.data?.["cancelled"]).toBe(false);
+      expect(await sessionId()).not.toBe(before);
       expect(await report(s, "/jev")).toContain("mode: budget (session;");
+      await widgetShows(s, "Jev · budget (session)");
     },
     TIMEOUT,
   );
@@ -123,12 +135,17 @@ describe("session mode through the real CLI", () => {
       const dirs = sharedDirs();
       const fixture = await mainFixture();
       const s = await open(fixture, dirs);
-      await report(s, "/jev mode premium session");
+      expect(await report(s, "/jev mode premium session")).toContain(
+        "mode: premium (session; saved standard)",
+      );
+      await widgetShows(s, "Jev · premium (session)");
       const created = await s.send({ type: "new_session" });
       expect(created.success, String(created.error)).toBe(true);
       const text = await report(s, "/jev");
       expect(text).toContain("mode: standard");
       expect(text).not.toContain("(session");
+      const widget = await widgetShows(s, "Jev · standard");
+      expect(widget).not.toContain("(session");
     },
     TIMEOUT,
   );
@@ -142,10 +159,13 @@ describe("session mode through the real CLI", () => {
       const other = tempDir("jev-sm-cwd-b-");
       ownedDirs.push(other);
       const b = await open(fixture, { agentDir: dirs.agentDir, cwd: other });
-      await report(a, "/jev mode premium session");
+      expect(await report(a, "/jev mode premium session")).toContain(
+        "mode: premium (session; saved standard)",
+      );
       const text = await report(b, "/jev");
       expect(text).toContain("mode: standard");
       expect(text).not.toContain("(session");
+      expect(await widgetShows(b, "Jev · standard")).not.toContain("(session");
     },
     TIMEOUT,
   );
@@ -242,7 +262,10 @@ describe("session mode on worker launches", () => {
         return all.filter((e) => e["kind"] === "worker");
       };
       await session.waitFor(() => lines().length >= 1, "worker ledger line");
-      expect(lines()[0]).toMatchObject({ mode: "budget" });
+      // Budget cut points send the 0.9-balanced answer to the fast tier; premium would pick balanced.
+      expect(lines()[0]).toMatchObject({ mode: "budget", tier: "fast", answered: true });
+      expect(lines()[0]).not.toHaveProperty("miss");
+      expect(fixture.requests.find(isChild)?.model).toBe("fixture-fast");
     },
     TIMEOUT,
   );
