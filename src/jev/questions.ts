@@ -9,6 +9,7 @@ import {
   RISKY_QUESTION,
   STANDARD_TIER_CRITERIA,
   TIER_INSTRUCTION,
+  TOOL_QUESTION,
   WORKER_EFFORT_QUESTION,
   type WireQuestion,
 } from "./rubrics.ts";
@@ -80,6 +81,21 @@ export function buildWorkerQuestions(
   if (ordered.includes("expert")) {
     questions["expert_needed"] = copy(EXPERT_NEEDED_QUESTION);
     specs["expert_needed"] = { type: "noul" };
+  }
+  return { questions, specs };
+}
+
+/** One noul per candidate tool, keyed `tool::<name>`. */
+export function buildToolQuestions(names: readonly string[]): {
+  questions: Record<string, WireQuestion>;
+  specs: Record<string, QuestionSpec>;
+} {
+  const questions: Record<string, WireQuestion> = {};
+  const specs: Record<string, QuestionSpec> = {};
+  for (const name of names) {
+    // TOOL_QUESTION builds a fresh object per call, so no copy() is needed.
+    questions[`tool::${name}`] = TOOL_QUESTION(name);
+    specs[`tool::${name}`] = { type: "noul" };
   }
   return { questions, specs };
 }

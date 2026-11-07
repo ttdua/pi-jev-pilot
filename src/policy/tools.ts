@@ -1,4 +1,4 @@
-// Pure tool-assessment rules. Imports nothing outside src/policy/.
+// Pure tool-assessment rules. Imports nothing outside src/policy/ and src/shared/.
 
 import type { Answer } from "./answers.ts";
 
@@ -30,6 +30,7 @@ export function flaggedTools(
   return flagged;
 }
 
+/** Counts for the worker ledger line: how many tools were scored and how many flagged. */
 export function toolCounts(scored: readonly string[], flagged: ReadonlySet<string>): ToolCounts {
   return { toolsScored: scored.length, toolsFlagged: flagged.size };
 }
