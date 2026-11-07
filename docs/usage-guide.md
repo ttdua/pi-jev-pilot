@@ -221,7 +221,7 @@ Jev tune: timeoutMs 1500→1800 · /jev tune undo
 /jev tune off      no more automatic changes
 ```
 
-Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling, the expert rules or the tool threshold. In the first release it changes only `timeoutMs`.
+Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling, the expert rules or the tool threshold. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
 
 ## All commands
 

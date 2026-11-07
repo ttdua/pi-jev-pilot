@@ -49,9 +49,9 @@ describe("resolveSettings", () => {
     const s = resolveSettings({
       config: { classifier: { timeoutMs: 2000 } },
       state: {},
-      tuning: { classifier: { timeoutMs: 1800 } },
+      tuning: { timeoutMs: { value: 2200, base: 2000 } },
     });
-    expect(s.classifier.timeoutMs).toBe(1800);
+    expect(s.classifier.timeoutMs).toBe(2200);
   });
 
   test("Switch off", () => {
@@ -80,15 +80,11 @@ describe("resolveSettings", () => {
 
   test("Non-integer tuning ignored", () => {
     const s = resolveSettings({
-      config: { classifier: { timeoutMs: 2000 } },
+      config: {},
       state: {},
-      tuning: { classifier: { timeoutMs: 1800.5 } },
+      tuning: { timeoutMs: { value: 1800.5, base: 1500 } },
     });
-    expect(s.classifier.timeoutMs).toBe(2000);
-    expect(
-      resolveSettings({ config: {}, state: {}, tuning: { classifier: { timeoutMs: 1800.5 } } })
-        .classifier.timeoutMs,
-    ).toBe(1500);
+    expect(s.classifier.timeoutMs).toBe(1500);
   });
 
   test("Out-of-range tuning ignored", () => {
@@ -96,16 +92,48 @@ describe("resolveSettings", () => {
       const s = resolveSettings({
         config: {},
         state: {},
-        tuning: { classifier: { timeoutMs: v } },
+        tuning: { timeoutMs: { value: v, base: 1500 } },
       });
       expect(s.classifier.timeoutMs).toBe(1500);
     }
     const edge = resolveSettings({
+      config: { classifier: { timeoutMs: 300 } },
+      state: {},
+      tuning: { timeoutMs: { value: 5000, base: 300 } },
+    });
+    expect(edge.classifier.timeoutMs).toBe(5000);
+  });
+
+  test("Config edited after tuning", () => {
+    const s = resolveSettings({
+      config: { classifier: { timeoutMs: 2000 } },
+      state: {},
+      tuning: { timeoutMs: { value: 1700, base: 1500 } },
+    });
+    expect(s.classifier.timeoutMs).toBe(2000);
+  });
+
+  test("Tuned from the default", () => {
+    const s = resolveSettings({
       config: {},
       state: {},
-      tuning: { classifier: { timeoutMs: 300 } },
+      tuning: { timeoutMs: { value: 1700, base: 1500 } },
     });
-    expect(edge.classifier.timeoutMs).toBe(300);
+    expect(s.classifier.timeoutMs).toBe(1700);
+  });
+
+  test("Invalid base ignored", () => {
+    const s = resolveSettings({
+      config: {},
+      state: {},
+      tuning: { timeoutMs: { value: 1700, base: 1500.5 } },
+    });
+    expect(s.classifier.timeoutMs).toBe(1500);
+  });
+
+  test("Missing base ignored", () => {
+    const s = resolveSettings({ config: {}, state: {}, tuning: { timeoutMs: { value: 1700 } } });
+    expect(s.classifier.timeoutMs).toBe(1500);
   });
 
   test("result is fresh: mutation does not leak", () => {
