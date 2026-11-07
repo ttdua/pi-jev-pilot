@@ -12,7 +12,14 @@ import {
   type Exec,
 } from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
-import { drawStatus, statusText, type Decision } from "./status.ts";
+import {
+  EMPTY_TALLY,
+  drawStatus,
+  statusText,
+  tallyLines,
+  type Decision,
+  type Tally,
+} from "./status.ts";
 
 export type JevArgs =
   | { kind: "status" }
@@ -76,7 +83,7 @@ function reviewLine(r: Snapshot["settings"]["review"]): string {
   return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
 }
 
-export function formatStatus(s: Snapshot): string {
+export function formatStatus(s: Snapshot, t?: Tally): string {
   const lines = [statusText(s), `mode: ${s.settings.mode}`, "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
   lines.push(reviewLine(s.settings.review));
@@ -90,6 +97,7 @@ export function formatStatus(s: Snapshot): string {
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
+  if (t) lines.push(...tallyLines(t));
   return lines.join("\n");
 }
 
@@ -138,6 +146,8 @@ export async function runJev(
     load: () => Snapshot;
     decision: () => Decision | undefined;
     exec: Exec;
+    tally?: () => Tally;
+    overlay?: () => string | undefined;
   },
 ): Promise<void> {
   try {
@@ -213,8 +223,8 @@ export async function runJev(
       }
     }
     const snapshot = deps.load();
-    drawStatus(ctx, snapshot, deps.decision());
-    notify(formatStatus(snapshot), "info");
+    drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
+    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY), "info");
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");
