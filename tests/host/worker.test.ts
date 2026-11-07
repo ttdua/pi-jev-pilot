@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { WORKER_TIER_CRITERIA } from "../../src/jev/rubrics.ts";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
@@ -385,14 +386,12 @@ describe("Fallback warning", () => {
 describe("One mode per launch", () => {
   const split = { fast: 0.05, balanced: 0.15, deep: 0.5, expert: 0.3 };
 
-  test("Premium criteria sent", async () => {
+  test("Every mode sends the one worker rubric", async () => {
     const h = harness({ mode: "premium" });
     await h.fire("message_end", h.msg(["a", base()]));
     const q = h.asks[0]?.questions as { tier: { criteria: Record<string, string> } };
     // The fake registry names a model by its id, so the display-name prefix comes first.
-    expect(q.tier.criteria["deep"]).toBe(
-      "deep. The default for real engineering: any feature, fix or refactor that needs working out, touches more than a few files, leaves choices open, or where a subtle bug would be costly.",
-    );
+    expect(q.tier.criteria["deep"]).toBe(`deep. ${WORKER_TIER_CRITERIA.deep}`);
   });
 
   test("Mode changed between message end and launch", async () => {

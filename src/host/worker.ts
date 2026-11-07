@@ -326,7 +326,6 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const { questions, specs } = buildWorkerQuestions(
       kind.tierQuestion ? offered : [],
       kind.tierQuestion ? tierNames(ctx, settings.tiers, offered) : {},
-      entry.mode,
       kind.tierQuestion ? slotOptions(ctx, slots) : [],
     );
     const parentRequest = settings.state.parentRequest ? lastUserText(ctx) : undefined;

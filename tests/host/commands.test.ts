@@ -447,9 +447,8 @@ describe("runJev slots", () => {
   const slotsOf = (dir: string) => load(dir)().settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
-      buildWorkerQuestions(["fast", "balanced", "deep"], {}, "standard", slotsOf(dir)).questions[
-        "tier"
-      ]!.criteria!,
+      buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
+        .criteria!,
     );
 
   test("Unknown feature", async () => {
