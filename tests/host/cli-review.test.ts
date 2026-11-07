@@ -293,6 +293,26 @@ describe("cli-review through the real CLI", () => {
     );
 
     test(
+      "on, off and on again in one session",
+      async () => {
+        const s = await setup(idle, "ok");
+        await s.session.prompt("one");
+        await s.session.waitFor(() => s.fixture.requests.length >= 1, "turn one");
+        expect(firstOf(s, 0).toolNames).toContain("jev_review");
+        await command(s.session, "/jev cli-review off");
+        await s.session.prompt("two");
+        await s.session.waitFor(() => s.fixture.requests.length >= 2, "turn two");
+        expect(firstOf(s, 1).toolNames).not.toContain("jev_review");
+        expect(JSON.stringify(firstOf(s, 1).body)).not.toContain("jev_review");
+        await command(s.session, "/jev cli-review on");
+        await s.session.prompt("three");
+        await s.session.waitFor(() => s.fixture.requests.length >= 3, "turn three");
+        expect(firstOf(s, 2).toolNames).toContain("jev_review");
+      },
+      TIMEOUT,
+    );
+
+    test(
       "refused while off",
       async () => {
         // Pi refuses an inactive tool itself, so the tool must be active when the setting flips:

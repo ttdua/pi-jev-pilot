@@ -904,6 +904,15 @@ describe("runJev cli-review", () => {
     expect(rec.notes[0]![0]).toContain("cli review: off");
   });
 
+  test("Reset falls back to config review.enabled", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ review: { enabled: true } }));
+    const { rec } = await go("reset", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBeUndefined();
+    expect(rec.notes[0]![0]).toContain("cli review: on");
+  });
+
   test("tier stored as typed, list read once with the right command", async () => {
     const f = fake(ok(catalog));
     const { rec, dir } = await go("cli-review codex luna high", f);
