@@ -143,8 +143,9 @@ Main questions are effort, risky, tier, strategy and corrects, with skills off. 
   - The defaults are kept: `description` and `instructions_excerpt` stay on, and `parent_request` stays off.
   - The worker-variant code in `scripts/replay` stays, so a later replay can reuse it.
 - **Effort option order: the operator chose `high, medium, xhigh, low, max`.** That is the observed order of use, from most to least.
-  - Its scope (main, worker, or both) and whether a confirming replay runs first are still open with the operator.
-  - Until both are decided, the order is not changed in code.
+  - Scope: main and worker share one criteria object, so one order applies to both.
+  - A confirming replay runs before it ships. The replay gains the variants `effort-order` (main) and `worker:effort-order` (worker), each built with the candidate order on its base state, plus the worker base and reruns for those. Workers use the same snapshot, so in the real corpus only the briefs whose agent the package knows can be measured. The evidence states that n.
+  - After the replay, the operator rules again. The order is changed in `src/jev/rubrics.ts` and in the `EFFORT_LEVELS` option list only when the operator approves it. `EFFORT_LADDER`, the ordinal used by policy, stays `low` to `max`, because policy compares levels by rank, not by option order.
 
 ## Risks / Trade-offs
 
