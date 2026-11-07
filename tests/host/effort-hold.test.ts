@@ -106,6 +106,31 @@ function levelChanges(s: HostSession): number {
   return n;
 }
 
+/** `decided` anchors of every `jev-turn` custom entry in the persisted session file(s). */
+function turnAnchors(s: HostSession): Record<string, unknown>[] {
+  const dir = join(s.agentDir, "sessions");
+  if (!existsSync(dir)) return [];
+  const out: Record<string, unknown>[] = [];
+  for (const f of walk(dir)) {
+    for (const l of readFileSync(f, "utf8").split("\n")) {
+      if (l.trim() === "") continue;
+      const e = JSON.parse(l) as {
+        type?: string;
+        customType?: string;
+        data?: { decided?: unknown };
+      };
+      if (
+        e.type === "custom" &&
+        e.customType === "jev-turn" &&
+        typeof e.data?.decided === "object"
+      ) {
+        out.push(e.data.decided as Record<string, unknown>);
+      }
+    }
+  }
+  return out;
+}
+
 const questionKeys = (jev: JevFixture, i: number): string[] =>
   Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions);
 
@@ -199,6 +224,10 @@ describe("effort hold through the real CLI", () => {
       const { s, fixture } = await setup({ holdProviders: ["fixture"], thinking: "low" });
       await turn(s, "one", 1);
       await turn(s, "two", 2);
+      expect(
+        turnAnchors(s).some((d) => d.provider === "fixture" && d.model === "fixture-main"),
+      ).toBe(true);
+      expect(mainLines(s)[1]?.held).toBe(true);
       const body = JSON.stringify(fixture.requests[1]!.body);
       expect(body).not.toContain("jev-turn");
       expect(body).not.toContain("decided");
