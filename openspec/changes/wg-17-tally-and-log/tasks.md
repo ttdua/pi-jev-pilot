@@ -1,8 +1,8 @@
 ## 1. Pure text in `src/host/status.ts`
 
-- [ ] 1.1 Add `Tally` type plus `compactTally(t)` and `tallyLines(t)` (compact status form and `/jev` `session:` block) with unit tests in `tests/host/status.test.ts`
-- [ ] 1.2 Add `logLine(data)` for `main`, `worker` and `correction` lines (validated with `validateLedgerEntry`, `undefined` otherwise) with unit tests for every verbose-log text scenario
-- [ ] 1.3 Extend `statusText`/`drawStatus` with an optional overlay that replaces the level suffix only in the `Jev · <mode>` form; base states still win
+- [x] 1.1 Add `Tally` type plus `compactTally(t)` and `tallyLines(t)` (compact status form and `/jev` `session:` block) with unit tests in `tests/host/status.test.ts`
+- [x] 1.2 Add `logLine(data)` for `main`, `worker` and `correction` lines (validated with `validateLedgerEntry`, `undefined` otherwise) with unit tests for every verbose-log text scenario
+- [x] 1.3 Extend `statusText`/`drawStatus` with an optional overlay that replaces the level suffix only in the `Jev · <mode>` form; base states still win
 
 ## 2. Session observer `src/host/tally.ts`
 
