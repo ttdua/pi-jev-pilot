@@ -17,6 +17,7 @@ export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
 /** Same shape as the store's `TuningDocument`, declared here to keep policy/ self-contained. */
 export type TuningRecord = {
   off?: boolean;
+  seenAt?: number;
   timeoutMs?: { value: number; base: number };
   pending?: {
     from: number;

@@ -17,6 +17,7 @@ export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
 
 export type TuningDocument = {
   off?: boolean;
+  seenAt?: number;
   timeoutMs?: { value: number; base: number };
   pending?: {
     from: number;
@@ -86,6 +87,7 @@ function tuningValidator(): V<TuningDocument & { version: 1 }> {
       ),
       block: object({ value: timeout, at }, { required: ["value", "at"] }),
       history: array(entry, { max: HISTORY_MAX }),
+      seenAt: at,
     },
     { required: ["version"] },
   ) as V<TuningDocument & { version: 1 }>;
