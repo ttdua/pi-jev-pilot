@@ -1,7 +1,7 @@
 ## 1. Hold rule and branch reading
 
-- [ ] 1.1 Add the pure hold rule `isHeld` in `src/policy/hold.ts` with unit tests in `tests/policy/hold.test.ts`
-- [ ] 1.2 Add `holdContext` (anchor after the latest compaction, latest compaction id) to `src/host/context.ts` with unit tests in `tests/host/context.test.ts`
+- [x] 1.1 Add the pure hold rule `isHeld` in `src/policy/hold.ts` with unit tests in `tests/policy/hold.test.ts`
+- [x] 1.2 Add `holdContext` (anchor after the latest compaction, latest compaction id) to `src/host/context.ts` with unit tests in `tests/host/context.test.ts`
 
 ## 2. Main flow
 
