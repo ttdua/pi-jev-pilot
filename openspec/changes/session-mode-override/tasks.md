@@ -4,7 +4,7 @@
 
 ## 2. Session entry reader
 
-- [ ] 2.1 Add a pure reader in `src/jev/` that returns the session mode from branch entries: newest valid `jev-mode` entry, `null` clears it, invalid entries skipped (`session-mode` "Session mode from the branch"; design D3), with unit tests for the damaged and clear scenarios
+- [x] 2.1 Add a pure reader in `src/jev/` that returns the session mode from branch entries: newest valid `jev-mode` entry, `null` clears it, invalid entries skipped (`session-mode` "Session mode from the branch"; design D3), with unit tests for the damaged and clear scenarios
 
 ## 3. Host holder and snapshot
 
