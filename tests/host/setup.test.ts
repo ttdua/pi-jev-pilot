@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY, isChild } from "../../src/host/child.ts";
@@ -425,6 +425,32 @@ describe("setup", () => {
     await f.handlers.get("agent_settled")![0]!({}, ctx);
     expect(readFileSync(join(dir, "tuning.json"), "utf8")).toBe(tuning);
     expect(notified).toBe(0);
+  });
+
+  test("tuning follows the jev dir resolved at event time", async () => {
+    const second = tempDir("jev-setup-second-");
+    try {
+      const f = fakePi();
+      setup(f.pi);
+      process.env.PI_CODING_AGENT_DIR = second;
+      mkdirSync(join(second, "jev"), { recursive: true });
+      writeFileSync(
+        join(second, "jev", "ledger.jsonl"),
+        firing()
+          .map((e) => JSON.stringify(e))
+          .join("\n") + "\n",
+      );
+      const ctx = {
+        ...fakeCtx("main", () => {}),
+        ui: { setWidget: () => {}, notify: () => {} },
+      };
+      await f.handlers.get("agent_settled")![0]!({}, ctx);
+      expect(existsSync(join(second, "jev", "tuning.json"))).toBe(true);
+      expect(existsSync(join(agentDir, "jev", "tuning.json"))).toBe(false);
+    } finally {
+      process.env.PI_CODING_AGENT_DIR = agentDir;
+      rmSync(second, { recursive: true, force: true });
+    }
   });
 
   test("shutdown unsubscribes; a new instance keeps the registry ids", async () => {

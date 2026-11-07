@@ -51,13 +51,13 @@ export function setup(pi: ExtensionAPI): void {
   };
   const routing = registerWorkerRouting(pi, { append });
   const tools = createToolAssessment(pi);
-  const tuning: TuningDeps = {
+  const tuningDeps = (): TuningDeps => ({
     dir: jevDir(),
     now: Date.now,
     load: () => loadSnapshot(pi),
     updateTuning,
     readLedger,
-  };
+  });
   const main = createMain(pi, {
     load: () => loadSnapshot(pi),
     ask: askJev,
@@ -85,7 +85,7 @@ export function setup(pi: ExtensionAPI): void {
       /* swallow: the line stays as it was */
     }
     try {
-      showUnseenTuning(tuning, ctx);
+      showUnseenTuning(tuningDeps(), ctx);
     } catch {
       /* swallow */
     }
@@ -135,7 +135,7 @@ export function setup(pi: ExtensionAPI): void {
       /* swallow */
     }
     try {
-      settleTuning(tuning, ctx);
+      settleTuning(tuningDeps(), ctx);
     } catch {
       /* swallow */
     }
@@ -170,7 +170,7 @@ export function setup(pi: ExtensionAPI): void {
         tally: log.tally,
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
-        tune: (sub, c) => runTune(tuning, sub, c),
+        tune: (sub, c) => runTune(tuningDeps(), sub, c),
       });
     },
   });
