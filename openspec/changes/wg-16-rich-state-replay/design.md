@@ -60,7 +60,7 @@ Past tool sets and past diffs are not recorded anywhere.
 - `listAgents` is exported from `src/host/agents.ts`. It uses the same precedence as `readAgent` (project, then global, then built-ins), and both live capabilities and the snapshot procedure use it.
 - Wiring goes in `src/host/setup.ts`, because `extension.ts` may import only `host/`.
 
-**D4. Recorder switch is an environment variable.**
+**D4. Recorder switch is an environment variable.** (Superseded by D10: the recorder is removed.)
 - Decision: `JEV_REPLAY_GIT=1`. It is documented in `docs/testing.md` as part of the replay procedure, not in `docs/configuration.md`.
 - Why: it is temporary and only for the operator, and it adds no config key.
 - Behaviour:
@@ -146,6 +146,25 @@ Main questions are effort, risky, tier, strategy and corrects, with skills off. 
   - Scope: main and worker share one criteria object, so one order applies to both.
   - A confirming replay runs before it ships. The replay gains the variants `effort-order` (main) and `worker:effort-order` (worker), each built with the candidate order on its base state, plus the worker base and reruns for those. Workers use the same snapshot, so in the real corpus only the briefs whose agent the package knows can be measured. The evidence states that n.
   - After the replay, the operator rules again. The order is changed in `src/jev/rubrics.ts` and in the `EFFORT_LEVELS` option list only when the operator approves it. `EFFORT_LADDER`, the ordinal used by policy, stays `low` to `max`, because policy compares levels by rank, not by option order.
+
+**D10. Git dropped (operator, 2026-11-07).** The operator decided not to measure `workspace.git` and to drop it.
+
+Why: pass 2 would need recorded counts from daily sessions. Recording them means running this package's code for everyday work, which is a separate install decision, and the field was not worth that.
+
+Removed:
+- the `git` rich group: `RICH_GROUPS`, `RichInputs.git` and `MainState.workspace.git`;
+- `parseShortstat` and `GitCounts`;
+- `src/host/git.ts` (`gitCounts`, `GitExec`);
+- `src/host/git-record.ts`;
+- `MainDeps.record` and `MainDeps.rich.git`, and the git promise in `decide`;
+- `JEV_REPLAY_GIT`;
+- `replay-git.jsonl`;
+- the `git-count-record` capability;
+- pass 2 of `scripts/replay`: `--pass 2`, `--kept`, `readGitMap` and the git variants.
+
+`--pass` stays as a flag, so the public CLI keeps its shape, but it accepts only `1`. `--kept` is removed: it only ever applied to pass 2, which no longer exists, and pass 2 was never run.
+
+D4 and the git parts of D3, D5 and D8 are superseded.
 
 ## Risks / Trade-offs
 

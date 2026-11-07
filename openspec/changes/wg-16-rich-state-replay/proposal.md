@@ -13,14 +13,18 @@ The first release sends a minimal main state. Five richer field groups (`last_de
   - Rebuilds each request with the package's builders and builds the variants.
   - Prints the request count and an estimated cost, and calls Jev only with `--send`.
   - Writes aggregates and a private table of differing cases under `<agentDir>/jev/replay/`.
-- **Two replay passes.** Each runs only with the operator's approval at that time. Pass 1 covers `last_decision`, `context_used_percent`, `languages`, `capabilities`, reversed `effort` options, and the worker variants (`parent_request`, agent description, agent instructions). Pass 2 covers `git` after a few days of recorded counts.
+- **Two replay passes.** Each runs only with the operator's approval at that time. Pass 1 covers `last_decision`, `context_used_percent`, `languages`, `capabilities`, reversed `effort` options, and the worker variants (`parent_request`, agent description, agent instructions). Pass 2 was planned to cover `git` after a few days of recorded counts.
+- **Outcome** (design D9, D10):
+  - `last_decision` and `capabilities` ship;
+  - the effort option order becomes `high, medium, xhigh, low, max`;
+  - `context_used_percent`, `languages` and `git` are removed, together with the git recorder and pass 2;
+  - the worker defaults are unchanged.
 - **Decisions applied.** A kept group is added to the shipped list and documented. A removed group has its builder deleted. Removed worker fields are dropped from `buildWorkerState`. The evidence goes in `docs/evidence/`.
 
 ## Capabilities
 
 ### New Capabilities
 - `state-replay`: the offline replay script. It covers corpus sampling, variant building, the dry run and cost estimate, the explicit send, Jev failure handling, the comparison against noise, and the private and aggregate outputs.
-- `git-count-record`: the opt-in local recorder of git change counts per main prompt.
 
 ### Modified Capabilities
 - `main-state`: `mainState` gains optional rich field groups, with their build rules. Each group is sent only when it is listed as shipped. The minimal field set stays the default.

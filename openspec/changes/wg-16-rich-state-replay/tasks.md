@@ -42,9 +42,8 @@
 - [x] 5.6 Add the `effort-order` replay variants for main and worker (design D9), then dry-run, get operator approval, and send. Report the shift against the current order.
 - [x] 5.7 After the operator rules on the measured order: change the `effort` option order in `src/jev/rubrics.ts` and `EFFORT_LEVELS` for both main and worker, keeping `EFFORT_LADDER` as the rank order. Record the result in the evidence.
 
-## 6. Pass 2: git (operator approval required)
+## 6. Pass 2: git (dropped by the operator, design D10)
 
-- [ ] 6.1 With the operator, start recording (`JEV_REPLAY_GIT=1`). After a few days, dry-run pass 2 and send the counts and the cost. Wait for approval.
-- [ ] 6.2 Run pass 2 with `--send`, and record the operator's git decision.
-- [ ] 6.3 Write `docs/evidence/<date>-git-replay.md`. Apply the git decision as in 5.5. Remove the recorder and its spec unless the operator wants it kept for later replays.
-- [ ] 6.4 Update `docs/roadmap.md` (WG-16 Done) and the contract's IMPORTANT note, and clear the pending line in `docs/privacy.md`.
+- [ ] 6.1 Remove the `git` rich group, `parseShortstat`/`GitCounts`, `src/host/git.ts`, `src/host/git-record.ts`, `MainDeps.record`/`rich.git`, `JEV_REPLAY_GIT`, and pass 2 of `scripts/replay` (`--pass 2`, `--kept`, `readGitMap`, git variants), with their tests.
+- [ ] 6.2 Update `docs/jev-contract.md`, `docs/privacy.md`, `docs/testing.md`, `docs/architecture.md`, `docs/project-brief.md` and the evidence: git is removed and nothing is pending.
+- [ ] 6.3 Mark WG-16 Done in `docs/roadmap.md`, and remove the "Rich state fields stay off until WG-16" working agreement line, or mark it settled.

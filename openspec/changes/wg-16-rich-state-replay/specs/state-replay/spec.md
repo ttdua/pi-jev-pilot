@@ -31,10 +31,6 @@ The replay SHALL rebuild each rich input from local data by the rules in this ch
 - **WHEN** the branch holds a `jev-pilot:effort` entry with `requested` `high` and strategy `direct`, before the sampled prompt
 - **THEN** the rebuilt `last_decision` is `{ effort: "high", strategy: "direct" }`
 
-#### Scenario: Unmatched git count
-- **WHEN** a pass 2 sample has no recorder line with its `turnId`
-- **THEN** it is excluded from the git variants and counted as excluded
-
 ### Requirement: Snapshot is required for capabilities and workers
 The capabilities variants and the worker agent facts SHALL come only from the snapshot file given with `--capabilities`. Without the flag, the capabilities variants and every worker variant MUST be skipped, and the skips MUST be reported. A worker sample whose agent is not in the snapshot MUST be excluded and counted.
 
