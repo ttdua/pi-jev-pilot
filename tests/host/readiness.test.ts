@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildSnapshot, hasExecutor, isKeySet, loadSnapshot } from "../../src/host/readiness.ts";
-import { sessionModes } from "../../src/host/session-mode.ts";
+import { MAIN_CWD_KEY, setMainCwd } from "../../src/host/main-cwd.ts";
+import { writeLocalMode } from "../../src/store/local-mode.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import type { StateRead } from "../../src/store/state-file.ts";
 import type { TuningRead } from "../../src/store/tuning-file.ts";
@@ -29,10 +30,23 @@ describe("buildSnapshot", () => {
     expect(s.keyVar).toBe("TYPESAFE_API_KEY");
   });
 
-  test("session mode overrides the saved mode", () => {
-    const s = snap({ localMode: "premium" });
+  test("directory mode overrides the global mode", () => {
+    const s = snap({ localModeRead: { kind: "ok", mode: "premium" } });
     expect(s.settings.mode).toBe("premium");
     expect(s.settings.modeSource).toBe("local");
+    expect(s.localMode).toEqual({ kind: "ok", issues: [] });
+  });
+
+  test("a malformed directory mode file applies nothing and keeps its issues", () => {
+    const issues = [{ path: "mode", message: "bad" }];
+    const s = snap({ localModeRead: { kind: "malformed", issues } });
+    expect(s.settings.mode).toBe("standard");
+    expect(s.settings.modeSource).toBe("global");
+    expect(s.localMode).toEqual({ kind: "malformed", issues });
+  });
+
+  test("a missing directory mode file has no issues", () => {
+    expect(snap().localMode).toEqual({ kind: "missing", issues: [] });
   });
 
   test("configured key variable", () => {
@@ -146,6 +160,7 @@ describe("loadSnapshot", () => {
   const prev = process.env.PI_CODING_AGENT_DIR;
   const dirs: string[] = [];
   afterEach(() => {
+    delete (globalThis as Record<symbol, unknown>)[MAIN_CWD_KEY];
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
     if (prev === undefined) delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = prev;
@@ -169,23 +184,42 @@ describe("loadSnapshot", () => {
     expect(s.settings.classifier.timeoutMs).toBe(1700);
   });
 
-  test("loadSnapshot ignores a holder of another session", () => {
+  function withAgentDir(): string {
     const dir = tempDir("jev-ready-");
     dirs.push(dir);
     process.env.PI_CODING_AGENT_DIR = dir;
     mkdirSync(join(dir, "jev"));
     writeFileSync(join(dir, "jev", "state.json"), '{"version":1,"mode":"budget"}');
-    const pi = { getAllTools: () => [] } as never;
-    sessionModes().rebuild("A", [
-      { type: "custom", customType: "jev-mode", data: { mode: "premium" } },
-    ]);
-    try {
-      expect(loadSnapshot(pi, "A").settings.mode).toBe("premium");
-      const other = loadSnapshot(pi, "B");
-      expect(other.settings.mode).toBe("budget");
-      expect(other.settings.modeSource).toBe("global");
-    } finally {
-      sessionModes().rebuild("reset", []);
-    }
+    return dir;
+  }
+  const pi = { getAllTools: () => [] } as never;
+
+  test("loadSnapshot reads the given directory", () => {
+    withAgentDir();
+    const cwdA = tempDir("jev-cwd-");
+    dirs.push(cwdA);
+    writeLocalMode(cwdA, "premium");
+    const s = loadSnapshot(pi, cwdA);
+    expect(s.settings.mode).toBe("premium");
+    expect(s.settings.modeSource).toBe("local");
+  });
+
+  test("loadSnapshot without a directory reads the main cwd", () => {
+    withAgentDir();
+    const cwdB = tempDir("jev-cwd-");
+    dirs.push(cwdB);
+    writeLocalMode(cwdB, "premium");
+    setMainCwd(cwdB);
+    expect(loadSnapshot(pi).settings.mode).toBe("premium");
+  });
+
+  test("Subdirectory is separate", () => {
+    withAgentDir();
+    const cwd = tempDir("jev-cwd-");
+    dirs.push(cwd);
+    writeLocalMode(cwd, "premium");
+    const s = loadSnapshot(pi, join(cwd, "sub"));
+    expect(s.settings.mode).toBe("budget");
+    expect(s.settings.modeSource).toBe("global");
   });
 });

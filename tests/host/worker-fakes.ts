@@ -43,6 +43,7 @@ export function snap(o: Opts = {}): Snapshot {
   return {
     config: o.valid === false ? { valid: false, issues: [] } : { valid: true },
     state: { kind: "ok", issues: [] },
+    localMode: { kind: "missing", issues: [] },
     settings,
     keyVar: "TYPESAFE_API_KEY",
     keySet: o.keySet ?? true,
