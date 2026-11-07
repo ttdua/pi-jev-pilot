@@ -59,6 +59,7 @@ src/
     strategy.ts          Advice gates and advice text
     tools.ts             Candidates, the 32 cap, the flag threshold
     tuning-window.ts     Decision counting: order, window, p90, shares
+    tuning-signals.ts    Signals per mode over the latest 200 decisions (observed only)
     tuning.ts            Tuning rules: step, revert, undo, reset, off
 
   shared/                Dependency-free rules used by more than one module
@@ -79,6 +80,10 @@ src/
     tool-service.ts      Captures the executor service at main session_start
     tool-counts.ts       Hands the counts to the worker ledger line
     tool-facts.ts        Maps Pi tool info to plain tool facts
+    tuning-step.ts       agent_settled step: skip rules, write, change lines
+    tuning-seen.ts       Session-start line for unseen changes, `seenAt`
+    tune-command.ts      /jev tune: report, undo, reset, on, off
+    tuning-text.ts       Pure texts: change lines, session-start line, report
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
     context.ts           Reads the branch, tools, git counts, platforms

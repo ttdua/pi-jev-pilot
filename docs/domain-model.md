@@ -272,14 +272,19 @@ Stored in `tuning.json`, never in `config.json`.
 - Fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count).
 - New value: `max(current + 200, p90 × 1.25 rounded up to 100)`.
 - Range 300–5000.
+- **Skipped** when the config is invalid (the untuned value would then be the code default, not yours), when `tuning.json` is unreadable, and in child sessions.
 - **Block:** after a revert or an undo, the same raise is held back for 200 decisions. A raise to the blocked value or above is lowered to `blocked − 100`.
 - **Base value:** a tuned value records the `base` it was tuned from. It applies only while the config value (or the default) equals that base. If you edit `timeoutMs` in config, the tuned value, the pending change and the block are dropped, and that counts as a change for the cooldown.
 
-**Signals observed and shown by `/jev tune`, per mode, not applied:**
+**Signals observed and shown by `/jev tune`, per mode, not applied.** Each is a count over the latest 200 decisions of that mode (modes are never mixed), shown as `count/of`:
 
-- `low` or `fast` workers failing.
-- Main turns with a correction line.
-- Large turns at low effort (at least 15 tool calls).
-- `high` starts finishing in at most two tool calls, without failures.
+- `lowWorkerErrors`: `low` or `fast` workers failing, of worker decisions.
+- `corrected`: main turns with a correction line, of main decisions.
+- `largeAtLow`: large turns at low effort (at least 15 tool calls), of main decisions at low effort.
+- `highSmall`: `high` starts finishing in at most two tool calls, without failures, of main decisions at `high`.
+
+A mode with no decisions is left out.
+
+**Seen marker:** `seenAt` in `tuning.json` is the time of the latest history entry already shown. Changes after it are unseen. It is written before the line is shown, so a refused write shows nothing. A change line shown at settle marks itself seen.
 
 **After about 200 decisions,** decide per signal whether it earns automatic adjustment. Increases in spending may apply automatically; decreases need two consecutive windows or a question at idle. If no signal is clear, drop threshold tuning and keep `timeoutMs`. Bars are not lowered merely to make rules fire.

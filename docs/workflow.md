@@ -145,7 +145,9 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 ```mermaid
 flowchart TD
-    A["agent_settled"] --> B{"Tuning on?"}
+    A["agent_settled"] --> S{"Child session, invalid config<br/>or unreadable tuning.json?"}
+    S -- yes --> Z
+    S -- no --> B{"Tuning on?"}
     B -- no --> Z["Stop"]
     B -- yes --> B2{"Config still matches<br/>the tuned base?"}
     B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
@@ -171,7 +173,7 @@ flowchart TD
     Q -- yes --> K["Apply one step, show a line"]
 ```
 
-Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
+Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
 
 ## 6. A CLI review
 
@@ -204,7 +206,7 @@ This is separate from the `reviewer` slot, which routes ordinary review subagent
 3. Check the API key's presence, without calling Jev.
 4. Check for the executor; note its absence.
 5. Draw the status line. In print and JSON modes, nothing is drawn.
-6. Show one line if tuning changed something since the last session.
+6. Show one line if tuning changed something since the last session. `seenAt` is written first, so a refused write shows nothing; without a UI nothing is written or shown.
 
 ## Developer workflow
 
