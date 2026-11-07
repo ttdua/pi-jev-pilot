@@ -79,6 +79,7 @@ src/
     context.ts           Reads the branch, tools, git counts, platforms
     agents.ts            Reads agent files and the built-in agent table
     commands.ts          /jev
+    skills.ts            Skill catalog, explicit skill, loaded-in-context scan
     status.ts            Status line, tally, log entries
     readiness.ts         Key and executor checks; snapshot of config and state
     setup.ts             Wires the handlers and /jev; the entry point delegates to it,
@@ -136,7 +137,8 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | Set main effort | `pi.setThinkingLevel`, `clampThinkingLevel` | Documented |
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
 | Know context usage | `ctx.getContextUsage()` | Documented |
-| Skill catalog | `pi.getCommands()` with `sourceInfo.path` | Documented |
+| Skill catalog | `pi.getCommands()` with `sourceInfo.path`, `parseFrontmatter` / `stripFrontmatter` | Documented |
+| Skills already in context | `ctx.sessionManager.buildSessionProjection()` | Documented |
 | Pre-classify sibling launches | `pi.on("message_end")` before `tool_call` preflight | Verified: yes ([Q2](evidence/2026-11-05-host-seams.md#q2)) |
 | Set worker model and thinking | `pi.on("tool_call")` mutating `event.input` | Documented. Verified: yes, it reaches the child ([Q1](evidence/2026-11-05-host-seams.md#q1)) |
 | Detect a child session | `subagents:child:session-created` on `pi.events` | Verified: yes ([Q4](evidence/2026-11-05-host-seams.md#q4)) |

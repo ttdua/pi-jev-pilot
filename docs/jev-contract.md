@@ -143,7 +143,7 @@ Nothing found sends `none found`.
 
 ## Eligibility
 
-A main request is sent when `messageType` is `user`, the text is not empty, and the session is not a child. An explicit `/skill:name` skips only the skill questions. When every applicable feature is off, or held, no request is made.
+A main request is sent when `messageType` is `user`, the text is not empty, the session is not a child, and effort applies or skills apply. Skills apply when `skills` is on, the catalog is not empty, and the prompt has no explicit `/skill:name`, which Pi has already expanded to a leading `<skill name=…>` block. `corrects` is asked on every main request. When nothing applies, no request is made.
 
 Non-reasoning models, and models with one supported level, skip `effort` and `risky`. While effort is held, they are skipped too.
 
@@ -229,7 +229,7 @@ It is a separate request because tool descriptions are irrelevant to the tier qu
 
 ## Skill pick
 
-Catalog: `pi.getCommands()` entries with `source: "skill"`, read through `sourceInfo.path`. Skills with `disable-model-invocation: true` and unreadable files are excluded.
+Catalog: `pi.getCommands()` entries with `source: "skill"`, read through `sourceInfo.path`. Skills with `disable-model-invocation: true`, unreadable files, and names not matching `^[a-z0-9][a-z0-9-]{0,63}$` are excluded. The catalog is read on each eligible prompt, with the body as Pi builds it.
 
 Each skill's criterion is `<description> — <first 300 code points of the body>`, both trimmed; an empty part counts as absent. With one part, use it alone; with none, `A skill named <name>.`
 
@@ -245,7 +245,9 @@ Delivered through `before_agent_start`'s `message` with `display: false`:
 - `skills.inject: "content"`: the full body, with the skill's directory so relative references resolve.
 - `skills.inject: "suggest"`: only the name and path, and the model decides whether to read it.
 
-If a skill with the same name and the same body fingerprint is in context since the latest compaction, from a pick or an explicit `/skill:name`, a one-line reference is sent instead. Pi's own skill catalog stays in the system prompt. Workers get no skill selection.
+Delivered as a custom message `jev-skill`, `display: false`, whose `details` holds the name, fingerprint and form.
+
+If the same name with the same body fingerprint is still in the context Pi sends to the model (after compaction and context edits), from a delivered body or an explicit `/skill:name`, the `reference` form is sent instead. A suggestion never counts. A failed batch means no skill; effort still applies when the first batch answered. Pi's own skill catalog stays in the system prompt. Workers get no skill selection.
 
 ## From answers to decisions
 
