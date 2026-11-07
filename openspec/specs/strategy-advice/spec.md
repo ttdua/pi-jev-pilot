@@ -1,7 +1,7 @@
 # strategy-advice Specification
 
 ## Purpose
-TBD
+On eligible main prompts the package asks Jev `tier` and `strategy` and, when a fixed probability gate passes, attaches one hidden `<execution_strategy>` advice the model may ignore; `direct` and any Jev failure attach nothing.
 
 ## Requirements
 
