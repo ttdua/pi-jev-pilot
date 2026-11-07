@@ -24,6 +24,7 @@ import { readAgent } from "./agents.ts";
 import { isChild } from "./child.ts";
 import { loadSnapshot, type Snapshot } from "./readiness.ts";
 import { jevDir } from "./stores.ts";
+import { takeToolCounts } from "./tool-counts.ts";
 
 export type WorkerDeps = {
   ask?: typeof askJev;
@@ -60,6 +61,8 @@ type LaunchEntry = {
   write?: { model?: string };
   /** Order stamp taken when `route()` last ran for this launch's `tool_call`. */
   seq?: number;
+  /** Executor agent id, set when the tool result names one. */
+  agentId?: string;
 };
 
 type Executor = {
@@ -224,6 +227,13 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         if (r.write.model !== undefined) line["model"] = r.write.model;
       }
       if (entry.callerModel !== undefined) line["callerModel"] = entry.callerModel;
+      if (entry.agentId !== undefined && !entry.launch.resume) {
+        const counts = takeToolCounts(entry.agentId);
+        if (counts !== undefined) {
+          line["toolsScored"] = counts.toolsScored;
+          line["toolsFlagged"] = counts.toolsFlagged;
+        }
+      }
       const status = STATUSES.find((s) => s === outcome?.status);
       line["status"] = outcome === undefined ? "error" : (status ?? "error");
       const durationMs = count(outcome?.durationMs);
@@ -456,6 +466,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         const details: unknown = event.details;
         const agentId = isRecord(details) ? details["agentId"] : undefined;
         const named = typeof agentId === "string" && agentId !== "";
+        if (entry !== undefined && named) entry.agentId = agentId;
         if (entry?.route === undefined || entry.route.kind === "skip") {
           // Nothing will be written for this launch: an outcome buffered for its agent
           // belongs to an earlier run or to this unwritten launch, so drop it.

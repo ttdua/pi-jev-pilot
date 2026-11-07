@@ -57,7 +57,7 @@ src/
     modes.ts             Mode names, expert gates
     skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
     strategy.ts          Advice gates and advice text
-    tools.ts             Which tools are assessed, which are removed
+    tools.ts             Candidates, the 32 cap, the flag threshold
     tuning.ts            Tuning rules, revert rules
 
   shared/                Dependency-free rules used by more than one module
@@ -73,7 +73,11 @@ src/
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice
     worker.ts            message_end batch; tool_call route and mutation; warnings; ledger join
-    child.ts             Child registry; tool assessment in children
+    child.ts             Child registry
+    tools.ts             Worker-side tool assessment: record lookup, request, flag, removal
+    tool-service.ts      Captures the executor service at main session_start
+    tool-counts.ts       Hands the counts to the worker ledger line
+    tool-facts.ts        Maps Pi tool info to plain tool facts
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
     context.ts           Reads the branch, tools, git counts, platforms
@@ -151,6 +155,7 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
 | CLI review | `pi.registerTool`, `pi.exec` | Verified by host test `tests/host/cli-review.test.ts` (fake `codex` and `opencode` on `PATH`) |
+| Find a worker's launch | Executor service `listAgents()` matched by `outputFile`, captured at main `session_start` | Verified by host test `tests/host/tool-assessment.test.ts` ([evidence](evidence/2026-11-05-host-seams.md#tool-assessment-service-lookup-wg-14)) |
 | Hide the review tool in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` (the Q3 seam) | Verified by the same host test: absent in a child's request |
 
 ## Runtime contexts
@@ -176,9 +181,9 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Status line | `ctx.ui.setWidget` above the editor, right-aligned in the terminal UI, only when `ctx.hasUI`. Separate from the executor's agents widget | `Jev · standard · high · parallel 72% · 2 workers` |
 | Base states | Drawn from WG-06 as `Jev · <mode>`, `Jev · no key`, `Jev · config error` or `Jev · off`. First that applies: config error > no key > off > mode. `/jev status off` clears the line. Nothing is drawn in print or JSON mode | `Jev · standard` |
 | `/jev` output | `ctx.ui.notify` only, so nothing is printed without a UI | Status, features, key, executor, problems |
-| Tally | At the end of `/jev`, and on the status line every 10th prompt | Prompts, workers by model, tokens on workers, tools flagged, fallbacks. Counts only, no dollars |
-| Log | Off by default. `pi.appendEntry` with `registerEntryRenderer`, not sent to the model | `jev · general-purpose → balanced · high · 0.5s` |
-| Verbose | Adds raw probabilities, and why something was skipped | Errors always show |
+| Tally | At the end of `/jev`, and on the status line every 10th prompt (replaces the level and advice suffixes for that prompt) | Prompts, workers by model, tokens on workers, fallbacks. Counts only, no dollars. Tools flagged arrives with WG-14 |
+| Log | Only while `verbose` is on. `pi.appendEntry("jev-log")` with `registerEntryRenderer`, not sent to the model | `jev · general-purpose → balanced · high · 0.5s` |
+| Verbose | Turns the log on. Lines carry raw probabilities, and why something was skipped | Errors always show |
 | Effort difference | Shown when clamping changed a level | `requested → effective`, such as `xhigh → high` |
 
 ## Failure model
@@ -197,7 +202,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Slot model unavailable | `balanced`, with a warning | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
 | Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
-| Tool assessment fails | Worker keeps all tools | Verbose log |
+| Tool assessment fails | Worker keeps all tools | Nothing (counts omitted) |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
 | CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |
 | Ledger write fails | Decision still applied | Verbose log |
@@ -214,7 +219,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 |---|---|
 | Each main prompt | Typically about 0.5 s, at most `timeoutMs` (1500 ms) |
 | Each message with subagent launches | One concurrent batch, at most `timeoutMs` |
-| Tool assessment | Runs inside the worker; the main session does not wait |
+| Tool assessment | Runs inside the worker; the worker waits up to `timeoutMs` before its first turn, in both modes. The main session does not wait |
 | Everything else | None. Commands never call Jev |
 
 ## Not in the architecture

@@ -6,7 +6,7 @@ Before each eligible main prompt the package asks Jev for `effort`, `risky` and 
 ## Requirements
 
 ### Requirement: Eligible main prompts
-A main decision SHALL be attempted only when every condition holds: the run was started by a user prompt (`messageType` `user`), the trimmed prompt is not empty, the session is not a child session, `config.json` is valid, the API key variable is set, a model is selected, and the `effort` feature is on or skills apply (as `skill-delivery` defines: `skills` on, no explicit skill, and a non-empty catalog). When any condition fails, the package MUST send no Jev request, MUST leave the thinking level unchanged, MUST attach no skill, and MUST write no ledger line.
+A main decision SHALL be attempted only when every condition holds: the run was started by a user prompt (`messageType` `user`), the trimmed prompt is not empty, the session is not a child session, `config.json` is valid, the API key variable is set, a model is selected, and the `effort` feature is on, the `strategy` feature is on, or skills apply (as `skill-delivery` defines: `skills` on, no explicit skill, and a non-empty catalog). When any condition fails, the package MUST send no Jev request, MUST leave the thinking level unchanged, MUST attach no advice or skill, and MUST write no ledger line.
 
 #### Scenario: User prompt with effort on
 - **WHEN** the operator submits a non-empty prompt in a main session with the key set and `effort` on
@@ -16,8 +16,12 @@ A main decision SHALL be attempted only when every condition holds: the run was 
 - **WHEN** `effort` is off, `skills` is on, the catalog holds skills, and the operator submits a prompt
 - **THEN** exactly one Jev request is sent, and the level is unchanged
 
+#### Scenario: Effort off, strategy on
+- **WHEN** the operator has run `/jev effort off`, `strategy` is on, and the operator submits a prompt
+- **THEN** exactly one Jev request is sent, and the level is unchanged
+
 #### Scenario: Effort off
-- **WHEN** the operator has run `/jev effort off` and `/jev skills off` and submits a prompt
+- **WHEN** the operator has run `/jev effort off`, `/jev strategy off` and `/jev skills off` and submits a prompt
 - **THEN** no Jev request is sent, the level is unchanged and no ledger line is written
 
 #### Scenario: Effort off and empty catalog
@@ -49,30 +53,46 @@ A main decision SHALL be attempted only when every condition holds: the run was 
 - **THEN** no Jev request is sent and no ledger line is written
 
 ### Requirement: Main questions
-A main request SHALL ask `corrects` (a noul). When the `effort` feature is on, the selected model supports at least two levels from `low` upward, and the prompt is not held (see `effort-hold`), it MUST also ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order) and `risky` (a noul), before `corrects`. When skills apply, the first batch's skill questions follow `corrects`, as `skill-pick` defines. A hold applies only while `effort` is on. Wording follows `docs/jev-questions.md`. No other question MUST be asked.
+A main request SHALL ask `corrects` (a noul). When the `effort` feature is on, the selected model supports at least two levels from `low` upward, and the prompt is not held (see `effort-hold`), it MUST also ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order) and `risky` (a noul). When the `strategy` feature is on, it MUST also ask `tier` and `strategy` as the `strategy-advice` capability defines, held or not. When skills apply, the first batch's skill questions follow `corrects`, as `skill-pick` defines. A hold applies only while `effort` is on. Wording follows `docs/jev-questions.md`. No other question MUST be asked.
 
 #### Scenario: Reasoning model
-- **WHEN** `effort` is on, skills do not apply, and the selected model is a reasoning model supporting `low` to `high`
+- **WHEN** `effort` is on, `strategy` is off, skills do not apply, and the selected model is a reasoning model supporting `low` to `high`
 - **THEN** the request's `questions` has exactly the keys `effort`, `risky` and `corrects`, and `effort.criteria` has exactly the keys `low`, `medium`, `high`, `xhigh`, `max`
 
 #### Scenario: Non-reasoning model
-- **WHEN** `effort` is on, skills do not apply, and the selected model is not a reasoning model
+- **WHEN** `effort` is on, `strategy` is off, skills do not apply, and the selected model is not a reasoning model
 - **THEN** the request's `questions` has exactly the key `corrects`, and the level is never changed
 
+#### Scenario: Both features on
+- **WHEN** `effort` and `strategy` are on, skills do not apply, and the model is a reasoning model supporting `low` to `high`
+- **THEN** the request's `questions` has exactly the keys `effort`, `risky`, `tier`, `strategy` and `corrects`
+
+#### Scenario: Strategy only
+- **WHEN** `effort` is off, `strategy` is on, and skills do not apply
+- **THEN** the request's `questions` has exactly the keys `tier`, `strategy` and `corrects`
+
+#### Scenario: Non-reasoning model with strategy on
+- **WHEN** `effort` and `strategy` are on, skills do not apply, and the selected model is not a reasoning model
+- **THEN** the request's `questions` has exactly the keys `tier`, `strategy` and `corrects`
+
 #### Scenario: Effort and skills
-- **WHEN** `effort` is on, skills apply, and the model is a reasoning model supporting `low` to `high`
+- **WHEN** `effort` is on, `strategy` is off, skills apply, and the model is a reasoning model supporting `low` to `high`
 - **THEN** the request's `questions` keys are, in order, `effort`, `risky`, `corrects`, `which`, `gate::acts_on_user_system`, `gate::would_follow_documented_procedure`, `gate::prose_suffices`
 
 #### Scenario: Skills only
-- **WHEN** `effort` is off and skills apply
+- **WHEN** `effort` and `strategy` are off and skills apply
 - **THEN** the request's `questions` keys are, in order, `corrects`, `which` and the three gates
 
 #### Scenario: Held prompt
-- **WHEN** the prompt is held and skills do not apply
+- **WHEN** the prompt is held, `strategy` is off, and skills do not apply
 - **THEN** the request's `questions` has exactly the key `corrects`
 
+#### Scenario: Held prompt with strategy on
+- **WHEN** the prompt is held, `strategy` is on, and skills do not apply
+- **THEN** the request's `questions` has exactly the keys `tier`, `strategy` and `corrects`
+
 #### Scenario: Held prompt with skills
-- **WHEN** the prompt is held and skills apply
+- **WHEN** the prompt is held, `strategy` is off, and skills apply
 - **THEN** the request's `questions` keys are `corrects`, `which` and the three gates
 
 ### Requirement: Question wire format
@@ -167,7 +187,7 @@ When the session's level is `max` before the request, the package MUST NOT chang
 - **THEN** the first provider request carries `max`, and the ledger line has `requested` `low` and `effective` `max`
 
 ### Requirement: Discarded on a manual change
-When the thinking level differs, after Jev answers, from the level read before the request, the result SHALL be discarded: the package MUST NOT change the level for that turn. The next eligible prompt decides again.
+When the thinking level differs, after Jev answers, from the level read before the request, the effort result SHALL be discarded: the package MUST NOT change the level for that turn. The next eligible prompt decides again. Advice from the same answers is not affected, as the `strategy-advice` capability defines.
 
 #### Scenario: Operator changes the level while Jev answers
 - **WHEN** the session level is `low`, Jev delays its answer, the operator sets `medium` during the delay, and Jev then answers `xhigh`
@@ -178,7 +198,7 @@ When the thinking level differs, after Jev answers, from the level read before t
 - **THEN** a new Jev request is sent and its result applies
 
 ### Requirement: Jev failure changes nothing
-When the request is a miss (`timeout`, `error` or `schema`), or `effort` is unanswered, the package SHALL leave the thinking level unchanged and let the turn proceed. On a miss, provider requests MUST be identical to a run without the package; when only `effort` is unanswered, they MUST differ from such a run only by a skill message attached under `skill-delivery`. The added wait MUST NOT exceed the configured timeout plus the time to build the state and read the catalog.
+When the request is a miss (`timeout`, `error` or `schema`), or `effort` is unanswered, the package SHALL leave the thinking level unchanged and let the turn proceed. On a miss, provider requests MUST be identical to a run without the package; when only `effort` is unanswered, they MUST differ from such a run only by advice attached under `strategy-advice` and a skill message attached under `skill-delivery`. The added wait MUST NOT exceed the configured timeout plus the time to build the state and read the catalog.
 
 #### Scenario: Jev returns 500
 - **WHEN** the Jev fixture answers HTTP 500

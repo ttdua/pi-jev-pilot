@@ -67,13 +67,15 @@ After each decided prompt the line shows the level that was set or kept:
 
 ```text
 Jev · standard · high
+Jev · standard · high · delegate
 ```
 
-Later work groups add skill and advice to the line.
+A later work group adds the skill.
 
 | You see | Meaning |
 |---|---|
 | `Jev · standard · high` | Jev chose the level for the last prompt (`high` here) |
+| `· delegate` | Advice was attached for the last prompt |
 | `Jev · no answer` | Jev timed out or failed. Work continues normally |
 
 If you press Esc before any provider request, the status line also returns to its previous text.
@@ -167,7 +169,7 @@ A CLI review does not need the Jev key and does not depend on the switches. It r
 ## Switches
 
 ```text
-/jev                     status (session tally: WG-17)
+/jev                     status and session tally
 /jev skills off          one feature
 /jev all off             the seven decision features
 /jev reset               switches, mode and CLI review default back to config defaults
@@ -175,17 +177,31 @@ A CLI review does not need the Jev key and does not depend on the switches. It r
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
 
+`/jev` ends with the session tally, which starts empty in each new or resumed session:
+
+```text
+session:
+  prompts 2
+  workers 1 (openai/gpt-5-mini 1)
+  worker tokens 120
+  fallbacks 0
+```
+
+`/jev verbose on` adds one log line in the conversation for each decision, and for each correction and routed worker. Log lines show levels, probabilities and timings, never prompt text, and are not sent to the model. Example: `jev · main · low → high · 0.5s · p low 0.05 medium 0.10 high 0.70 xhigh 0.10 max 0.05`.
+
 From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: slot commands (WG-13) and `tune` (WG-18).
 
 ## Tool assessment
 
-For workers whose agent declares no `tools`, Jev can flag tools the task does not need. By default this only records. See what it would have removed in the ledger before enabling it:
+For workers whose agent declares no `tools`, Jev can flag tools the task does not need. By default this only records: the launch's `worker` ledger line carries `toolsScored` and `toolsFlagged`, so you can see what it would have removed before enabling it. `/jev tools off` stops it. In both modes the worker waits for Jev before its first turn, at most `classifier.timeoutMs`; if Jev fails, the worker keeps every tool and nothing is recorded.
+
+To remove flagged tools:
 
 ```json
 { "tools": { "mode": "enforce" } }
 ```
 
-It can remove tools, never add them. A wrongly removed tool can leave a worker stuck, so try it on low-stakes work first.
+It can remove tools, never add them. A removed tool stays removed on every turn of that worker, including a resumed run. A wrongly removed tool can leave a worker stuck, so try it on low-stakes work first.
 
 ## Tuning
 
@@ -207,7 +223,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 ## All commands
 
 ```text
-/jev                                         status (session tally: WG-17)
+/jev                                         status and session tally
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
 /jev reset                                   switches, mode and CLI review default back to config defaults

@@ -20,6 +20,8 @@ Each criterion is prefixed with the configured model's display name from Pi's re
 
 Also used, without slots or `expert`, for the `tier` question of the main request.
 
+The main request's `tier` uses these criteria for `fast`, `balanced` and `deep`, without the display-name prefix.
+
 | Tier | Criterion |
 |---|---|
 | `fast` | Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms. |
@@ -150,7 +152,7 @@ Nouls, main request only, first batch only.
 
 ## Tool assessment
 
-Noul per tool, key `tool::<name>`. The wording is provisional until [WG-14](roadmap.md#wg-14-tool-assessment-observe-only).
+Noul per tool, key `tool::<name>`. The wording is still provisional until replay ([WG-16](roadmap.md#wg-16-rich-state-replay)); [WG-14](roadmap.md#wg-14-tool-assessment-observe-only) shipped it as written below. One question per candidate tool, at most 32.
 
 > Is `tools.<name>` in the state dangerous or clearly inappropriate for the agent in `agent` doing the work in `task`?
 

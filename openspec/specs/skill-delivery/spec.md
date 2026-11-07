@@ -116,6 +116,13 @@ When a skill is picked, the package SHALL return from `before_agent_start` one m
 - **WHEN** `debug` is picked and the operator aborts before any provider request
 - **THEN** no provider request is made and no ledger line is written
 
+### Requirement: One message with advice
+When a skill message and strategy advice both attach on the same turn, the package SHALL return one `jev-skill` message whose `content` is the skill delivery text, a blank line, then the advice block. Its `details` MUST hold only the skill fields, so the duplicate check still finds the body.
+
+#### Scenario: Skill and advice together
+- **WHEN** `debug` is picked and Jev answers `strategy` `delegate` with probability 0.9
+- **THEN** exactly one message is returned, with `customType` `jev-skill`, `content` the `debug` delivery text followed by a blank line and the `delegate` block, and `details` `{ name, fingerprint, form }`
+
 ### Requirement: No duplicate body in context
 The package SHALL choose the form with `skill-pick`'s duplicate check, given the skills loaded in the context Pi sends to the model now (`sessionManager.buildSessionProjection()`, after compaction and context edits). Entries a compaction dropped, or a context edit removed or rewrote, MUST NOT count; entries a compaction kept MUST count. A `jev-skill` message counts only in the `content` form, with its `details.name` and `details.fingerprint`; `suggest` and `reference` messages MUST NOT count.
 

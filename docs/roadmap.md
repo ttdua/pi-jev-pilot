@@ -17,14 +17,14 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-07 | Main effort | M | WG-02, 04, 05, 06 | Done |
 | WG-08 | Effort hold | S | WG-07 | Done |
 | WG-09 | Skill pick and delivery | L | WG-07 | Done |
-| WG-10 | Strategy advice | S | WG-07 | Planned |
+| WG-10 | Strategy advice | S | WG-07 | Done |
 | WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
 | WG-12 | Modes and expert tier | M | WG-11 | Planned |
 | WG-13 | Slots and fallback | M | WG-11 | Planned |
-| WG-14 | Tool assessment, observe only | M | WG-11 | Planned |
+| WG-14 | Tool assessment, observe only | M | WG-11 | Done |
 | WG-15 | CLI review | M | WG-06 | Done |
 | WG-16 | Rich state replay | M | WG-09, 13 | Planned |
-| WG-17 | Tally and log | S | WG-11 | Planned |
+| WG-17 | Tally and log | S | WG-11 | Done |
 | WG-18 | Auto-tuning | M | WG-05, 07 | Planned |
 | WG-19 | Release and migration guide | S | All above | Planned |
 
@@ -185,7 +185,7 @@ The pre-launch tier cascade moved here from WG-13.
 
 ### WG-14: Tool assessment, observe only
 
-**H2.** Child handler, tool state from `getAllTools`, scoring, would-remove counts in the ledger, `ask_parent` and `notify_parent` excluded, `enforce` behind a setting.
+**H2.** Child handler, tool state from `getAllTools`, scoring, would-remove counts in the ledger, `ask_parent` and `notify_parent` excluded, `enforce` behind a setting. Landed as `wg-14-tool-assessment`; evidence in [host seams](evidence/2026-11-05-host-seams.md#tool-assessment-service-lookup-wg-14).
 
 - **Done when:** in `observe` a worker's tools are unchanged and counts are recorded; in `enforce` a host test proves a removed tool is unavailable; a Jev failure keeps all tools.
 

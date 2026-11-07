@@ -11,7 +11,7 @@ import {
   type JevArgs,
 } from "../../src/host/commands.ts";
 import type { Exec } from "../../src/host/review-cli.ts";
-import type { Decision } from "../../src/host/status.ts";
+import { statusText, type Decision, type Tally } from "../../src/host/status.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
@@ -226,8 +226,17 @@ async function run(
   c = fakeCtx(),
   decision: () => Decision | undefined = noDecision,
   exec: Exec = noExec,
+  tally?: () => Tally,
+  overlay?: () => string | undefined,
 ) {
-  await runJev(args, c.ctx, { dir, load: load(dir), decision, exec });
+  await runJev(args, c.ctx, {
+    dir,
+    load: load(dir),
+    decision,
+    exec,
+    ...(tally ? { tally } : {}),
+    ...(overlay ? { overlay } : {}),
+  });
   return c.rec;
 }
 
@@ -247,11 +256,52 @@ describe("runJev", () => {
 
   test("redraw keeps the decision suffix; effort off drops it", async () => {
     const dir = jevDir();
-    const decision = (): Decision => ({ kind: "level", level: "high" });
+    const decision = (): Decision => ({ effort: { kind: "level", level: "high" } });
     const a = await run("skills off", dir, fakeCtx(), decision);
     expect(a.widgets[0]![1]).toEqual(["Jev · standard · high"]);
     const b = await run("effort off", dir, fakeCtx(), decision);
     expect(b.widgets[0]![1]).toEqual(["Jev · standard"]);
+  });
+
+  test("empty tally", async () => {
+    const rec = await run("", jevDir());
+    expect(
+      rec.notes[0]![0].endsWith(
+        "session:\n  prompts 0\n  workers 0\n  worker tokens 0\n  fallbacks 0",
+      ),
+    ).toBe(true);
+  });
+
+  test("tally after work", async () => {
+    const t: Tally = {
+      prompts: 2,
+      workers: 1,
+      byModel: [["fixture/fast", 1]],
+      unrouted: 0,
+      workerTokens: 120,
+      fallbacks: 0,
+    };
+    const rec = await run("", jevDir(), fakeCtx(), noDecision, noExec, () => t);
+    expect(
+      rec.notes[0]![0].endsWith(
+        "session:\n  prompts 2\n  workers 1 (fixture/fast 1)\n  worker tokens 120\n  fallbacks 0",
+      ),
+    ).toBe(true);
+  });
+
+  test("tally kept across /jev", async () => {
+    const dir = jevDir();
+    const rec = await run(
+      "skills off",
+      dir,
+      fakeCtx(),
+      noDecision,
+      noExec,
+      undefined,
+      () => "10 prompts · 0 workers · 0 fallbacks",
+    );
+    expect(rec.widgets[0]![1]).toEqual(["Jev · standard · 10 prompts · 0 workers · 0 fallbacks"]);
+    expect(rec.notes[0]![0].split("\n")[0]).toBe(statusText(load(dir)()));
   });
 
   test("plain status writes nothing, notifies and redraws", async () => {

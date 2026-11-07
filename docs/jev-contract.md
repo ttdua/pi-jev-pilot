@@ -44,7 +44,7 @@ A successful response:
 
 | | Main | Worker | Tool assessment |
 |---|---|---|---|
-| **When** | Eligible main prompt | Each launch | Worker starts, agent declares no tools |
+| **When** | Eligible main prompt | Each launch | Worker's first turn, agent declares no tools |
 | **Where** | Main session | Main session | Child session |
 | **Usual size** | 7 KB, plus skills (about 60 KB with 78 skills) | 5–6 KB | 6 KB |
 | **Cost** | About $0.0006 with 78 skills | About $0.00006 | About $0.00006 |
@@ -143,7 +143,7 @@ Nothing found sends `none found`.
 
 ## Eligibility
 
-A main request is sent when `messageType` is `user`, the text is not empty, the session is not a child, and effort applies or skills apply. Skills apply when `skills` is on, the catalog is not empty, and the prompt has no explicit `/skill:name`, which Pi has already expanded to a leading `<skill name=…>` block. `corrects` is asked on every main request. When nothing applies, no request is made.
+A main request is sent when `messageType` is `user`, the text is not empty, the session is not a child, and effort, strategy or skills apply. Skills apply when `skills` is on, the catalog is not empty, and the prompt has no explicit `/skill:name`, which Pi has already expanded to a leading `<skill name=…>` block. `corrects` is asked on every main request. When nothing applies, or effort is held and nothing else applies, no request is made. `effort` and `risky` need `effort` on; `tier` and `strategy` need `strategy` on.
 
 Non-reasoning models, and models with one supported level, skip `effort` and `risky`. While effort is held, they are skipped too.
 
@@ -223,7 +223,14 @@ The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/age
 }
 ```
 
-One noul per tool, `tool::<name>`, asking whether that entry is dangerous or clearly inappropriate for this agent doing this task. At most 32 are scored; the rest stay allowed.
+- `task.brief` is the last 4000 code points of the worker's first prompt; `task.description` is the launch description.
+- `agent` holds the name, source and description of the worker's agent.
+- `tools` is keyed by candidate. Each entry has the tool's description, its source (`sourceInfo.source`, or `unknown`) and the descriptions of its top-level parameters. Every text is cut to 500 code points.
+- Candidates are the worker's selected tools minus `ask_parent` and `notify_parent`. `jev_review` is already removed from a worker's tools. At most 32 are scored; the rest stay allowed.
+
+One noul per candidate, `tool::<name>`, asking whether that entry is dangerous or clearly inappropriate for this agent doing this task. The wording is provisional until replay.
+
+The worker finds its launch by matching its session file with `outputFile` in the executor service's `listAgents()`. The brief is the worker's first prompt; neither it nor any tool text is stored (see [Privacy](privacy.md)).
 
 It is a separate request because tool descriptions are irrelevant to the tier question, and TypeSafe documents that unrelated state lowers accuracy.
 
@@ -245,7 +252,7 @@ Delivered through `before_agent_start`'s `message` with `display: false`:
 - `skills.inject: "content"`: the full body, with the skill's directory so relative references resolve.
 - `skills.inject: "suggest"`: only the name and path, and the model decides whether to read it.
 
-Delivered as a custom message `jev-skill`, `display: false`, whose `details` holds the name, fingerprint and form.
+Delivered as a custom message `jev-skill`, `display: false`, whose `details` holds the name, fingerprint and form. When advice also attaches, the same message carries the skill text, a blank line, then the advice block, since the hook returns one message.
 
 If the same name with the same body fingerprint is still in the context Pi sends to the model (after compaction and context edits), from a delivered body or an explicit `/skill:name`, the `reference` form is sent instead. A suggestion never counts. A failed batch means no skill; effort still applies when the first batch answered. Pi's own skill catalog stays in the system prompt. Workers get no skill selection.
 
@@ -260,7 +267,7 @@ If the same name with the same body fingerprint is still in the context Pi sends
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |
-| `tool::*` | ≥ .5 | Remove, or record in `observe` mode |
+| `tool::*` | ≥ .5 | Flag; `enforce` removes it, `observe` only counts it |
 
 Strategy gates:
 
@@ -270,7 +277,7 @@ Strategy gates:
 | `parallel` | ≥ .6 | `tier` is not `fast` |
 | `graph` | ≥ .8 | `tier` is `deep` |
 
-User and project instructions keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
+An unanswered `tier` attaches nothing for `parallel` or `graph`. User and project instructions and a loaded skill keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
 
 **How much these thresholds can be trusted** is recorded in the [evidence](evidence/2026-11-05-replay.md#threshold-provenance).
 
