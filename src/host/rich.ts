@@ -19,7 +19,7 @@ const BUILDERS: Record<RichGroup, Builder> = {
   last_decision: (i) => (i.last === undefined ? {} : { lastDecision: i.last }),
   context_used_percent: (i) => {
     const percent = i.contextPercent();
-    return percent === undefined ? {} : { contextPercent: percent };
+    return percent === undefined || percent === null ? {} : { contextPercent: percent };
   },
   git: async (i) => {
     const git = await i.git;

@@ -37,7 +37,7 @@ describe("buildRichInputs", () => {
   test("null percent omitted", async () => {
     const s = sources({ groups: ["context_used_percent"], contextPercent: () => null });
     const out = await buildRichInputs(s.i);
-    expect(out.contextPercent ?? null).toBeNull();
+    expect("contextPercent" in out).toBe(false);
   });
   test("capabilities map agents to declared tools", async () => {
     const s = sources({ groups: ["capabilities"] });

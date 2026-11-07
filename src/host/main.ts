@@ -182,14 +182,15 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     const sessionId = ctx.sessionManager.getSessionId();
     if (isChild(sessionId)) return;
     const groups = deps.rich?.groups ?? SHIPPED_MAIN_GROUPS;
-    // Started before the first await so the git call overlaps the rest of the setup.
-    const git = groups.includes("git") ? deps.rich?.git(ctx.cwd) : undefined;
     const snapshot = deps.load();
     if (!snapshot.config.valid || !snapshot.keySet) return;
     const model = ctx.model;
     if (model === undefined) return;
     const apiKey = deps.env()[snapshot.keyVar];
     if (apiKey === undefined || apiKey === "") return;
+    // Started after the gates so an early return cannot orphan it, and before the first await so it
+    // overlaps the rest of the setup. A rejection is dropped: git counts are optional.
+    const git = groups.includes("git") ? deps.rich?.git(ctx.cwd).catch(() => undefined) : undefined;
     const effortOn = snapshot.settings.switches.effort;
     const askStrategy = snapshot.settings.switches.strategy;
     // The catalog is read only after every other gate passed.
@@ -222,7 +223,8 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       first === undefined
         ? mainQuestions({ askEffort, askStrategy })
         : mainQuestions({ askEffort, askStrategy, skills: first });
-    // The level the prompt started from is read before any await, so a change during the wait is seen.
+    // `from` and `at` are read before the rich inputs are awaited, so a level change during that wait
+    // or the Jev call is seen.
     const from = level();
     const at = deps.now();
     const rich = await buildRichInputs({

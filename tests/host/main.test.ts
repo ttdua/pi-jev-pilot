@@ -2021,6 +2021,38 @@ describe("rich state inputs", () => {
     expect(stateOf(t, 0).workspace).toMatchObject({ git: { changed_files: 3, diff_lines: 9 } });
   });
 
+  test("a rejecting git count neither throws nor stops the decision", async () => {
+    const seen: unknown[] = [];
+    const onUnhandled = (e: unknown) => seen.push(e);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const t = setup({
+        rich: {
+          ...noRich,
+          groups: ["git"],
+          git: () => Promise.reject(new Error("git down")),
+        },
+      });
+      await run(t);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(t.requests).toHaveLength(1);
+      expect(t.level()).toBe("low");
+      expect(seen).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
+  test("git count not started when a gate rejects the turn", async () => {
+    let calls = 0;
+    const t = setup({
+      env: {},
+      rich: { ...noRich, groups: ["git"], git: async () => (calls++, undefined) },
+    });
+    await run(t);
+    expect(calls).toBe(0);
+  });
+
   test("a failing group does not stop the decision", async () => {
     const t = setup({
       rich: {
