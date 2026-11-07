@@ -104,7 +104,7 @@ An attached advice SHALL be exactly the `<execution_strategy>` block in `docs/je
 - **THEN** none contains `junior`
 
 ### Requirement: Advice delivery
-An attached advice SHALL reach the model as one hidden custom message returned from that turn's `before_agent_start`, with `display: false`, and MUST be present in the turn's first provider request. No advice MUST be attached in a child session, for an ineligible prompt, or when the Jev client reports `cancelled`.
+An attached advice SHALL reach the model as one hidden custom message returned from that turn's `before_agent_start`, with `display: false`, and MUST be present in the turn's first provider request. When a skill message also attaches, the advice block follows the skill text in that one `jev-skill` message, as `skill-delivery` defines; otherwise the message has `customType` `jev-advice`. No advice MUST be attached in a child session, for an ineligible prompt, or when the Jev client reports `cancelled`.
 
 #### Scenario: Advice reaches the provider
 - **WHEN** Jev answers `strategy` `delegate` with probability 0.9 on an eligible prompt

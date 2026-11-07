@@ -13,11 +13,15 @@ For every eligible prompt whose Jev request completed (answered or missed), the 
 - **THEN** the ledger holds one new `main` line for it
 
 #### Scenario: Ineligible prompt
-- **WHEN** a prompt is submitted with `effort` and `strategy` both off
+- **WHEN** a prompt is submitted with `effort`, `strategy` and `skills` all off
 - **THEN** no ledger line is added
 
 #### Scenario: Strategy only
 - **WHEN** a prompt is submitted with `effort` off and `strategy` on, and Jev answers
+- **THEN** the ledger holds one new `main` line for it, with no `requested` or `effective`
+
+#### Scenario: Skills only
+- **WHEN** a prompt is submitted with `effort` and `strategy` off and skills applying, and Jev answers
 - **THEN** the ledger holds one new `main` line for it, with no `requested` or `effective`
 
 #### Scenario: Run fails before any provider request
@@ -33,7 +37,7 @@ For every eligible prompt whose Jev request completed (answered or missed), the 
 - **THEN** the turn proceeds and completes normally
 
 ### Requirement: Main line fields
-A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at the prompt), `answered`, `turnId` and `outcome`, and when known: `ms`, `miss`, `effortP` (all five probabilities), `risky`, `corrects`, `requested`, `effective`, `from` (level before the request), `strategy` (the chosen strategy), `strategyP` (its probability), `advised` (whether advice was attached), `toolCalls`, `failures`, `inputTokens`, `outputTokens`, `durationMs`. `answered` is true whenever Jev returned a readable response, whatever was asked. `strategy`, `strategyP` and `advised` MUST be present exactly when `strategy` was answered, held or not. A held turn's line MUST carry `held` `true` and `effective` (the level in force once the Jev request completed), and MUST NOT carry `effortP`, `risky` or `requested`. `held` MUST be absent from any other line. `skill`, `skillP` and `gate` MUST be absent. No main `tier` field MUST be written.
+A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at the prompt), `answered`, `turnId` and `outcome`, and when known: `ms`, `miss`, `effortP` (all five probabilities), `risky`, `corrects`, `requested`, `effective`, `from` (level before the request), `strategy` (the chosen strategy), `strategyP` (its probability), `advised` (whether advice was attached), `skill` (the picked skill), `skillP` (the best leader's probability), `gate` (the gate mean), `toolCalls`, `failures`, `inputTokens`, `outputTokens`, `durationMs`. `answered` is true whenever Jev returned a readable main response, whatever was asked. `strategy`, `strategyP` and `advised` MUST be present exactly when `strategy` was answered, held or not. `skill` MUST be present exactly when a skill was picked, in any delivery form; `skillP` and `gate` exactly when the pick result carries them; with no skill questions asked, all three MUST be absent. A held turn's line MUST carry `held` `true` and `effective` (the level in force once the Jev request completed), and MUST NOT carry `effortP`, `risky` or `requested`. `held` MUST be absent from any other line. No main `tier` field MUST be written.
 
 #### Scenario: Required fields
 - **WHEN** any `main` line is written
@@ -55,8 +59,28 @@ A `main` line SHALL carry `v`, `at` (prompt time), `kind`, `session`, `mode` (at
 - **WHEN** `strategy` is off, or the request was a miss, or `strategy` came back with an unknown choice
 - **THEN** the line has no `strategy`, `strategyP` or `advised`
 
+#### Scenario: Skill picked
+- **WHEN** `debug` is picked at .6 with gate mean .4
+- **THEN** the line has `skill` `debug`, `skillP` 0.6 and `gate` 0.4
+
+#### Scenario: Skill picked again as a reference
+- **WHEN** `debug` is picked and attached in the `reference` form
+- **THEN** the line has `skill` `debug`
+
+#### Scenario: Below the threshold
+- **WHEN** the leader is `debug` at .45 and the gate mean is .29
+- **THEN** the line has `skillP` 0.45 and `gate` 0.29 and no `skill`
+
+#### Scenario: None leads
+- **WHEN** every batch is led by `(none)` and the gate mean is .1
+- **THEN** the line has `gate` 0.1 and no `skill` or `skillP`
+
+#### Scenario: Skills not asked
+- **WHEN** `skills` is off, or the prompt has an explicit skill, or a skill batch failed
+- **THEN** the line has no `skill`, `skillP` or `gate`
+
 #### Scenario: Held turn
-- **WHEN** a held turn at level `high`, with `strategy` off, is answered with `corrects` 0.1 and completes
+- **WHEN** a held turn at level `high`, with `strategy` off and skills not applying, is answered with `corrects` 0.1 and completes
 - **THEN** the line has `held` `true`, `effective` `high`, `from` `high`, `corrects` 0.1, and no `effortP`, `risky` or `requested`
 
 #### Scenario: Held turn with advice
@@ -133,8 +157,12 @@ When `corrects` is answered with a value of at least 0.7 and the current branch 
 - **THEN** no `correction` line is written
 
 ### Requirement: No prompt text in the ledger or entries
-No ledger line and no session entry written by the package SHALL contain prompt text, conversation text, tool arguments or tool output.
+No ledger line and no session entry written by the package SHALL contain prompt text, conversation text, tool arguments or tool output. A skill message's `content` holds the skill's own text (body or path), which is not prompt or conversation text; its skill fields in `details` MUST be only the skill name, fingerprint and form.
 
 #### Scenario: Marker absent
 - **WHEN** a host run submits a prompt containing `JEV-MARKER-PROMPT` and the run completes
 - **THEN** neither the ledger files nor the package's custom entries contain `JEV-MARKER-PROMPT`
+
+#### Scenario: Skill details
+- **WHEN** a skill message is attached
+- **THEN** its `details` has the keys `name`, `fingerprint` and `form`, and contains no prompt text

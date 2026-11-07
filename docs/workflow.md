@@ -35,11 +35,11 @@ sequenceDiagram
     X->>X: ledger line, status line
 ```
 
-**Skipped when** the run was started by a custom message, the prompt is empty, the session is a child, or every applicable feature is off. An explicit `/skill:name` skips only the skill questions.
+**Skipped when** the run was started by a custom message, the prompt is empty, the session is a child, or every applicable feature is off. Skills apply only with a catalog and no explicit `/skill:name`.
 
 **While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `effort` and `risky` are not asked. Only `corrects` is asked. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
 
-**If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again.
+**If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again. With a catalog over 254 skills the effort level is applied only once every batch has answered (still within one timeout), so a manual level change during that wait also discards the effort result.
 
 **If the operator presses Esc before the first provider request**, Pi aborts the run. When the run settles aborted with no provider request, the package puts back the level it replaced, only if the current level is still the one it set, and the status line returns to its previous text. No ledger line is written. Esc after a provider request started is a normal turn with `outcome: aborted`.
 
@@ -49,6 +49,7 @@ sequenceDiagram
 
 - A `thinking_level_change` entry when the level changes, and the footer shows the new level.
 - A hidden custom message when a skill or advice applies. It stays in history until compaction.
+- A skill picked again while its body is still in context is sent as a one-line reference.
 - About 0.5 s of waiting per prompt.
 
 ## 2. A worker launch
@@ -182,7 +183,7 @@ This is separate from the `reviewer` slot, which routes ordinary review subagent
 
 1. `session_compact` fires.
 2. A held effort is released because the anchor is now before the compaction, so the next prompt makes one new decision.
-3. Skill bodies that were compacted away can be injected again if picked again.
+3. Skill bodies that the compaction dropped are sent again in full if picked again; bodies it kept are referenced.
 4. Nothing else changes. The ledger is unaffected.
 
 ## 8. Session start

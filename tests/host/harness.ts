@@ -111,7 +111,15 @@ type PrepareOpts = {
   /** Reuse a working directory. */
   cwd?: string;
   /** Classifier endpoint written to jev/config.json; defaults to a refused loopback port. */
-  jevConfig?: { url: string; timeoutMs: number; holdProviders?: string[] };
+  jevConfig?: {
+    url: string;
+    timeoutMs: number;
+    holdProviders?: string[];
+    /** Written as `skills.inject` in config.json. */
+    skillsInject?: "content" | "suggest";
+  };
+  /** Skills written to `<agentDir>/skills/<name>/SKILL.md`: name to the full file text (frontmatter included). */
+  skills?: Record<string, string>;
 };
 
 const DEFAULT_JEV_CONFIG = { url: "http://127.0.0.1:9/v1/systemone", timeoutMs: 300 };
@@ -120,10 +128,11 @@ const DEFAULT_JEV_CONFIG = { url: "http://127.0.0.1:9/v1/systemone", timeoutMs: 
 function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): void {
   const file = join(agentDir, "jev", "config.json");
   if (existsSync(file)) return;
-  const { url, timeoutMs, holdProviders } = { ...DEFAULT_JEV_CONFIG, ...jevConfig };
+  const { url, timeoutMs, holdProviders, skillsInject } = { ...DEFAULT_JEV_CONFIG, ...jevConfig };
   mkdirSync(join(agentDir, "jev"), { recursive: true });
   const effort = holdProviders === undefined ? {} : { effort: { holdProviders } };
-  writeFileSync(file, JSON.stringify({ classifier: { url, timeoutMs }, ...effort }));
+  const skills = skillsInject === undefined ? {} : { skills: { inject: skillsInject } };
+  writeFileSync(file, JSON.stringify({ classifier: { url, timeoutMs }, ...effort, ...skills }));
 }
 
 /** Shared setup: temp dirs, models.json, agents and installs. */
@@ -145,6 +154,10 @@ function prepare(opts: PrepareOpts): Prepared {
       JSON.stringify(fixtureModelsJson(opts.fixture.baseUrl, { keyless: opts.keyless === true })),
     );
     writeJevConfig(agentDir, opts.jevConfig);
+    for (const [name, text] of Object.entries(opts.skills ?? {})) {
+      mkdirSync(join(agentDir, "skills", name), { recursive: true });
+      writeFileSync(join(agentDir, "skills", name, "SKILL.md"), text);
+    }
     if (opts.agents) {
       mkdirSync(join(agentDir, "agents"), { recursive: true });
       for (const [stem, text] of Object.entries(opts.agents)) {

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isChild, subscribeChildren } from "./child.ts";
 import { runJev } from "./commands.ts";
@@ -57,6 +58,8 @@ export function setup(pi: ExtensionAPI): void {
     newId: () => crypto.randomUUID(),
     platforms: scanPlatforms,
     env: () => process.env,
+    commands: () => pi.getCommands(),
+    readFile: (p) => readFileSync(p, "utf8"),
   });
 
   pi.on("session_start", async (_event, ctx) => {

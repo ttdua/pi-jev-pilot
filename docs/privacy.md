@@ -44,7 +44,7 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 
 With `verbose` on, the same labels and numbers as the ledger are also saved as `jev-log` entries in your Pi session files, which travel with session exports.
 
-Hidden skill and advice messages are saved in your Pi session files, as any context is.
+Hidden skill and advice messages are saved in your Pi session files, as any context is. A skill message holds the skill's own text (its body, or only its path for `suggest`), and its details hold the skill name, a SHA-256 of the body and the form. No prompt text.
 
 Delete the ledger at any time (both files); nothing depends on it except tuning signals.
 
