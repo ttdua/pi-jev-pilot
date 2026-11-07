@@ -1,7 +1,7 @@
 import { deliveryText } from "../../src/policy/skill.ts";
 import { fingerprint, skillBlock } from "../../src/host/skills.ts";
 import { describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
@@ -2103,10 +2103,12 @@ describe("git count recorder", () => {
       groups: ["git"] as const,
       git: async () => (calls.n++, { changed_files: 2, diff_lines: 9 }),
     };
-    const t = setup({ rich, record: recorder(dir, true, { n: 0 }) });
+    const recorded = { n: 0 };
+    const t = setup({ rich, record: recorder(dir, true, recorded) });
     await run(t);
     await settle();
     expect(calls.n).toBe(1);
+    expect(recorded.n).toBe(0);
     const line = JSON.parse(readFileSync(join(dir, "replay-git.jsonl"), "utf8")) as object;
     expect(line).toMatchObject({ v: 1, at: 1000, changedFiles: 2, diffLines: 9 });
     rmSync(dir, { recursive: true, force: true });
@@ -2125,17 +2127,34 @@ describe("git count recorder", () => {
 
   test("write failure keeps the decision", async () => {
     const root = tmp();
-    const dir = join(root, "jev");
-    mkdirSync(dir);
-    chmodSync(dir, 0o500);
+    const blocker = join(root, "file");
+    writeFileSync(blocker, "x");
+    const dir = join(blocker, "jev"); // mkdir under a regular file fails with ENOTDIR
     const plain = setup({ outcomes: [answer("high")] });
     await run(plain);
     const t = setup({ outcomes: [answer("high")], record: recorder(dir, true, { n: 0 }) });
     await run(t);
     await settle();
     expect(t.level()).toBe(plain.level());
-    chmodSync(dir, 0o700);
     rmSync(root, { recursive: true, force: true });
+  });
+
+  test("a synchronous throw from the recorder keeps the decision", async () => {
+    const dir = tmp();
+    const plain = setup({ outcomes: [answer("high")] });
+    await run(plain);
+    const record: MainDeps["record"] = {
+      on: () => true,
+      dir: () => dir,
+      git: () => {
+        throw new Error("sync");
+      },
+    };
+    const t = setup({ outcomes: [answer("high")], record });
+    await run(t);
+    await settle();
+    expect(t.level()).toBe(plain.level());
+    rmSync(dir, { recursive: true, force: true });
   });
 
   test("session is the opaque id", async () => {

@@ -2,7 +2,7 @@ import { parseShortstat, type GitCounts } from "../jev/state.ts";
 
 const GIT_TIMEOUT_MS = 500;
 
-type GitExec = (
+export type GitExec = (
   cmd: string,
   args: string[],
   o: { cwd: string; timeout: number },

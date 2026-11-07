@@ -228,7 +228,12 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       : recording
         ? deps.record?.git
         : undefined;
-    const git = gitSource?.(ctx.cwd).catch(() => undefined);
+    const git =
+      gitSource === undefined
+        ? undefined
+        : Promise.resolve()
+            .then(() => gitSource(ctx.cwd))
+            .catch(() => undefined);
     const effortOn = snapshot.settings.switches.effort;
     const askStrategy = snapshot.settings.switches.strategy;
     // The catalog is read only after every other gate passed.

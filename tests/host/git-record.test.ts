@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
-  appendFileSync,
   chmodSync,
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -12,7 +10,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gitCounts } from "../../src/host/git.ts";
+import { type GitExec, gitCounts } from "../../src/host/git.ts";
+import type { GitCounts } from "../../src/jev/state.ts";
 import { recordGitCounts } from "../../src/host/git-record.ts";
 
 const roots: string[] = [];
@@ -34,7 +33,7 @@ afterEach(() => {
 
 const counts = (changed_files = 2, diff_lines = 9) =>
   Promise.resolve({ changed_files, diff_lines });
-const input = (dir: string, c: ReturnType<typeof counts> | Promise<undefined> = counts()) => ({
+const input = (dir: string, c: Promise<GitCounts | undefined> = counts()) => ({
   dir,
   at: 1234,
   session: "sess-1",
@@ -74,12 +73,12 @@ describe("recordGitCounts", () => {
     run(["add", "."]);
     run(["commit", "-qm", "x"]);
     writeFileSync(join(root, "JEV-MARKER-FILE.ts"), "a\nb\nc\n");
-    const exec = async (cmd: string, args: string[], o: { cwd: string }) => {
+    const exec: GitExec = async (cmd, args, o) => {
       const r = Bun.spawnSync([cmd, ...args], { cwd: o.cwd });
       return { stdout: r.stdout.toString(), code: r.exitCode };
     };
     const dir = temp();
-    await recordGitCounts(input(dir, gitCounts(exec, root) as never));
+    await recordGitCounts(input(dir, gitCounts(exec, root)));
     const text = readFileSync(file(dir), "utf8");
     expect(text).not.toContain("JEV-MARKER-DIR");
     expect(text).not.toContain("JEV-MARKER-FILE");
@@ -107,11 +106,10 @@ describe("recordGitCounts", () => {
 
   test("write failure swallowed", async () => {
     const root = temp();
-    const dir = join(root, "jev");
-    mkdirSync(dir);
-    chmodSync(dir, 0o500);
-    await expect(recordGitCounts(input(dir))).resolves.toBeUndefined();
-    expect(existsSync(file(dir))).toBe(false);
+    writeFileSync(join(root, "blocker"), "x");
+    const blocked = join(root, "blocker", "jev"); // mkdir under a regular file fails with ENOTDIR
+    await expect(recordGitCounts(input(blocked))).resolves.toBeUndefined();
+    expect(existsSync(file(blocked))).toBe(false);
   });
 
   test("cap reached", async () => {
@@ -144,6 +142,5 @@ describe("recordGitCounts", () => {
     expect(lines.map((l) => (JSON.parse(l) as { changedFiles: number }).changedFiles)).toEqual([
       2, 3,
     ]);
-    appendFileSync(file(dir), "");
   });
 });
