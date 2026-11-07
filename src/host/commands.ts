@@ -113,7 +113,8 @@ function reviewLine(r: Snapshot["settings"]["review"]): string {
     ...(r.model ? [`model ${r.model}`] : []),
     ...(r.effort ? [`effort ${r.effort}`] : []),
   ];
-  return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
+  const detail = parts.length > 0 ? parts : ["CLI defaults"];
+  return `cli review: ${r.enabled ? "on" : "off"} (${[r.cli, ...detail].join(", ")})`;
 }
 
 function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
@@ -203,6 +204,7 @@ function applyChange(
     case "cli-review":
       return updateState(dir, (st) => ({
         ...st,
+        cliReviewEnabled: true,
         cliReview: {
           cli: parsed.cli,
           ...(cliReview?.model ? { model: cliReview.model } : {}),

@@ -155,17 +155,20 @@ describe("formatStatus", () => {
     expect(text).not.toContain("no executor");
   });
   test("cli review default and set values", () => {
-    expect(formatStatus(snap())).toContain("cli review: codex (CLI defaults)");
-    const state: State = { cliReview: { cli: "codex", model: "luna", effort: "high" } };
+    expect(formatStatus(snap())).toContain("cli review: off (codex, CLI defaults)");
+    const state: State = {
+      cliReview: { cli: "codex", model: "luna", effort: "high" },
+      cliReviewEnabled: true,
+    };
     const lines = formatStatus(snap({ state })).split("\n");
-    expect(lines).toContain("cli review: codex (model luna, effort high)");
-    expect(lines.indexOf("cli review: codex (model luna, effort high)")).toBe(
+    expect(lines).toContain("cli review: on (codex, model luna, effort high)");
+    expect(lines.indexOf("cli review: on (codex, model luna, effort high)")).toBe(
       lines.findIndex((l) => l.startsWith("  verbose:")) + 1,
     );
     const m = formatStatus(snap({ state: { cliReview: { cli: "opencode", model: "p/m" } } }));
-    expect(m).toContain("cli review: opencode (model p/m)");
+    expect(m).toContain("cli review: off (opencode, model p/m)");
     const e = formatStatus(snap({ state: { cliReview: { cli: "opencode", effort: "high" } } }));
-    expect(e).toContain("cli review: opencode (effort high)");
+    expect(e).toContain("cli review: off (opencode, effort high)");
   });
   test("key not set", () => {
     expect(formatStatus(snap({ env: {} }))).toContain("not set");
@@ -700,9 +703,10 @@ describe("runJev cli-review", () => {
     const f = fake(ok(""));
     const { rec, dir } = await go("cli-review opencode", f);
     expect(review(dir)).toEqual({ cli: "opencode" });
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
     expect(f.calls).toHaveLength(0);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
-    expect(rec.notes[0]![0]).toContain("cli review: opencode (CLI defaults)");
+    expect(rec.notes[0]![0]).toContain("cli review: on (opencode, CLI defaults)");
     expect(rec.widgets).toHaveLength(1);
   });
 
@@ -750,6 +754,44 @@ describe("runJev cli-review", () => {
     expect(readFileSync(join(dir, "state.json"))).toEqual(before);
   });
 
+  function seed(dir: string, body: object) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "state.json"), JSON.stringify({ version: 1, ...body }));
+  }
+
+  test("Choosing a reviewer turns the review on", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    const { rec } = await go("cli-review codex", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, CLI defaults)");
+  });
+
+  test("Refused model leaves the review off", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    const { rec } = await go("cli-review codex nova", fake(ok(catalog)), dir);
+    expect(rec.notes[0]![1]).toBe("error");
+    const st = readState(dir).state as State;
+    expect(st.cliReviewEnabled).toBe(false);
+    expect(st.cliReview).toBeUndefined();
+  });
+
+  test("All leaves the CLI review alone", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: true });
+    await go("all off", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
+  });
+
+  test("Reset turns the CLI review off", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: true });
+    const { rec } = await go("reset", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBeUndefined();
+    expect(rec.notes[0]![0]).toContain("cli review: off");
+  });
+
   test("tier stored as typed, list read once with the right command", async () => {
     const f = fake(ok(catalog));
     const { rec, dir } = await go("cli-review codex luna high", f);
@@ -758,7 +800,7 @@ describe("runJev cli-review", () => {
     expect(f.calls[0]![0]).toBe("codex");
     expect(f.calls[0]![1]).toEqual(["debug", "models"]);
     expect(f.calls[0]![2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
-    expect(rec.notes[0]![0]).toContain("cli review: codex (model luna, effort high)");
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, model luna, effort high)");
   });
 
   test("tier in another case stored as typed", async () => {
