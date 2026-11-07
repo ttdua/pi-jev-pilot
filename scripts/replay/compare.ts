@@ -1,5 +1,5 @@
-import { cutPointsFor } from "../../src/policy/cutpoints.ts";
 // Pure aggregation of replay results against noise. File output lives in outputs.ts.
+import { cutPointsFor } from "../../src/policy/cutpoints.ts";
 import { cutCodePoints } from "../../src/shared/text.ts";
 import type { Answer, MissKind } from "../../src/policy/answers.ts";
 import { readAnswers } from "../../src/policy/answers.ts";
@@ -117,6 +117,7 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
     answers,
     launch: REPLAY_LAUNCH(runsInBackground(req)),
     offered: offeredTiers(config.tiers, config.expertOn),
+    // Seed cut points: the replay has no ledger window. Live routing uses cutPointsFor(window(), mode).
     cuts: cutPointsFor([], config.mode),
     forkedLaunch: "untouched",
     canRun: () => true,
