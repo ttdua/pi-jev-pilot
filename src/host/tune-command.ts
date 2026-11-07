@@ -28,11 +28,16 @@ import {
 export type TuneSub = "report" | "undo" | "reset" | "on" | "off";
 export type TuneOutcome = { ok: boolean; message: string };
 
-const joinIssues = (issues: readonly Issue[]): string => issues.map((i) => i.message).join("; ");
-
 /** Each config problem as `<path or (file)>: <message>`; never includes config values. */
 const pathedIssues = (issues: readonly Issue[]): string =>
   issues.map((i) => `${i.path === "" ? "(file)" : i.path}: ${i.message}`).join("; ");
+
+/** The error's code or class name; never its message, which can carry paths. */
+function describeError(err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code === "string") return code;
+  return err instanceof Error ? err.constructor.name : "UnknownError";
+}
 
 const refused = (message: string): TuneOutcome => ({ ok: false, message });
 
@@ -86,14 +91,14 @@ function configRefusal(snapshot: Snapshot): TuneOutcome | undefined {
   return refused(`Jev tune: fix the config first. ${pathedIssues(snapshot.config.issues)}`);
 }
 
-/** Runs one write; `message` is shown when it succeeds. */
+/** Runs one write; `message()` is evaluated and shown only after it succeeds. */
 function write(
   deps: TuningDeps,
   mutate: (stored: TuningDocument) => TuningDocument,
-  message: string,
+  message: () => string,
 ): TuneOutcome {
   const written = deps.updateTuning(deps.dir, mutate);
-  return written.ok ? { ok: true, message } : refused(joinIssues(written.issues));
+  return written.ok ? { ok: true, message: message() } : refused(pathedIssues(written.issues));
 }
 
 const seenIf = (ctx: UiCtx, record: TuningDocument, now: number): TuningDocument =>
@@ -111,7 +116,7 @@ function undo(deps: TuningDeps, ctx: UiCtx): TuneOutcome {
   if (!isApplied(snapshot)) return { ok: true, message: NOTHING_TO_UNDO };
   const now = deps.now();
   let undone: { from: number; to: number } | undefined;
-  const outcome = write(
+  return write(
     deps,
     (stored) => {
       const result = undoTuning(stored, now);
@@ -119,10 +124,8 @@ function undo(deps: TuningDeps, ctx: UiCtx): TuneOutcome {
       undone = { from: result.from, to: result.to };
       return seenIf(ctx, result.record, now);
     },
-    "",
+    () => (undone ? undoneMessage(undone.from, undone.to) : NOTHING_TO_UNDO),
   );
-  if (!outcome.ok) return outcome;
-  return { ok: true, message: undone ? undoneMessage(undone.from, undone.to) : NOTHING_TO_UNDO };
 }
 
 function reset(deps: TuningDeps, ctx: UiCtx): TuneOutcome {
@@ -136,12 +139,16 @@ function reset(deps: TuningDeps, ctx: UiCtx): TuneOutcome {
   return write(
     deps,
     (stored) => seenIf(ctx, resetTuning(stored, snapshot.untunedTimeoutMs, now), now),
-    message,
+    () => message,
   );
 }
 
 const switchOff = (deps: TuningDeps, off: boolean): TuneOutcome =>
-  write(deps, (stored) => setTuningOff(stored, off), off ? OFF_MESSAGE : ON_MESSAGE);
+  write(
+    deps,
+    (stored) => setTuningOff(stored, off),
+    () => (off ? OFF_MESSAGE : ON_MESSAGE),
+  );
 
 function dispatch(deps: TuningDeps, sub: TuneSub, ctx: UiCtx): TuneOutcome {
   switch (sub) {
@@ -162,6 +169,6 @@ export function runTune(deps: TuningDeps, sub: TuneSub, ctx: UiCtx): TuneOutcome
   try {
     return dispatch(deps, sub, ctx);
   } catch (err) {
-    return refused(`Jev tune: failed (${err instanceof Error ? err.message : String(err)})`);
+    return refused(`Jev tune: failed (${describeError(err)})`);
   }
 }

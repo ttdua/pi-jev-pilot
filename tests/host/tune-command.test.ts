@@ -156,7 +156,7 @@ describe("runTune", () => {
   test("refused write", () => {
     const update = { ok: false as const, issues: [{ path: "", message: "refused" }] };
     const out = runTune(fakeDeps({ update, record: tuned }), "undo", fakeCtx(true));
-    expect(out).toEqual({ ok: false, message: "refused" });
+    expect(out).toEqual({ ok: false, message: "(file): refused" });
   });
   test("never throws", () => {
     const deps = {
@@ -166,6 +166,18 @@ describe("runTune", () => {
       },
     };
     expect(runTune(deps, "report", fakeCtx(true)).ok).toBe(false);
+  });
+  test("a thrown error's message stays out of the outcome", () => {
+    const deps = {
+      ...fakeDeps(),
+      load: () => {
+        throw new Error("ENOENT /secret/path");
+      },
+    };
+    const out = runTune(deps, "report", fakeCtx(true));
+    expect(out.ok).toBe(false);
+    expect(out.message).not.toContain("/secret/path");
+    expect(out.message).toContain("Error");
   });
   test("report", () => {
     const out = runTune(fakeDeps({ record: tuned }), "report", fakeCtx(true));
