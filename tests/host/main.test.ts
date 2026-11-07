@@ -187,7 +187,7 @@ describe("decision", () => {
     await run(t);
     expect(t.sets).toEqual(["xhigh"]);
     expect(t.widgets.at(-1)).toEqual(["Jev · standard · xhigh"]);
-    expect(t.main.decision()).toEqual({ kind: "level", level: "xhigh" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "xhigh" } });
   });
 
   test("target equals current", async () => {
@@ -296,7 +296,7 @@ describe("discard and failure", () => {
     t.setLevel("off");
     await run(t);
     expect(t.widgets).toHaveLength(1);
-    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
   });
 
   test("unknown choice", async () => {
@@ -368,7 +368,7 @@ describe("Esc", () => {
     await run(t2);
     expect(t2.widgets.at(-1)).toEqual(["Jev · standard · xhigh"]);
     await t2.main.agentSettled(settled(true));
-    expect(t2.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t2.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     expect(t2.widgets.at(-1)).toEqual(["Jev · standard · high"]);
     const t3 = setup({ outcomes: [answer("high")] });
     await run(t3);
@@ -383,10 +383,10 @@ describe("Esc", () => {
     const t = setup({ outcomes: [held, answer("high")] });
     const first = run(t);
     await run(t);
-    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     release({ kind: "cancelled" });
     await first;
-    expect(t.main.decision()).toEqual({ kind: "level", level: "high" });
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
     // the newer record still exists: Esc restores its level
     t.sets.length = 0;
     await t.main.agentSettled(settled(true));

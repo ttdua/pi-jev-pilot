@@ -1,25 +1,45 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "../policy/effort.ts";
+import type { Strategy } from "../policy/strategy.ts";
 import { DECISION_FEATURES } from "../store/defaults.ts";
 import type { Snapshot } from "./readiness.ts";
 
 const WIDGET_KEY = "jev";
 const PLACEMENT = { placement: "aboveEditor" } as const;
 
-/** The latest main-effort outcome, shown as a suffix on the status line. */
-export type Decision = { kind: "level"; level: ThinkingLevel } | { kind: "no-answer" };
+/** The latest main outcome: the effort part and the strategy advice part, each a status suffix. */
+export type Decision = {
+  effort?: { kind: "level"; level: ThinkingLevel } | { kind: "no-answer" };
+  advice?: Strategy;
+};
+
+/** Builds a `Decision`; keys whose value is `undefined` are omitted. */
+export function withDecision(
+  _prev: Decision | undefined,
+  effort: Decision["effort"] | undefined,
+  advice: Strategy | undefined,
+): Decision {
+  return {
+    ...(effort === undefined ? {} : { effort }),
+    ...(advice === undefined ? {} : { advice }),
+  };
+}
 
 /**
  * First that applies: config error, no key, all decision features off, then the mode.
- * The decision suffix is added only to the `Jev · <mode>` form and only when `effort` is on.
+ * Suffixes go only on the `Jev · <mode>` form: effort when `effort` is on, advice when `strategy` is on.
  */
 export function statusText(s: Snapshot, decision?: Decision): string {
   if (!s.config.valid) return "Jev · config error";
   if (!s.keySet) return "Jev · no key";
   if (DECISION_FEATURES.every((f) => !s.settings.switches[f])) return "Jev · off";
-  const base = `Jev · ${s.settings.mode}`;
-  if (!decision || !s.settings.switches.effort) return base;
-  return `${base} · ${decision.kind === "level" ? decision.level : "no answer"}`;
+  const parts = [`Jev · ${s.settings.mode}`];
+  const { effort, advice } = decision ?? {};
+  if (effort && s.settings.switches.effort) {
+    parts.push(effort.kind === "level" ? effort.level : "no answer");
+  }
+  if (advice && s.settings.switches.strategy) parts.push(advice);
+  return parts.join(" · ");
 }
 
 /** Left-pads to `width`; text wider than `width` is cut to `width`. */

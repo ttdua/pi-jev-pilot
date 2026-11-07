@@ -22,7 +22,7 @@ import type { WriteResult } from "../store/validate.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
-import { drawStatus, type Decision } from "./status.ts";
+import { drawStatus, withDecision, type Decision } from "./status.ts";
 
 export type MainDeps = {
   load: () => Snapshot;
@@ -192,13 +192,23 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     }
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
-      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
+      setDecision(
+        rec,
+        ctx,
+        snapshot,
+        withDecision(current, { kind: "no-answer" }, current?.advice),
+      );
       return;
     }
     const read = readAnswers(questions.specs, outcome.body);
     if (read.kind === "miss") {
       rec.miss = read.miss;
-      setDecision(rec, ctx, snapshot, { kind: "no-answer" });
+      setDecision(
+        rec,
+        ctx,
+        snapshot,
+        withDecision(current, { kind: "no-answer" }, current?.advice),
+      );
       return;
     }
     rec.answered = true;
@@ -208,7 +218,13 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (risky?.type === "noul") rec.risky = risky.noul;
     if (corrects?.type === "noul") rec.corrects = corrects.noul;
     if (effort?.type !== "choice") {
-      if (askEffort) setDecision(rec, ctx, snapshot, { kind: "no-answer" });
+      if (askEffort)
+        setDecision(
+          rec,
+          ctx,
+          snapshot,
+          withDecision(current, { kind: "no-answer" }, current?.advice),
+        );
       return;
     }
     rec.effortP = effort.probabilities;
@@ -223,13 +239,23 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (level() !== from) return;
     if (from === "max") {
       rec.effective = "max";
-      setDecision(rec, ctx, snapshot, { kind: "level", level: "max" });
+      setDecision(
+        rec,
+        ctx,
+        snapshot,
+        withDecision(current, { kind: "level", level: "max" }, current?.advice),
+      );
       return;
     }
     if (target !== from) pi.setThinkingLevel(target as never);
     rec.effective = level();
     rec.applied = rec.effective;
-    setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
+    setDecision(
+      rec,
+      ctx,
+      snapshot,
+      withDecision(current, { kind: "level", level: rec.effective }, current?.advice),
+    );
   }
 
   /** A held prompt keeps the level: record the classifier outcome, never touch the thinking level. */
