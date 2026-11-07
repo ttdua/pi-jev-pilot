@@ -1,0 +1,11 @@
+{"type":"session","version":3,"id":"s-main","timestamp":"2026-01-01T00:00:00Z","cwd":"/work/alpha"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-01-01T00:00:01Z","message":{"role":"user","content":"Fix the widget parser"}}
+{"type":"custom","id":"c1","parentId":"u1","timestamp":"2026-01-01T00:00:02Z","customType":"jev-pilot:effort","data":{"requested":"high","decision":{"strategy":"auto"}}}
+{"type":"message","id":"a1","parentId":"c1","timestamp":"2026-01-01T00:00:03Z","message":{"role":"assistant","content":[{"type":"text","text":"Looking."}],"provider":"p","model":"m","usage":{"totalTokens":10}}}
+this line is corrupt {{{
+{"type":"message","id":"u2","parentId":"a1","timestamp":"2026-01-01T00:00:04Z","message":{"role":"user","content":[{"type":"text","text":"Add gadget tests"},{"type":"image","data":"x"}]}}
+{"type":"custom","id":"t2","parentId":"u2","timestamp":"2026-01-01T00:00:05Z","customType":"jev-turn","data":{"turnId":"turn-2"}}
+{"type":"message","id":"u3","parentId":"a1","timestamp":"2026-01-01T00:00:06Z","message":{"role":"user","content":"Rename the gizmo module"}}
+{"type":"message","id":"u4","parentId":"u3","timestamp":"2026-01-01T00:00:07Z","message":{"role":"user","content":"/jev status"}}
+{"type":"message","id":"u5","parentId":"u4","timestamp":"2026-01-01T00:00:08Z","message":{"role":"user","content":"<skill name=\"x\" location=\"/s\">body</skill>"}}
+{"type":"message","id":"u6","parentId":"u5","timestamp":"2026-01-01T00:00:09Z","message":{"role":"user","content":"Fix the widget parser"}}

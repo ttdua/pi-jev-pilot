@@ -1,0 +1,2 @@
+{"type":"session","version":3,"id":"s-child","timestamp":"2026-01-01T00:00:00Z","cwd":"/work/alpha","parentSession":"/sessions/main.jsonl"}
+{"type":"message","id":"cu1","parentId":null,"timestamp":"2026-01-01T00:00:01Z","message":{"role":"user","content":"Child only prompt"}}
