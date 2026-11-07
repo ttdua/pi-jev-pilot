@@ -6,7 +6,7 @@
 ## 2. Main flow
 
 - [x] 2.1 Held prompt in `src/host/main.ts`: ask only `corrects`, never set the level, record `held` and `effective`, `held` on the `main` line, set the status suffix; unit tests in `tests/host/main.test.ts`
-- [ ] 2.2 Anchor marker: write `jev-turn` `{ turnId, decided }` for a non-held turn with an effective level and no compaction during the turn; unit tests in `tests/host/main.test.ts`
+- [x] 2.2 Anchor marker: write `jev-turn` `{ turnId, decided }` for a non-held turn with an effective level and no compaction during the turn; unit tests in `tests/host/main.test.ts`
 
 ## 3. Host proof and docs
 
