@@ -24,7 +24,10 @@ function registerLogRenderer(pi: ExtensionAPI): void {
       try {
         const t = logLine(entry.data);
         if (t === undefined) return undefined;
-        return { render: (w: number) => [t.slice(0, Math.max(0, w))], invalidate() {} };
+        return {
+          render: (w: number) => [t.slice(0, Math.max(0, w))],
+          invalidate() {},
+        };
       } catch {
         return undefined;
       }
@@ -34,7 +37,6 @@ function registerLogRenderer(pi: ExtensionAPI): void {
   }
 }
 
-/** Register the status line, the /jev command and the child registry on one extension instance. */
 export type SetupDeps = {
   /** Test seams: the window instance and the ledger reader (default `readLedger`). */
   window?: CutpointWindow;
@@ -46,9 +48,12 @@ function ledgerLines(): readonly unknown[] {
   return read.kind === "ok" ? read.entries : [];
 }
 
+/** Register the status line, the /jev command and the child registry on one extension instance. */
 export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
   const off = subscribeChildren(pi.events);
-  const log = createSessionLog(pi, { verbose: () => loadSnapshot(pi).settings.switches.verbose });
+  const log = createSessionLog(pi, {
+    verbose: () => loadSnapshot(pi).settings.switches.verbose,
+  });
   const window = deps.window ?? createCutpointWindow();
   const append = (e: unknown) => {
     try {
@@ -62,7 +67,10 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       }
     }
   };
-  const routing = registerWorkerRouting(pi, { append });
+  const routing = registerWorkerRouting(pi, {
+    append,
+    window: () => window.entries(),
+  });
   const tools = createToolAssessment(pi);
   const main = createMain(pi, {
     load: () => loadSnapshot(pi),

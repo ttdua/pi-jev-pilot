@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { Snapshot } from "../../src/host/readiness.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker.ts";
+import type { WindowEntry } from "../../src/policy/cutpoints.ts";
 import type { Mode } from "../../src/store/defaults.ts";
 import type { Slot } from "../../src/store/config.ts";
 import { resolveSettings } from "../../src/store/settings.ts";
@@ -23,6 +24,7 @@ export type Opts = {
   parentRequest?: boolean;
   forkedLaunch?: "untouched" | "thinking";
   slots?: Slot[];
+  window?: () => readonly WindowEntry[];
 };
 
 export function snap(o: Opts = {}): Snapshot {
@@ -168,6 +170,7 @@ export function harness(
     },
     now: () => 1_700_000_000_000,
     agentDir: tempDir("jev-worker-agents-"),
+    ...(opts.window === undefined ? {} : { window: opts.window }),
   };
   const lines: Record<string, unknown>[] = [];
   let appendFails = false;
