@@ -1,9 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { copyFileSync, chmodSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
-import { startHostSession, type HostSession } from "./harness";
+import { DEFAULT_JEV_CONFIG, startHostSession, type HostSession } from "./harness";
+import { command, writeConfigFile } from "./rpc-helpers";
 
 const FAKE_CODEX = join(import.meta.dir, "..", "fixtures", "fake-cli", "codex");
 const TIMEOUT = 120_000;
@@ -38,6 +48,7 @@ async function setup(
   const session = await startHostSession({
     fixture,
     self: true,
+    jevConfig: { ...DEFAULT_JEV_CONFIG, reviewEnabled: true },
     timeoutMs: TIMEOUT,
     env: {
       TYPESAFE_API_KEY: "test-key",
@@ -88,6 +99,7 @@ async function runReviewFlow(mode: "ok" | "fail", extra = {}): Promise<Setup> {
 }
 
 describe("cli-review through the real CLI", () => {
+  // Scenario "On from the config": the config turns the review on, so the main session offers it.
   test(
     "offered in the main session",
     async () => {
@@ -209,4 +221,122 @@ describe("cli-review through the real CLI", () => {
     },
     TIMEOUT,
   );
+
+  describe("on and off", () => {
+    const idle: ScriptEntry[] = [{ name: "main", match: () => true, reply: { text: "ok" } }];
+    const firstOf = (s: Setup, n: number): RecordedRequest => s.fixture.requests[n]!;
+
+    /** Pre-creates the agent dir so state.json and config.json can be written before the session. */
+    const prepared = (state?: Record<string, unknown>, config?: Record<string, unknown>) => {
+      const agentDir = tempDir("jev-host-agent-");
+      dirs.push(agentDir);
+      if (config) writeConfigFile(agentDir, config);
+      if (state) {
+        mkdirSync(join(agentDir, "jev"), { recursive: true });
+        writeFileSync(join(agentDir, "jev", "state.json"), JSON.stringify(state));
+      }
+      return agentDir;
+    };
+
+    test(
+      "off by default",
+      async () => {
+        const s = await setup(idle, "ok", { jevConfig: { ...DEFAULT_JEV_CONFIG } });
+        await s.session.prompt("hello");
+        await s.session.waitFor(() => s.fixture.requests.length >= 1, "first request");
+        expect(firstOf(s, 0).toolNames).not.toContain("jev_review");
+        expect(JSON.stringify(firstOf(s, 0).body)).not.toContain("jev_review");
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "state off over config on",
+      async () => {
+        const agentDir = prepared({ version: 1, cliReviewEnabled: false });
+        const s = await setup(idle, "ok", { agentDir });
+        await s.session.prompt("hello");
+        await s.session.waitFor(() => s.fixture.requests.length >= 1, "first request");
+        expect(firstOf(s, 0).toolNames).not.toContain("jev_review");
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "turned on mid-session",
+      async () => {
+        const s = await setup(idle, "ok", { jevConfig: { ...DEFAULT_JEV_CONFIG } });
+        await s.session.prompt("one");
+        await s.session.waitFor(() => s.fixture.requests.length >= 1, "turn one");
+        expect(firstOf(s, 0).toolNames).not.toContain("jev_review");
+        await command(s.session, "/jev cli-review on");
+        await s.session.prompt("two");
+        await s.session.waitFor(() => s.fixture.requests.length >= 2, "turn two");
+        expect(firstOf(s, 1).toolNames).toContain("jev_review");
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "turned off mid-session",
+      async () => {
+        const s = await setup(idle, "ok");
+        await s.session.prompt("one");
+        await s.session.waitFor(() => s.fixture.requests.length >= 1, "turn one");
+        expect(firstOf(s, 0).toolNames).toContain("jev_review");
+        await command(s.session, "/jev cli-review off");
+        await s.session.prompt("two");
+        await s.session.waitFor(() => s.fixture.requests.length >= 2, "turn two");
+        expect(firstOf(s, 1).toolNames).not.toContain("jev_review");
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "refused while off",
+      async () => {
+        // Pi refuses an inactive tool itself, so the tool must be active when the setting flips:
+        // the review is on at the sync, and state.json turns it off while the first request is served.
+        const agentDir = prepared();
+        const turnOff = (): void =>
+          writeFileSync(
+            join(agentDir, "jev", "state.json"),
+            JSON.stringify({ version: 1, cliReviewEnabled: false }),
+          );
+        const flip = reviewCall();
+        const matches = flip.match;
+        flip.match = (r) => {
+          const hit = matches(r);
+          if (hit) turnOff();
+          return hit;
+        };
+        const s = await setup([flip, after], "ok", { agentDir });
+        await s.session.prompt("START-MAIN");
+        await s.session.waitFor(
+          () => s.fixture.requests.some((r) => r.matched === "after"),
+          "tool result request",
+        );
+        const result = toolResult(s.fixture.requests.find((r) => r.matched === "after")!);
+        expect(result).toContain("jev_review is off");
+        expect(result).toContain("/jev cli-review on");
+        expect(!existsSync(s.log) || readFileSync(s.log, "utf8") === "").toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "invalid config, on from state",
+      async () => {
+        const agentDir = prepared({ version: 1, cliReviewEnabled: true }, { notAKnownKey: true });
+        const s = await setup([reviewCall(), after], "ok", { agentDir });
+        await s.session.prompt("START-MAIN");
+        await s.session.waitFor(
+          () => s.fixture.requests.some((r) => r.matched === "after"),
+          "tool result request",
+        );
+        expect(readFileSync(s.log, "utf8")).toContain("exec");
+      },
+      TIMEOUT,
+    );
+  });
 });
