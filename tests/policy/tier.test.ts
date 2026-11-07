@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Answer } from "../../src/policy/answers.ts";
-import { TIER_LADDER, type TierName } from "../../src/policy/launch.ts";
+import { TIER_LADDER, type Target, type TierName } from "../../src/policy/launch.ts";
+import { MODE_NAMES } from "../../src/policy/modes.ts";
 import {
   chooseFallback,
   decideTier,
@@ -22,7 +23,11 @@ function answers(input: {
   const unanswered: Record<string, "missing"> = {};
   if (input.tier !== undefined) {
     const [choice, given] = input.tier;
-    const probabilities: Record<string, number> = { fast: 0, balanced: 0, deep: 0, expert: 0 };
+    const probabilities: Record<string, number> = {};
+    const keys = Object.keys(given);
+    if (!keys.some((k) => k.startsWith("slot::"))) {
+      Object.assign(probabilities, { fast: 0, balanced: 0, deep: 0, expert: 0 });
+    }
     for (const [k, v] of Object.entries(given)) probabilities[k] = v;
     out["tier"] = { type: "choice", choice, probabilities };
   } else unanswered["tier"] = "missing";
@@ -41,7 +46,7 @@ function answers(input: {
   return { kind: "read", answers: out, unanswered };
 }
 
-function decided(tier: TierName, reason: Extract<TierDecision, { kind: "decided" }>["reason"]) {
+function decided(tier: Target, reason: Extract<TierDecision, { kind: "decided" }>["reason"]) {
   return { kind: "decided", tier, reason } satisfies TierDecision;
 }
 
@@ -249,6 +254,84 @@ describe("Rules without a qualifying tier", () => {
   });
 });
 
+describe("Slot rule", () => {
+  const R = ["reviewer"];
+  const slotAt = (p: number, rest: Record<string, number> = {}) =>
+    answers({ tier: ["slot::reviewer", { "slot::reviewer": p, ...rest }] });
+
+  test("Slot at the bar", () => {
+    expect(decideTier(slotAt(0.6), ALL, "standard", R)).toEqual(decided("slot::reviewer", "slot"));
+  });
+  test("Risk wins over a slot", () => {
+    const a = answers({ tier: ["slot::reviewer", { "slot::reviewer": 0.95 }], risky: 0.8 });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("deep", "risky"));
+  });
+  test("Risk floor with only a slot", () => {
+    const a = answers({ tier: ["slot::reviewer", { "slot::reviewer": 0.95 }], risky: 0.9 });
+    expect(decideTier(a, [], "standard", R)).toEqual(decided("slot::reviewer", "slot"));
+  });
+  test("Two slots", () => {
+    const a = answers({ tier: ["slot::bulk", { "slot::bulk": 0.7, "slot::reviewer": 0.1 }] });
+    expect(decideTier(a, ALL, "standard", ["reviewer", "bulk"])).toEqual(
+      decided("slot::bulk", "slot"),
+    );
+  });
+  test("Slot below the bar", () => {
+    const a = slotAt(0.5, { balanced: 0.3, deep: 0.15, fast: 0.05 });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("balanced", "choice"));
+  });
+  test("Below the bar into unsure fast", () => {
+    const a = slotAt(0.55, { fast: 0.4, balanced: 0.05 });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("balanced", "fast-unsure"));
+  });
+  test("Below the bar into expert denied", () => {
+    const a = slotAt(0.5, { expert: 0.3, deep: 0.1 });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("deep", "expert-denied"));
+  });
+  test("Slot not offered", () => {
+    const a = answers({ tier: ["slot::old", { "slot::old": 0.9, balanced: 0.08 }] });
+    expect(decideTier(a, ALL, "standard", [])).toEqual(decided("balanced", "choice"));
+  });
+  test("Slot choice never passes the standard expert gate", () => {
+    const a = answers({
+      tier: ["slot::reviewer", { "slot::reviewer": 0.5, expert: 0.3, deep: 0.1 }],
+      expertNeeded: 0.95,
+    });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("deep", "expert-denied"));
+  });
+  test("Slot choice never passes the premium expert gate", () => {
+    const a = answers({
+      tier: ["slot::reviewer", { "slot::reviewer": 0.5, expert: 0.3, deep: 0.1 }],
+      effort: "max",
+    });
+    expect(decideTier(a, ALL, "premium", R)).toEqual(decided("deep", "expert-denied"));
+  });
+  test("Slot probability missing", () => {
+    const a = answers({ tier: ["slot::reviewer", { balanced: 0.2 }] });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("balanced", "choice"));
+  });
+  test("Below-the-bar tie", () => {
+    const a = slotAt(0.5, { fast: 0.2, balanced: 0.2 });
+    expect(decideTier(a, ALL, "standard", R)).toEqual(decided("balanced", "fast-unsure"));
+  });
+  test("Slot below the bar, no tier offered", () => {
+    expect(decideTier(slotAt(0.5), [], "standard", R)).toEqual({ kind: "none" });
+  });
+  for (const mode of MODE_NAMES) {
+    test(`Slot in every mode: ${mode}`, () => {
+      const a = answers({
+        tier: ["slot::reviewer", { "slot::reviewer": 0.92 }],
+        effort: "max",
+        risky: 0.1,
+      });
+      expect(decideTier(a, ALL, mode, R)).toEqual(decided("slot::reviewer", "slot"));
+    });
+  }
+  test("A slot target never falls back yet", () => {
+    expect(chooseFallback("slot::reviewer", ALL, () => true)).toEqual({ kind: "unchanged" });
+  });
+});
+
 describe("Decision on Jev failure", () => {
   test("Jev failure", () => {
     expect(decideTier({ kind: "miss", miss: "timeout" }, ALL, "standard")).toEqual({
@@ -263,8 +346,8 @@ describe("Decision on Jev failure", () => {
   });
 });
 
-function runs(...ok: TierName[]): (t: TierName) => boolean {
-  return (t) => ok.includes(t);
+function runs(...ok: TierName[]): (t: Target) => boolean {
+  return (t) => ok.includes(t as TierName);
 }
 
 describe("Fallback choice", () => {

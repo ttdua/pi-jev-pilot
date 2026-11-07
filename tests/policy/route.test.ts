@@ -344,7 +344,7 @@ describe("Locks in the route", () => {
 
 describe("Recorded results", () => {
   test("Recorded results validate", () => {
-    const reasons: Record<RouteReason, Route> = {
+    const reasons: Record<Exclude<RouteReason, "slot">, Route> = {
       choice: routeLaunch(input({ answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
       risky: routeLaunch(input({ answers: read({ risky: 0.9 }) })),
       "fast-unsure": routeLaunch(input({ answers: read({ tier: ["fast", { fast: 0.4 }] }) })),

@@ -13,7 +13,9 @@ import type { ModelThinking } from "../policy/effort.ts";
 import {
   effectiveLaunch,
   type AgentFacts,
+  isSlot,
   type EffectiveLaunch,
+  type Target,
   type TierName,
 } from "../policy/launch.ts";
 import { launchKind, routeLaunch, type LaunchKind, type Route } from "../policy/route.ts";
@@ -147,6 +149,13 @@ function lastUserText(ctx: ExtensionContext): string | undefined {
 function splitModel(id: string): [string, string] | undefined {
   const at = id.indexOf("/");
   return at <= 0 || at === id.length - 1 ? undefined : [id.slice(0, at), id.slice(at + 1)];
+}
+
+// Slot behavior arrives with the host slot support; until then a slot cannot run.
+const SLOT_UNSUPPORTED: Check = { ok: false, why: "slots are not supported yet" };
+
+function modelFor(tiers: Partial<Record<TierName, string>>, target: Target): string {
+  return isSlot(target) ? "" : (tiers[target] ?? "");
 }
 
 function checkTier(ctx: ExtensionContext, id: string): Check {
@@ -328,12 +337,12 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   const warn = (
     ctx: ExtensionContext,
     snap: Snapshot,
-    tier: TierName,
+    tier: Target,
     why: string,
-    to: TierName | undefined,
+    to: Target | undefined,
   ): void => {
     if (!ctx.hasUI) return;
-    const model = snap.settings.tiers[tier] ?? "";
+    const model = modelFor(snap.settings.tiers, tier);
     const key = `${tier}\u0000${model}`;
     if (warned.has(key)) return;
     warned.add(key);
@@ -364,11 +373,11 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const answers = outcome === undefined ? undefined : readWorkerOutcome(outcome, entry.specs);
     entry.jev = outcome;
     const { settings } = snap;
-    const checks = new Map<TierName, Check>();
-    const checkOf = (tier: TierName): Check => {
+    const checks = new Map<Target, Check>();
+    const checkOf = (tier: Target): Check => {
       let c = checks.get(tier);
       if (c === undefined) {
-        c = checkTier(ctx, settings.tiers[tier] ?? "");
+        c = isSlot(tier) ? SLOT_UNSUPPORTED : checkTier(ctx, modelFor(settings.tiers, tier));
         checks.set(tier, c);
       }
       return c;
@@ -386,7 +395,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         const c = checkOf(t);
         return c.ok ? c.thinking : undefined;
       },
-      modelOf: (t) => settings.tiers[t] ?? "",
+      modelOf: (t) => modelFor(settings.tiers, t),
     });
     entry.answers = answers;
     entry.route = result;

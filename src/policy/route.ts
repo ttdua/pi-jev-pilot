@@ -7,7 +7,7 @@ import {
   type ModelThinking,
   type ThinkingLevel,
 } from "./effort.ts";
-import type { EffectiveLaunch, TierName } from "./launch.ts";
+import type { EffectiveLaunch, Target, TierName } from "./launch.ts";
 import type { ModeName } from "./modes.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
 import type { WorkerAnswers } from "./worker.ts";
@@ -29,9 +29,9 @@ export type RouteInput = {
   offered: readonly TierName[];
   mode: ModeName;
   forkedLaunch: ForkedLaunch;
-  canRun: (t: TierName) => boolean;
-  thinkingOf: (t: TierName) => ModelThinking | undefined;
-  modelOf: (t: TierName) => string;
+  canRun: (t: Target) => boolean;
+  thinkingOf: (t: Target) => ModelThinking | undefined;
+  modelOf: (t: Target) => string;
 };
 
 export type Route =
@@ -42,8 +42,8 @@ export type Route =
       write: { model?: string; thinking?: ThinkingLevel };
       record: {
         reason: RouteReason;
-        tier?: TierName;
-        fallback?: TierName;
+        tier?: Target;
+        fallback?: Target;
         effort?: ThinkingLevel;
         locked?: true;
       };
