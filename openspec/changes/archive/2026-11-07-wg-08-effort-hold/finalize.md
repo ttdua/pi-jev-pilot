@@ -7,9 +7,9 @@
 
 **Change**: `wg-08-effort-hold`
 **Finalized at**: `2026-11-07T01:58Z`
-**Outcome**: `merge-locally`
+**Outcome**: `pr-created`
 
-Deviation from the canonical `pr-updated` flow: the project `AGENTS.md` forbids pushing, merging or opening a PR without the operator's explicit go-ahead in chat. Steps 1–9 ran (worktree branch fast-forwarded into the feature branch, tests re-run, worktree removed, receipt committed); steps 10–12 (push, PR offer, PR comment) are held until the operator approves them. `WG-08` has no upstream yet.
+Deviation from the canonical flow: the project `AGENTS.md` forbids pushing or opening a PR without the operator's explicit go-ahead. Steps 1–9 ran first; the operator then approved archive, push and PR in the Inbox. The change was archived (specs synced) before the push, so the PR carries implementation and archive together. A trial merge of `WG-08` with `origin/main` (which gained #30) was conflict-free: `bun check` clean, `bun test` 881 pass, 0 fail.
 
 ---
 
@@ -17,8 +17,8 @@ Deviation from the canonical `pr-updated` flow: the project `AGENTS.md` forbids 
 
 - **Branch**: `WG-08`
 - **Base branch**: `main`
-- **Final state**: `merged` (into the feature branch `WG-08`, local only; not pushed)
-- **PR URL**: `N/A`
+- **Final state**: `pr-open`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/32`
 
 ---
 
@@ -31,7 +31,7 @@ Deviation from the canonical `pr-updated` flow: the project `AGENTS.md` forbids 
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/32#issuecomment-6700795567)
 
 ---
 
@@ -51,4 +51,4 @@ Deviation from the canonical `pr-updated` flow: the project `AGENTS.md` forbids 
 
 ## Next step
 
-Run `/opsx-archive` on `WG-08` to move the change into the archive and sync the delta specs. Then, with the operator's go-ahead, push `WG-08` and open the PR against `main` (title suggestion: `feat(effort-hold): wg-08-effort-hold`).
+Wait for PR code review. The change is already archived on `WG-08`; after approval, merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI), then clean up the `WG-08` worktree from `main` with `wt remove WG-08`.
