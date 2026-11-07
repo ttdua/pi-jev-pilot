@@ -7,7 +7,7 @@ import { routeLaunch } from "../../src/policy/route.ts";
 import { difficultyScore } from "../../src/policy/score.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
 import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
-import { windowEntries, type WindowLine } from "../../src/policy/cut-window.ts";
+import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/cut-window.ts";
 import { modelOfConfig, REPLAY_LAUNCH } from "../../scripts/replay/compare.ts";
 import { workerAnswers } from "./helpers.ts";
 
@@ -64,12 +64,28 @@ describe("routeStream", () => {
   });
 
   test("seed then window", () => {
-    const answers = Array.from({ length: 150 }, (_, i) => spread(i));
-    const got = routeStream(answers, opts(150));
-    expect(got.slice(0, 100)).toEqual(answers.slice(0, 100).map((a) => fixed(a)));
-    const lines: WindowLine[] = answers.slice(0, 100).map((a, i) => {
-      const r = recordOf(a);
-      return {
+    // Skewed stream: window cuts differ from the seed once 100 entries exist.
+    const answers = Array.from({ length: 150 }, (_, i) =>
+      workerAnswers({
+        tier: "deep",
+        tierP: { deep: 0.6, balanced: 0.3, fast: 0.1 },
+        effort: i % 3 ? "medium" : "low",
+      }),
+    );
+    const mixed = answers.map((a, i) => (i % 5 === 0 ? spread(i) : a));
+    const lines: WindowLine[] = [];
+    const rolling: string[] = [];
+    const seedOnly: string[] = [];
+    mixed.forEach((a, i) => {
+      const cuts = cutPointsFor(
+        windowEntries(lines.slice(-WINDOW_MAX), RUBRIC_VERSION),
+        "standard",
+      );
+      const r = recordOf(a, cuts);
+      rolling.push(r.tier ?? "none");
+      seedOnly.push(fixed(a));
+      const effort = a.answers["effort"];
+      lines.push({
         kind: "worker",
         at: i,
         rubric: RUBRIC_VERSION,
@@ -78,14 +94,13 @@ describe("routeStream", () => {
         reason: r.reason,
         ...(r.tier !== undefined ? { tier: r.tier } : {}),
         ...(r.fallback !== undefined ? { fallback: r.fallback } : {}),
-        effortP: {
-          [a.answers["effort"]?.type === "choice" ? a.answers["effort"].choice : "high"]: 1,
-        },
-      };
+        effortP: { [effort?.type === "choice" ? effort.choice : "high"]: 1 },
+      });
     });
-    const cuts = cutPointsFor(windowEntries(lines, RUBRIC_VERSION), "standard");
-    expect(cuts).not.toEqual(SEED_CUTPOINTS.standard);
-    expect(got[100]).toBe(fixed(answers[100]!, cuts));
+    // The oracle must discriminate: seed-only differs from rolling after the seed phase, never before.
+    expect(rolling.slice(0, 100)).toEqual(seedOnly.slice(0, 100));
+    expect(rolling.slice(100)).not.toEqual(seedOnly.slice(100));
+    expect(routeStream(mixed, opts(150))).toEqual(rolling);
   });
 
   test("seed for a short stream", () => {
@@ -94,19 +109,33 @@ describe("routeStream", () => {
   });
 
   test("slot launch skips the window", () => {
-    const slot = workerAnswers({ tier: "slot::reviewer", tierP: { "slot::reviewer": 0.9 } });
+    // A slot answer that would be a valid window entry (score, ladder probabilities) if it were added.
+    const slot = workerAnswers({
+      tier: "slot::reviewer",
+      tierP: { "slot::reviewer": 0.9, deep: 0.1 },
+      effort: "high",
+    });
     const rest = Array.from({ length: 130 }, (_, i) => spread(i));
-    const withSlot = routeStream([slot, ...rest], opts(131, { routing: "slots" }));
-    expect(withSlot[0]).toBe("slot::reviewer");
+    const slots = Array.from({ length: 100 }, () => slot);
+    const withSlots = routeStream([...slots, ...rest], opts(230, { routing: "slots" }));
+    expect(withSlots.slice(0, 100)).toEqual(Array(100).fill("slot::reviewer"));
     const without = routeStream(rest, opts(130, { routing: "slots" }));
-    expect(withSlot.slice(1)).toEqual(without);
+    // Oracle: had the slots filled the window (100 entries), the first rest answers would use window cuts.
+    const filled = routeStream(
+      [...Array.from({ length: 100 }, () => spread(3)), ...rest],
+      opts(230),
+    );
+    expect(filled.slice(100)).not.toEqual(without);
+    expect(withSlots.slice(100)).toEqual(without);
   });
 
   test("no-slot routing", () => {
-    const slot = workerAnswers({ tier: "slot::reviewer", tierP: { "slot::reviewer": 0.9 } });
+    const slot = workerAnswers({
+      tier: "slot::reviewer",
+      tierP: { "slot::reviewer": 0.9, fast: 0.1 },
+    });
     const got = routeStream([slot], opts(1, { routing: "tiers" }));
-    expect(got[0]).not.toBe("slot::reviewer");
-    expect(got[0]).toBeDefined();
+    expect(["fast", "balanced", "deep", "expert"]).toContain(got[0] as string);
   });
 
   test("no slot configured", () => {
