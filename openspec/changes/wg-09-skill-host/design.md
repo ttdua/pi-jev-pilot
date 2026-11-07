@@ -44,7 +44,7 @@ The body is `stripFrontmatter(raw).trim()`, the same text Pi puts in its block, 
 
 **Loaded in context.** `loadedSkills` scans `buildSessionProjection().entries`:
 - A `custom_message` source entry with `customType` `jev-skill` and `details.form` `content` counts with its `details.name` and `details.fingerprint`, but only when its projected messages still contain the delivered text. A context edit that removed or rewrote it makes it not count.
-- A user message counts when its first projected text part starts with an explicit block for a catalog name. It gets the current fingerprint only when that text starts with the full block rebuilt from the current catalog body (`…\n\n<body>\n</skill>`). Otherwise it gets a value that never matches.
+- A user message counts when its first projected text part starts with an explicit block for a catalog name. It gets the current fingerprint only when that text starts with the full block rebuilt from the current catalog body (`…\n\n<body>\n</skill>`). Otherwise it gets the sentinel fingerprint `stale` (`STALE_FINGERPRINT`), which matches no real SHA-256.
 
 Comparing with the rebuilt block avoids parsing where a body ends, which is ambiguous when the body itself contains `</skill>`. `suggest` and `reference` messages carry no body and never count. Alternatives:
 - Scan `getBranch()` after the latest compaction. Rejected, because it ignores entries kept across the compaction.
