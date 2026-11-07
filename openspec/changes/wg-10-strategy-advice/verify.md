@@ -145,8 +145,8 @@ Additional fresh checks: `bun run typecheck` exit 0, `bun run lint` exit 0, `bun
 
 ## Overall Decision
 
-- [x] PASS: proceed with `/opsx-continue` to finalize
-- [ ] PASS_WITH_WARNINGS
+- [ ] PASS: proceed with `/opsx-continue` to finalize
+- [x] PASS_WITH_WARNINGS: proceed. All six checks pass and the fresh tests are green; two non-blocking suggestions remain (below)
 - [ ] FAIL
 
 Issues:
