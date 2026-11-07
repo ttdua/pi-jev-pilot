@@ -2,6 +2,7 @@
 import { chmodSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Aggregates, DiffCase } from "./compare.ts";
+import type { ReportAggregates } from "./report-compare.ts";
 
 function formatCases(cases: readonly DiffCase[]): string {
   const blocks = cases.map((c) =>
@@ -21,7 +22,7 @@ function formatCases(cases: readonly DiffCase[]): string {
 /** Owner-only outputs. `aggregates.json` goes last, atomically, so it marks a finished run. */
 export function writeOutputs(
   dir: string,
-  aggregates: Aggregates,
+  aggregates: Aggregates | ReportAggregates,
   cases: readonly DiffCase[],
 ): void {
   const markdown = formatCases(cases);

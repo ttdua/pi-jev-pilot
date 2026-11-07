@@ -7,7 +7,8 @@ import type { PlainConfig } from "./variants.ts";
 
 export const USAGE =
   "usage: bun scripts/replay/cli.ts --pass 1|report [--seed N] [--main N] [--workers N] " +
-  "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--only VARIANTS] [--send]";
+  "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--only VARIANTS] [--send]\n" +
+  "--workers defaults to 46 for pass 1 and 200 for report.";
 
 export class UsageError extends Error {}
 
@@ -22,7 +23,8 @@ export type Args = {
   only?: string[];
   seed: number;
   main: number;
-  workers: number;
+  /** Absent when `--workers` is not given; each pass applies its own default. */
+  workers?: number;
   sessions?: string;
   capabilities?: string;
   url?: string;
@@ -48,7 +50,7 @@ function onlyVariants(value: string | undefined): string[] {
 
 export function parseArgs(argv: readonly string[]): Args {
   const text: Partial<Record<(typeof TEXT_FLAGS)[number], string>> = {};
-  const nums: Record<string, number> = { "--seed": 1, "--main": 100, "--workers": 46 };
+  const nums: Record<string, number> = { "--seed": 1, "--main": 100 };
   let pass: 1 | "report" | undefined;
   let send = false;
   for (let i = 0; i < argv.length; i++) {
@@ -78,7 +80,7 @@ export function parseArgs(argv: readonly string[]): Args {
     pass,
     seed: nums["--seed"]!,
     main: nums["--main"]!,
-    workers: nums["--workers"]!,
+    ...(nums["--workers"] === undefined ? {} : { workers: nums["--workers"] }),
     ...(text["--sessions"] === undefined ? {} : { sessions: text["--sessions"] }),
     ...(text["--capabilities"] === undefined ? {} : { capabilities: text["--capabilities"] }),
     ...(text["--url"] === undefined ? {} : { url: text["--url"] }),

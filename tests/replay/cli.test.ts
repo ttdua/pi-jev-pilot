@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { main } from "../../scripts/replay/cli.ts";
 import { parseArgs, readConfig, UsageError } from "../../scripts/replay/config.ts";
@@ -49,7 +57,6 @@ describe("parseArgs", () => {
       pass: 1,
       seed: 1,
       main: 100,
-      workers: 46,
       send: false,
     });
     const a = parseArgs(["--pass", "1", "--seed", "7", "--send"]);
@@ -191,14 +198,6 @@ describe("main", () => {
     expect(r.err).toContain("report");
   });
 
-  test("--pass report is not wired yet and exits 2", async () => {
-    const r = await run(["--pass", "report", "--sessions", sessions], {
-      PI_CODING_AGENT_DIR: agentDir(),
-    });
-    expect(r.code).toBe(2);
-    expect(r.err).toContain("--pass report is not wired yet");
-  });
-
   test("--kept is an unknown flag and exits 2", async () => {
     const r = await run(["--pass", "1", "--kept", "last_decision", "--sessions", sessions], {
       PI_CODING_AGENT_DIR: agentDir(),
@@ -244,5 +243,142 @@ describe("main", () => {
     const agg = JSON.parse(readFileSync(file, "utf8")) as { pass: number };
     expect(agg.pass).toBe(1);
     expect(r.out).toContain(join(dir, "jev", "replay", runId!));
+  });
+});
+
+describe("report pass", () => {
+  const MARKER = "JEV-MARKER-PROMPT";
+  const agent = (name: string) => ({
+    name,
+    source: "global",
+    description: `${name} agent`,
+    instructionsExcerpt: "",
+    declaredTools: null,
+    maxTurns: null,
+    sets: { model: false, thinking: false },
+  });
+
+  /** A copy of the session corpus with one extra prompt that carries the marker. */
+  function markerCorpus(): string {
+    const dir = tempDir("replay-report-");
+    dirs.push(dir);
+    cpSync(sessions, join(dir, "sessions"), { recursive: true });
+    const lines = [
+      { type: "session", version: 3, id: "s-marker", timestamp: "2026-02-01T00:00:00Z", cwd: "/m" },
+      {
+        type: "message",
+        id: "m1",
+        parentId: null,
+        timestamp: "2026-02-01T00:00:01Z",
+        message: { role: "user", content: `${MARKER} tidy the parser` },
+      },
+    ];
+    writeFileSync(
+      join(dir, "sessions", "marker.jsonl"),
+      `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`,
+    );
+    return join(dir, "sessions");
+  }
+
+  function snapshot(dir: string): string {
+    const path = join(dir, "caps.json");
+    const agents = ["scout", "worker", "reviewer", "general"].map(agent);
+    writeFileSync(path, JSON.stringify({ v: 1, tools: [], agents }));
+    return path;
+  }
+
+  /** Loopback Jev that answers a prompt `high` effort the second time it sees it. */
+  function flippingJev(): { url: string; count: () => number; stop: () => void } {
+    const seen = new Map<string, number>();
+    let total = 0;
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch(req) {
+        total++;
+        const body = await req.text();
+        const prompt = body.includes(MARKER) ? MARKER : body;
+        const n = (seen.get(prompt) ?? 0) + 1;
+        seen.set(prompt, n);
+        return Response.json(mainBody({ effort: prompt === MARKER && n > 1 ? "high" : "low" }));
+      },
+    });
+    return {
+      url: `http://127.0.0.1:${server.port}/`,
+      count: () => total,
+      stop: () => void server.stop(true),
+    };
+  }
+
+  test("report dry run sends nothing and prints the estimate", async () => {
+    fixture = await startJevFixture({ "/": { json: mainBody() } });
+    const dir = agentDir();
+    const r = await run(["--pass", "report", "--sessions", sessions, "--url", fixture.url("/")], {
+      PI_CODING_AGENT_DIR: dir,
+    });
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/requests: \d+/);
+    expect(r.out).toMatch(/cost: \$/);
+    expect(fixture.requests.length).toBe(0);
+    expect(existsSync(join(dir, "jev", "replay"))).toBe(false);
+  });
+
+  test("report send keeps the prompt out of aggregates and in cases.md", async () => {
+    const corpus = markerCorpus();
+    const dir = agentDir({ classifier: { apiKeyEnv: "MY_REPLAY_KEY" } });
+    const caps = snapshot(dir);
+    const jev = flippingJev();
+    try {
+      const base = ["--pass", "report", "--sessions", corpus, "--capabilities", caps];
+      const dry = await run([...base, "--url", jev.url], { PI_CODING_AGENT_DIR: dir });
+      const planned = Number(/requests: (\d+)/.exec(dry.out)?.[1]);
+      expect(planned).toBeGreaterThan(0);
+      expect(jev.count()).toBe(0);
+      const r = await run([...base, "--url", jev.url, "--send"], {
+        PI_CODING_AGENT_DIR: dir,
+        MY_REPLAY_KEY: SECRET,
+      });
+      expect(r.code).toBe(0);
+      expect(jev.count()).toBe(planned);
+      const [runId] = readdirSync(join(dir, "jev", "replay"));
+      expect(runId).toMatch(/-report$/);
+      const out = join(dir, "jev", "replay", runId!);
+      const raw = readFileSync(join(out, "aggregates.json"), "utf8");
+      expect((JSON.parse(raw) as { pass: string }).pass).toBe("report");
+      expect(raw).not.toContain(MARKER);
+      expect(readFileSync(join(out, "cases.md"), "utf8")).toContain(MARKER);
+    } finally {
+      jev.stop();
+    }
+  });
+
+  test("report with Jev down writes aggregates and counts every request a miss", async () => {
+    fixture = await startJevFixture({ "/": { json: {}, status: 500 } });
+    const dir = agentDir({ classifier: { apiKeyEnv: "MY_REPLAY_KEY" } });
+    const argv = [
+      "--pass",
+      "report",
+      "--sessions",
+      markerCorpus(),
+      "--capabilities",
+      snapshot(dir),
+    ];
+    const r = await run([...argv, "--url", fixture.url("/"), "--send"], {
+      PI_CODING_AGENT_DIR: dir,
+      MY_REPLAY_KEY: SECRET,
+    });
+    expect(r.code).toBe(0);
+    const [runId] = readdirSync(join(dir, "jev", "replay"));
+    const agg = JSON.parse(
+      readFileSync(join(dir, "jev", "replay", runId!, "aggregates.json"), "utf8"),
+    ) as { misses: Record<string, number> };
+    const misses = Object.values(agg.misses).reduce((a, b) => a + b, 0);
+    expect(misses).toBeGreaterThan(0);
+    expect(misses).toBe(Number(/requests: (\d+)/.exec(r.out)?.[1]));
+  });
+
+  test("workers default to 200 for report and 46 for pass 1", () => {
+    expect(parseArgs(["--pass", "report"]).workers).toBeUndefined();
+    expect(parseArgs(["--pass", "report", "--workers", "5"]).workers).toBe(5);
   });
 });
