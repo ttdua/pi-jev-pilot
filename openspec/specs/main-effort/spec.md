@@ -37,7 +37,7 @@ A main decision SHALL be attempted only when every condition holds: the run was 
 - **THEN** no Jev request is sent and no ledger line is written
 
 ### Requirement: Main questions
-A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order), `risky` (a noul) and `corrects` (a noul), with the wording in `docs/jev-questions.md`. When the selected model supports fewer than two levels from `low` upward, `effort` and `risky` MUST NOT be asked, and only `corrects` is. No other question MUST be asked.
+A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order), `risky` (a noul) and `corrects` (a noul), with the wording in `docs/jev-questions.md`. When the selected model supports fewer than two levels from `low` upward, or the prompt is held (see `effort-hold`), `effort` and `risky` MUST NOT be asked, and only `corrects` is. No other question MUST be asked.
 
 #### Scenario: Reasoning model
 - **WHEN** the selected model is a reasoning model supporting `low` to `high`
@@ -46,6 +46,10 @@ A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh
 #### Scenario: Non-reasoning model
 - **WHEN** the selected model is not a reasoning model
 - **THEN** the request's `questions` has exactly the key `corrects`, and the level is never changed
+
+#### Scenario: Held prompt
+- **WHEN** the prompt is held
+- **THEN** the request's `questions` has exactly the key `corrects`
 
 ### Requirement: Question wire format
 Each question SHALL use the TypeSafe wire format: a choice carries `type` `choice`, `instructions` and `criteria` mapping each option to its description; a noul carries `type` `noul`, `instructions` and `criteria` with `true` and `false`.

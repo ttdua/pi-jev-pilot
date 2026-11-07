@@ -15,7 +15,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-05 | Ledger | M | WG-03 | Done |
 | WG-06 | Status line and `/jev` base | M | WG-03 | Done |
 | WG-07 | Main effort | M | WG-02, 04, 05, 06 | Done |
-| WG-08 | Effort hold | S | WG-07 | Planned |
+| WG-08 | Effort hold | S | WG-07 | Done |
 | WG-09 | Skill pick and delivery | L | WG-07 | Planned |
 | WG-10 | Strategy advice | S | WG-07 | Planned |
 | WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
@@ -136,7 +136,7 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 ### WG-08: Effort hold
 
-**A5.** First decision kept for the session on listed providers; one new decision after a compaction; questions omitted while held.
+**A5.** Decision kept on listed providers until a compaction or a model switch; one new decision after a compaction; questions omitted while held.
 
 - **Done when:** a host test shows no thinking change after the first decision on a held provider, and exactly one after a compaction.
 - **Note:** in the [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run, `claude-code` kept the prompt cache across a thinking change, so it is not in the default hold list.

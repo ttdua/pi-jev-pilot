@@ -9,6 +9,7 @@ import type { askJev } from "../jev/client.ts";
 import { mainQuestions } from "../jev/questions.ts";
 import { mainState } from "../jev/state.ts";
 import { readAnswers } from "../policy/answers.ts";
+import { isHeld } from "../policy/hold.ts";
 import {
   CORRECTION_THRESHOLD,
   canAskEffort,
@@ -19,7 +20,7 @@ import {
 } from "../policy/effort.ts";
 import type { WriteResult } from "../store/validate.ts";
 import { isChild } from "./child.ts";
-import { branchItems, previousTurnId } from "./context.ts";
+import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
 import { drawStatus, type Decision } from "./status.ts";
 
@@ -41,6 +42,10 @@ export type TurnRecord = {
   mode: string;
   from: ThinkingLevel;
   previousTurnId?: string;
+  held?: true;
+  provider?: string;
+  model?: string;
+  compactionId?: string;
   answered: boolean;
   ms: number;
   miss?: string;
@@ -120,9 +125,18 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       reasoning: model.reasoning,
       thinkingLevelMap: (model as { thinkingLevelMap?: never }).thinkingLevelMap,
     });
-    const askEffort = canAskEffort(supported);
-    const questions = mainQuestions({ askEffort });
     const entries = ctx.sessionManager.getBranch();
+    const { anchor, compactionId } = holdContext(entries);
+    const provider = typeof model.provider === "string" ? model.provider : undefined;
+    const modelId = typeof model.id === "string" ? model.id : undefined;
+    const held = isHeld({
+      provider,
+      model: modelId,
+      holdProviders: snapshot.settings.effort.holdProviders,
+      anchor,
+    });
+    const askEffort = !held && canAskEffort(supported);
+    const questions = mainQuestions({ askEffort });
     const state = mainState({
       prompt: event.prompt,
       items: branchItems(entries),
@@ -138,6 +152,10 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       mode: snapshot.settings.mode,
       from,
       ...(prev === undefined ? {} : { previousTurnId: prev }),
+      ...(held ? { held: true as const } : {}),
+      ...(provider === undefined ? {} : { provider }),
+      ...(modelId === undefined ? {} : { model: modelId }),
+      ...(compactionId === undefined ? {} : { compactionId }),
       answered: false,
       ms: 0,
       sawRequest: false,
@@ -168,6 +186,10 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       return;
     }
     rec.ms = outcome.ms;
+    if (held) {
+      holdOutcome(rec, ctx, snapshot, outcome, questions.specs);
+      return;
+    }
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
       setDecision(rec, ctx, snapshot, { kind: "no-answer" });
@@ -207,6 +229,30 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (target !== from) pi.setThinkingLevel(target as never);
     rec.effective = level();
     rec.applied = rec.effective;
+    setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
+  }
+
+  /** A held prompt keeps the level: record the classifier outcome, never touch the thinking level. */
+  function holdOutcome(
+    rec: TurnRecord,
+    ctx: Ctx,
+    snapshot: Snapshot,
+    outcome: Exclude<Awaited<ReturnType<typeof askJev>>, { kind: "cancelled" }>,
+    specs: ReturnType<typeof mainQuestions>["specs"],
+  ): void {
+    if (outcome.kind === "miss") {
+      rec.miss = outcome.miss;
+    } else {
+      const read = readAnswers(specs, outcome.body);
+      if (read.kind === "miss") {
+        rec.miss = read.miss;
+      } else {
+        rec.answered = true;
+        const corrects = read.answers["corrects"];
+        if (corrects?.type === "noul") rec.corrects = corrects.noul;
+      }
+    }
+    rec.effective = level();
     setDecision(rec, ctx, snapshot, { kind: "level", level: rec.effective });
   }
 
@@ -251,6 +297,30 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     return undefined;
   }
 
+  /** `jev-turn` data: the hold anchor rides along only for a decided turn on an unchanged compaction. */
+  function turnData(rec: TurnRecord, ctx: Ctx | undefined): Record<string, unknown> {
+    const plain = { turnId: rec.turnId };
+    if (
+      rec.held === true ||
+      rec.effective === undefined ||
+      typeof rec.provider !== "string" ||
+      typeof rec.model !== "string" ||
+      ctx === undefined
+    ) {
+      return plain;
+    }
+    try {
+      const { compactionId } = holdContext(ctx.sessionManager.getBranch());
+      if (compactionId !== rec.compactionId) return plain;
+      return {
+        ...plain,
+        decided: { provider: rec.provider, model: rec.model, level: rec.effective },
+      };
+    } catch {
+      return plain;
+    }
+  }
+
   /** Correction line, `main` line, then the `jev-turn` entry. A failed ledger write never skips the entry. */
   function write(rec: TurnRecord, aborted: boolean, ctx: Ctx | undefined): void {
     const base = { v: 1, at: rec.at, session: rec.sessionId };
@@ -279,6 +349,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         mode: rec.mode,
         answered: rec.answered,
         turnId: rec.turnId,
+        ...(rec.held === true ? { held: true } : {}),
         ...(rec.answered || rec.miss !== undefined ? { ms: rec.ms } : {}),
         ...(rec.miss === undefined ? {} : { miss: rec.miss }),
         ...(rec.effortP === undefined ? {} : { effortP: rec.effortP }),
@@ -298,7 +369,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       /* ledger failure never affects the turn */
     }
     try {
-      pi.appendEntry("jev-turn", { turnId: rec.turnId });
+      pi.appendEntry("jev-turn", turnData(rec, ctx));
     } catch {
       /* swallow */
     }

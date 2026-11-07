@@ -118,7 +118,7 @@ Made once per eligible main prompt.
 |---|---|---|
 | Effort | `effort`, `risky` | Choice; `risky > .7` raises to at least `high`; start capped at `xhigh`; clamped with `clampThinkingLevel`; a current `max` is left alone. No confidence gate, no close-call lean |
 | Manual change | | The operator changing the level during an outstanding request discards that result. The next prompt decides again. `/jev effort off` hands the level back |
-| Hold | Config | Providers in `holdProviders` keep the first decision until a compaction, without asking `effort` or `risky` |
+| Hold | Config | Providers in `holdProviders` keep the level of the newest decision (anchored on provider and model) until a compaction or a provider or model switch, without asking `effort` or `risky` |
 | Skill | `which`, `gate::*` | At most one; probability ≥ .5, or probability and gate mean both ≥ .3 |
 | Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates |
 | Correction mark | `corrects` | ≥ .7 writes a `correction` line for the previous turn |
@@ -228,7 +228,7 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | Main, worker | `effortP` | All effort probabilities |
 | | `risky` | Probability |
 | | `requested`, `effective`, `from` | Effort wanted, effort applied, effort before |
-| | `held` | Decided by hold, without asking |
+| | `held` | Held turn: level left as is, with `effective`, and no `effortP`, `risky` or `requested` |
 | | `strategy`, `strategyP`, `advised` | Answer, its probability, whether advice was attached |
 | | `skill`, `skillP`, `gate` | Pick, its probability, gate mean |
 | | `turnId` | Id of this turn, so a later `correction` line can point at it |
