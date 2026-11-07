@@ -112,16 +112,16 @@ describe("resolveSettings", () => {
     const config = {
       effort: { holdProviders: ["x"] },
       tiers: { fast: "m" },
-      crew: { slots: [{ name: "a", model: "b" }] },
+      crew: { slots: [{ name: "a", model: "b", when: "w" }] },
     };
     const s = resolveSettings({ config, state: {} });
     s.effort.holdProviders.push("y");
     s.tiers.deep = "z";
     s.crew.slots[0]!.name = "changed";
-    s.crew.slots.push({ name: "n", model: "m" });
+    s.crew.slots.push({ name: "n", model: "m", when: "w" });
     expect(config.effort.holdProviders).toEqual(["x"]);
     expect(config.tiers).toEqual({ fast: "m" });
-    expect(config.crew.slots).toEqual([{ name: "a", model: "b" }]);
+    expect(config.crew.slots).toEqual([{ name: "a", model: "b", when: "w" }]);
 
     const d = resolveSettings({ config: {}, state: {} });
     d.effort.holdProviders.push("y");

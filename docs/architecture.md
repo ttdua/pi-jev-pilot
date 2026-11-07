@@ -199,7 +199,7 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Malformed `state.json` | Defaults apply; file moved to `state.json.bad` on the next change | Problem reported to `/jev` |
 | Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
 | Tier model unavailable | Next lower tier, with a warning shown once per tier and model per session | Warning; ledger `fallback` |
-| Slot model unavailable | `balanced`, with a warning | Warning; ledger `fallback` |
+| Slot model unavailable | `balanced`, then `fast`, with a warning naming `crew.slots "<name>" model` | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
 | Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
 | Tool assessment fails | Worker keeps all tools | Nothing (counts omitted) |

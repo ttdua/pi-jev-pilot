@@ -66,7 +66,7 @@ function expectValid(r: ConfigRead): void {
   expect(r.kind).toBe("ok");
 }
 
-const slot = (name: string) => ({ name, model: "9router/gpt-6.1-sol" });
+const slot = (name: string) => ({ name, model: "9router/gpt-6.1-sol", when: "Choose it." });
 
 describe("readConfig", () => {
   test("Valid full example", () => {
@@ -77,7 +77,7 @@ describe("readConfig", () => {
   test("Several problems reported together", () => {
     const r = readJson({
       classifier: { timeoutMs: 100 },
-      crew: { slots: [{ name: "Reviewer", model: "a/b" }] },
+      crew: { slots: [{ name: "Reviewer", model: "a/b", when: "w" }] },
     });
     expect(paths(r).sort()).toEqual(["classifier.timeoutMs", "crew.slots[0].name"]);
   });
@@ -203,6 +203,12 @@ describe("readConfig", () => {
     expect(paths(w("x".repeat(501)))).toEqual(["crew.slots[0].when"]);
   });
 
+  test("Slot without when", () => {
+    expect(paths(readJson({ crew: { slots: [{ name: "reviewer", model: "a/b" }] } }))).toEqual([
+      "crew.slots[0].when",
+    ]);
+  });
+
   test("Too many slots", () => {
     const slots = Array.from({ length: 9 }, (_, i) => slot(`s${i}`));
     expect(paths(readJson({ crew: { slots } }))).toEqual(["crew.slots"]);
@@ -219,7 +225,9 @@ describe("readConfig", () => {
   });
 
   test("Slot without model", () => {
-    expect(paths(readJson({ crew: { slots: [{ name: "a" }] } }))).toEqual(["crew.slots[0].model"]);
+    expect(paths(readJson({ crew: { slots: [{ name: "a", when: "w" }] } }))).toEqual([
+      "crew.slots[0].model",
+    ]);
   });
 
   test("Duplicate hold provider", () => {

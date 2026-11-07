@@ -154,6 +154,7 @@ export function fixtureModelsJson(baseUrl: string, opts: { keyless?: boolean } =
         { id: "fixture-balanced", reasoning: true },
         { id: "fixture-fast", reasoning: true },
         { id: "fixture-expert", reasoning: true },
+        { id: "fixture-review", reasoning: true },
       ],
     },
   };
@@ -162,7 +163,10 @@ export function fixtureModelsJson(baseUrl: string, opts: { keyless?: boolean } =
       baseUrl,
       api: "openai-completions",
       compat: { thinkingFormat: "openai", supportsReasoningEffort: true },
-      models: [{ id: "fixture-deep", reasoning: true }],
+      models: [
+        { id: "fixture-deep", reasoning: true },
+        { id: "fixture-review-keyless", reasoning: true },
+      ],
     };
   }
   return { providers };

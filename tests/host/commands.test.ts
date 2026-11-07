@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
 import {
   formatStatus,
@@ -16,6 +16,8 @@ import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
+import { buildWorkerQuestions } from "../../src/jev/questions.ts";
+import { readConfig } from "../../src/store/config.ts";
 import { tempDir } from "../helpers.ts";
 
 function snap(
@@ -76,7 +78,6 @@ describe("parseJevArgs", () => {
     "mode quality",
     "mode Premium",
     "mode premium now",
-    "colors off",
     "skills maybe",
     "skills off now",
     "Skills off",
@@ -97,8 +98,12 @@ describe("usageText", () => {
   });
   test("lists no later forms", () => {
     for (const line of text.split("\n"))
-      for (const p of ["/jev tune", "/jev remove", "/jev slot"])
-        expect(line.trimStart().startsWith(p)).toBe(false);
+      expect(line.trimStart().startsWith("/jev tune")).toBe(false);
+  });
+  test("Usage lists the slot forms", () => {
+    expect(text).toContain("  /jev <slot> <provider/model> [when <text>]");
+    expect(text).toContain("  /jev <slot>");
+    expect(text).toContain("  /jev remove <slot>");
   });
   test("Usage lists the mode form", () => {
     expect(text).toContain("/jev mode budget|standard|premium");
@@ -176,6 +181,16 @@ describe("formatStatus", () => {
 
 type Rec = { notes: [string, string | undefined][]; widgets: unknown[][] };
 
+const MODELS = [
+  { provider: "fixture", id: "fixture-review", reasoning: true },
+  { provider: "fixture", id: "fixture-fast", reasoning: true },
+];
+const modelRegistry = {
+  find: (p: string, id: string) => MODELS.find((m) => m.provider === p && m.id === id),
+  hasConfiguredAuth: () => true,
+  getAvailable: () => MODELS,
+} as unknown as ModelRegistry;
+
 function fakeCtx(hasUI = true, sessionId = "main") {
   const rec: Rec = { notes: [], widgets: [] };
   const ctx = {
@@ -186,6 +201,7 @@ function fakeCtx(hasUI = true, sessionId = "main") {
       setWidget: (...a: unknown[]) => rec.widgets.push(a),
     },
     sessionManager: { getSessionId: () => sessionId },
+    modelRegistry,
   } as unknown as ExtensionCommandContext;
   return { ctx, rec };
 }
@@ -209,7 +225,7 @@ afterEach(() => {
 
 const load = (dir: string) => () =>
   buildSnapshot({
-    configRead: { kind: "ok", present: false, config: {} as Config },
+    configRead: readConfig(dir),
     stateRead: readState(dir),
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
@@ -423,6 +439,73 @@ describe("runJev", () => {
       decision: noDecision,
       exec: noExec,
     });
+  });
+});
+
+describe("runJev slots", () => {
+  const ADD = "reviewer fixture/fixture-review when Code review.";
+  const slotsOf = (dir: string) => load(dir)().settings.crew.slots;
+  const offered = (dir: string) =>
+    Object.keys(
+      buildWorkerQuestions(["fast", "balanced", "deep"], {}, "standard", slotsOf(dir)).questions[
+        "tier"
+      ]!.criteria!,
+    );
+
+  test("Unknown feature", async () => {
+    const rec = await run("Colors off", jevDir());
+    expect(rec.notes).toEqual([[usageText(), "warning"]]);
+  });
+
+  test("Name-shaped typo of a feature", async () => {
+    const dir = jevDir();
+    const rec = await run("colors off", dir);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("not a provider/model");
+    expect(rec.notes[0]![0]).toContain(usageText());
+    expect(existsSync(join(dir, "config.json"))).toBe(false);
+  });
+
+  test("Add, show and remove notify only their message", async () => {
+    const dir = jevDir();
+    const added = await run(ADD, dir);
+    expect(added.notes).toEqual([
+      ["slot reviewer: fixture/fixture-review\nwhen: Code review.", "info"],
+    ]);
+    expect(added.widgets).toHaveLength(0);
+    const shown = await run("reviewer", dir);
+    expect(shown.notes[0]![0]).toBe("slot reviewer: fixture/fixture-review\nwhen: Code review.");
+    const removed = await run("remove reviewer", dir);
+    expect(removed.notes).toEqual([["slot reviewer removed", "info"]]);
+  });
+
+  test("Print mode", async () => {
+    const dir = jevDir();
+    const rec = await run(ADD, dir, fakeCtx(false));
+    expect(rec.notes).toHaveLength(0);
+    expect(slotsOf(dir)).toHaveLength(1);
+  });
+
+  test("Child session", async () => {
+    const dir = jevDir();
+    (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["kid"]);
+    const rec = await run(ADD, dir, fakeCtx(true, "kid"));
+    expect(rec.notes).toHaveLength(0);
+    expect(existsSync(join(dir, "config.json"))).toBe(false);
+  });
+
+  test("Next launch sees the slot", async () => {
+    const dir = jevDir();
+    await run(ADD, dir);
+    expect(offered(dir)).toContain("slot::reviewer");
+  });
+
+  test("Removed slot not offered", async () => {
+    const dir = jevDir();
+    await run(ADD, dir);
+    await run("remove reviewer", dir);
+    expect(offered(dir).some((o) => o.startsWith("slot::"))).toBe(false);
   });
 });
 

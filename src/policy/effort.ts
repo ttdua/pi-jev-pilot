@@ -1,7 +1,7 @@
 // Pure effort rules for the main session and workers. Imports nothing outside src/policy/.
 
 import type { ChoiceAnswer } from "./answers.ts";
-import type { TierName } from "./launch.ts";
+import type { Target } from "./launch.ts";
 
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -86,7 +86,7 @@ export const EFFORT_LADDER: readonly EffortLevel[] = EFFORT_LEVELS;
 export type EffortInput = {
   effort?: ChoiceAnswer;
   risky?: number;
-  tier?: TierName;
+  tier?: Target;
   movedByFallback: boolean;
 };
 

@@ -94,7 +94,7 @@ Up to 8 entries. Slot commands rewrite `config.json` as plain JSON with 2-space 
 |---|---|---|
 | `name` | Yes | `^[a-z][a-z0-9-]{0,23}$`, not a reserved word |
 | `model` | Yes | Exact `provider/id` with credentials, at most 128 characters |
-| `when` | No | When Jev should choose it, 1–500 characters after trim. Defaults to read-only bulk work |
+| `when` | Yes | When Jev should choose it, 1–500 characters after trim |
 
 Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `mode`, `off`, `on`, `premium`, `remove`, `reset`, `review`, `skills`, `standard`, `status`, `strategy`, `subagents`, `tools`, `tune`, `verbose`.
 

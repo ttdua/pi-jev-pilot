@@ -102,7 +102,7 @@ Every `classifier` field SHALL be optional and MUST follow these rules: `url` is
 - **THEN** the read is invalid with a problem at `classifier.apiKeyEnv`
 
 ### Requirement: Tier and slot field rules
-Each of `tiers.fast`, `tiers.balanced`, `tiers.deep` and `tiers.expert` SHALL be optional and, when set, MUST be an exact `provider/id` of at most 128 characters with no whitespace. `crew.slots` MUST have at most 8 entries; each needs a unique `name` matching `^[a-z][a-z0-9-]{0,23}$` that is not a reserved word from `docs/configuration.md`, a `model` as an exact `provider/id`, and optionally a `when` of 1–500 characters after trimming.
+Each of `tiers.fast`, `tiers.balanced`, `tiers.deep` and `tiers.expert` SHALL be optional and, when set, MUST be an exact `provider/id` of at most 128 characters with no whitespace. `crew.slots` MUST have at most 8 entries; each needs a unique `name` matching `^[a-z][a-z0-9-]{0,23}$` that is not a reserved word from `docs/configuration.md`, a `model` as an exact `provider/id`, and a `when` of 1–500 characters after trimming. A slot without `when` MUST be invalid; there is no default `when`.
 
 #### Scenario: Tier without provider rejected
 - **WHEN** `tiers.fast` is `"claude-haiku-5-5"`
@@ -135,6 +135,14 @@ Each of `tiers.fast`, `tiers.balanced`, `tiers.deep` and `tiers.expert` SHALL be
 #### Scenario: Slot without model
 - **WHEN** a slot has a `name` but no `model`
 - **THEN** the read is invalid with a problem at that slot's `model`
+
+#### Scenario: Slot without when
+- **WHEN** a slot has a `name` and a `model` but no `when`
+- **THEN** the read is invalid with a problem at that slot's `when`
+
+#### Scenario: Slot writer refuses a slot without when
+- **WHEN** the slot writer is given a slot with no `when`
+- **THEN** it returns a problem at that slot's `when` and the file is unchanged
 
 ### Requirement: Other field rules
 These fields SHALL be optional and MUST follow these rules: `effort.holdProviders` is up to 32 unique provider names of 1–64 characters from letters, digits, `.`, `_`, `-`; `skills.inject` is `content` or `suggest`; `tools.mode` is `observe` or `enforce`; `state.parentRequest` is a boolean; `review.cli` is `codex` or `opencode`; `subagents.forkedLaunch` is `untouched` or `thinking`.

@@ -7,7 +7,7 @@ import {
   type ModelThinking,
   type ThinkingLevel,
 } from "./effort.ts";
-import type { EffectiveLaunch, TierName } from "./launch.ts";
+import type { EffectiveLaunch, Target, TierName } from "./launch.ts";
 import type { ModeName } from "./modes.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
 import type { WorkerAnswers } from "./worker.ts";
@@ -29,9 +29,10 @@ export type RouteInput = {
   offered: readonly TierName[];
   mode: ModeName;
   forkedLaunch: ForkedLaunch;
-  canRun: (t: TierName) => boolean;
-  thinkingOf: (t: TierName) => ModelThinking | undefined;
-  modelOf: (t: TierName) => string;
+  canRun: (t: Target) => boolean;
+  thinkingOf: (t: Target) => ModelThinking | undefined;
+  modelOf: (t: Target) => string;
+  slots: readonly string[];
 };
 
 export type Route =
@@ -42,8 +43,8 @@ export type Route =
       write: { model?: string; thinking?: ThinkingLevel };
       record: {
         reason: RouteReason;
-        tier?: TierName;
-        fallback?: TierName;
+        tier?: Target;
+        fallback?: Target;
         effort?: ThinkingLevel;
         locked?: true;
       };
@@ -53,10 +54,11 @@ export function launchKind(
   launch: EffectiveLaunch,
   offered: readonly TierName[],
   forkedLaunch: ForkedLaunch,
+  slotCount = 0,
 ): LaunchKind {
   const locked = launch.modelLocked || launch.thinkingLocked;
   const forkedThinking = launch.inheritContext && forkedLaunch === "thinking";
-  const noTier = offered.length === 0;
+  const noTier = offered.length === 0 && slotCount === 0;
   if (launch.resume) return { kind: "untouched", locked };
   if (launch.inheritContext && forkedLaunch === "untouched") return { kind: "untouched", locked };
   if (launch.modelLocked && launch.thinkingLocked) return { kind: "untouched", locked };
@@ -90,7 +92,7 @@ function thinkingOnly(
 
 export function routeLaunch(input: RouteInput): Route {
   const { launch, answers } = input;
-  const kind = launchKind(launch, input.offered, input.forkedLaunch);
+  const kind = launchKind(launch, input.offered, input.forkedLaunch, input.slots.length);
   const locked = kind.locked ? ({ locked: true } as const) : {};
   if (kind.kind === "untouched") return { kind: "untouched", ...locked };
   if (answers === undefined || answers.kind === "cancelled") return { kind: "skip" };
@@ -99,7 +101,7 @@ export function routeLaunch(input: RouteInput): Route {
   }
 
   const decision: TierDecision = kind.tierQuestion
-    ? decideTier(answers, input.offered, input.mode)
+    ? decideTier(answers, input.offered, input.mode, input.slots)
     : { kind: "none" };
   if (decision.kind === "none") {
     return thinkingOnly(input, answers, { reason: "untouched", ...locked });
@@ -112,7 +114,7 @@ export function routeLaunch(input: RouteInput): Route {
     });
   }
 
-  const fallback = chooseFallback(decision.tier, input.offered, input.canRun);
+  const fallback = chooseFallback(decision.tier, input.offered, input.canRun, input.slots);
   if (fallback.kind === "unchanged") {
     return {
       kind: "routed",

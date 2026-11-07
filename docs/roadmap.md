@@ -20,7 +20,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-10 | Strategy advice | S | WG-07 | Done |
 | WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
 | WG-12 | Modes and expert tier | M | WG-11 | Done |
-| WG-13 | Slots and fallback | M | WG-11 | Planned |
+| WG-13 | Slots and fallback | M | WG-11 | Done |
 | WG-14 | Tool assessment, observe only | M | WG-11 | Done |
 | WG-15 | CLI review | M | WG-06 | Done |
 | WG-16 | Rich state replay | M | WG-09, 13 | Planned |

@@ -176,3 +176,6 @@ export function TOOL_QUESTION(name: string): WireQuestion {
     },
   };
 }
+
+/** Between a slot's model name and its `when` text; also in docs/jev-questions.md. */
+export const SLOT_CRITERION_INFIX = " (a custom model). ";

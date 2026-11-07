@@ -8,6 +8,7 @@ import {
   base,
   body,
   bodyWith,
+  effort,
   harness,
   ok,
   snap,
@@ -427,5 +428,129 @@ describe("One mode per launch", () => {
     expect(Object.keys(q.tier.criteria)).toEqual(["fast", "balanced", "deep"]);
     await h.fire("tool_call", h.call("a", input));
     expect(input["model"]).toBe("fx/deep");
+  });
+});
+
+describe("Slots", () => {
+  const REVIEWER = { name: "reviewer", model: "fx/review", when: "Code review." };
+  const reg = {
+    "fx/fast": {},
+    "fx/balanced": {},
+    "fx/deep": {},
+    "fx/review": { name: "Fixture Review" },
+  };
+  const slotAnswer = (p = 0.92) =>
+    ok({
+      answers: {
+        tier: {
+          type: "choice",
+          choice: "slot::reviewer",
+          confidence: p,
+          probabilities: { fast: 0, balanced: 0, deep: 0, "slot::reviewer": p },
+        },
+        effort: effort("high"),
+        risky: { type: "noul", noul: 0.1 },
+      },
+    });
+  async function launch(h: ReturnType<typeof harness>, id: string) {
+    const input: Record<string, unknown> = base();
+    await h.fire("message_end", h.msg([id, input]));
+    await h.fire("tool_call", h.call(id, input));
+    return input;
+  }
+  const unusable = () =>
+    harness({ slots: [REVIEWER], reg: { ...reg, "fx/review": { auth: false } } });
+
+  test("Slot display name", async () => {
+    const h = harness({ slots: [REVIEWER], reg });
+    await h.fire("message_end", h.msg(["a", base()]));
+    const q = h.asks[0]?.questions as { tier: { criteria: Record<string, string> } };
+    expect(q.tier.criteria["slot::reviewer"]).toBe("Fixture Review (a custom model). Code review.");
+  });
+
+  test("Usable slot routes", async () => {
+    const h = harness({ slots: [REVIEWER], reg });
+    h.setScript(() => slotAnswer());
+    expect(await launch(h, "a")).toMatchObject({ model: "fx/review", thinking: "high" });
+  });
+
+  test("Unusable slot", async () => {
+    const h = unusable();
+    h.setScript(() => slotAnswer());
+    expect(await launch(h, "a")).toMatchObject({ model: "fx/balanced" });
+  });
+
+  test("Slot warning text", async () => {
+    const h = unusable();
+    h.setScript(() => slotAnswer());
+    await launch(h, "a");
+    expect(h.notes).toHaveLength(1);
+    for (const s of [
+      "slot reviewer",
+      "fx/review",
+      "no credentials",
+      "balanced",
+      'crew.slots "reviewer" model',
+    ]) {
+      expect(h.notes[0]?.text).toContain(s);
+    }
+    expect(h.notes[0]?.text).not.toContain("tiers.");
+  });
+
+  test("Once per slot", async () => {
+    const h = unusable();
+    h.setScript(() => slotAnswer());
+    for (const id of ["a", "b", "c"]) await launch(h, id);
+    expect(h.notes).toHaveLength(1);
+  });
+
+  test("Slot warning with nothing to fall back to", async () => {
+    const h = harness({
+      slots: [REVIEWER],
+      reg: {
+        "fx/fast": { auth: false },
+        "fx/balanced": { auth: false },
+        "fx/deep": {},
+        "fx/review": { auth: false },
+      },
+    });
+    h.setScript(() => slotAnswer());
+    const input = await launch(h, "a");
+    expect(h.notes[0]?.text).toContain("launch left unchanged");
+    expect(input).toEqual(base());
+  });
+
+  test("Slot warning shown again after its model changes", async () => {
+    const h = unusable();
+    h.setScript(() => slotAnswer());
+    await launch(h, "a");
+    h.setSnap({ slots: [{ ...REVIEWER, model: "fx/other" }] });
+    await launch(h, "b");
+    expect(h.notes).toHaveLength(2);
+  });
+
+  test("Slot warning shown again after a slot command", async () => {
+    const h = unusable();
+    h.setScript(() => slotAnswer());
+    await launch(h, "a");
+    h.routing.clearWarnings();
+    await launch(h, "b");
+    expect(h.notes).toHaveLength(2);
+  });
+
+  test("Forked launch with thinking and a slot", async () => {
+    const h = harness({ forkedLaunch: "thinking", slots: [REVIEWER], reg });
+    await h.fire("message_end", h.msg(["a", { ...base(), inherit_context: true }]));
+    expect(Object.keys(h.asks[0]?.questions as object).sort()).toEqual(["effort", "risky"]);
+  });
+
+  test("Slot removed before the tool call", async () => {
+    const h = harness({ slots: [REVIEWER], reg });
+    h.setScript(() => slotAnswer());
+    const input: Record<string, unknown> = base();
+    await h.fire("message_end", h.msg(["a", input]));
+    h.setSnap({});
+    await h.fire("tool_call", h.call("a", input));
+    expect(input).toMatchObject({ model: "fx/review" });
   });
 });

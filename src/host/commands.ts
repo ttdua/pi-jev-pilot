@@ -12,6 +12,7 @@ import {
   type Exec,
 } from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
+import { parseSlotArgs, runSlot, type SlotArgs } from "./slots.ts";
 import {
   EMPTY_TALLY,
   drawStatus,
@@ -28,6 +29,7 @@ export type JevArgs =
   | { kind: "mode"; mode: Mode }
   | { kind: "reset" }
   | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
+  | { kind: "slot"; args: SlotArgs }
   | { kind: "usage" };
 
 const USAGE: JevArgs = { kind: "usage" };
@@ -49,6 +51,8 @@ export function parseJevArgs(text: string): JevArgs {
   const words = text.trim() === "" ? [] : text.trim().split(/\s+/);
   if (words.length === 0) return { kind: "status" };
   if (words[0] === "cli-review") return parseCliReview(words);
+  const slot = parseSlotArgs(text);
+  if (slot !== undefined) return slot === "usage" ? USAGE : { kind: "slot", args: slot };
   const [head, value, ...rest] = words;
   if (words.length === 1) return head === "reset" ? { kind: "reset" } : USAGE;
   if (head === "mode") {
@@ -75,6 +79,9 @@ export function usageText(): string {
     "  /jev mode budget|standard|premium  choose the worker mode",
     "  /jev reset                reset switches, mode and CLI review default",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
+    "  /jev <slot> <provider/model> [when <text>]",
+    "  /jev <slot>",
+    "  /jev remove <slot>",
   ].join("\n");
 }
 
@@ -145,7 +152,7 @@ async function checkAgainstCli(
   return { check: checkOpencodeChoice(a.model, a.effort, ids) };
 }
 
-type Change = Exclude<JevArgs, { kind: "status" | "usage" }>;
+type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" }>;
 
 function applyChange(
   parsed: Change,
@@ -197,6 +204,12 @@ export async function runJev(
     const parsed = parseJevArgs(args);
     if (parsed.kind === "usage") {
       notify(usageText(), "warning");
+      return;
+    }
+    if (parsed.kind === "slot") {
+      const out = runSlot(parsed.args, ctx.modelRegistry, deps.dir);
+      if (out.ok) notify(out.message, "info");
+      else notify(out.usage ? `${out.message}\n${usageText()}` : out.message, "error");
       return;
     }
     let cliReview: { model?: string; effort?: string } | undefined;

@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import type { Answer } from "../../src/policy/answers.ts";
 import type { ModelThinking } from "../../src/policy/effort.ts";
-import { TIER_LADDER, type EffectiveLaunch, type TierName } from "../../src/policy/launch.ts";
+import {
+  TIER_LADDER,
+  type EffectiveLaunch,
+  type Target,
+  type TierName,
+} from "../../src/policy/launch.ts";
 import {
   launchKind,
   routeLaunch,
@@ -69,6 +74,7 @@ function input(overrides: Partial<RouteInput> = {}): RouteInput {
     canRun: () => true,
     thinkingOf: (): ModelThinking => ({ reasoning: true }),
     modelOf: (t) => `fx/${t}`,
+    slots: [],
     ...overrides,
   };
 }
@@ -81,6 +87,13 @@ function routed(r: Route): Extract<Route, { kind: "routed" }> {
 describe("launchKind", () => {
   const kind = (l: Partial<EffectiveLaunch>, offered = NO_EXPERT, f: ForkedLaunch = "untouched") =>
     launchKind(launch(l), offered, f);
+  test("slot alone with thinking locked asks", () => {
+    expect(launchKind(launch({ thinkingLocked: true }), [], "untouched", 1)).toEqual({
+      kind: "ask",
+      tierQuestion: true,
+      locked: true,
+    });
+  });
   test("resume is untouched", () => {
     expect(kind({ resume: true })).toEqual({ kind: "untouched", locked: false });
   });
@@ -342,6 +355,90 @@ describe("Locks in the route", () => {
   });
 });
 
+const R = ["reviewer"];
+const SLOT_PICK: [string, Record<string, number>] = ["slot::reviewer", { "slot::reviewer": 0.92 }];
+const slotModels: Record<string, string> = {
+  "slot::reviewer": "fixture/fixture-review",
+  balanced: "fx/balanced",
+};
+
+function slotInput(overrides: Partial<RouteInput> = {}): RouteInput {
+  return input({
+    slots: R,
+    modelOf: (t) => slotModels[t] ?? `fx/${t}`,
+    ...overrides,
+  });
+}
+
+describe("Slot routes", () => {
+  test("Slot written", () => {
+    const r = routeLaunch(slotInput({ answers: read({ tier: SLOT_PICK, effort: "high" }) }));
+    expect(r).toEqual({
+      kind: "routed",
+      write: { model: "fixture/fixture-review", thinking: "high" },
+      record: { reason: "slot", tier: "slot::reviewer", effort: "high" },
+    });
+  });
+  test("Slot falls back with xhigh", () => {
+    const r = routeLaunch(
+      slotInput({
+        answers: read({ tier: SLOT_PICK, effort: "low" }),
+        canRun: (t: Target) => t !== "slot::reviewer",
+        thinkingOf: (): ModelThinking => ({
+          reasoning: true,
+          thinkingLevelMap: { xhigh: "xhigh" },
+        }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { model: "fx/balanced", thinking: "xhigh" },
+      record: {
+        reason: "slot",
+        tier: "balanced",
+        fallback: "slot::reviewer",
+        effort: "xhigh",
+      },
+    });
+  });
+  test("Unusable slot alone", () => {
+    const r = routeLaunch(
+      slotInput({ offered: [], answers: read({ tier: SLOT_PICK }), canRun: () => false }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: {},
+      record: { reason: "slot", tier: "slot::reviewer", fallback: "slot::reviewer" },
+    });
+  });
+  test("Slot below the bar with no tier", () => {
+    const r = routeLaunch(
+      slotInput({
+        offered: [],
+        answers: read({ tier: ["slot::reviewer", { "slot::reviewer": 0.5 }], effort: "medium" }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { thinking: "medium" },
+      record: { reason: "untouched", effort: "medium" },
+    });
+  });
+  test("Model locked with a slot decided", () => {
+    const r = routeLaunch(
+      slotInput({
+        launch: launch({ modelLocked: true }),
+        answers: read({ tier: SLOT_PICK, effort: "high" }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { thinking: "high" },
+      record: { reason: "slot", tier: "slot::reviewer", effort: "high", locked: true },
+    });
+  });
+});
+
 describe("Recorded results", () => {
   test("Recorded results validate", () => {
     const reasons: Record<RouteReason, Route> = {
@@ -357,6 +454,7 @@ describe("Recorded results", () => {
           offered: TIER_LADDER,
         }),
       ),
+      slot: routeLaunch(slotInput({ answers: read({ tier: SLOT_PICK }) })),
       untouched: routeLaunch(input({ answers: read({ risky: 0.2 }) })),
       miss: routeLaunch(input({ answers: { kind: "miss", miss: "timeout" } })),
     };

@@ -128,7 +128,8 @@ A slot offers Jev another model, with a description of when to choose it.
 
 - At most 8 slots. Names are lowercase letters, digits and `-`, and cannot be a `/jev` word.
 - The model must exist in Pi's registry with credentials.
-- A good `when` says what to choose it for and what not. Without one, the default is read-only bulk work.
+- `when` is required: say what to choose the slot for and what not. A good one: `Choose when the task is to review existing work and report findings. Not for implementing or fixing.` A bad one: `good model`.
+- A new slot needs `when`; replacing a model keeps it.
 - Jev picks a slot only at probability .6 or higher.
 - Risky work goes to `deep`, even when a slot was chosen.
 
@@ -191,7 +192,7 @@ session:
 
 `/jev verbose on` adds one log line in the conversation for each decision, and for each correction and routed worker. Log lines show levels, probabilities and timings, never prompt text, and are not sent to the model. Example: `jev · main · low → high · 0.5s · p low 0.05 medium 0.10 high 0.70 xhigh 0.10 max 0.05`.
 
-From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: slot commands (WG-13) and `tune` (WG-18).
+From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: `tune` (WG-18).
 
 ## Tool assessment
 
@@ -230,9 +231,9 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev all on|off                              the seven decision features, not status or verbose
 /jev reset                                   switches, mode and CLI review default back to config defaults
 /jev mode budget|standard|premium
-/jev <slot> <provider/model> [when <text>]   add or replace a slot (WG-13)
-/jev <slot>                                  show it (WG-13)
-/jev remove <slot>                           WG-13
+/jev <slot> <provider/model> [when <text>]   add or replace a slot
+/jev <slot>                                  show it
+/jev remove <slot>                           delete a slot
 /jev cli-review <codex|opencode> [model|default] [effort|default]   kept in state.json
 /jev tune | /jev tune undo | /jev tune reset | /jev tune off   WG-18
 ```
