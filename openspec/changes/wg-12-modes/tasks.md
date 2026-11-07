@@ -19,8 +19,8 @@
 
 ## 5. Docs
 
-- [ ] 5.1 Rename "Fable rule" to "expert gate" and `fable` to `expert-admitted` in `docs/domain-model.md`, `docs/jev-contract.md`, `docs/jev-questions.md`, `docs/glossary.md`, `docs/architecture.md`, `docs/configuration.md`, `docs/usage-guide.md`, `docs/workflow.md`, `docs/roadmap.md`, `docs/decisions/0003-rubric-per-mode.md`; leave `docs/evidence/` as recorded; drop the "until WG-12" note for `/jev mode` in `docs/usage-guide.md`
-- [ ] 5.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
+- [x] 5.1 Rename "Fable rule" to "expert gate" and `fable` to `expert-admitted` in `docs/domain-model.md`, `docs/jev-contract.md`, `docs/jev-questions.md`, `docs/glossary.md`, `docs/architecture.md`, `docs/configuration.md`, `docs/usage-guide.md`, `docs/workflow.md`, `docs/roadmap.md`, `docs/decisions/0003-rubric-per-mode.md`; leave `docs/evidence/` as recorded; drop the "until WG-12" note for `/jev mode` in `docs/usage-guide.md`
+- [x] 5.2 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass
 
 ## 6. Replay (manual, operator)
 
