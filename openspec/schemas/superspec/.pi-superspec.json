@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "packageVersion": "0.0.0",
   "files": {
     "LICENSE": "4904e74b0083784173b7ec8b6534919bc1a5e57b1c392397804f74ca165d8791",
-    "schema.yaml": "9d9e94fa84f81d03b51bb9988b2b987f3a6830f936ba8bc18d0e2c9881d813ec",
+    "schema.yaml": "704a2a6a6419c324e0f1582db9bc34398241a5c8b7d36e6a6aaaa23603d52d01",
     "templates/apply.md": "46646ae2f270e2da719f629d73c9ac85dd10651468595a9c3c15432172bdc056",
     "templates/brainstorm.md": "19802b829107b8a7bd4b8311b9f79a5588512696a4c4a2ddc04cd8cd4d76f80c",
     "templates/design.md": "1943eae321e81e900e0923ef69ab84734b4c3c7d80b64cf5c622da326425e75f",
