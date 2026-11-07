@@ -3,12 +3,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
 import { toolNames, withoutReview } from "./bodies";
-import {
-  startFixture,
-  type Fixture,
-  type RecordedRequest,
-  type ScriptEntry,
-} from "./fixture";
+import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
 import { command, notifies, uiRequests, type UiRequest } from "./rpc-helpers";
 
@@ -34,9 +29,7 @@ const mainReply = (delayMs?: number): ScriptEntry[] => [
   },
 ];
 
-async function fixtureWith(
-  script: ScriptEntry[] = mainReply(),
-): Promise<Fixture> {
+async function fixtureWith(script: ScriptEntry[] = mainReply()): Promise<Fixture> {
   const f = await startFixture(script);
   fixtures.push(f);
   return f;
@@ -58,9 +51,7 @@ async function host(
 }
 
 const jevWidgets = (s: HostSession): UiRequest[] =>
-  uiRequests(s).filter(
-    (e) => e.method === "setWidget" && e.widgetKey === "jev",
-  );
+  uiRequests(s).filter((e) => e.method === "setWidget" && e.widgetKey === "jev");
 
 describe("status line and /jev through the real CLI", () => {
   test(
@@ -102,9 +93,7 @@ describe("status line and /jev through the real CLI", () => {
         role?: string;
         content?: unknown;
       }[];
-      const userText = all
-        .filter((m) => m.role === "user")
-        .map((m) => JSON.stringify(m.content));
+      const userText = all.filter((m) => m.role === "user").map((m) => JSON.stringify(m.content));
       expect(userText.some((c) => c.includes("/jev"))).toBe(false);
     },
     TIMEOUT,
@@ -114,21 +103,10 @@ describe("status line and /jev through the real CLI", () => {
     "all decision features off shows off",
     async () => {
       const s = await host(await fixtureWith());
-      for (const f of [
-        "effort",
-        "subagents",
-        "skills",
-        "strategy",
-        "tools",
-        "expert",
-        "review",
-      ]) {
+      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert", "review"]) {
         await command(s, `/jev ${f} off`);
       }
-      await s.waitFor(
-        () => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off",
-        "off widget",
-      );
+      await s.waitFor(() => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off", "off widget");
       expect(jevWidgets(s).at(-1)?.widgetLines).toEqual(["Jev · off"]);
     },
     TIMEOUT,
@@ -187,14 +165,11 @@ describe("status line and /jev through the real CLI", () => {
     async () => {
       const fixture = await fixtureWith(mainReply(3000));
       const s = await host(fixture);
-      const settledBefore = s.events.filter(
-        (e) => e.type === "agent_settled",
-      ).length;
+      const settledBefore = s.events.filter((e) => e.type === "agent_settled").length;
       const first = await s.send({ type: "prompt", message: "hello" });
       expect(first.success).toBe(true);
       await s.waitFor(() => fixture.requests.length >= 1, "request in flight");
-      const settledCount = (): number =>
-        s.events.filter((e) => e.type === "agent_settled").length;
+      const settledCount = (): number => s.events.filter((e) => e.type === "agent_settled").length;
       // The run must still be streaming when the command is sent.
       expect(settledCount()).toBe(settledBefore);
       await command(s, "/jev skills off");
@@ -240,9 +215,7 @@ describe("status line and /jev through the real CLI", () => {
 });
 
 function noReview(f: Fixture): boolean {
-  return f.requests.every(
-    (r: RecordedRequest) => !toolNames(r.body).includes("jev_review"),
-  );
+  return f.requests.every((r: RecordedRequest) => !toolNames(r.body).includes("jev_review"));
 }
 
 describe("print and JSON mode", () => {
@@ -283,15 +256,11 @@ describe("print and JSON mode", () => {
       const bodies = (f: Fixture): string[] =>
         f.requests.map((r: RecordedRequest) => JSON.stringify(r.body));
       const hasReview = (f: Fixture): boolean =>
-        f.requests.every((r: RecordedRequest) =>
-          toolNames(r.body).includes("jev_review"),
-        );
+        f.requests.every((r: RecordedRequest) => toolNames(r.body).includes("jev_review"));
       expect(hasReview(withPkg)).toBe(true);
       expect(noReview(plain)).toBe(true);
       expect(
-        withPkg.requests.map((r: RecordedRequest) =>
-          JSON.stringify(withoutReview(r.body)),
-        ),
+        withPkg.requests.map((r: RecordedRequest) => JSON.stringify(withoutReview(r.body))),
       ).toEqual(bodies(plain));
     },
     TIMEOUT,
@@ -374,14 +343,10 @@ describe("print and JSON mode", () => {
 describe("executor child", () => {
   test("a child session draws no second jev widget", async () => {
     const msgs = (r: RecordedRequest): { role?: string }[] =>
-      Array.isArray(r.body.messages)
-        ? (r.body.messages as { role?: string }[])
-        : [];
-    const text = (r: RecordedRequest): string =>
-      JSON.stringify(r.body.messages);
+      Array.isArray(r.body.messages) ? (r.body.messages as { role?: string }[]) : [];
+    const text = (r: RecordedRequest): string => JSON.stringify(r.body.messages);
     const isChild = (r: RecordedRequest): boolean =>
-      JSON.stringify(msgs(r).at(-1)).includes("CHILD-TASK") &&
-      msgs(r).at(-1)?.role === "user";
+      JSON.stringify(msgs(r).at(-1)).includes("CHILD-TASK") && msgs(r).at(-1)?.role === "user";
     const fixture = await fixtureWith([
       { name: "child", match: isChild, reply: { text: "child done" } },
       {
@@ -414,8 +379,7 @@ describe("executor child", () => {
     const s = await host(fixture, {
       executor: true,
       agents: {
-        "smoke-worker":
-          "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
+        "smoke-worker": "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
       },
     });
     await s.prompt("START-MAIN");

@@ -30,17 +30,13 @@ export async function command(
   return r.data;
 }
 
-const jevFile = (agentDir: string, name: string): string =>
-  join(agentDir, "jev", name);
+const jevFile = (agentDir: string, name: string): string => join(agentDir, "jev", name);
 
 /**
  * Writes `<agentDir>/jev/config.json`. Call it before `startHostSession`: the harness keeps an
  * existing config, so it never adds a `timeoutMs` of its own.
  */
-export function writeConfigFile(
-  agentDir: string,
-  config: Record<string, unknown>,
-): void {
+export function writeConfigFile(agentDir: string, config: Record<string, unknown>): void {
   mkdirSync(join(agentDir, "jev"), { recursive: true });
   writeFileSync(jevFile(agentDir, "config.json"), JSON.stringify(config));
 }
@@ -53,11 +49,7 @@ export type SeedOptions = {
 };
 
 /** Writes `n` valid `main` lines to `<agentDir>/jev/ledger.jsonl` (replacing the file). */
-export function seedLedger(
-  agentDir: string,
-  n: number,
-  opts: SeedOptions = {},
-): void {
+export function seedLedger(agentDir: string, n: number, opts: SeedOptions = {}): void {
   const misses = opts.misses ?? 0;
   const base = Date.now() - 100_000;
   const lines = Array.from({ length: n }, (_, i) => {
@@ -82,10 +74,7 @@ export function seedLedger(
 }
 
 /** Appends one `correction` line for each turn id. */
-export function seedCorrections(
-  agentDir: string,
-  turnIds: readonly string[],
-): void {
+export function seedCorrections(agentDir: string, turnIds: readonly string[]): void {
   const at = Date.now() - 50_000;
   const lines = turnIds.map((turnId) => ({
     v: 1,
