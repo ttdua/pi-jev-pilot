@@ -16,6 +16,7 @@ import {
   requestSignals,
   turnIndex,
   type BranchItem,
+  type MainState,
 } from "../../src/jev/state.ts";
 import type { AgentFacts } from "../../src/policy/launch.ts";
 import { tempDir } from "../helpers.ts";
@@ -482,5 +483,13 @@ describe("parseShortstat", () => {
   });
   test("garbage is undefined", () => {
     expect(parseShortstat("garbage")).toBeUndefined();
+  });
+});
+
+describe("MainState wire types", () => {
+  test("context_used_percent never allows null", () => {
+    type CtxPercent = MainState["conversation"]["context_used_percent"];
+    const noNull: null extends CtxPercent ? false : true = true;
+    expect(noNull).toBe(true);
   });
 });

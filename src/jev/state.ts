@@ -34,7 +34,7 @@ export type MainState = {
     };
     turn_index: number;
     last_decision?: { effort?: string; strategy?: string };
-    context_used_percent?: number | null;
+    context_used_percent?: number;
   };
   workspace: { platforms: string[]; git?: GitCounts; languages?: string[] };
   capabilities?: {
