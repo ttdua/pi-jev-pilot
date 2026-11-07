@@ -396,6 +396,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         return c.ok ? c.thinking : undefined;
       },
       modelOf: (t) => modelFor(settings.tiers, t),
+      slots: [],
     });
     entry.answers = answers;
     entry.route = result;

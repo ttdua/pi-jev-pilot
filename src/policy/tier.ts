@@ -15,7 +15,7 @@ export type TierDecision =
 
 export type FallbackResult =
   | { kind: "keep"; tier: Target }
-  | { kind: "moved"; tier: Target; from: Target }
+  | { kind: "moved"; tier: TierName; from: Target }
   | { kind: "unchanged" };
 
 type Decided = Extract<TierDecision, { kind: "decided" }>;
@@ -118,18 +118,33 @@ export function decideTier(
     : decideFromTierChoice(substitute, choice, offered);
 }
 
-export function chooseFallback(
-  tier: Target,
+const SLOT_FALLBACK: readonly TierName[] = ["balanced", "fast"];
+
+function firstRunning(
+  candidates: readonly TierName[],
   offered: readonly TierName[],
   canRun: (t: Target) => boolean,
+): TierName | undefined {
+  return candidates.find((t) => t !== "expert" && offered.includes(t) && canRun(t));
+}
+
+export function chooseFallback(
+  target: Target,
+  offered: readonly TierName[],
+  canRun: (t: Target) => boolean,
+  slots: readonly string[] = [],
 ): FallbackResult {
-  // The slot ladder arrives with the slot fallback.
-  if (isSlot(tier)) return { kind: "unchanged" };
-  if (offered.includes(tier) && canRun(tier)) return { kind: "keep", tier };
-  const below = TIER_LADDER.slice(0, TIER_LADDER.indexOf(tier)).reverse();
-  for (const t of below) {
-    if (t === "expert" || !offered.includes(t)) continue;
-    if (canRun(t)) return { kind: "moved", tier: t, from: tier };
+  if (isSlot(target)) {
+    if (slots.includes(target.slice("slot::".length)) && canRun(target)) {
+      return { kind: "keep", tier: target };
+    }
+    const moved = firstRunning(SLOT_FALLBACK, offered, canRun);
+    return moved === undefined
+      ? { kind: "unchanged" }
+      : { kind: "moved", tier: moved, from: target };
   }
-  return { kind: "unchanged" };
+  if (offered.includes(target) && canRun(target)) return { kind: "keep", tier: target };
+  const below = TIER_LADDER.slice(0, TIER_LADDER.indexOf(target)).reverse();
+  const moved = firstRunning(below, offered, canRun);
+  return moved === undefined ? { kind: "unchanged" } : { kind: "moved", tier: moved, from: target };
 }

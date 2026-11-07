@@ -327,8 +327,38 @@ describe("Slot rule", () => {
       expect(decideTier(a, ALL, mode, R)).toEqual(decided("slot::reviewer", "slot"));
     });
   }
-  test("A slot target never falls back yet", () => {
-    expect(chooseFallback("slot::reviewer", ALL, () => true)).toEqual({ kind: "unchanged" });
+
+  const notReviewer = (t: Target) => t !== "slot::reviewer";
+  test("Usable slot kept", () => {
+    expect(chooseFallback("slot::reviewer", ALL, () => true, R)).toEqual({
+      kind: "keep",
+      tier: "slot::reviewer",
+    });
+  });
+  test("Runnable slot not in slots is not kept", () => {
+    expect(chooseFallback("slot::reviewer", ALL, () => true, [])).toEqual({
+      kind: "moved",
+      tier: "balanced",
+      from: "slot::reviewer",
+    });
+  });
+  test("Slot falls back to balanced", () => {
+    expect(chooseFallback("slot::reviewer", ALL, notReviewer, R)).toEqual({
+      kind: "moved",
+      tier: "balanced",
+      from: "slot::reviewer",
+    });
+  });
+  test("Slot falls back to fast", () => {
+    expect(chooseFallback("slot::reviewer", ["fast", "deep"], notReviewer, R)).toEqual({
+      kind: "moved",
+      tier: "fast",
+      from: "slot::reviewer",
+    });
+  });
+  test("Slot never moves up", () => {
+    const deepOnly = (t: Target) => t === "deep" || t === "expert";
+    expect(chooseFallback("slot::reviewer", ALL, deepOnly, R)).toEqual({ kind: "unchanged" });
   });
 });
 
