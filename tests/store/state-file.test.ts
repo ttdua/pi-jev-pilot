@@ -105,11 +105,16 @@ describe("state content", () => {
 
   test("Legacy review switch gone after a write", () =>
     withDir((dir) => {
-      put(dir, '{"version":1,"switches":{"review":false}}');
+      put(
+        dir,
+        '{"version":1,"mode":"budget","cliReviewEnabled":true,"switches":{"review":false,"skills":false}}',
+      );
       expect(updateState(dir, (s) => ({ ...s, mode: "premium" })).ok).toBe(true);
       const raw = JSON.parse(readFileSync(join(dir, "state.json"), "utf8"));
       expect(raw.mode).toBe("premium");
-      expect("switches" in raw).toBe(false);
+      expect(raw.cliReviewEnabled).toBe(true);
+      expect(raw.switches).toEqual({ skills: false });
+      expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
     }));
 
   test("Non-boolean legacy review switch", () =>
