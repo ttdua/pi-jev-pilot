@@ -152,7 +152,7 @@ function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): voi
   }
 }
 
-function initialState(w: RebuiltWorker, parentRequest?: string): WorkerState {
+export function initialState(w: RebuiltWorker, parentRequest?: string): WorkerState {
   if (w.agent === undefined) throw new Error("worker sample has no agent");
   return buildWorkerState({
     brief: w.sample.brief,
@@ -202,7 +202,7 @@ const WORKER_VARIANTS: WorkerVariant[] = [
   },
 ];
 
-function workerQuestions(config: PlainConfig) {
+export function workerQuestions(config: PlainConfig) {
   const offered = offeredTiers(config.tiers, config.expertOn);
   const slots = config.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
   return buildWorkerQuestions(offered, {}, slots);

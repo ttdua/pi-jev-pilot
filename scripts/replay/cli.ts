@@ -40,6 +40,8 @@ function printDryRun(
 }
 
 async function replay(args: Args, env: Env): Promise<number> {
+  // Task 7 replaces this guard with the report run.
+  if (args.pass === "report") throw new UsageError("--pass report is not wired yet");
   const agentDir = env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
   const jevDir = join(agentDir, "jev");
   const sessionsDir = args.sessions ?? join(agentDir, "sessions");

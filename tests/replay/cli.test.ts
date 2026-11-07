@@ -60,6 +60,14 @@ describe("parseArgs", () => {
     expect(() => parseArgs([])).toThrow(UsageError);
   });
 
+  test("parses --pass report", () => {
+    expect(parseArgs(["--pass", "report"]).pass).toBe("report");
+  });
+
+  test("--only is refused with report", () => {
+    expect(() => parseArgs(["--pass", "report", "--only", "full"])).toThrow(UsageError);
+  });
+
   test("rejects unknown flag and bad values", () => {
     expect(() => parseArgs(["--pass", "1", "--nope"])).toThrow(UsageError);
     expect(() => parseArgs(["--pass", "3"])).toThrow(UsageError);
@@ -174,12 +182,21 @@ describe("main", () => {
     expect(r.out).toContain("model: m-dest");
   });
 
-  test("--pass 2 exits 2 with a message", async () => {
+  test("unknown pass exits 2 naming 1 and report", async () => {
     const r = await run(["--pass", "2", "--sessions", sessions], {
       PI_CODING_AGENT_DIR: agentDir(),
     });
     expect(r.code).toBe(2);
-    expect(r.err).toContain("--pass accepts only 1");
+    expect(r.err).toContain("1");
+    expect(r.err).toContain("report");
+  });
+
+  test("--pass report is not wired yet and exits 2", async () => {
+    const r = await run(["--pass", "report", "--sessions", sessions], {
+      PI_CODING_AGENT_DIR: agentDir(),
+    });
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("--pass report is not wired yet");
   });
 
   test("--kept is an unknown flag and exits 2", async () => {
