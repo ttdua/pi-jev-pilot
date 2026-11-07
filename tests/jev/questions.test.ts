@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
 import {
+  buildWorkerQuestions,
+  mainQuestions,
+  offeredTiers,
+  skillBatchQuestions,
+  type WireQuestion,
+} from "../../src/jev/questions.ts";
+import {
+  CORRECTS_QUESTION,
   EXPERT_NEEDED_QUESTION,
   GATE_QUESTIONS,
   NONE_CRITERION,
@@ -12,7 +19,7 @@ import {
   WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
 } from "../../src/jev/rubrics.ts";
-import { GATE_KEYS } from "../../src/policy/skill.ts";
+import { GATE_KEYS, skillCriterion } from "../../src/policy/skill.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
 
 const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
@@ -178,4 +185,85 @@ describe("Skill wording", () => {
       expect(docs).toContain(`| \`${key}\` | ${q.instructions}${tail}`);
     });
   }
+});
+
+describe("skill questions", () => {
+  const skills = [
+    { name: "debug", description: "Debug failures" },
+    { name: "plan" },
+    { name: "review" },
+  ];
+  const gateKeys = [...GATE_KEYS];
+
+  test("First batch with effort", () => {
+    const { wire, specs } = mainQuestions({ askEffort: true, skills });
+    const keys = ["effort", "risky", "corrects", "which", ...gateKeys];
+    expect(Object.keys(wire)).toEqual(keys);
+    expect(Object.keys(specs)).toEqual(keys);
+  });
+
+  test("First batch without effort", () => {
+    const { wire, specs } = mainQuestions({ askEffort: false, skills });
+    const keys = ["corrects", "which", ...gateKeys];
+    expect(Object.keys(wire)).toEqual(keys);
+    expect(Object.keys(specs)).toEqual(keys);
+  });
+
+  test("Which option order", () => {
+    const { wire, specs } = mainQuestions({ askEffort: false, skills });
+    const which = wire["which"] as WireQuestion;
+    const order = ["debug", "plan", "review", "(none)"];
+    expect(which.type).toBe("choice");
+    expect(which.instructions).toBe(WHICH_INSTRUCTION);
+    expect(Object.keys(which.criteria)).toEqual(order);
+    expect(specs["which"]).toEqual({ type: "choice", options: order });
+    expect(which.criteria["debug"]).toBe(skillCriterion(skills[0]!));
+    expect(which.criteria["plan"]).toBe(skillCriterion(skills[1]!));
+    expect(which.criteria["(none)"]).toBe(NONE_CRITERION);
+  });
+
+  test("Later batch", () => {
+    const { wire, specs } = skillBatchQuestions(skills);
+    expect(Object.keys(wire)).toEqual(["which"]);
+    expect(Object.keys(specs)).toEqual(["which"]);
+    expect(specs["which"]).toEqual({
+      type: "choice",
+      options: ["debug", "plan", "review", "(none)"],
+    });
+  });
+
+  test("Skills not asked", () => {
+    for (const askEffort of [true, false]) {
+      const base = mainQuestions({ askEffort });
+      expect(Object.keys(base.wire)).toEqual(
+        askEffort ? ["effort", "risky", "corrects"] : ["corrects"],
+      );
+      expect(base.wire["corrects"]).toEqual(CORRECTS_QUESTION);
+      expect(mainQuestions({ askEffort, skills: undefined })).toEqual(base);
+      expect(mainQuestions({ askEffort, skills: [] })).toEqual(base);
+    }
+  });
+
+  test("Skill gate shape", () => {
+    const { wire, specs } = mainQuestions({ askEffort: false, skills });
+    for (const key of GATE_KEYS) {
+      expect(Object.keys(wire[key]!).sort()).toEqual(["instructions", "type"]);
+      expect(wire[key]).toEqual({ type: "noul", instructions: GATE_QUESTIONS[key].instructions });
+      expect(specs[key]).toEqual({ type: "noul" });
+    }
+  });
+
+  test("returns fresh copies per call", () => {
+    const first = mainQuestions({ askEffort: false, skills });
+    first.wire["gate::prose_suffices"]!.instructions = "changed";
+    (first.wire["which"] as WireQuestion).criteria["debug"] = "changed";
+    const second = mainQuestions({ askEffort: false, skills });
+    expect(second.wire["gate::prose_suffices"]!.instructions).toBe(
+      GATE_QUESTIONS["gate::prose_suffices"].instructions,
+    );
+    expect((second.wire["which"] as WireQuestion).criteria["debug"]).toBe(
+      skillCriterion(skills[0]!),
+    );
+    expect(GATE_QUESTIONS["gate::prose_suffices"].instructions).not.toBe("changed");
+  });
 });
