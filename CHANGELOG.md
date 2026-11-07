@@ -2,14 +2,14 @@
 
 All notable changes to pi-jev-pilot are listed here, newest first.
 
-## [0.1.0] - 2026-11-07
+## [0.1.0] - 2026-11-08
 
 Tag: v0.1.0
 
 ### Added
 
 - Main effort: Jev picks the thinking level for each prompt, and `/jev effort off` hands control back to you.
-- Effort hold: your manual thinking level lasts until the next prompt.
+- Effort hold: providers listed in `effort.holdProviders` keep the decided level until a compaction or a provider or model switch, to protect the prompt cache.
 - Skill pick: at most one matching skill is attached per prompt.
 - Strategy advice: Jev can attach a short hint to delegate work.
 - Worker routing: each worker launch gets a model tier by difficulty, shaped by `/jev mode budget|standard|premium`, with an `expert` tier for very hard work.

@@ -32,6 +32,6 @@
 
 ## Which document wins
 
-1. Code and tests, once they exist, describe what the system does.
+1. Code and tests describe what the system does.
 2. Decision records explain why, and are replaced rather than edited.
-3. The other documents here are the specification until code exists, then are kept up to date with it. A change that alters behavior updates them in the same commit.
+3. The other documents here are kept up to date with the code. A change that alters behavior updates them in the same commit.

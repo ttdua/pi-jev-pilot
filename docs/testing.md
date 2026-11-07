@@ -78,7 +78,7 @@ Outputs go under `<agentDir>/jev/replay/<run-id>/`: `aggregates.json` (counts on
 
 A manual procedure (not in CI) that measures where the shipped Jev questions send real prompts and briefs, for the release notes. It sends every sampled prompt twice (`report` and a plain `rerun`) so that the difference between the two is the noise floor. Run it only after the operator approves the data and the cost.
 
-1. Save the capabilities snapshot: `bun tests/host/manual/capabilities-snapshot.ts <scratch>/capabilities.json`. Without a snapshot the worker part is skipped and only main prompts are replayed.
+1. Save the capabilities snapshot: `bun tests/host/manual/capabilities-snapshot.ts <scratch>/capabilities.json`. The report pass needs `--capabilities`: without it the worker side is skipped and every main sample is excluded for the missing `capabilities` group, so the dry run plans 0 requests.
 2. Do a dry run (no request is sent): `bun scripts/replay/cli.ts --pass report --capabilities <scratch>/capabilities.json`. It prints sample counts, exclusions, the request count and the estimated cost. Retries are not in the estimate.
 3. Get the operator's approval, then run the same command plus `--send`.
 

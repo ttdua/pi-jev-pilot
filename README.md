@@ -8,7 +8,7 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 |---|---|---|---|
 | Thinking level | Change `/thinking` for each prompt | Jev chose `low` for 74% of prompts; vs a fixed `low`, 5 of 43 raised, 0 lowered | [Scenario](docs/scenarios.md#your-thinking-level-follows-the-prompt) |
 | Worker models | Pick a model for each worker | With no reviewer slot, `budget` sends 49% of launches to `fast` and `premium` 0% | [Scenario](docs/scenarios.md#workers-get-a-model-and-effort-for-you) |
-| Reviews | Route reviews by hand | 100 of 100 review briefs reach your reviewer model | [Scenario](docs/scenarios.md#reviews-go-to-your-reviewer-model) |
+| Reviews | Route reviews by hand | 100 of 100 review briefs reach your reviewer model in the report run | [Scenario](docs/scenarios.md#reviews-go-to-your-reviewer-model) |
 | Rules | Guess which setting applies | Ordered lists, no numbers | [Scenario](docs/scenarios.md#which-rule-wins) |
 
 The numbers show routing, not quality, from one operator's sessions. See the [release report](docs/evidence/2026-11-08-release.md).
