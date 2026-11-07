@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { readAgent } from "../../src/host/agents.ts";
 import {
+  buildToolState,
   buildWorkerState,
   mainState,
   recentMessages,
@@ -275,5 +276,59 @@ describe("Worker state text limits", () => {
   });
   test("Parent request on", () => {
     expect(build({ parentRequest: "p".repeat(800) }).parent_request).toBe("p".repeat(500));
+  });
+});
+
+function buildTools(over: Partial<Parameters<typeof buildToolState>[0]> = {}) {
+  return buildToolState({ brief: "do it", description: "d", agent: FACTS, tools: [], ...over });
+}
+
+describe("Tool state", () => {
+  test("Long brief keeps the last 4000 code points", () => {
+    const state = buildTools({ brief: "a".repeat(1000) + "b".repeat(4000) });
+    expect(state.task.brief).toBe("b".repeat(4000));
+  });
+  test("Forked worker keeps the child task", () => {
+    const state = buildTools({ brief: "PARENT-CONTEXT…" + "CHILD-TASK" });
+    expect(state.task.brief.endsWith("CHILD-TASK")).toBe(true);
+  });
+  test("Tool metadata", () => {
+    const state = buildTools({
+      tools: [
+        {
+          name: "bash",
+          description: "D",
+          source: "builtin",
+          parameters: { command: "Shell command to execute" },
+        },
+      ],
+    });
+    expect(state.tools.bash).toEqual({
+      description: "D",
+      source: "builtin",
+      parameters: { command: "Shell command to execute" },
+    });
+  });
+  test("Long tool description", () => {
+    const long = "x".repeat(899) + "😀";
+    const state = buildTools({
+      tools: [{ name: "t", description: long, source: "s", parameters: { p: long } }],
+    });
+    expect(state.tools.t!.description).toBe("x".repeat(500));
+    expect(state.tools.t!.parameters.p).toBe("x".repeat(500));
+  });
+  test("agent is name, source and description only", () => {
+    expect(buildTools().agent).toEqual({
+      name: "worker",
+      source: "project",
+      description: "does work",
+    });
+  });
+  test("a tool named __proto__ is an own entry", () => {
+    const state = buildTools({
+      tools: [{ name: "__proto__", description: "D", source: "s", parameters: {} }],
+    });
+    expect(Object.keys(state.tools)).toEqual(["__proto__"]);
+    expect(Object.getPrototypeOf(state.tools)).toBe(Object.prototype);
   });
 });
