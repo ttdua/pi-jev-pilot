@@ -48,7 +48,7 @@ A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh
 - **THEN** the request's `questions` has exactly the key `corrects`, and the level is never changed
 
 ### Requirement: Question wire format
-Each question SHALL use the TypeSafe wire format: a choice carries `type` `choice`, `instructions` and `criteria` mapping each option to its description; a noul carries `type` `noul`, `instructions` and `criteria` with `true` and `false`.
+Each question SHALL use the TypeSafe wire format: a choice carries `type` `choice`, `instructions` and `criteria` mapping each option to its description; a noul carries `type` `noul`, `instructions` and `criteria` with `true` and `false`. The three skill gates `gate::acts_on_user_system`, `gate::would_follow_documented_procedure` and `gate::prose_suffices` are the only exception: each MUST carry exactly `type` `noul` and `instructions`, with no `criteria`.
 
 #### Scenario: Choice shape
 - **WHEN** the `effort` question is built
@@ -57,6 +57,10 @@ Each question SHALL use the TypeSafe wire format: a choice carries `type` `choic
 #### Scenario: Noul shape
 - **WHEN** the `risky` question is built
 - **THEN** its `criteria` has exactly the keys `true` and `false`
+
+#### Scenario: Skill gate shape
+- **WHEN** the skill gates are built
+- **THEN** each has exactly the keys `type` and `instructions`, and `type` is `noul`
 
 ### Requirement: Supported levels
 The supported levels of a model SHALL follow Pi's rule: a model that is not a reasoning model supports only `off`; otherwise every level from `off` to `max` is supported except a level whose `thinkingLevelMap` value is `null`, and `xhigh` and `max` are supported only when their map value is defined. The rule MUST be a pure function with no Pi import.
