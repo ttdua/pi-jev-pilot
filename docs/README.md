@@ -30,7 +30,7 @@
 
 - [Project brief](project-brief.md): intent, goals, non-goals, scope, approaches considered
 - [Decision records](decisions/README.md): one decision per file
-- [Evidence](evidence/2026-11-05-replay.md): measurements behind the decisions
+- [Evidence](evidence/2026-11-05-replay.md): measurements behind the decisions; [routing by mode, 2026-11-07](evidence/2026-11-07-replay.md)
 
 ## Which document wins
 
