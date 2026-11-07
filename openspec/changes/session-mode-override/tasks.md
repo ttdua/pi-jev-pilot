@@ -35,11 +35,11 @@
 
 ## 8. Resolver directory layer
 
-- [ ] 8.1 Rename the resolver input to `localMode` and the result fields to `modeSource: "local" | "global"` and `globalMode`, updating store tests to the `settings-resolution` scenarios "Directory mode over state", "Directory mode over the default" and "Directory mode changes only the mode" (design D1)
+- [x] 8.1 Rename the resolver input to `localMode` and the result fields to `modeSource: "local" | "global"` and `globalMode`, updating store tests to the `settings-resolution` scenarios "Directory mode over state", "Directory mode over the default" and "Directory mode changes only the mode" (design D1)
 
 ## 9. Directory mode file and snapshot
 
-- [ ] 9.1 Add `src/store/local-mode.ts` with `readLocalMode`, `writeLocalMode` and `clearLocalMode` for `<cwd>/.pi/jev-mode.json`, including validation and problems by field path (`directory-mode` "Directory mode file", "Damaged directory mode file"; design D2), with store tests
+- [x] 9.1 Add `src/store/local-mode.ts` with `readLocalMode`, `writeLocalMode` and `clearLocalMode` for `<cwd>/.pi/jev-mode.json`, including validation and problems by field path (`directory-mode` "Directory mode file", "Damaged directory mode file"; design D2), with store tests
 - [ ] 9.2 Add the main-cwd holder (`src/host/main-cwd.ts`), set at main `session_start` only, and make `loadSnapshot(pi, cwd?)` read the directory mode on every call and report its problems in the snapshot (`directory-mode` "Directory mode applies to every session in the directory", "Inert in a child session"; design D3, D6)
 
 ## 10. Remove the session-entry code
