@@ -6,7 +6,7 @@
 
 **CLI review availability**
 - From: `jev_review` stays offered and runs in every main session, whatever the switches say.
-- To: `jev_review` is offered and runs only while the CLI review is on. The setting resolves from `state.json`, then `config.json`, then the code default, which is off. It stays independent of the API key, Jev and the nine feature switches.
+- To: `jev_review` is offered and runs only while the CLI review is on. The setting resolves from `state.json`, then `config.json`, then the code default, which is off. It stays independent of the API key, Jev and the feature switches.
 - Reason: the operator decides whether the model sees the tool.
 - Impact: **breaking**. After the update every user loses `jev_review` until they run `/jev cli-review on` or `/jev cli-review <cli>`, or set `review.enabled` to `true`. Existing `cliReview` state is not taken as opt-in.
 

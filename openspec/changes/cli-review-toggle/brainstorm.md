@@ -2,7 +2,7 @@
 
 Let the operator turn the CLI review (`jev_review`) on and off, and make it off by default.
 
-Today `jev_review` is always offered in the main session. The living spec `cli-review`, requirement "Independent of Jev and switches", says it "SHALL stay offered and run whether or not the API key is set, whatever the feature switches (including `review`) say". **This change alters that requirement.** The tool stays independent of the API key, Jev and the nine feature switches, but it now has its own on/off setting, and while that setting is off the model is not offered the tool.
+Today `jev_review` is always offered in the main session. The living spec `cli-review`, requirement "Independent of Jev and switches", says it "SHALL stay offered and run whether or not the API key is set, whatever the feature switches (including `review`) say". **This change alters that requirement.** The tool stays independent of the API key, Jev and the feature switches (nine at the time), but it now has its own on/off setting, and while that setting is off the model is not offered the tool.
 
 What the operator sees:
 
