@@ -17,8 +17,9 @@
 - **Base branch**: `main`
 - **Final state**: `pr-open`.
   - `wg-16-rich-state-replay` was fast-forwarded into `WG-16` three times: at `bc55c49`, `9d97789` and `24f85a0`.
-  - `WG-16` was then pushed to `origin`.
-- **PR URL**: see the PR comment section below. It is filled in after `gh pr create`.
+  - `origin/main` was then merged into `WG-16` (`b82fe23`), to pick up #42–#45. Three conflicts were resolved (`docs/jev-contract.md`, `src/host/setup.ts`, `tests/jev/questions.test.ts`), and the replay was adapted to main's `buildWorkerQuestions` and `routeLaunch(cuts)`. A reviewer checked the merge: PASS.
+  - `WG-16` was then pushed to `origin`, at `ecde466` and after.
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/47
 
 ---
 
@@ -33,7 +34,7 @@
 
 ## PR comment
 
-- **PR comment status**: filled in after posting.
+- **PR comment status**: `posted`: https://github.com/ttdua/pi-jev-pilot/pull/47#issuecomment-6708587716
 
 ---
 
@@ -50,7 +51,10 @@
 
 ## Tests
 
-- **Baseline status at finish**: `passing`. On `WG-16` at `24f85a0`, `bun test` gives 1525 pass and 0 fail; `bun run typecheck` is clean and `bun run lint` exits 0.
+- **Baseline status at finish**: `passing`.
+  - On `WG-16` at `24f85a0`, before the merge: 1525 pass, 0 fail.
+  - After merging `origin/main` (`b82fe23`): 1789 pass, 0 fail.
+  - Typecheck, lint and fmt are clean.
 
 ---
 
