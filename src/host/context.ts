@@ -3,6 +3,8 @@ import { lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { BranchItem } from "../jev/state.ts";
+import { LEVELS } from "../policy/effort.ts";
+import type { HoldAnchor } from "../policy/hold.ts";
 
 type Part = { type?: string; text?: string; name?: string; id?: string };
 
@@ -61,6 +63,35 @@ export function previousTurnId(entries: readonly SessionEntry[]): string | undef
     if (typeof data?.turnId === "string") return data.turnId;
   }
   return undefined;
+}
+
+/** Newest `decided` anchor after the last compaction, plus that compaction's id. */
+export function holdContext(entries: readonly SessionEntry[]): {
+  anchor: HoldAnchor | undefined;
+  compactionId: string | undefined;
+} {
+  let anchor: HoldAnchor | undefined;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (entry?.type === "compaction") {
+      const id: unknown = entry.id;
+      return { anchor, compactionId: typeof id === "string" ? id : undefined };
+    }
+    if (anchor !== undefined || entry?.type !== "custom" || entry.customType !== "jev-turn") {
+      continue;
+    }
+    anchor = readDecided(entry.data);
+  }
+  return { anchor, compactionId: undefined };
+}
+
+function readDecided(data: unknown): HoldAnchor | undefined {
+  const decided = (data as { decided?: unknown } | null | undefined)?.decided;
+  if (typeof decided !== "object" || decided === null) return undefined;
+  const { provider, model, level } = decided as Record<string, unknown>;
+  if (typeof provider !== "string" || typeof model !== "string") return undefined;
+  const found = LEVELS.find((l) => l === level);
+  return found === undefined ? undefined : { provider, model, level: found };
 }
 
 type Marker = { platform: string; files?: RegExp; dirs?: string[]; paths?: string[] };

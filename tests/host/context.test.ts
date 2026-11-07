@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import { branchItems, previousTurnId, scanPlatforms } from "../../src/host/context.ts";
+import { branchItems, holdContext, previousTurnId, scanPlatforms } from "../../src/host/context.ts";
 
 const e = (x: unknown) => x as SessionEntry;
 const msg = (message: unknown) => e({ type: "message", message });
@@ -149,5 +149,58 @@ describe("scanPlatforms", () => {
   });
   test("missing cwd does not throw", () => {
     expect(scanPlatforms("/nonexistent-dir-xyz")).toEqual(["none found"]);
+  });
+});
+
+describe("holdContext", () => {
+  const A = { provider: "p1", model: "m1", level: "high" as const };
+  const B = { provider: "p2", model: "m2", level: "low" as const };
+  const turn = (data: unknown) => e({ type: "custom", customType: "jev-turn", data });
+  const decided = (d: unknown) => turn({ turnId: "t", decided: d });
+  const compaction = (id: string) => e({ type: "compaction", id });
+
+  test("anchor after compaction", () => {
+    expect(holdContext([decided(A), compaction("c1"), decided(B)])).toEqual({
+      anchor: B,
+      compactionId: "c1",
+    });
+  });
+
+  test("anchor only before compaction", () => {
+    expect(holdContext([decided(A), compaction("c1"), turn({ turnId: "t" })])).toEqual({
+      anchor: undefined,
+      compactionId: "c1",
+    });
+  });
+
+  test("newest anchor wins", () => {
+    expect(holdContext([decided(A), decided(B)])).toEqual({
+      anchor: B,
+      compactionId: undefined,
+    });
+  });
+
+  test("held turns do not hide the anchor", () => {
+    expect(holdContext([decided(A), turn({ turnId: "a" }), turn({ turnId: "b" })]).anchor).toEqual(
+      A,
+    );
+  });
+
+  test("anchor not on the branch", () => {
+    expect(holdContext([msg({ role: "user", content: "x" })])).toEqual({
+      anchor: undefined,
+      compactionId: undefined,
+    });
+  });
+
+  test("malformed decided ignored", () => {
+    const entries = [
+      decided({ provider: 1 }),
+      decided({ provider: "p", model: "m", level: "huge" }),
+      decided(null),
+      turn(undefined),
+      turn(null),
+    ];
+    expect(holdContext(entries).anchor).toBeUndefined();
   });
 });
