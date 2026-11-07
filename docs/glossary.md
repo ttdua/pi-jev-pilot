@@ -33,7 +33,7 @@ Use these words consistently in code, docs and the user interface.
 | **Clamp** | Reduce a level to the nearest one a model supports. |
 | **Risk floor** | `risky > .7` raises effort to at least `high` and forces at least `deep`. |
 | **Ceiling** | The highest level a turn or worker may start at: `xhigh`. |
-| **Hold** | Keep the first effort of a session on providers where changing it loses the prompt cache. |
+| **Hold** | Keep the level of the latest decision until a compaction or a provider or model switch, on providers where changing it loses the prompt cache. |
 | **Strategy** | How work should be carried out: `direct`, `delegate`, `parallel`, `graph`. Advice only. |
 | **Advice** | Context attached for the model to weigh. Never enforced. |
 | **Gate (skill)** | Three yes/no questions whose mean says whether a prompt needs a skill at all. |

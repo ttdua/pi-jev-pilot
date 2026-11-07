@@ -37,7 +37,7 @@ A main decision SHALL be attempted only when every condition holds: the run was 
 - **THEN** no Jev request is sent and no ledger line is written
 
 ### Requirement: Main questions
-A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order), `risky` (a noul) and `corrects` (a noul), with the wording in `docs/jev-questions.md`. When the selected model supports fewer than two levels from `low` upward, `effort` and `risky` MUST NOT be asked, and only `corrects` is. No other question MUST be asked.
+A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order), `risky` (a noul) and `corrects` (a noul), with the wording in `docs/jev-questions.md`. When the selected model supports fewer than two levels from `low` upward, or the prompt is held (see `effort-hold`), `effort` and `risky` MUST NOT be asked, and only `corrects` is. No other question MUST be asked.
 
 #### Scenario: Reasoning model
 - **WHEN** the selected model is a reasoning model supporting `low` to `high`
@@ -47,8 +47,12 @@ A main request SHALL ask `effort` (a choice over `low`, `medium`, `high`, `xhigh
 - **WHEN** the selected model is not a reasoning model
 - **THEN** the request's `questions` has exactly the key `corrects`, and the level is never changed
 
+#### Scenario: Held prompt
+- **WHEN** the prompt is held
+- **THEN** the request's `questions` has exactly the key `corrects`
+
 ### Requirement: Question wire format
-Each question SHALL use the TypeSafe wire format: a choice carries `type` `choice`, `instructions` and `criteria` mapping each option to its description; a noul carries `type` `noul`, `instructions` and `criteria` with `true` and `false`.
+Each question SHALL use the TypeSafe wire format: a choice carries `type` `choice`, `instructions` and `criteria` mapping each option to its description; a noul carries `type` `noul`, `instructions` and `criteria` with `true` and `false`. The three skill gates `gate::acts_on_user_system`, `gate::would_follow_documented_procedure` and `gate::prose_suffices` are the only exception: each MUST carry exactly `type` `noul` and `instructions`, with no `criteria`.
 
 #### Scenario: Choice shape
 - **WHEN** the `effort` question is built
@@ -57,6 +61,10 @@ Each question SHALL use the TypeSafe wire format: a choice carries `type` `choic
 #### Scenario: Noul shape
 - **WHEN** the `risky` question is built
 - **THEN** its `criteria` has exactly the keys `true` and `false`
+
+#### Scenario: Skill gate shape
+- **WHEN** the skill gates are built
+- **THEN** each has exactly the keys `type` and `instructions`, and `type` is `noul`
 
 ### Requirement: Supported levels
 The supported levels of a model SHALL follow Pi's rule: a model that is not a reasoning model supports only `off`; otherwise every level from `off` to `max` is supported except a level whose `thinkingLevelMap` value is `null`, and `xhigh` and `max` are supported only when their map value is defined. The rule MUST be a pure function with no Pi import.

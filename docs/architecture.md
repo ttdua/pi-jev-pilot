@@ -55,7 +55,7 @@ src/
     tier.ts              Model decision order
     route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
     modes.ts             Mode names, expert gates
-    skill.ts             Skill pick from choice and gate answers
+    skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
     strategy.ts          Advice gates and advice text
     tools.ts             Which tools are assessed, which are removed
     tuning.ts            Tuning rules, revert rules
