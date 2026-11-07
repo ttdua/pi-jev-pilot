@@ -1,7 +1,7 @@
 ## 1. Docs first
 
-- [ ] 1.1 Update `docs/jev-questions.md`: wire format exception for the three gates (no `criteria`); the `content`, `suggest` and `reference` delivery texts under "Text added to the model's context" (Delivery text, Which options and wording)
-- [ ] 1.2 Update `docs/jev-contract.md` "Skill pick" and "Main questions": criterion fallback, batches of at most 254 of near-equal size, a batch led by `(none)` is ignored, ties, gate mean over gates read, gates sent without criteria, duplicate rule by name and fingerprint; and `docs/roadmap.md` WG-09 (two changes)
+- [x] 1.1 Update `docs/jev-questions.md`: wire format exception for the three gates (no `criteria`); the `content`, `suggest` and `reference` delivery texts under "Text added to the model's context" (Delivery text, Which options and wording)
+- [x] 1.2 Update `docs/jev-contract.md` "Skill pick" and "Main questions": criterion fallback, batches of at most 254 of near-equal size, a batch led by `(none)` is ignored, ties, gate mean over gates read, gates sent without criteria, duplicate rule by name and fingerprint; and `docs/roadmap.md` WG-09 (two changes)
 
 ## 2. Pure skill policy
 
