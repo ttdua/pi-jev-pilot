@@ -178,7 +178,12 @@ const failure = (text: string) => ({
   isError: true as const,
 });
 
-/** Registers the `jev_review` tool. It needs no key and no feature switch. */
+export const REVIEW_OFF_MESSAGE = "jev_review is off. Turn it on with /jev cli-review on.";
+
+/**
+ * Registers the `jev_review` tool. It needs no key; `execute` refuses while the
+ * review setting is off (or unreadable), and `syncReviewTool` hides it from the loadout.
+ */
 export function registerReviewTool(
   pi: Pick<ExtensionAPI, "registerTool" | "exec" | "getAllTools">,
   deps: { load?: () => Snapshot; exec?: Exec } = {},
@@ -200,12 +205,16 @@ export function registerReviewTool(
         if (isChild(ctx.sessionManager.getSessionId())) {
           return failure("jev_review is not available in a subagent session.");
         }
-        let defaults: ReviewChoice = { cli: "codex" };
+        let review: Snapshot["settings"]["review"];
         try {
-          defaults = load().settings.review;
+          review = load().settings.review;
         } catch {
-          /* fall back to codex */
+          return failure(REVIEW_OFF_MESSAGE);
         }
+        if (!review.enabled) return failure(REVIEW_OFF_MESSAGE);
+        const defaults: ReviewChoice = { cli: review.cli };
+        if (review.model !== undefined) defaults.model = review.model;
+        if (review.effort !== undefined) defaults.effort = review.effort;
         const choice = effectiveChoice(defaults, params);
         const r = await runReview(exec, {
           choice,
@@ -231,4 +240,22 @@ export function hideReviewInChild(event: BeforeAgentStartEvent, sessionId: strin
   const tools = event.systemPromptOptions?.selectedTools;
   if (!Array.isArray(tools)) return;
   for (let i = tools.length - 1; i >= 0; i--) if (tools[i] === REVIEW_TOOL) tools.splice(i, 1);
+}
+
+/** Adds or removes `jev_review` in the live loadout to match the setting. Never throws. */
+export function syncReviewTool(
+  pi: Pick<ExtensionAPI, "getActiveTools" | "setActiveTools" | "getAllTools">,
+  enabled: boolean,
+): void {
+  try {
+    const active = pi.getActiveTools();
+    const present = active.includes(REVIEW_TOOL);
+    if (!enabled && present) {
+      pi.setActiveTools(active.filter((n) => n !== REVIEW_TOOL));
+    } else if (enabled && !present && pi.getAllTools().some((t) => t.name === REVIEW_TOOL)) {
+      pi.setActiveTools([...active, REVIEW_TOOL]);
+    }
+  } catch {
+    /* the turn proceeds with the loadout as it is */
+  }
 }
