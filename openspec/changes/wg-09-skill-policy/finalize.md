@@ -16,7 +16,7 @@
 - **Branch**: `WG-09`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `<filled after gh pr create>`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/33`
 
 Deviation from the canonical flow (per AGENTS.md): no PR existed, and push and PR creation were approved explicitly by the operator in the Inbox (2026-11-07). `WG-09` had no remote branch, so step 3's pull was skipped. Worktrees are managed with Worktrunk, so cleanup used `wt remove`, then `git branch -d` after confirming the branch was contained in `WG-09`.
 
@@ -31,7 +31,7 @@ Deviation from the canonical flow (per AGENTS.md): no PR existed, and push and P
 
 ## PR comment
 
-- **PR comment status**: `<filled after posting>`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/33#issuecomment-6700868314)
 
 ---
 
