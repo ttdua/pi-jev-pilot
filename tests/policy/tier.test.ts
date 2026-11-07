@@ -322,7 +322,7 @@ describe("Partial answers in the decision", () => {
       decided("deep", "risky"),
     );
   });
-  test("Expert needed unanswered", () => {
+  test("Expert needed unanswered (no rule reads it)", () => {
     expect(decideTier(answersForScore(2.4, "max"), ALL, STANDARD)).toEqual(
       decided("expert", "expert"),
     );
@@ -407,10 +407,11 @@ describe("Slot rule", () => {
   });
   test("Slot in every mode", () => {
     const a = answers({
-      tier: ["slot::reviewer", { "slot::reviewer": 0.92, balanced: 0.08 }],
+      tier: ["slot::reviewer", { "slot::reviewer": 0.92, balanced: 0.02, deep: 0.06 }],
       effort: "high",
       risky: 0.1,
     });
+    expect(scoreOf(a)).toBe(2);
     for (const cuts of [BUDGET, STANDARD, PREMIUM]) {
       expect(decideTier(a, ALL, cuts, R)).toEqual(decided("slot::reviewer", "slot"));
     }

@@ -3,6 +3,7 @@
 import { isSlot, slotName, slotTarget, TIER_LADDER, type Target, type TierName } from "./launch.ts";
 import type { Answer } from "./answers.ts";
 import type { CutPoints } from "./cutpoints.ts";
+import { RISK_FLOOR } from "./effort.ts";
 import { difficultyScore } from "./score.ts";
 import type { WorkerAnswers } from "./worker.ts";
 
@@ -35,7 +36,6 @@ function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
 }
 
 const SLOT_BAR = 0.6;
-const RISK_BAR = 0.7;
 const CUT_LADDER = ["fast", "balanced", "deep"] as const;
 
 // Rule expert: the score reaches the launch's expert cut and the model asked for high effort.
@@ -59,7 +59,7 @@ function riskRule(
   offered: readonly TierName[],
 ): TierDecision | undefined {
   const risky = answers["risky"];
-  if (risky?.type !== "noul" || risky.noul <= RISK_BAR) return undefined;
+  if (risky?.type !== "noul" || risky.noul <= RISK_FLOOR) return undefined;
   const target = deepOrHighest(offered);
   return target === undefined ? undefined : decide(target, "risky");
 }
