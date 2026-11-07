@@ -1,6 +1,6 @@
 ## 1. Settings resolver
 
-- [ ] 1.1 Change the tuning layer in `src/store/settings.ts` to `{ timeoutMs?: { value, base } }`. The tuned value applies only when both are integers from 300 to 5000 and `base` equals the untuned value. Update `tests/store/settings.test.ts` for every `settings-resolution` scenario (tuning over config, non-integer, out of range, config edited after tuning, tuned from the default, invalid base, missing base)
+- [x] 1.1 Change the tuning layer in `src/store/settings.ts` to `{ timeoutMs?: { value, base } }`. The tuned value applies only when both are integers from 300 to 5000 and `base` equals the untuned value. Update `tests/store/settings.test.ts` for every `settings-resolution` scenario (tuning over config, non-integer, out of range, config edited after tuning, tuned from the default, invalid base, missing base)
 
 ## 2. Tuning file
 
