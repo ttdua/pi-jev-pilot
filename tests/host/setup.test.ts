@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY, isChild } from "../../src/host/child.ts";
@@ -7,6 +7,7 @@ import { setup } from "../../src/host/setup.ts";
 import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tool-service.ts";
 import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
+import { firing } from "./tuning-fakes.ts";
 import { body, TIERS } from "./worker-fakes.ts";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
@@ -397,6 +398,59 @@ describe("setup", () => {
       fakeCtx("kid", () => calls++),
     );
     expect(calls).toBe(0);
+  });
+
+  test("child session start and settle leave tuning alone", async () => {
+    const dir = join(agentDir, "jev");
+    mkdirSync(dir, { recursive: true });
+    const tuning = JSON.stringify({
+      history: [{ at: 1000, parameter: "timeoutMs", from: 1500, to: 1700, cause: "rule" }],
+    });
+    writeFileSync(join(dir, "tuning.json"), tuning);
+    writeFileSync(
+      join(dir, "ledger.jsonl"),
+      firing()
+        .map((e) => JSON.stringify(e))
+        .join("\n") + "\n",
+    );
+    const f = fakePi();
+    setup(f.pi);
+    f.emit(CREATED, { sessionId: "kid" });
+    let notified = 0;
+    const ctx = {
+      ...fakeCtx("kid", () => {}),
+      ui: { setWidget: () => {}, notify: () => notified++ },
+    };
+    await f.handlers.get("session_start")![0]!({}, ctx);
+    await f.handlers.get("agent_settled")![0]!({}, ctx);
+    expect(readFileSync(join(dir, "tuning.json"), "utf8")).toBe(tuning);
+    expect(notified).toBe(0);
+  });
+
+  test("tuning follows the jev dir resolved at event time", async () => {
+    const second = tempDir("jev-setup-second-");
+    try {
+      const f = fakePi();
+      setup(f.pi);
+      process.env.PI_CODING_AGENT_DIR = second;
+      mkdirSync(join(second, "jev"), { recursive: true });
+      writeFileSync(
+        join(second, "jev", "ledger.jsonl"),
+        firing()
+          .map((e) => JSON.stringify(e))
+          .join("\n") + "\n",
+      );
+      const ctx = {
+        ...fakeCtx("main", () => {}),
+        ui: { setWidget: () => {}, notify: () => {} },
+      };
+      await f.handlers.get("agent_settled")![0]!({}, ctx);
+      expect(existsSync(join(second, "jev", "tuning.json"))).toBe(true);
+      expect(existsSync(join(agentDir, "jev", "tuning.json"))).toBe(false);
+    } finally {
+      process.env.PI_CODING_AGENT_DIR = agentDir;
+      rmSync(second, { recursive: true, force: true });
+    }
   });
 
   test("shutdown unsubscribes; a new instance keeps the registry ids", async () => {

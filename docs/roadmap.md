@@ -25,7 +25,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-15 | CLI review | M | WG-06 | Done |
 | WG-16 | Rich state replay | M | WG-09, 13 | Planned |
 | WG-17 | Tally and log | S | WG-11 | Done |
-| WG-18 | Auto-tuning | M | WG-05, 07 | Planned |
+| WG-18 | Auto-tuning | M | WG-05, 07 | Done |
 | WG-19 | Release and migration guide | S | All above | Planned |
 
 ```mermaid
@@ -214,6 +214,8 @@ Decide which [state fields](jev-contract.md#main-state) ship. **Sends real promp
 - **Done when:** log lines are absent from provider requests in a host test.
 
 ### WG-18: Auto-tuning
+
+**Status:** Done. Policy in `wg-18-tuning-policy`, host in `wg-18-tuning-host`.
 
 **G3, phase 1.** `agent_settled` check, `timeoutMs` rule, cooldown, automatic revert, `/jev tune` and its subcommands, signals shown per mode.
 

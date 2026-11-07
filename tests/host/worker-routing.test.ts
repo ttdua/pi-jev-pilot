@@ -362,6 +362,27 @@ describe("worker routing through the real CLI", () => {
   );
 
   test(
+    "Worker routing uses the tuned value",
+    async () => {
+      const jev = await newJev({ hang: true });
+      const { fixture, session } = await setup(script([subagentCall(launch())]));
+      writeJev(session.agentDir, { config: config(jev, { timeoutMs: 300 }) });
+      writeFileSync(
+        join(session.agentDir, "jev", "tuning.json"),
+        JSON.stringify({ version: 1, timeoutMs: { value: 600, base: 300 } }),
+      );
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      expect(childOf(fixture)?.model).toBe("fixture-balanced");
+      const line = workerLines(session)[0];
+      expect(line).toMatchObject({ miss: "timeout", reason: "miss", answered: false });
+      expect(line?.["ms"] as number).toBeGreaterThanOrEqual(550);
+      expect(line?.["ms"] as number).toBeLessThan(800);
+    },
+    TIMEOUT,
+  );
+
+  test(
     "switch off sends nothing",
     async () => {
       const jev = await newJev(jevAnswers({ tier: "fast" }));

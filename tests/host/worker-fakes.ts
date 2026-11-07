@@ -46,6 +46,8 @@ export function snap(o: Opts = {}): Snapshot {
     settings,
     keyVar: "TYPESAFE_API_KEY",
     keySet: o.keySet ?? true,
+    tuning: { kind: "missing", issues: [], record: {} },
+    untunedTimeoutMs: settings.classifier.timeoutMs,
     executor: o.executor ?? true,
   };
 }

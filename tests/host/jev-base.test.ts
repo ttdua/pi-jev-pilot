@@ -5,7 +5,7 @@ import { tempDir } from "../helpers";
 import { toolNames, withoutReview } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
-import type { RpcEvent } from "./rpc";
+import { command, notifies, uiRequests, type UiRequest } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -21,7 +21,12 @@ const KEY = { TYPESAFE_API_KEY: "test-key" };
 const TIMEOUT = 60_000;
 
 const mainReply = (delayMs?: number): ScriptEntry[] => [
-  { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" }, delayMs },
+  {
+    name: "main",
+    match: (r) => r.model === "fixture-main",
+    reply: { text: "ok" },
+    delayMs,
+  },
 ];
 
 async function fixtureWith(script: ScriptEntry[] = mainReply()): Promise<Fixture> {
@@ -45,28 +50,8 @@ async function host(
   return s;
 }
 
-type UiRequest = RpcEvent & {
-  method?: string;
-  widgetKey?: string;
-  widgetLines?: string[];
-  widgetPlacement?: string;
-  message?: string;
-  notifyType?: string;
-};
-
-const uiRequests = (s: HostSession): UiRequest[] =>
-  s.events.filter((e) => e.type === "extension_ui_request") as UiRequest[];
 const jevWidgets = (s: HostSession): UiRequest[] =>
   uiRequests(s).filter((e) => e.method === "setWidget" && e.widgetKey === "jev");
-const notifies = (s: HostSession): UiRequest[] =>
-  uiRequests(s).filter((e) => e.method === "notify");
-
-/** Sends a slash command as a prompt and waits for its response. */
-async function command(s: HostSession, text: string): Promise<Record<string, unknown> | undefined> {
-  const r = await s.send({ type: "prompt", message: text });
-  expect(r.success).toBe(true);
-  return r.data;
-}
 
 describe("status line and /jev through the real CLI", () => {
   test(
@@ -104,7 +89,10 @@ describe("status line and /jev through the real CLI", () => {
       expect(n.length).toBe(1);
       expect(n[0]?.notifyType).toBe("info");
       const msgs = await s.send({ type: "get_messages" });
-      const all = (msgs.data?.messages ?? []) as { role?: string; content?: unknown }[];
+      const all = (msgs.data?.messages ?? []) as {
+        role?: string;
+        content?: unknown;
+      }[];
       const userText = all.filter((m) => m.role === "user").map((m) => JSON.stringify(m.content));
       expect(userText.some((c) => c.includes("/jev"))).toBe(false);
     },
@@ -141,7 +129,7 @@ describe("status line and /jev through the real CLI", () => {
     "unknown command notifies a warning",
     async () => {
       const s = await host(await fixtureWith());
-      await command(s, "/jev tune");
+      await command(s, "/jev tune apply");
       await s.waitFor(() => notifies(s).length >= 1, "notify");
       expect(notifies(s).at(-1)?.notifyType).toBe("warning");
     },
@@ -382,7 +370,11 @@ describe("executor child", () => {
         },
         times: 1,
       },
-      { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+      {
+        name: "main-after",
+        match: (r) => r.model === "fixture-main",
+        reply: { text: "done" },
+      },
     ]);
     const s = await host(fixture, {
       executor: true,
