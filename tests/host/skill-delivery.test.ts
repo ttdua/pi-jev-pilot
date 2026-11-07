@@ -251,8 +251,9 @@ describe("skill delivery through the real CLI", () => {
   test(
     "none leads: no entry and no relevance block",
     async () => {
-      const { s, fixture } = await setup(NONE);
+      const { s, fixture, jev } = await setup(NONE);
       await turn(s, "one", 1);
+      expect(questionKeys(jev, 0)).toContain("which");
       expect(skillEntries(s)).toEqual([]);
       expect(messagesOf(mainRequests(fixture)[0]!)).not.toContain("<skill_relevance>");
     },
@@ -262,8 +263,9 @@ describe("skill delivery through the real CLI", () => {
   test(
     "gate too low: no entry and no relevance block",
     async () => {
-      const { s, fixture } = await setup(reply({ debug: 0.4, plan: 0.3, none: 0.3 }, 0.1));
+      const { s, fixture, jev } = await setup(reply({ debug: 0.4, plan: 0.3, none: 0.3 }, 0.1));
       await turn(s, "one", 1);
+      expect(questionKeys(jev, 0)).toContain("which");
       expect(skillEntries(s)).toEqual([]);
       expect(messagesOf(mainRequests(fixture)[0]!)).not.toContain("<skill_relevance>");
       expect(mainLines(s)[0]).not.toHaveProperty("skill");
@@ -287,8 +289,8 @@ describe("skill delivery through the real CLI", () => {
   test(
     "jev down: same provider messages as with skills off",
     async () => {
-      const agentDir = tempDir("jev-skill-agent-");
-      const cwd = tempDir("jev-skill-cwd-");
+      const agentDir = tempDir("jev-down-agent-");
+      const cwd = tempDir("jev-down-cwd-");
       dirs.push(agentDir, cwd);
       const jev = await startJevFixture({ [ASK]: { status: 500 } });
       jevs.push(jev);
@@ -307,16 +309,24 @@ describe("skill delivery through the real CLI", () => {
           persist: true,
         });
         if (off) await s.prompt("/jev skills off");
-        await turn(s, "hello", 1);
+        // The agentDir is shared, so wait on this run's own provider request count.
+        await s.prompt("hello");
+        await s.waitFor(() => mainRequests(fixture).length >= 1, "main provider request");
+        await Bun.sleep(300);
         const entries = skillEntries(s).length;
         await s.close();
         return { bodies: mainRequests(fixture).map(messagesOf), entries };
       };
       const on = await run(false);
       const off = await run(true);
+      expect(jev.requests.length).toBeGreaterThan(0);
       expect(on.entries).toBe(0);
       expect(off.entries).toBe(0);
       expect(on.bodies.length).toBeGreaterThan(0);
+      expect(off.bodies.length).toBeGreaterThan(0);
+      for (const b of [...on.bodies, ...off.bodies])
+        for (const needle of [BODY, "<skill_relevance>", "jev-skill"])
+          expect(b).not.toContain(needle);
       expect(on.bodies).toEqual(off.bodies);
     },
     TIMEOUT,
@@ -325,12 +335,13 @@ describe("skill delivery through the real CLI", () => {
   test(
     "skills only: effort off keeps the level",
     async () => {
-      const { s, jev } = await setup(PICK);
+      const { s, fixture, jev } = await setup(PICK);
       await s.prompt("/jev effort off");
       const level = async (): Promise<unknown> =>
         ((await s.send({ type: "get_state" })).data as { thinkingLevel?: unknown }).thinkingLevel;
       const before = await level();
       await turn(s, "one", 1);
+      expect(mainRequests(fixture)[0]!.reasoningEffort).toBe(before as string);
       expect(skillEntries(s).map((e) => e.details?.form)).toEqual(["content"]);
       expect(questionKeys(jev, 0)).not.toContain("effort");
       expect(questionKeys(jev, 0)).toContain("which");
@@ -342,8 +353,9 @@ describe("skill delivery through the real CLI", () => {
   test(
     "marker absent from the ledger and the entries",
     async () => {
-      const { s } = await setup(PICK);
+      const { s, fixture } = await setup(PICK);
       await turn(s, "JEV-MARKER-PROMPT please", 1);
+      expect(messagesOf(mainRequests(fixture)[0]!)).toContain("JEV-MARKER-");
       expect(skillEntries(s).length).toBe(1);
       expect(JSON.stringify(mainLines(s))).not.toContain("JEV-MARKER-");
       for (const e of skillEntries(s))
