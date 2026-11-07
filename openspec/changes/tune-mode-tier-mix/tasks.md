@@ -13,8 +13,8 @@
 
 ## 3. Tier decision (pure)
 
-- [ ] 3.1 Rewrite `decideTier` in `src/policy/tier.ts`: it takes cut points instead of the mode and applies rules `expert`, `risky`, `slot`, `cut` in that order. `cut` moves an unoffered tier down, then up, never to `expert`. Remove the `expert-denied` and `fast-unsure` rules, the substitute-tier step and their reasons in `TierDecision`. Rewrite `tests/policy/tier.test.ts` for every scenario of `worker-decision`: Decision order (including Table per mode), Expert rule, Cut rule, Risk floor rule, Partial answers, Fallthrough without a qualifying tier, Slot rule, Slot below the bar uses the score
-- [ ] 3.2 Update `src/policy/route.ts`, `src/policy/worker.ts` and their tests (`tests/policy/route.test.ts`, `tests/policy/worker.test.ts`) for the new reasons in "Routed launch", "Nothing can run" and "Locks in the route", leaving effort, fallback and clamp unchanged
+- [x] 3.1 Rewrite `decideTier` in `src/policy/tier.ts`: it takes cut points instead of the mode and applies rules `expert`, `risky`, `slot`, `cut` in that order. `cut` moves an unoffered tier down, then up, never to `expert`. Remove the `expert-denied` and `fast-unsure` rules, the substitute-tier step and their reasons in `TierDecision`. Rewrite `tests/policy/tier.test.ts` for every scenario of `worker-decision`: Decision order (including Table per mode), Expert rule, Cut rule, Risk floor rule, Partial answers, Fallthrough without a qualifying tier, Slot rule, Slot below the bar uses the score
+- [x] 3.2 Update `src/policy/route.ts`, `src/policy/worker.ts` and their tests (`tests/policy/route.test.ts`, `tests/policy/worker.test.ts`) for the new reasons in "Routed launch", "Nothing can run" and "Locks in the route", leaving effort, fallback and clamp unchanged
 
 ## 4. Ledger schema
 
