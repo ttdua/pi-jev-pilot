@@ -6,7 +6,7 @@ The `/jev` command reports the status and changes feature switches through `stat
 ## Requirements
 
 ### Requirement: Status report
-`/jev` with no argument SHALL report the status: the status line text, the effective mode, each of the nine feature switches with `on` or `off`, the effective CLI review default (the CLI, and the model and effort when set, or that the CLI's defaults apply), whether the API key is set (naming the environment variable, never its value), whether the executor is present, every config and state problem with its field path, and, last, the session tally. Without the executor, the report MUST say `no executor` and that worker routing and tool assessment are off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
+`/jev` with no argument SHALL report the status: the status line text, the effective mode, each of the nine feature switches with `on` or `off`, the effective CLI review default (the CLI, and the model and effort when set, or that the CLI's defaults apply), whether the API key is set (naming the environment variable, never its value), whether the executor is present, every config and state problem with its field path, the recent worker mix when the executor is present, and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): fast <a>% / balanced <b>% / deep <c>% / expert <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. Without the executor, the report MUST say `no executor` and that worker routing and tool assessment are off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
 
 #### Scenario: Default status
 - **WHEN** the config is valid, the key is set, the executor is installed, and `/jev` runs
@@ -39,6 +39,26 @@ The `/jev` command reports the status and changes feature switches through `stat
 #### Scenario: Tally after work
 - **WHEN** two prompts were decided and one worker routed to `fixture/fast` used 120 tokens, and `/jev` runs
 - **THEN** the report ends with `session:`, `  prompts 2`, `  workers 1 (fixture/fast 1)`, `  worker tokens 120` and `  fallbacks 0`
+
+#### Scenario: Mix with a full window
+- **WHEN** the mode is `standard`, the window holds 200 entries with decided tiers 38 `fast`, 110 `balanced`, 48 `deep` and 4 `expert`, and `/jev` runs
+- **THEN** the report contains `mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2` and no `cut points: seed` line
+
+#### Scenario: Budget target shown
+- **WHEN** the mode is `budget`, the window holds 120 entries and `/jev` runs
+- **THEN** the `mix` line ends with `target 50/40/10/≤0`
+
+#### Scenario: Mix while the seed applies
+- **WHEN** the window holds 40 entries and `/jev` runs
+- **THEN** the report contains a `mix (last 40, …)` line followed by `cut points: seed`
+
+#### Scenario: Empty window
+- **WHEN** the window is empty and `/jev` runs
+- **THEN** the report contains `mix: no routed workers yet` and `cut points: seed`
+
+#### Scenario: No mix without the executor
+- **WHEN** the executor is not installed and `/jev` runs
+- **THEN** the report has no `mix` line
 
 ### Requirement: Feature switches
 `/jev <feature> on|off`, where `<feature>` is one of `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`, SHALL set that switch in `state.json` through the state store, leaving other fields unchanged, then report the new status and refresh the status line. A switch set this way MUST still apply after Pi restarts.
