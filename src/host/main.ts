@@ -34,6 +34,8 @@ export type MainDeps = {
   newId: () => string;
   platforms: (cwd: string) => string[];
   env: () => Record<string, string | undefined>;
+  /** Compact tally for the status line when this prompt is a multiple of 10, else `undefined`. */
+  tallyText?: () => string | undefined;
 };
 
 /** Per-turn bookkeeping. Internal; the ledger lines are written from it when the run settles. */
@@ -77,6 +79,10 @@ type Ctx = Pick<
 export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   let record: TurnRecord | undefined;
   let current: Decision | undefined;
+  /** Tally text shown on every 10th prompt until the next eligible prompt's result. */
+  let overlay: string | undefined;
+  /** Records that already drew during their own `decide` call. */
+  const drawnBy = new WeakSet<TurnRecord>();
   /** What an aborted start needs to put the status back. Belongs to `record`. */
   let undo:
     | {
@@ -84,16 +90,36 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         ctx: Ctx;
         snapshot: Snapshot;
         previous: Decision | undefined;
+        previousOverlay: string | undefined;
         drew: boolean;
       }
     | undefined;
 
   const level = (): ThinkingLevel => pi.getThinkingLevel() as ThinkingLevel;
 
-  function setDecision(rec: TurnRecord, ctx: Ctx, snapshot: Snapshot, decision: Decision): void {
+  /** The only place the status is drawn from a turn; marks the record as having drawn. */
+  function draw(rec: TurnRecord, ctx: Ctx, snapshot: Snapshot): void {
     if (undo?.rec === rec) undo.drew = true;
+    drawnBy.add(rec);
+    drawStatus(ctx, snapshot, current, overlay);
+  }
+
+  function setDecision(rec: TurnRecord, ctx: Ctx, snapshot: Snapshot, decision: Decision): void {
     current = decision;
-    drawStatus(ctx, snapshot, decision);
+    draw(rec, ctx, snapshot);
+  }
+
+  /** Asks for this prompt's tally text. A failure keeps the old overlay. Returns whether it changed. */
+  function refreshOverlay(): boolean {
+    let next: string | undefined;
+    try {
+      next = deps.tallyText?.();
+    } catch {
+      return false;
+    }
+    if (next === overlay) return false;
+    overlay = next;
+    return true;
   }
 
   async function beforeAgentStart(
@@ -183,7 +209,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     };
     record = rec;
     mine.rec = rec;
-    undo = { rec, ctx, snapshot, previous: current, drew: false };
+    undo = { rec, ctx, snapshot, previous: current, previousOverlay: overlay, drew: false };
 
     const outcome = await deps.ask({
       url: snapshot.settings.classifier.url,
@@ -203,13 +229,50 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       return undefined;
     }
     rec.ms = outcome.ms;
-    if (held) return holdOutcome(rec, ctx, snapshot, outcome, questions.specs, askStrategy);
+    const changed = refreshOverlay();
+    try {
+      return applyOutcome(
+        { rec, ctx, snapshot, held, askEffort, askStrategy, supported, from },
+        outcome,
+        questions.specs,
+      );
+    } finally {
+      // The overlay changed but no branch drew: show it (or its removal) over the old suffix.
+      if (changed && !drawnBy.has(rec)) {
+        try {
+          draw(rec, ctx, snapshot);
+        } catch {
+          /* fail open */
+        }
+      }
+    }
+  }
+
+  type Turn = {
+    rec: TurnRecord;
+    ctx: Ctx;
+    snapshot: Snapshot;
+    held: boolean;
+    askEffort: boolean;
+    askStrategy: boolean;
+    supported: ReturnType<typeof supportedLevels>;
+    from: ThinkingLevel;
+  };
+
+  /** Records the classifier outcome and, when the turn is decided, applies and draws the result. */
+  function applyOutcome(
+    turn: Turn,
+    outcome: Exclude<Awaited<ReturnType<typeof askJev>>, { kind: "cancelled" }>,
+    specs: ReturnType<typeof mainQuestions>["specs"],
+  ): BeforeAgentStartEventResult | undefined {
+    const { rec, ctx, snapshot, held, askEffort, askStrategy, supported, from } = turn;
+    if (held) return holdOutcome(rec, ctx, snapshot, outcome, specs, askStrategy);
     if (outcome.kind === "miss") {
       rec.miss = outcome.miss;
       setDecision(rec, ctx, snapshot, withDecision(current, { kind: "no-answer" }, undefined));
       return;
     }
-    const read = readAnswers(questions.specs, outcome.body);
+    const read = readAnswers(specs, outcome.body);
     if (read.kind === "miss") {
       rec.miss = read.miss;
       setDecision(rec, ctx, snapshot, withDecision(current, { kind: "no-answer" }, undefined));
@@ -475,7 +538,8 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
         // Nothing ran: put the status back as it was before this turn.
         if (undo?.rec === rec && undo.drew) {
           current = undo.previous;
-          drawStatus(undo.ctx, undo.snapshot, undo.previous);
+          overlay = undo.previousOverlay;
+          drawStatus(undo.ctx, undo.snapshot, current, overlay);
         }
         record = undefined;
         undo = undefined;
@@ -499,9 +563,11 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     sessionStart: (): void => {
       // A run from the replaced session may still settle; it must not touch the new one.
       current = undefined;
+      overlay = undefined;
       record = undefined;
       undo = undefined;
     },
     decision: (): Decision | undefined => current,
+    overlay: (): string | undefined => overlay,
   };
 }

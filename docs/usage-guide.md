@@ -169,13 +169,25 @@ A CLI review does not need the Jev key and does not depend on the switches. It r
 ## Switches
 
 ```text
-/jev                     status (session tally: WG-17)
+/jev                     status and session tally
 /jev skills off          one feature
 /jev all off             the seven decision features
 /jev reset               switches, mode and CLI review default back to config defaults
 ```
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
+
+`/jev` ends with the session tally, which starts empty in each new or resumed session:
+
+```text
+session:
+  prompts 2
+  workers 1 (openai/gpt-5-mini 1)
+  worker tokens 120
+  fallbacks 0
+```
+
+`/jev verbose on` adds one log line in the conversation for each decision, and for each correction and routed worker. Log lines show levels, probabilities and timings, never prompt text, and are not sent to the model. Example: `jev · main · low → high · 0.5s · p low 0.05 medium 0.10 high 0.70 xhigh 0.10 max 0.05`.
 
 From WG-06 only the forms above exist. Any other form prints the usage text until its work group adds it: slot commands (WG-13) and `tune` (WG-18).
 
@@ -211,7 +223,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 ## All commands
 
 ```text
-/jev                                         status (session tally: WG-17)
+/jev                                         status and session tally
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
 /jev reset                                   switches, mode and CLI review default back to config defaults

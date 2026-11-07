@@ -12,7 +12,9 @@ When the text is `Jev · <mode>`, suffixes follow in this order:
 - **Effort suffix.** When `effort` is on and a main decision has been made in this session, ` · <level>` MUST follow, with the effective level of the latest applied, kept or held decision. ` · no answer` MUST follow instead when the latest request was not held and was a miss (whatever was asked), or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave this suffix as it was.
 - **Advice suffix.** When `strategy` is on and the latest decided request that asked `strategy` attached advice, ` · <strategy>` MUST follow, with the attached strategy. A later decided request that asked `strategy` and attached none, or a miss, MUST remove it. A request that did not ask `strategy` MUST leave it as it was. A discarded effort result MUST NOT affect it, and a held turn sets or removes it like any other turn. A cancelled decision MUST leave both suffixes as they were. While `strategy` is off the advice suffix MUST NOT be shown; turning `strategy` back on shows the latest kept advice again, as the effort suffix does for `effort`.
 
-A session start MUST clear both suffixes. Drawing the line MUST make no network call.
+- **Tally form.** When an eligible prompt's Jev request completes (answered, missed or held, not cancelled) while the session tally counts a number of prompts one short of a multiple of 10 (so this prompt is the 10th, 20th, ...), the line MUST read `Jev · <mode> · <P> prompts · <W> workers · <F> fallbacks` instead, with `P` the tally's prompts plus one and `W`, `F` the tally's workers and fallbacks, whether or not the result changed the suffixes. It replaces both the level and the advice suffix and is shown whatever the `effort` switch says. An eligible prompt is any prompt Jev decides, that is, one with `effort` or `strategy` on. The tally form MUST last only until the next eligible prompt's Jev request completes (not cancelled), which then shows the suffixes as the rules above set them; a cancelled prompt leaves the line as it was. Prompts with `effort` and `strategy` both off are not eligible, so they never show the tally form.
+
+A session start MUST clear all suffixes and the tally form. Drawing the line MUST make no network call.
 
 #### Scenario: Ready with the default mode
 - **WHEN** the config is valid, the key is set, no switch is changed and no mode is set
@@ -117,6 +119,46 @@ A session start MUST clear both suffixes. Drawing the line MUST make no network 
 #### Scenario: Base state wins
 - **WHEN** a decision applied `high` and the operator then runs `/jev all off`
 - **THEN** the status line reads `Jev · off`
+
+#### Scenario: Tally on the 10th prompt
+- **WHEN** nine decided prompts have settled, two workers were recorded, one of them a fallback, and the 10th prompt's decision applies `high`
+- **THEN** the status line reads `Jev · standard · 10 prompts · 2 workers · 1 fallbacks`
+
+#### Scenario: Ninth prompt shows the level
+- **WHEN** eight decided prompts have settled and the 9th prompt's decision applies `high`
+- **THEN** the status line reads `Jev · standard · high`
+
+#### Scenario: Eleventh prompt shows the level again
+- **WHEN** the 10th prompt showed the tally and the 11th prompt's decision applies `medium`
+- **THEN** the status line reads `Jev · standard · medium`
+
+#### Scenario: Tally kept across /jev
+- **WHEN** the 10th prompt showed the tally and the operator runs `/jev skills off`
+- **THEN** the redrawn status line still shows the tally form
+
+#### Scenario: Tally on a miss
+- **WHEN** nine decided prompts have settled and the 10th prompt's Jev request times out
+- **THEN** the status line reads `Jev · standard · 10 prompts · 0 workers · 0 fallbacks`
+
+#### Scenario: Tally on a discarded 10th prompt
+- **WHEN** nine decided prompts have settled with the last applying `high`, and the 10th prompt's result is discarded
+- **THEN** the status line reads `Jev · standard · 10 prompts · 0 workers · 0 fallbacks`, and when the 11th prompt is answered without `effort` it reads `Jev · standard · high`
+
+#### Scenario: Nothing decided never shows the tally
+- **WHEN** `effort` and `strategy` are off, another decision feature is on, and the operator sends ten prompts
+- **THEN** the status line reads `Jev · standard` throughout
+
+#### Scenario: Strategy-only session shows the tally
+- **WHEN** `effort` is off, `strategy` is on, and nine decided prompts have settled and the 10th prompt's request completes
+- **THEN** the status line reads `Jev · standard · 10 prompts · 0 workers · 0 fallbacks`
+
+#### Scenario: Tally replaces both suffixes
+- **WHEN** the previous line read `Jev · standard · high · delegate`, and the 10th prompt's request completes with two workers and one fallback recorded
+- **THEN** the status line reads `Jev · standard · 10 prompts · 2 workers · 1 fallbacks`, and when the 11th prompt is answered `medium` with advice `delegate` it reads `Jev · standard · medium · delegate`
+
+#### Scenario: Cancelled 11th prompt keeps the tally
+- **WHEN** the 10th prompt showed the tally form and the 11th prompt's Jev request is cancelled
+- **THEN** the status line still shows the tally form
 
 #### Scenario: Cancelled keeps both suffixes
 - **WHEN** the previous decision showed `high · delegate` and the operator aborts the next prompt before any provider request

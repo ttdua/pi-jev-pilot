@@ -24,7 +24,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-14 | Tool assessment, observe only | M | WG-11 | Done |
 | WG-15 | CLI review | M | WG-06 | Done |
 | WG-16 | Rich state replay | M | WG-09, 13 | Planned |
-| WG-17 | Tally and log | S | WG-11 | Planned |
+| WG-17 | Tally and log | S | WG-11 | Done |
 | WG-18 | Auto-tuning | M | WG-05, 07 | Planned |
 | WG-19 | Release and migration guide | S | All above | Planned |
 

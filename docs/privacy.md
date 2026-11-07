@@ -42,6 +42,8 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 - Labels, numbers and outcomes: levels, probabilities, tier, model id, agent name, token counts, durations.
 - **Never** prompt text, briefs, tool arguments or output.
 
+With `verbose` on, the same labels and numbers as the ledger are also saved as `jev-log` entries in your Pi session files, which travel with session exports.
+
 Hidden skill and advice messages are saved in your Pi session files, as any context is.
 
 Delete the ledger at any time (both files); nothing depends on it except tuning signals.
