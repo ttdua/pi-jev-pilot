@@ -71,3 +71,5 @@ Conflicts resolved:
 - Living specs `main-effort`, `main-ledger`, `status-line` and `effort-hold` now describe hold, skills and advice together.
 
 Tests after the rebase: `bun test` 990 pass, 0 fail. `typecheck`, `lint` and `fmt:check` are clean, and `openspec validate --specs` passes 27/27.
+
+Second rebase, onto `66a0577` after WG-12 modes (#34): WG-12 made `STANDARD_TIER_CRITERIA` private behind `TIER_CRITERIA.standard`, so the import in `src/jev/questions.ts` and three test assertions use `TIER_CRITERIA.standard`. Tests: `bun test` 1062 pass, 0 fail; `typecheck`, `lint` and `fmt:check` are clean; `openspec validate --specs` passes 28/28.
