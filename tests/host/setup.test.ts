@@ -84,7 +84,7 @@ describe("setup", () => {
   test("session_shutdown removes routing subscriptions", async () => {
     const f = fakePi();
     setup(f.pi);
-    expect(f.subs.filter((s) => s.live)).toHaveLength(6);
+    expect(f.subs.filter((s) => s.live)).toHaveLength(5);
     await f.handlers.get("session_shutdown")![0]!({}, {});
     expect(f.subs.filter((s) => s.live)).toHaveLength(0);
   });
@@ -184,7 +184,6 @@ describe("setup", () => {
       "subagents:completed",
       "subagents:failed",
       "subagents:resumed",
-      "subagents:child:disposed",
     ]);
   });
 
@@ -242,7 +241,7 @@ describe("setup", () => {
 
     const b = fakePi();
     setup(b.pi);
-    expect(b.subs.filter((s) => s.live)).toHaveLength(6);
+    expect(b.subs.filter((s) => s.live)).toHaveLength(5);
     let calls = 0;
     await b.handlers.get("session_start")![0]!(
       {},
@@ -295,13 +294,6 @@ describe("setup", () => {
       expect(mainService()).toBe(service);
       await stop(f, "main");
       expect(mainService()).toBeUndefined();
-    });
-
-    test("shutdown unsubscribes the dispose listener", async () => {
-      const f = fakePi();
-      setup(f.pi);
-      await stop(f, "main");
-      expect(f.subs.filter((s) => s.live)).toHaveLength(0);
     });
 
     test("child before_agent_start hides the review tool, then assesses", async () => {

@@ -18,10 +18,6 @@ export function setup(pi: ExtensionAPI): void {
   const off = subscribeChildren(pi.events);
   const routing = registerWorkerRouting(pi);
   const tools = createToolAssessment(pi);
-  const offDisposed = pi.events.on("subagents:child:disposed", (data) => {
-    const id = (data as { sessionId?: unknown } | null)?.sessionId;
-    if (typeof id === "string") tools.dispose(id);
-  });
   const main = createMain(pi, {
     load: () => loadSnapshot(pi),
     ask: askJev,
@@ -90,11 +86,6 @@ export function setup(pi: ExtensionAPI): void {
   pi.on("session_shutdown", async (_event, ctx) => {
     try {
       if (!isChild(ctx.sessionManager.getSessionId())) clearMainService();
-    } catch {
-      /* keep shutdown clean */
-    }
-    try {
-      offDisposed();
     } catch {
       /* keep shutdown clean */
     }

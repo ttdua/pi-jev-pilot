@@ -155,7 +155,7 @@ Strategy gates compare probabilities, where upstream compared `confidence`. That
 
 Runs once per worker, at its first `before_agent_start`, and only for agents that declare no `tools` (an empty `tools: []` counts as declared). A score ≥ .5 flags the tool. In `observe` mode (default) nothing is removed. In `enforce` mode flagged tools are removed from `selectedTools` on every turn of that worker, including resumed runs, with no new request. `ask_parent` and `notify_parent` are never candidates, and at most 32 candidates are scored. Assessment can only remove.
 
-The mode is read once, at that first call; a first call that failed or was skipped is not retried. Any failure keeps every tool and records nothing. The counts go on the launch's `worker` ledger line only when that line exists; a resumed launch's line carries none.
+The mode is read once, at that first call; a first call that failed or was skipped is not retried. Any failure keeps every tool and records nothing. The counts go on the launch's `worker` ledger line only when that line exists; a resumed launch's line carries none. Counts for a launch that gets no line are kept in a process-wide map of at most 256 entries and dropped oldest first.
 
 ## Invariants
 

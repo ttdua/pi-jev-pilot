@@ -27,8 +27,6 @@ export type ToolAssessmentDeps = {
 
 export type ToolAssessment = {
   beforeAgentStart(event: BeforeAgentStartEvent, ctx: ExtensionContext): Promise<void>;
-  /** Forget a session's stored decision; its next first call assesses again. */
-  dispose(sessionId: string): void;
 };
 
 type ToolMode = "observe" | "enforce";
@@ -163,6 +161,7 @@ export function createToolAssessment(
   const ask = deps.ask ?? askJev;
   const snapshot = deps.snapshot ?? (() => loadSnapshot(pi));
   const service = deps.service ?? mainService;
+  // One map per extension instance; a worker session's instance and its map end with that session.
   const outcomes = new Map<string, Outcome>();
 
   /** First call of a session: everything up to and including the request. */
@@ -199,9 +198,6 @@ export function createToolAssessment(
       } catch {
         /* fail open: every tool stays */
       }
-    },
-    dispose(sessionId): void {
-      outcomes.delete(sessionId);
     },
   };
 }

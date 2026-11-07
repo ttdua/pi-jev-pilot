@@ -420,18 +420,6 @@ describe("Once per worker", () => {
   });
 });
 
-describe("Dispose", () => {
-  test("A disposed session is assessed again", async () => {
-    const t = setup();
-    await t.run();
-    await t.run();
-    expect(t.requests).toHaveLength(1);
-    t.handler.dispose(SESSION);
-    await t.run();
-    expect(t.requests).toHaveLength(2);
-  });
-});
-
 describe("Fail open", () => {
   const cases: [string, () => Promise<JevOutcome>][] = [
     ["Jev down in enforce", async () => ({ kind: "miss", miss: "error", reason: "r", ms: 1 })],
