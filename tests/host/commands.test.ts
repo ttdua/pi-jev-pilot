@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
@@ -16,6 +16,8 @@ import type { Mode } from "../../src/store/defaults.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
+import { readLocalMode } from "../../src/store/local-mode.ts";
+import { setMainCwd } from "../../src/host/main-cwd.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
@@ -80,11 +82,14 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("mode premium")).toEqual({
       kind: "mode",
       mode: "premium",
+      target: "local",
     });
-    expect(parseJevArgs("mode budget")).toEqual({
+    expect(parseJevArgs("mode premium global")).toEqual({
       kind: "mode",
-      mode: "budget",
+      mode: "premium",
+      target: "global",
     });
+    expect(parseJevArgs("mode clear")).toEqual({ kind: "mode-clear" });
   });
   test("session forms are no longer modes", () => {
     for (const gone of ["mode premium session", "mode session off"])
@@ -120,6 +125,11 @@ describe("parseJevArgs", () => {
     "mode quality",
     "mode Premium",
     "mode premium now",
+    "mode premium Global",
+    "mode global",
+    "mode clear now",
+    "mode Clear",
+    "mode premium session",
     "skills maybe",
     "skills off now",
     "Skills off",
@@ -147,8 +157,9 @@ describe("usageText", () => {
     expect(text).toContain("  /jev remove <slot>");
   });
   test("Usage lists the mode form", () => {
-    expect(text).toContain("/jev mode budget|standard|premium");
-    expect(text).not.toContain("session");
+    expect(text).toContain("/jev mode budget|standard|premium [global]");
+    expect(text).toContain("/jev mode clear");
+    expect(text).not.toContain("(session");
   });
   test("lists the cli-review form", () => {
     expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
@@ -299,9 +310,10 @@ const modelRegistry = {
   getAvailable: () => MODELS,
 } as unknown as ModelRegistry;
 
-function fakeCtx(hasUI = true, sessionId = "main") {
+function fakeCtx(hasUI = true, sessionId = "main", cwd: string = freshCwd()) {
   const rec: Rec = { notes: [], widgets: [] };
   const ctx = {
+    cwd,
     hasUI,
     mode: "rpc",
     ui: {
@@ -315,6 +327,12 @@ function fakeCtx(hasUI = true, sessionId = "main") {
 }
 
 let dirs: string[] = [];
+let cwds: string[] = [];
+function freshCwd(): string {
+  const d = tempDir("jev-cwd-");
+  cwds.push(d);
+  return d;
+}
 function jevDir(): string {
   const d = join(tempDir("jev-cmd-"), "jev");
   dirs.push(d);
@@ -329,12 +347,20 @@ afterEach(() => {
     rmSync(join(d, ".."), { recursive: true, force: true });
   }
   dirs = [];
+  for (const d of cwds) {
+    try {
+      chmodSync(join(d, ".pi"), 0o700);
+    } catch {}
+    rmSync(d, { recursive: true, force: true });
+  }
+  cwds = [];
 });
 
-const load = (dir: string) => (_cwd: string) =>
+const load = (dir: string) => (cwd: string) =>
   buildSnapshot({
     configRead: readConfig(dir),
     stateRead: readState(dir),
+    localModeRead: readLocalMode(cwd),
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
   });
@@ -645,13 +671,122 @@ describe("runJev slots", () => {
   });
 });
 
-describe("runJev mode", () => {
+describe("runJev directory mode", () => {
   const modeOf = (dir: string) => (readState(dir).state as State).mode;
+  const localFile = (cwd: string) => join(cwd, ".pi", "jev-mode.json");
+  const localOf = (cwd: string) => {
+    const r = readLocalMode(cwd);
+    return r.kind === "ok" ? r.mode : r.kind;
+  };
+  const stateBytes = (dir: string) => readFileSync(join(dir, "state.json"), "utf8");
+  const writeLocal = (cwd: string, text: string) => {
+    mkdirSync(join(cwd, ".pi"), { recursive: true });
+    writeFileSync(localFile(cwd), text);
+  };
+  const GLOBAL_NOTE = "directory mode budget still applies here; global mode is now premium";
+
+  test("Set a directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode standard global", dir);
+    const before = stateBytes(dir);
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    expect(localOf(cwd)).toBe("premium");
+    expect(stateBytes(dir)).toBe(before);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    // copy updated in Task 12
+    expect(rec.notes[0]![0]).toContain("mode: premium (session; saved standard)");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · premium (session)"]);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Set while state is unreadable", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode standard global", dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(localOf(cwd)).toBe("premium");
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Directory not writable", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeFileSync(join(cwd, ".pi"), "not a directory");
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain(".pi/jev-mode.json");
+    expect(rec.widgets).toHaveLength(0);
+  });
+
+  test("Clear back to the global mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode standard global", dir);
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+    expect(rec.notes[0]![1]).toBe("info");
+    expect(rec.notes[0]![0]).toContain("mode: standard");
+    expect(rec.notes[0]![0]).not.toContain("(session");
+    expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("Nothing to clear", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    expect(rec.notes).toEqual([["no directory mode set", "info"]]);
+    expect(rec.widgets).toHaveLength(0);
+    expect(existsSync(join(cwd, ".pi"))).toBe(false);
+  });
+
+  test("Clear removes a damaged file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeLocal(cwd, "{nope");
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).not.toBe("no directory mode set");
+  });
+
+  test.skipIf(process.getuid?.() === 0)("clear refused keeps the file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(cwd, ".pi"), 0o500);
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(cwd, ".pi"), 0o700);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.widgets).toHaveLength(0);
+    expect(localOf(cwd)).toBe("premium");
+  });
+
+  test("Overwrite a damaged file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeLocal(cwd, "{nope");
+    const rec = await run("mode budget", dir, fakeCtx(true, "main", cwd));
+    expect(localOf(cwd)).toBe("budget");
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+  });
+
+  test("Plain form targets the directory", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    expect(localOf(cwd)).toBe("premium");
+    expect(existsSync(join(dir, "state.json"))).toBe(false);
+  });
 
   test("Set premium", async () => {
     const dir = jevDir();
     await run("skills off", dir);
-    const rec = await run("mode premium", dir);
+    const rec = await run("mode premium global", dir);
     expect(modeOf(dir)).toBe("premium");
     expect(switches(dir)?.skills).toBe(false);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
@@ -661,14 +796,14 @@ describe("runJev mode", () => {
 
   test("Mode survives a restart", async () => {
     const dir = jevDir();
-    await run("mode budget", dir);
-    expect(load(dir)("main").settings.mode).toBe("budget");
+    await run("mode budget global", dir);
+    expect(load(dir)(freshCwd()).settings.mode).toBe("budget");
   });
 
   test("Back to standard", async () => {
     const dir = jevDir();
-    await run("mode premium", dir);
-    const rec = await run("mode standard", dir);
+    await run("mode premium global", dir);
+    const rec = await run("mode standard global", dir);
     expect(modeOf(dir)).toBe("standard");
     expect(rec.notes[0]![0]).toContain("mode: standard");
     expect(rec.widgets[0]![1]).toEqual(["Jev · standard"]);
@@ -676,15 +811,79 @@ describe("runJev mode", () => {
 
   test.skipIf(process.getuid?.() === 0)("Refused mode change", async () => {
     const dir = jevDir();
-    await run("mode budget", dir);
+    await run("mode budget global", dir);
     chmodSync(join(dir, "state.json"), 0o000);
-    const rec = await run("mode premium", dir);
+    const rec = await run("mode premium global", dir);
     expect(rec.notes).toHaveLength(1);
     expect(rec.notes[0]![1]).toBe("error");
     expect(rec.notes[0]![0]).toContain("EACCES");
     expect(rec.widgets).toHaveLength(0);
     chmodSync(join(dir, "state.json"), 0o600);
     expect(modeOf(dir)).toBe("budget");
+  });
+
+  test("Global set keeps the directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode budget", dir, fakeCtx(true, "main", cwd));
+    const rec = await run("mode premium global", dir, fakeCtx(true, "main", cwd));
+    expect(modeOf(dir)).toBe("premium");
+    expect(localOf(cwd)).toBe("budget");
+    expect(rec.notes[0]![0].split("\n")).toContain(GLOBAL_NOTE);
+    expect(rec.notes[0]![0].endsWith(GLOBAL_NOTE)).toBe(true);
+  });
+
+  test("Global set without a directory mode has no note", async () => {
+    const rec = await run("mode premium global", jevDir());
+    expect(rec.notes[0]![0]).not.toContain("still applies here");
+  });
+
+  test("Reset removes the directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    await run("reset", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+  });
+
+  test("Reset removes a damaged directory mode file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeLocal(cwd, "{nope");
+    await run("reset", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Refused reset keeps the directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    await run("skills off", dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const rec = await run("reset", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(localOf(cwd)).toBe("premium");
+  });
+
+  test("Command in a child", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["kid"]);
+    const rec = await run("mode premium", dir, fakeCtx(true, "kid", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+    expect(rec.notes).toHaveLength(0);
+  });
+
+  test("/jev uses ctx.cwd over the main cwd holder", async () => {
+    const dir = jevDir();
+    const a = freshCwd();
+    const b = freshCwd();
+    setMainCwd(b);
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", a));
+    expect(localOf(a)).toBe("premium");
+    expect(existsSync(localFile(b))).toBe(false);
+    expect(rec.notes[0]![0]).toContain("mode: premium");
   });
 });
 

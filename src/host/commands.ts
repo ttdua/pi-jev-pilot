@@ -4,6 +4,14 @@ import { resetState, updateState, validateCliReview } from "../store/state-file.
 import { recentMix, WINDOW_MIN } from "../policy/cut-window.ts";
 import type { WindowEntry } from "../policy/cutpoints.ts";
 import { MODE_TARGETS } from "../policy/modes.ts";
+import {
+  clearDirectoryMode,
+  NO_DIRECTORY_MODE,
+  resetDirectoryMode,
+  setDirectoryMode,
+  shadowedLine,
+  type LocalOutcome,
+} from "./local-mode-command.ts";
 import { isChild } from "./child.ts";
 import {
   checkCodexChoice,
@@ -31,7 +39,8 @@ export type JevArgs =
   | { kind: "status" }
   | { kind: "set"; feature: Feature; on: boolean }
   | { kind: "all"; on: boolean }
-  | { kind: "mode"; mode: Mode }
+  | { kind: "mode"; mode: Mode; target: "local" | "global" }
+  | { kind: "mode-clear" }
   | { kind: "reset" }
   | {
       kind: "cli-review";
@@ -69,9 +78,12 @@ function parseTune(words: string[]): JevArgs {
 
 const isMode = (w: string | undefined): w is Mode => (MODES as readonly string[]).includes(w!);
 
-/** `mode <m>`; `value` and `rest` follow `mode`. */
+/** `mode <m> [global]` or `mode clear`; `value` and `rest` follow `mode`. */
 function parseMode(value: string, rest: string[]): JevArgs {
-  return rest.length === 0 && isMode(value) ? { kind: "mode", mode: value } : USAGE;
+  if (value === "clear") return rest.length === 0 ? { kind: "mode-clear" } : USAGE;
+  if (!isMode(value) || rest.length > 1) return USAGE;
+  if (rest.length === 0) return { kind: "mode", mode: value, target: "local" };
+  return rest[0] === "global" ? { kind: "mode", mode: value, target: "global" } : USAGE;
 }
 
 /** Split on whitespace and match case-sensitively; only an empty argument is the status form. */
@@ -101,7 +113,8 @@ export function usageText(): string {
     "  /jev <feature> on|off     switch one feature",
     `      features: ${FEATURES.join(", ")}`,
     "  /jev all on|off           switch the seven decision features",
-    "  /jev mode budget|standard|premium  choose the worker mode",
+    "  /jev mode budget|standard|premium [global]  choose the mode for this directory, or for all",
+    "  /jev mode clear           drop this directory's mode",
     "  /jev reset                reset switches, mode and CLI review default",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
     "  /jev <slot> <provider/model> [when <text>]",
@@ -194,7 +207,7 @@ async function checkAgainstCli(
   return { check: checkOpencodeChoice(a.model, a.effort, ids) };
 }
 
-type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" }>;
+type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" | "mode-clear" }>;
 
 function applyChange(
   parsed: Change,
@@ -224,6 +237,14 @@ function applyChange(
         return { ...st, switches };
       });
   }
+}
+
+/** The directory-mode forms; `undefined` for every other command. */
+function runLocalForm(parsed: JevArgs, cwd: string): LocalOutcome | undefined {
+  if (parsed.kind === "mode-clear") return clearDirectoryMode(cwd);
+  if (parsed.kind === "mode" && parsed.target === "local")
+    return setDirectoryMode(cwd, parsed.mode);
+  return undefined;
 }
 
 export async function runJev(
@@ -304,7 +325,16 @@ export async function runJev(
         }
       }
     }
-    if (parsed.kind !== "status") {
+    const local = runLocalForm(parsed, ctx.cwd);
+    if (local?.kind === "nothing") {
+      notify(NO_DIRECTORY_MODE, "info");
+      return;
+    }
+    if (local?.kind === "failed") {
+      notify(local.message, "error");
+      return;
+    }
+    if (local === undefined && parsed.kind !== "status" && parsed.kind !== "mode-clear") {
       const result = applyChange(parsed, deps.dir, cliReview);
       if (!result.ok) {
         notify(
@@ -313,11 +343,20 @@ export async function runJev(
         );
         return;
       }
+      const reset = parsed.kind === "reset" ? resetDirectoryMode(ctx.cwd) : undefined;
+      if (reset?.kind === "failed") {
+        notify(reset.message, "error");
+        return;
+      }
     }
     const snapshot = deps.load(ctx.cwd);
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
-    const report = formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.());
-    notify(report, "info");
+    const lines = [formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.())];
+    const { mode, modeSource } = snapshot.settings;
+    if (parsed.kind === "mode" && parsed.target === "global" && modeSource === "local") {
+      lines.push(shadowedLine(mode, parsed.mode));
+    }
+    notify(lines.join("\n"), "info");
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");
