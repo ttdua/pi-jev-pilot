@@ -222,6 +222,14 @@ describe("skill questions", () => {
     expect(which.criteria["(none)"]).toBe(NONE_CRITERION);
   });
 
+  test("which options keep catalog order for integer-like names", () => {
+    const { specs } = skillBatchQuestions([{ name: "debug" }, { name: "123" }, { name: "plan" }]);
+    expect(specs["which"]).toEqual({
+      type: "choice",
+      options: ["debug", "123", "plan", "(none)"],
+    });
+  });
+
   test("Later batch", () => {
     const { wire, specs } = skillBatchQuestions(skills);
     expect(Object.keys(wire)).toEqual(["which"]);

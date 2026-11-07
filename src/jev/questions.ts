@@ -43,7 +43,7 @@ function whichQuestion(batch: readonly SkillEntry[]): { wire: WireQuestion; spec
   criteria[NONE_OPTION] = NONE_CRITERION;
   return {
     wire: { type: "choice", instructions: WHICH_INSTRUCTION, criteria },
-    spec: { type: "choice", options: Object.keys(criteria) },
+    spec: { type: "choice", options: [...batch.map((e) => e.name), NONE_OPTION] },
   };
 }
 
