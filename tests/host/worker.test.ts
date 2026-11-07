@@ -1,6 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { WORKER_TIER_CRITERIA } from "../../src/jev/rubrics.ts";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { WindowEntry } from "../../src/policy/cutpoints.ts";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
 import { registerWorkerRouting } from "../../src/host/worker.ts";
 import { tempDir } from "../helpers.ts";
@@ -357,7 +359,7 @@ describe("Fallback warning", () => {
 
   test("Nothing can run", async () => {
     const h = harness({ reg: { "fx/fast": { auth: false }, "fx/balanced": { auth: false } } });
-    h.setScript(() => ok(body("balanced")));
+    h.setScript(() => ok(body("balanced", "high")));
     const input = await launch(h, "a");
     expect(h.notes).toHaveLength(1);
     expect(h.notes[0]?.text).toContain("tier balanced");
@@ -384,20 +386,20 @@ describe("Fallback warning", () => {
 
 describe("One mode per launch", () => {
   const split = { fast: 0.05, balanced: 0.15, deep: 0.5, expert: 0.3 };
+  // Score 2.175: expert in premium (cut 2.125), deep in standard (cut 2.345).
+  const between = { fast: 0.05, balanced: 0.15, deep: 0.75, expert: 0.05 };
 
-  test("Premium criteria sent", async () => {
+  test("Every mode sends the one worker rubric", async () => {
     const h = harness({ mode: "premium" });
     await h.fire("message_end", h.msg(["a", base()]));
     const q = h.asks[0]?.questions as { tier: { criteria: Record<string, string> } };
     // The fake registry names a model by its id, so the display-name prefix comes first.
-    expect(q.tier.criteria["deep"]).toBe(
-      "deep. The default for real engineering: any feature, fix or refactor that needs working out, touches more than a few files, leaves choices open, or where a subtle bug would be costly.",
-    );
+    expect(q.tier.criteria["deep"]).toBe(`deep. ${WORKER_TIER_CRITERIA.deep}`);
   });
 
   test("Mode changed between message end and launch", async () => {
     const h = harness({ tiers: TIERS_X, mode: "standard" });
-    h.setScript(() => ok(bodyWith("deep", split, "xhigh")));
+    h.setScript(() => ok(bodyWith("deep", between, "xhigh")));
     const input: Record<string, unknown> = base();
     await h.fire("message_end", h.msg(["a", input]));
     h.setSnap({ tiers: TIERS_X, mode: "premium" });
@@ -405,7 +407,7 @@ describe("One mode per launch", () => {
     await h.fire("tool_result", h.result("a", "ag-a"));
     await h.emit("subagents:completed", { id: "ag-a", status: "completed" });
     expect(input["model"]).toBe("fx/deep");
-    expect(h.lines[0]).toMatchObject({ mode: "standard", reason: "choice" });
+    expect(h.lines[0]).toMatchObject({ mode: "standard", reason: "cut", score: 2.175 });
   });
 
   test("Premium at classification admits expert", async () => {
@@ -428,6 +430,58 @@ describe("One mode per launch", () => {
     expect(Object.keys(q.tier.criteria)).toEqual(["fast", "balanced", "deep"]);
     await h.fire("tool_call", h.call("a", input));
     expect(input["model"]).toBe("fx/deep");
+  });
+});
+
+describe("Cut points of a launch", () => {
+  // 100 medium-effort entries, scores 0.02 … 2.00: standard puts 1.25 on balanced, premium on deep.
+  const spread: WindowEntry[] = Array.from({ length: 100 }, (_, i) => ({
+    score: (i + 1) / 50,
+    effort: "medium",
+    decided: "balanced",
+  }));
+  const routed = async (h: ReturnType<typeof harness>, id: string, siblings = true) => {
+    const input: Record<string, unknown> = base();
+    if (siblings) await h.fire("message_end", h.msg([id, input]));
+    await h.fire("tool_call", h.call(id, input));
+    return input["model"];
+  };
+
+  test("Siblings share a window state", async () => {
+    let window: readonly WindowEntry[] = spread;
+    const h = harness({ mode: "premium", window: () => window });
+    h.setScript(() => ok(body("balanced", "high")));
+    const a: Record<string, unknown> = base();
+    const b: Record<string, unknown> = base();
+    await h.fire("message_end", h.msg(["a", a], ["b", b]));
+    window = []; // changes after the message ended
+    await h.fire("tool_call", h.call("a", a));
+    await h.fire("tool_call", h.call("b", b));
+    expect(a["model"]).toBe("fx/deep");
+    expect(b["model"]).toBe("fx/deep");
+  });
+
+  test("Launch classified alone", async () => {
+    let window: readonly WindowEntry[] = [];
+    const h = harness({ mode: "premium", window: () => window });
+    h.setScript(() => ok(body("balanced", "high")));
+    expect(await routed(h, "a", false)).toBe("fx/balanced"); // seed
+    window = spread;
+    expect(await routed(h, "b", false)).toBe("fx/deep");
+  });
+
+  test("Two launches in different modes use different cut points from one window", async () => {
+    const h = harness({ mode: "standard", window: () => spread });
+    h.setScript(() => ok(body("balanced", "high")));
+    expect(await routed(h, "a", false)).toBe("fx/balanced");
+    h.setSnap({ mode: "premium" });
+    expect(await routed(h, "b", false)).toBe("fx/deep");
+  });
+
+  test("Without a window the seed applies", async () => {
+    const h = harness({ mode: "standard" });
+    h.setScript(() => ok(body("balanced", "high")));
+    expect(await routed(h, "a")).toBe("fx/balanced");
   });
 });
 

@@ -1,6 +1,6 @@
 # 0003: Modes select a rubric, not thresholds
 
-**Status:** Accepted, 2026-11-05
+**Status:** Superseded by [0008](0008-mode-target-cutpoints.md)
 
 ## Context
 

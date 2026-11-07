@@ -25,7 +25,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-15 | CLI review | M | WG-06 | Done |
 | WG-16 | Rich state replay | M | WG-09, 13 | Done |
 | WG-17 | Tally and log | S | WG-11 | Done |
-| WG-18 | Auto-tuning | M | WG-05, 07 | Planned |
+| WG-18 | Auto-tuning | M | WG-05, 07 | Done |
 | WG-19 | Release and migration guide | S | All above | Planned |
 
 ```mermaid
@@ -172,10 +172,11 @@ The pre-launch tier cascade moved here from WG-13.
 
 ### WG-12: Modes and expert tier
 
-**Modes, H1.** Rubrics as data, `/jev mode`, expert gates, softer `expert_needed` in `premium`, mode in the ledger.
+**Modes, H1.** Rubrics as data, `/jev mode`, expert gates, mode in the ledger. Later replaced by target tables and cut points (#39).
 
 - **Done when:** the [decision order](domain-model.md#workerdecision) has a table test per mode, and a replay of real briefs reproduces the [recorded distribution](evidence/2026-11-05-replay.md#routing-by-mode) within noise. That replay needs approval at the time.
 - **Result:** the [2026-11-07 replay](evidence/2026-11-07-replay.md) reproduced `budget` and `premium`. `standard` shifted toward `deep`. The operator accepted this and set target mixes per mode in [#39](https://github.com/ttdua/pi-jev-pilot/issues/39).
+- **Follow-up:** [#39](https://github.com/ttdua/pi-jev-pilot/issues/39) is done by the `tune-mode-tier-mix` change: one worker rubric, a difficulty score, cut points recomputed from the ledger and per-mode targets. See [ADR 0008](decisions/0008-mode-target-cutpoints.md), which replaces ADR 0003. The [tier-mix replay](evidence/2026-11-07-tier-mix.md) puts every mode in range over all launches and when a reviewer slot takes the reviews. Non-review launches within a mixed window miss their range by 10–13 points.
 
 ### WG-13: Slots and fallback
 
@@ -214,8 +215,11 @@ Decide which [state fields](jev-contract.md#main-state) ship. **Sends real promp
 
 ### WG-18: Auto-tuning
 
+**Status:** Done. Policy in `wg-18-tuning-policy`, host in `wg-18-tuning-host`.
+
 **G3, phase 1.** `agent_settled` check, `timeoutMs` rule, cooldown, automatic revert, `/jev tune` and its subcommands, signals shown per mode.
 
+- **Split:** `wg-18-tuning-policy` holds the rules and `tuning.json`. The host change holds `agent_settled`, `/jev tune`, the change line and the signals.
 - **Done when:** tests cover fire, cooldown, range, revert and undo; nothing outside the allowlist can change, and `config.json` is untouched.
 
 ### WG-19: Release and migration guide
@@ -234,7 +238,7 @@ Not committed. Each needs evidence or a decision first.
 | Quality check of the reviewer slot | Routing is proven, review quality is not | Real findings compared |
 | Decision on threshold tuning | Upstream's rules never fired on real data | About 200 decisions per signal, then keep or drop |
 | `enforce` by default for tool assessment | Unknown whether removals are right | Would-remove counts reviewed |
-| Calibrating expert gates | Two cases in replay | More data |
+| Calibrating the expert cut | Two cases in replay | More data |
 | More work reaching the fast tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
 | OpenRouter or Vercel backends | Excluded for now | Demand |
 

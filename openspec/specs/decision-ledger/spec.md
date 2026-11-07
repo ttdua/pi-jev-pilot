@@ -24,6 +24,8 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 | flag | boolean |
 | effort distribution | object whose keys are some of `low`, `medium`, `high`, `xhigh`, `max`, each a probability |
 | target distribution | object of at most 12 keys, each a target, each value a probability |
+| score | finite number from 0 to 3.5 |
+| rubric version | integer from 1 to 99 |
 
 #### Scenario: NaN probability rejected
 - **WHEN** an entry's `risky` is `NaN`
@@ -36,6 +38,14 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 #### Scenario: Target distribution capped at 12
 - **WHEN** a worker entry's `tierP` has 13 keys
 - **THEN** validation fails with an issue at `tierP`
+
+#### Scenario: Score out of range rejected
+- **WHEN** a worker entry's `score` is 3.6
+- **THEN** validation fails with an issue at `score`
+
+#### Scenario: Fractional rubric rejected
+- **WHEN** a worker entry's `rubric` is 2.5
+- **THEN** validation fails with an issue at `rubric`
 
 #### Scenario: Malformed target rejected
 - **WHEN** a worker entry's `fallback` is `slot::Code Reviewer`
@@ -69,10 +79,13 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | worker | `briefChars` | count | yes |
 | worker | `tierP` | target distribution | |
 | worker | `expertNeeded` | probability | |
+| worker | `score` | score | |
+| worker | `rubric` | rubric version | |
+| worker | `expertOffered` | flag | |
 | worker | `tier`, `fallback` | target | |
 | worker | `model` | model | |
 | worker | `effort` | level | |
-| worker | `reason` | `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
+| worker | `reason` | `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
 | worker | `callerModel` | caller model | |
 | worker | `locked` | flag | |
 | worker | `toolsScored`, `toolsFlagged`, `tokens`, `toolUses` | count | |
@@ -88,6 +101,14 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 
 #### Scenario: Valid worker line accepted
 - **WHEN** a worker entry with the required common fields, `agent` `worker`, `briefChars` 812, `tier` `slot::reviewer`, `model` `anthropic/claude-sonnet-4-6`, `reason` `slot` and `status` `completed` is validated
+- **THEN** validation passes with no issues
+
+#### Scenario: Worker line with cut-point fields accepted
+- **WHEN** a worker entry with the required fields has `reason` `cut`, `tier` `balanced`, `score` 1.3, `rubric` 2 and `expertOffered` true
+- **THEN** validation passes with no issues
+
+#### Scenario: Older worker line still accepted
+- **WHEN** a worker entry with the required fields has `reason` `choice`, `tier` `deep` and `expertNeeded` .2, and no `score` or `rubric`
 - **THEN** validation passes with no issues
 
 #### Scenario: Valid correction line accepted
@@ -115,14 +136,22 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 - **THEN** validation passes, since the writer and not the schema is responsible for naming the agent
 
 ### Requirement: Worker decisions record their tier
-A worker line whose `reason` is `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model.
+A worker line whose `reason` is `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model. The names `expert-admitted`, `expert-denied`, `fast-unsure` and `choice` are accepted so that older lines stay valid; the package MUST NOT write them.
 
 #### Scenario: Deciding worker without a tier rejected
+- **WHEN** a worker entry has `reason` `cut` and no `tier`
+- **THEN** validation fails with an issue at `tier`
+
+#### Scenario: Retired reason without a tier rejected
 - **WHEN** a worker entry has `reason` `choice` and no `tier`
 - **THEN** validation fails with an issue at `tier`
 
 #### Scenario: Untouched worker without a tier accepted
 - **WHEN** a worker entry has `reason` `untouched` and no `tier`
+- **THEN** validation passes
+
+#### Scenario: Expert accepted
+- **WHEN** a worker entry with the required fields has `reason` `expert` and `tier` `expert`
 - **THEN** validation passes
 
 #### Scenario: Expert admitted accepted

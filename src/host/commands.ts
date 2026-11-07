@@ -1,7 +1,9 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DECISION_FEATURES, FEATURES, MODES, type Feature, type Mode } from "../store/defaults.ts";
 import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
-import type { Issue } from "../store/validate.ts";
+import { recentMix, WINDOW_MIN } from "../policy/cut-window.ts";
+import type { WindowEntry } from "../policy/cutpoints.ts";
+import { MODE_TARGETS } from "../policy/modes.ts";
 import { isChild } from "./child.ts";
 import {
   checkCodexChoice,
@@ -13,6 +15,9 @@ import {
 } from "./review-cli.ts";
 import type { Snapshot } from "./readiness.ts";
 import { parseSlotArgs, runSlot, type SlotArgs } from "./slots.ts";
+import type { TuneOutcome, TuneSub } from "./tune-command.ts";
+import type { UiCtx } from "./tuning-deps.ts";
+import { issueLines } from "./tuning-text.ts";
 import {
   EMPTY_TALLY,
   drawStatus,
@@ -30,6 +35,7 @@ export type JevArgs =
   | { kind: "reset" }
   | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
   | { kind: "slot"; args: SlotArgs }
+  | { kind: "tune"; sub: TuneSub }
   | { kind: "usage" };
 
 const USAGE: JevArgs = { kind: "usage" };
@@ -46,11 +52,22 @@ function parseCliReview(words: string[]): JevArgs {
   };
 }
 
+const TUNE_SUBS: readonly string[] = ["undo", "reset", "on", "off"];
+
+function parseTune(words: string[]): JevArgs {
+  if (words.length === 1) return { kind: "tune", sub: "report" };
+  const sub = words[1]!;
+  return words.length === 2 && TUNE_SUBS.includes(sub)
+    ? { kind: "tune", sub: sub as TuneSub }
+    : USAGE;
+}
+
 /** Split on whitespace and match case-sensitively; only an empty argument is the status form. */
 export function parseJevArgs(text: string): JevArgs {
   const words = text.trim() === "" ? [] : text.trim().split(/\s+/);
   if (words.length === 0) return { kind: "status" };
   if (words[0] === "cli-review") return parseCliReview(words);
+  if (words[0] === "tune") return parseTune(words);
   const slot = parseSlotArgs(text);
   if (slot !== undefined) return slot === "usage" ? USAGE : { kind: "slot", args: slot };
   const [head, value, ...rest] = words;
@@ -82,11 +99,8 @@ export function usageText(): string {
     "  /jev <slot> <provider/model> [when <text>]",
     "  /jev <slot>",
     "  /jev remove <slot>",
+    "  /jev tune [undo|reset|on|off]   show or change tuning",
   ].join("\n");
-}
-
-function issueLines(label: string, issues: Issue[]): string[] {
-  return issues.map((i) => `  ${label} ${i.path === "" ? "(file)" : i.path}: ${i.message}`);
 }
 
 function reviewLine(r: Snapshot["settings"]["review"]): string {
@@ -97,7 +111,20 @@ function reviewLine(r: Snapshot["settings"]["review"]): string {
   return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
 }
 
-export function formatStatus(s: Snapshot, t?: Tally): string {
+function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
+  const { n, shares } = recentMix(window);
+  if (shares === undefined) return ["mix: no routed workers yet", "cut points: seed"];
+  const tg = MODE_TARGETS[mode];
+  const lines = [
+    `mix (last ${n}, ${mode}): fast ${shares.fast}% / balanced ${shares.balanced}% / ` +
+      `deep ${shares.deep}% / expert ${shares.expert}% · ` +
+      `target ${tg.fast}/${tg.balanced}/${tg.deep}/≤${tg.expertCap}`,
+  ];
+  if (n < WINDOW_MIN) lines.push("cut points: seed");
+  return lines;
+}
+
+export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
   const lines = [statusText(s), `mode: ${s.settings.mode}`, "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
   lines.push(reviewLine(s.settings.review));
@@ -110,7 +137,9 @@ export function formatStatus(s: Snapshot, t?: Tally): string {
   const problems: string[] = [];
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
+  problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
+  if (s.executor && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");
 }
@@ -152,7 +181,7 @@ async function checkAgainstCli(
   return { check: checkOpencodeChoice(a.model, a.effort, ids) };
 }
 
-type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" }>;
+type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" }>;
 
 function applyChange(
   parsed: Change,
@@ -193,7 +222,9 @@ export async function runJev(
     decision: () => Decision | undefined;
     exec: Exec;
     tally?: () => Tally;
+    window?: () => readonly WindowEntry[];
     overlay?: () => string | undefined;
+    tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
   },
 ): Promise<void> {
   try {
@@ -204,6 +235,15 @@ export async function runJev(
     const parsed = parseJevArgs(args);
     if (parsed.kind === "usage") {
       notify(usageText(), "warning");
+      return;
+    }
+    if (parsed.kind === "tune") {
+      if (deps.tune === undefined) {
+        notify(usageText(), "warning");
+        return;
+      }
+      const out = deps.tune(parsed.sub, ctx);
+      notify(out.message, out.ok ? "info" : "error");
       return;
     }
     if (parsed.kind === "slot") {
@@ -259,7 +299,7 @@ export async function runJev(
     }
     const snapshot = deps.load();
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
-    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY), "info");
+    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.()), "info");
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");

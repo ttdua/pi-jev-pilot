@@ -13,7 +13,7 @@ All under `<agentDir>/jev/`, by default `~/.pi/agent/jev/`.
 | `ledger.1.jsonl` | The package | The previous ledger segment |
 | `ledger.rotate.lock` | The package | Present only during a rotation |
 
-Precedence for a value: `tuning.json`, then `state.json`, then `config.json`, then the default.
+Precedence for a value: `tuning.json`, then `state.json`, then `config.json`, then the default. A tuned value applies only while the config value (or the default) equals the `base` recorded with it. Otherwise the config value applies.
 
 The directory is created with mode `0700` and new files with `0600`. Writes go to a temporary file in the same directory and are renamed over the target, so a reader sees the old file or the new one. The ledger is the exception: it appends lines instead of replacing the file. An existing `config.json` keeps its mode.
 
@@ -27,6 +27,23 @@ The directory is created with mode `0700` and new files with `0600`. Writes go t
 | No `state.json` | Defaults apply |
 | Malformed `state.json` | Defaults apply. The problem is reported to `/jev` for display. On the next change the bad file moves to `state.json.bad` (mode `0600`, replacing any earlier one) and a fresh file is written |
 | Unreadable `state.json` | Defaults apply. The file is left alone and changes are refused until it can be read |
+| No `tuning.json` | Nothing is tuned |
+| Malformed `tuning.json` | Nothing is tuned. The problem is reported. On the next write the bad file moves to `tuning.json.bad` (mode `0600`, replacing any earlier one) and a fresh file is written |
+| Unreadable `tuning.json` | Nothing is tuned. The file is left alone and writes are refused until it can be read |
+
+### `tuning.json`
+
+Written by tuning, not by hand. Unknown keys are rejected, and the file is valid or rejected whole.
+
+| Field | Meaning |
+|---|---|
+| `version` | Always `1` |
+| `off` | Set when automatic changes are turned off |
+| `timeoutMs` | The tuned value: `value` and `base`, the untuned value it was tuned from. Both 300–5000 |
+| `pending` | The change still being judged: `from`, `to`, `at` and `before` (`asked`, `timeouts`, each 0–40) |
+| `block` | After a revert or undo: `value` and `at`. For 200 decisions, a raise to the blocked value or above is lowered to `blocked − 100` |
+| `seenAt` | Time of the latest history entry already shown to the operator. Entries after it are summarized at the next session start |
+| `history` | At most 50 entries of `at`, `parameter`, `from`, `to` and `cause` (`rule`, `revert`, `undo`, `reset` or `superseded`) |
 
 Error messages name the field and what was expected, never the value found, so a secret pasted into the wrong key stays out of logs. A `state.json` is valid or rejected whole: nothing is salvaged from a partly valid file.
 
@@ -84,7 +101,7 @@ Each is optional: an exact `provider/id`, at most 128 characters. An unset tier 
 | `fast` | Bounded work with nothing to decide |
 | `balanced` | Ordinary engineering |
 | `deep` | Judgment and long work |
-| `expert` | The hardest work; gated by the mode's expert gate |
+| `expert` | The hardest work; used only past the expert cut point with `xhigh` or `max` effort |
 
 ### `crew.slots`
 
@@ -148,7 +165,8 @@ Content that leaves the machine with its own switch.
 | Effort ceiling | `xhigh` | Cost |
 | `fast` effort cap | `medium` | Cost |
 | `fast`, slot threshold | Probability .6 | Not yet calibrated; change through code and evidence |
-| Expert gates | See the [domain model](domain-model.md#expert-gates) | Not yet calibrated |
+| Mode targets | See the [domain model](domain-model.md#mode) | Operator's choice; never change automatically |
+| Cut-point window | Latest 200 eligible lines; seed below 100 | Not yet calibrated |
 | Tool removal score | .5 | Not yet calibrated |
 | Skill thresholds | .5, .3, .3 | From upstream |
 | Strategy thresholds | .6, .8 | From upstream |

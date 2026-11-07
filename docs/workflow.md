@@ -87,12 +87,12 @@ sequenceDiagram
 
 Classification of sibling launches happens at `message_end`, which finishes before `tool_call` preflight (verified, [Q2](evidence/2026-11-05-host-seams.md#q2)). Launches issued by another tool (nested, with `parentToolCallId`) have no `message_end` batch, so they are classified at `tool_call`. The outcome is read from `subagents:completed`, `subagents:failed` or `subagents:resumed`.
 
-**Model selection example** with the default `standard` mode:
+**Model selection example** with the default `standard` mode. The tier follows the difficulty score and the mode's cut points; the table shows only typical reads:
 
 | Brief reads as | Jev answers | Result |
 |---|---|---|
-| Fix three named wording issues, check named | `fast` .86 | Haiku, effort capped at `medium` |
-| Same, but less certain | `fast` .52 | Sonnet |
+| Fix three named wording issues, check named | `fast` .86 (low score) | Haiku, effort capped at `medium` |
+| Same, but less certain | `fast` .52 (score near the cut) | Haiku or Sonnet, by the cut |
 | Implement a feature to a written spec | `balanced` .95 | Sonnet |
 | Task spanning many crates | `deep` .66 | Opus |
 | Review a pull request | `slot::reviewer` .92 | The `reviewer` slot's model |
@@ -138,29 +138,42 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 1. `/jev mode budget`.
 2. `state.json` is updated. No Jev call.
-3. The next launch uses the `budget` rubric and expert gate. Running workers are unaffected.
+3. The next launch uses the `budget` target table and its cut points, from the same window. The worker request is identical. Running workers are unaffected.
 4. Each ledger line records its mode, so tuning signals are never mixed across modes.
 
 ## 5. Auto-tuning
 
 ```mermaid
 flowchart TD
-    A["agent_settled"] --> B{"Tuning on, and<br/>cooldown passed?"}
+    A["agent_settled"] --> S{"Child session, invalid config<br/>or unreadable tuning.json?"}
+    S -- yes --> Z
+    S -- no --> B{"Tuning on?"}
     B -- no --> Z["Stop"]
-    B -- yes --> C["Read ledger since last change"]
-    C --> D{"A pending change<br/>to evaluate?"}
+    B -- yes --> B2{"Config still matches<br/>the tuned base?"}
+    B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
+    B3 --> Z
+    B2 -- yes --> D{"A pending change with<br/>40 decisions after it?"}
     D -- yes --> E{"Worse than the<br/>40 before it?"}
     E -- yes --> F["Revert, show a line"]
+    F --> Z
     E -- no --> G["Mark kept"]
-    D -- no --> H{"A rule fires?"}
-    G --> H
+    D -- no --> CD
+    G --> CD{"Cooldown passed?<br/>(40 decisions since the last change)"}
+    CD -- no --> Z
+    CD -- yes --> H{"A rule fires?"}
     H -- no --> Z
     H -- yes --> I{"Parameter allowlisted<br/>for automatic change?"}
     I -- no --> J["Keep as a signal for /jev tune"]
-    I -- yes --> K["Apply one step, show a line"]
+    I -- yes --> N["Compute and clamp the value"]
+    N --> L{"Value blocked by a<br/>recent revert or undo?"}
+    L -- yes --> M["Lower to blocked − 100"]
+    L -- no --> Q{"Above current?"}
+    M --> Q
+    Q -- no --> Z
+    Q -- yes --> K["Apply one step, show a line"]
 ```
 
-Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
+Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
 
 ## 6. A CLI review
 
@@ -193,7 +206,7 @@ This is separate from the `reviewer` slot, which routes ordinary review subagent
 3. Check the API key's presence, without calling Jev.
 4. Check for the executor; note its absence.
 5. Draw the status line. In print and JSON modes, nothing is drawn.
-6. Show one line if tuning changed something since the last session.
+6. Show one line if tuning changed something since the last session. `seenAt` is written first, so a refused write shows nothing; without a UI nothing is written or shown.
 
 ## Developer workflow
 

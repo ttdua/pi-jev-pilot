@@ -129,7 +129,7 @@ describe("compare", () => {
   });
 
   test("worker keys from routeLaunch", () => {
-    const { questions, specs } = buildWorkerQuestions(["fast", "deep"], {}, "standard", []);
+    const { questions, specs } = buildWorkerQuestions(["fast", "deep"], {}, []);
     const req = (variant: string): PlannedRequest => ({
       variant,
       base: "base",
@@ -144,7 +144,8 @@ describe("compare", () => {
         tier: {
           type: "choice",
           choice: tier,
-          probabilities: { fast: tier === "fast" ? 0.9 : 0.1, deep: tier === "deep" ? 0.9 : 0.1 },
+          // Extreme enough that a deep answer clears the seed `standard` cut point (1.81).
+          probabilities: { fast: tier === "fast" ? 1 : 0, deep: tier === "deep" ? 1 : 0 },
         },
         effort: {
           type: "choice",

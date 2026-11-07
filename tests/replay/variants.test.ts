@@ -181,7 +181,7 @@ describe("planPass", () => {
       agent: { ...base["agent"], instructions_excerpt: "" },
     });
     const q = find(p, "base", "worker")[0];
-    expect(Object.keys(q?.specs ?? {})).toEqual(["tier", "effort", "risky", "expert_needed"]);
+    expect(Object.keys(q?.specs ?? {})).toEqual(["tier", "effort", "risky"]);
     expect(find(p, "parent-request", "worker")[0]?.base).toBe("base");
   });
 

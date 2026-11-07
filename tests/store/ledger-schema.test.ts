@@ -63,6 +63,41 @@ describe("ledger schema", () => {
     expect(validateLedgerEntry(entry).ok).toBe(true);
   });
 
+  test("score above 3.5 rejected", () => {
+    expect(paths({ ...base("worker"), score: 3.6 })).toEqual(["score"]);
+    expect(validateLedgerEntry({ ...base("worker"), score: 3.5 }).ok).toBe(true);
+  });
+
+  test("fractional rubric rejected", () => {
+    expect(paths({ ...base("worker"), rubric: 2.5 })).toEqual(["rubric"]);
+    expect(paths({ ...base("worker"), rubric: 0 })).toEqual(["rubric"]);
+    expect(paths({ ...base("worker"), rubric: 100 })).toEqual(["rubric"]);
+  });
+
+  test("cut-point line and older choice line accepted", () => {
+    const cut = {
+      ...base("worker"),
+      reason: "cut",
+      tier: "fast",
+      score: 1.5,
+      rubric: 1,
+      expertOffered: false,
+    };
+    expect(validateLedgerEntry(cut).ok).toBe(true);
+    const old = { ...base("worker"), reason: "choice", tier: "fast", expertNeeded: 0.4 };
+    expect(validateLedgerEntry(old).ok).toBe(true);
+  });
+
+  test("cut and choice without a tier rejected", () => {
+    expect(paths({ ...base("worker"), reason: "cut" })).toEqual(["tier"]);
+    expect(paths({ ...base("worker"), reason: "choice" })).toEqual(["tier"]);
+  });
+
+  test("expert and expert-admitted with a tier accepted", () => {
+    for (const reason of ["expert", "expert-admitted"])
+      expect(validateLedgerEntry({ ...base("worker"), reason, tier: "expert" }).ok).toBe(true);
+  });
+
   test("Old reason name rejected", () => {
     expect(paths({ ...base("worker"), reason: "fable", tier: "expert" })).toEqual(["reason"]);
   });
@@ -123,10 +158,13 @@ describe("ledger schema", () => {
         "callerModel",
         "effort",
         "expertNeeded",
+        "expertOffered",
         "fallback",
         "locked",
         "model",
         "reason",
+        "rubric",
+        "score",
         "status",
         "tier",
         "tierP",

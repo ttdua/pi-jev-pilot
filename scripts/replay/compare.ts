@@ -1,3 +1,4 @@
+import { cutPointsFor } from "../../src/policy/cutpoints.ts";
 // Pure aggregation of replay results against noise. File output lives in outputs.ts.
 import { cutCodePoints } from "../../src/shared/text.ts";
 import type { Answer, MissKind } from "../../src/policy/answers.ts";
@@ -116,7 +117,7 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
     answers,
     launch: REPLAY_LAUNCH(runsInBackground(req)),
     offered: offeredTiers(config.tiers, config.expertOn),
-    mode: config.mode,
+    cuts: cutPointsFor([], config.mode),
     forkedLaunch: "untouched",
     canRun: () => true,
     thinkingOf: () => ({ reasoning: true }),

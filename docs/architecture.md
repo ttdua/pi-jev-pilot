@@ -37,7 +37,7 @@ flowchart LR
 1. **Public host APIs only.** No patches, no undocumented metadata. See [ADR 0001](decisions/0001-public-host-apis.md).
 2. **Fail open.** Any classifier failure leaves Pi behaving as if the package were absent.
 3. **Pure policy.** Every decision rule is a function of its inputs, with no Pi imports and no I/O, so it can be tested and replayed offline.
-4. **Rubrics are data.** Tier descriptions live in data keyed by mode, not in logic. See [ADR 0003](decisions/0003-rubric-per-mode.md).
+4. **Rubrics are data.** Tier descriptions live in data, not in logic. Modes are target tables; cut points are computed from the ledger. See [ADR 0008](decisions/0008-mode-target-cutpoints.md).
 5. **Decide on probabilities.** `confidence` is logged, never a gate. See [ADR 0002](decisions/0002-probabilities-not-confidence.md).
 6. **Nothing automatic is hidden.** Every automatic change shows a line and can be undone.
 
@@ -54,11 +54,17 @@ src/
     worker.ts            Reads worker answers
     tier.ts              Model decision order
     route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
-    modes.ts             Mode names, expert gates
+    modes.ts             Mode names, target tables
+    score.ts             Difficulty score
+    cutpoints.ts         Cut points from a window
+    seed.ts              Seed cut points (data)
+    cut-window.ts        Which ledger lines are eligible; window size
     skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
     strategy.ts          Advice gates and advice text
     tools.ts             Candidates, the 32 cap, the flag threshold
-    tuning.ts            Tuning rules, revert rules
+    tuning-window.ts     Decision counting: order, window, p90, shares
+    tuning-signals.ts    Signals per mode over the latest 200 decisions (observed only)
+    tuning.ts            Tuning rules: step, revert, undo, reset, off
 
   shared/                Dependency-free rules used by more than one module
     urls.ts              The Jev URL rule
@@ -66,7 +72,7 @@ src/
 
   jev/                   Talks to TypeSafe.
     client.ts            Transport: timeout, abort, no redirects
-    rubrics.ts           Rubric text per mode (data)
+    rubrics.ts           Worker and main rubric text (data), RUBRIC_VERSION
     questions.ts         Builds the questions for each request kind
     state.ts             Builds main, worker and tool state from plain inputs
     branch.ts            Reads Pi-shaped session entries into branch items
@@ -74,12 +80,18 @@ src/
 
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice
+    cutpoint-window.ts   In-memory window of eligible worker lines
+    worker-line.ts       Score, rubric and expertOffered for the ledger line
     worker.ts            message_end batch; tool_call route and mutation; warnings; ledger join
     child.ts             Child registry
     tools.ts             Worker-side tool assessment: record lookup, request, flag, removal
     tool-service.ts      Captures the executor service at main session_start
     tool-counts.ts       Hands the counts to the worker ledger line
     tool-facts.ts        Maps Pi tool info to plain tool facts
+    tuning-step.ts       agent_settled step: skip rules, write, change lines
+    tuning-seen.ts       Session-start line for unseen changes, `seenAt`
+    tune-command.ts      /jev tune: report, undo, reset, on, off
+    tuning-text.ts       Pure texts: change lines, session-start line, report
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
     context.ts           Previous turn id and hold context from the branch; re-exports

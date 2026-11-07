@@ -8,6 +8,7 @@ import { askJev, type JevOutcome } from "../jev/client.ts";
 import { buildWorkerQuestions, offeredTiers, type SlotOption } from "../jev/questions.ts";
 import { buildWorkerState } from "../jev/state.ts";
 import type { QuestionSpec } from "../policy/answers.ts";
+import { cutPointsFor, type CutPoints, type WindowEntry } from "../policy/cutpoints.ts";
 import type { ModeName } from "../policy/modes.ts";
 import type { ModelThinking } from "../policy/effort.ts";
 import {
@@ -30,8 +31,11 @@ import { checkModel, resolveModel, splitModel } from "./models.ts";
 import { loadSnapshot, type Snapshot } from "./readiness.ts";
 import { jevDir } from "./stores.ts";
 import { takeToolCounts } from "./tool-counts.ts";
+import { decisionFields } from "./worker-line.ts";
 
 export type WorkerDeps = {
+  /** The in-memory cut-point window; default empty (seed cut points). */
+  window?: () => readonly WindowEntry[];
   ask?: typeof askJev;
   append?: (entry: unknown) => void;
   snapshot?: () => Snapshot;
@@ -53,6 +57,8 @@ type LaunchEntry = {
   kind: LaunchKind;
   /** Read once at classification; the request, tier decision and ledger line all use it. */
   mode: ModeName;
+  /** Cut points for `mode`, computed once at classification from the window as it was then. */
+  cuts: CutPoints;
   offered: readonly TierName[];
   /** Read with `offered`, so a slot removed mid-launch still resolves at `tool_call`. */
   slots: readonly Slot[];
@@ -200,6 +206,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   const warned = new Set<string>();
   const append = deps.append ?? ((entry: unknown): void => void appendLedger(jevDir(), entry));
   const now = deps.now ?? Date.now;
+  const window = deps.window ?? ((): readonly WindowEntry[] => []);
   /** Launches whose tool result arrived, by executor agent id. */
   const byAgent = new Map<string, LaunchEntry>();
   /** Executor outcomes that arrived before their tool result, by agent id. */
@@ -239,13 +246,19 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         const a = answers.answers;
         const risky = a["risky"];
         if (risky?.type === "noul") line["risky"] = risky.noul;
-        const expert = a["expert_needed"];
-        if (expert?.type === "noul") line["expertNeeded"] = expert.noul;
         const tierP = probs(a["tier"]);
         if (tierP !== undefined) line["tierP"] = tierP;
         const effortP = probs(a["effort"], EFFORTS);
         if (effortP !== undefined) line["effortP"] = effortP;
       }
+      Object.assign(
+        line,
+        decisionFields({
+          answers,
+          offered: entry.offered,
+          tierQuestion: entry.kind.kind === "ask" && entry.kind.tierQuestion,
+        }),
+      );
       if (r.kind === "untouched") {
         line["reason"] = "untouched";
         if (r.locked === true) line["locked"] = true;
@@ -306,16 +319,24 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     snap: Snapshot,
   ): LaunchEntry => {
     const { settings } = snap;
-    const facts = readAgent(input["subagent_type"], { cwd: ctx.cwd, agentDir: agentDir() });
+    const facts = readAgent(input["subagent_type"], {
+      cwd: ctx.cwd,
+      agentDir: agentDir(),
+    });
     const launch = effectiveLaunch(input, facts);
     const offered = offeredTiers(settings.tiers, settings.switches.expert);
-    const slots = settings.crew.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
+    const slots = settings.crew.slots.map((s) => ({
+      name: s.name,
+      model: s.model,
+      when: s.when,
+    }));
     const kind = launchKind(launch, offered, settings.subagents.forkedLaunch, slots.length);
     const entry: LaunchEntry = {
       facts,
       launch,
       kind,
       mode: settings.mode,
+      cuts: cutPointsFor(window(), settings.mode),
       offered,
       slots,
       outcome: undefined,
@@ -326,7 +347,6 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const { questions, specs } = buildWorkerQuestions(
       kind.tierQuestion ? offered : [],
       kind.tierQuestion ? tierNames(ctx, settings.tiers, offered) : {},
-      entry.mode,
       kind.tierQuestion ? slotOptions(ctx, slots) : [],
     );
     const parentRequest = settings.state.parentRequest ? lastUserText(ctx) : undefined;
@@ -348,7 +368,12 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         questions,
         ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
       }),
-    ).catch((): JevOutcome => ({ kind: "miss", miss: "error", reason: "ask failed", ms: 0 }));
+    ).catch((): JevOutcome => ({
+      kind: "miss",
+      miss: "error",
+      reason: "ask failed",
+      ms: 0,
+    }));
     return entry;
   };
 
@@ -406,7 +431,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       answers,
       launch: entry.launch,
       offered: entry.offered,
-      mode: entry.mode,
+      cuts: entry.cuts,
       forkedLaunch: settings.subagents.forkedLaunch,
       canRun: (t) => !writesModel || checkOf(t).ok,
       thinkingOf: (t) => {

@@ -18,7 +18,10 @@ import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
+import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
+import type { WindowEntry } from "../../src/policy/cutpoints.ts";
+import type { TierName } from "../../src/policy/launch.ts";
 
 function snap(
   o: {
@@ -27,6 +30,7 @@ function snap(
     state?: State;
     env?: Record<string, string | undefined>;
     tools?: string[];
+    tuningRead?: TuningRead;
   } = {},
 ): Snapshot {
   return buildSnapshot({
@@ -34,6 +38,7 @@ function snap(
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
+    ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
   });
 }
 
@@ -42,6 +47,14 @@ describe("parseJevArgs", () => {
   test("empty and blank are status", () => {
     expect(parseJevArgs("")).toEqual({ kind: "status" });
     expect(parseJevArgs("   ")).toEqual({ kind: "status" });
+  });
+  test("tune forms", () => {
+    expect(parseJevArgs("tune")).toEqual({ kind: "tune", sub: "report" });
+    expect(parseJevArgs("tune off")).toEqual({ kind: "tune", sub: "off" });
+    for (const w of ["undo", "reset", "on"])
+      expect(parseJevArgs(`tune ${w}`)).toEqual({ kind: "tune", sub: w as "undo" });
+    for (const bad of ["tune apply", "tune Undo", "tune undo now"])
+      expect(parseJevArgs(bad)).toEqual(usage);
   });
   test("set", () => {
     expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
@@ -96,9 +109,8 @@ describe("usageText", () => {
     for (const f of ["/jev", "/jev <feature> on|off", "/jev all on|off", "/jev reset", ...FEATURES])
       expect(text).toContain(f);
   });
-  test("lists no later forms", () => {
-    for (const line of text.split("\n"))
-      expect(line.trimStart().startsWith("/jev tune")).toBe(false);
+  test("Usage lists the tune form", () => {
+    expect(text).toContain("/jev tune [undo|reset|on|off]");
   });
   test("Usage lists the slot forms", () => {
     expect(text).toContain("  /jev <slot> <provider/model> [when <text>]");
@@ -114,6 +126,13 @@ describe("usageText", () => {
 });
 
 describe("formatStatus", () => {
+  test("Malformed tuning reported", () => {
+    const issues = [{ path: "", message: "tuning.json is not valid JSON" }];
+    const text = formatStatus(snap({ tuningRead: { kind: "malformed", record: {}, issues } }));
+    expect(text).toContain("problems:");
+    expect(text).toContain("  tuning (malformed) (file): tuning.json is not valid JSON");
+  });
+
   test("default", () => {
     const text = formatStatus(snap());
     expect(text).toContain("Jev · standard");
@@ -148,6 +167,54 @@ describe("formatStatus", () => {
     const text = formatStatus(snap({ tools: [] }));
     expect(text).toContain("no executor");
     expect(text).toContain("worker routing and tool assessment are off");
+  });
+  describe("mix", () => {
+    const entries = (n: number, fast: number, balanced: number, deep: number): WindowEntry[] => {
+      const tiers = [
+        ...Array<TierName>(fast).fill("fast"),
+        ...Array<TierName>(balanced).fill("balanced"),
+        ...Array<TierName>(deep).fill("deep"),
+      ];
+      const expert = n - tiers.length;
+      return [...tiers, ...Array<TierName>(expert).fill("expert")].map((decided) => ({
+        score: 0.5,
+        effort: "high",
+        decided,
+      }));
+    };
+    test("standard, full window", () => {
+      const lines = formatStatus(snap(), undefined, entries(200, 38, 110, 48)).split("\n");
+      expect(lines).toContain(
+        "mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2",
+      );
+      expect(lines).not.toContain("cut points: seed");
+    });
+    test("budget target", () => {
+      const text = formatStatus(
+        snap({ state: { mode: "budget" } }),
+        undefined,
+        entries(120, 60, 48, 12),
+      );
+      expect(text).toContain("mix (last 120, budget):");
+      expect(text).toContain(" · target 50/40/10/≤0");
+      expect(text).not.toContain("cut points: seed");
+    });
+    test("short window shows seed", () => {
+      const lines = formatStatus(snap(), undefined, entries(40, 8, 20, 10)).split("\n");
+      const i = lines.findIndex((l) => l.startsWith("mix (last 40, "));
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(lines[i + 1]).toBe("cut points: seed");
+    });
+    test("empty window", () => {
+      const lines = formatStatus(snap(), undefined, []).split("\n");
+      const i = lines.indexOf("mix: no routed workers yet");
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(lines[i + 1]).toBe("cut points: seed");
+    });
+    test("no executor: no mix line", () => {
+      const text = formatStatus(snap({ tools: [] }), undefined, entries(200, 38, 110, 48));
+      expect(text).not.toContain("mix");
+    });
   });
   test("config issue", () => {
     const text = formatStatus(
@@ -381,11 +448,33 @@ describe("runJev", () => {
     expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
   });
 
-  test("Command from a later work group gets usage as warning", async () => {
+  test("Command from a later work group", async () => {
     const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("tune", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      tune: () => ({ ok: true, message: "R" }),
+    });
+    expect(c.rec.notes).toEqual([["R", "info"]]);
+    expect(existsSync(join(dir, "state.json"))).toBe(false);
+  });
+
+  test("tune error outcome is an error; no dep is usage", async () => {
+    const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("tune undo", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      tune: (sub) => ({ ok: false, message: `no ${sub}` }),
+    });
+    expect(c.rec.notes).toEqual([["no undo", "error"]]);
     const rec = await run("tune", dir);
     expect(rec.notes).toEqual([[usageText(), "warning"]]);
-    expect(existsSync(join(dir, "state.json"))).toBe(false);
   });
 
   test("no UI: silent but still writes", async () => {
@@ -447,9 +536,8 @@ describe("runJev slots", () => {
   const slotsOf = (dir: string) => load(dir)().settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
-      buildWorkerQuestions(["fast", "balanced", "deep"], {}, "standard", slotsOf(dir)).questions[
-        "tier"
-      ]!.criteria!,
+      buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
+        .criteria!,
     );
 
   test("Unknown feature", async () => {

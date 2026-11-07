@@ -205,7 +205,7 @@ const WORKER_VARIANTS: WorkerVariant[] = [
 function workerQuestions(config: PlainConfig) {
   const offered = offeredTiers(config.tiers, config.expertOn);
   const slots = config.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
-  return buildWorkerQuestions(offered, {}, config.mode, slots);
+  return buildWorkerQuestions(offered, {}, slots);
 }
 
 function planWorkers(
