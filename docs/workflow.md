@@ -173,7 +173,7 @@ flowchart TD
     Q -- yes --> K["Apply one step, show a line"]
 ```
 
-Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
+Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
 
 ## 6. A CLI review
 

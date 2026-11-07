@@ -225,16 +225,16 @@ Jev tune: timeoutMs 1500→1800 · /jev tune undo
 Other lines you may see:
 
 ```text
-Jev tune: timeoutMs 1500→1700, reverted: timeouts did not improve · /jev tune
-Jev tune: timeoutMs 1500→1700, your config value replaces the tuned one
+Jev tune: timeoutMs 1700→1500, reverted: timeouts did not improve · /jev tune
+Jev tune: timeoutMs 1700→2000, your config value replaces the tuned one
 Jev tune since your last session: timeoutMs 1500→1800 (2 changes) · /jev tune
 ```
 
 The last line appears once at session start, and only when a change was not shown before. Without a UI (print or JSON mode) no line is shown, and the next session with a UI shows it. `/jev tune off` keeps a tuned value until `/jev tune undo` or `/jev tune reset`.
 
-`/jev tune` also lists signals per mode over the latest 200 decisions: worker errors at low effort, corrected main turns, large turns at low effort, and small turns at `high`. They are observed only and never change anything.
+`/jev tune` also lists signals per mode over the latest 200 decisions: errors from `fast` or low-effort workers, corrected main turns, large turns at low effort, and small turns at `high`. They are observed only and never change anything.
 
-Tuning pauses while your config is invalid or `tuning.json` cannot be read.
+Tuning pauses while your config is invalid, or while `tuning.json` or the ledger cannot be read.
 
 Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling, the expert rules or the tool threshold. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
 
