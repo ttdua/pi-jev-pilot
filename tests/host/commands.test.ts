@@ -676,6 +676,74 @@ describe("runJev sync", () => {
     expect(seen).toEqual([true, false]);
   });
 
+  test("sync sees the one loaded snapshot before draw and notify", async () => {
+    const dir = jevDir();
+    const events: string[] = [];
+    const marker = snap({ state: { mode: "premium" } });
+    let loads = 0;
+    let synced: Snapshot | undefined;
+    const c = fakeCtx();
+    const ui = c.ctx.ui as unknown as Record<string, (...a: unknown[]) => void>;
+    const notify = ui.notify!;
+    const setWidget = ui.setWidget!;
+    ui.notify = (...a) => {
+      events.push("notify");
+      notify(...a);
+    };
+    ui.setWidget = (...a) => {
+      events.push("draw");
+      setWidget(...a);
+    };
+    await runJev("cli-review on", c.ctx, {
+      dir,
+      load: () => {
+        loads++;
+        return marker;
+      },
+      decision: noDecision,
+      exec: noExec,
+      sync: (sn) => {
+        events.push("sync");
+        synced = sn;
+      },
+    });
+    expect(loads).toBe(1);
+    expect(synced).toBe(marker);
+    expect(events).toEqual(["sync", "draw", "notify"]);
+    expect(c.rec.widgets[0]![1]).toEqual(["Jev · premium"]);
+    expect(c.rec.notes[0]![0]).toContain("mode: premium");
+  });
+
+  test("refused changes never sync", async () => {
+    const dir = jevDir();
+    let syncs = 0;
+    const attempt = async (args: string) => {
+      const c = fakeCtx();
+      await runJev(args, c.ctx, {
+        dir,
+        load: load(dir),
+        decision: noDecision,
+        exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false, truncated: false }),
+        sync: () => void syncs++,
+      });
+      return c.rec;
+    };
+    // refused model: the CLI list parses to nothing usable, value outside state rules
+    const bad = await attempt("cli-review codex " + "x".repeat(300));
+    expect(bad.notes[0]![1]).toBe("error");
+    if (process.getuid?.() !== 0) {
+      await attempt("cli-review on");
+      expect(syncs).toBe(1);
+      chmodSync(join(dir, "state.json"), 0o000);
+      const rec = await attempt("cli-review off");
+      chmodSync(join(dir, "state.json"), 0o600);
+      expect(rec.notes[0]![1]).toBe("error");
+      expect(rec.notes[0]![0]).toContain("EACCES");
+      expect(rec.widgets).toHaveLength(0);
+    }
+    expect(syncs).toBe(process.getuid?.() === 0 ? 0 : 1);
+  });
+
   test("a throwing sync still draws and notifies", async () => {
     const dir = jevDir();
     const c = fakeCtx();
@@ -761,7 +829,10 @@ describe("runJev cli-review", () => {
         cliReviewEnabled: true,
       }),
     );
-    const { rec } = await go("cli-review off", fake(ok("")), dir);
+    const f = fake(ok(""));
+    const { rec } = await go("cli-review off", f, dir);
+    expect(f.calls).toHaveLength(0);
+    expect(rec.notes[0]![0]).toContain("cli review: off (opencode, model p/m)");
     const st = readState(dir).state as State;
     expect(st.cliReviewEnabled).toBe(false);
     expect(st.cliReview).toEqual({ cli: "opencode", model: "p/m" });
@@ -774,6 +845,7 @@ describe("runJev cli-review", () => {
     expect(readState(dir).state).toEqual({ cliReviewEnabled: true });
     expect(f.calls).toHaveLength(0);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, CLI defaults)");
   });
 
   test("Switch survives a restart", async () => {
@@ -964,6 +1036,17 @@ describe("runJev cli-review", () => {
       const { rec, dir } = await go(a, f);
       expect(rec.notes).toEqual([[usageText(), "warning"]]);
       expect(existsSync(join(dir, "state.json"))).toBe(false);
+    }
+  });
+
+  test("malformed switch forms report usage and leave state.json unchanged", async () => {
+    for (const a of ["cli-review OFF", "cli-review On", "cli-review off now"]) {
+      const dir = jevDir();
+      seed(dir, { cliReviewEnabled: true });
+      const before = readFileSync(join(dir, "state.json"));
+      const { rec } = await go(a, fake(ok(catalog)), dir);
+      expect(rec.notes).toEqual([[usageText(), "warning"]]);
+      expect(readFileSync(join(dir, "state.json"))).toEqual(before);
     }
   });
 
