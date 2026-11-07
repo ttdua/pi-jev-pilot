@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compare, diffCases, writeOutputs, type Result } from "../../scripts/replay/compare.ts";
+import { compare, diffCases, type Result } from "../../scripts/replay/compare.ts";
+import { writeOutputs } from "../../scripts/replay/outputs.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import type { PlannedRequest } from "../../scripts/replay/variants.ts";
 import { config, mainBody, mainReq, MARKER, miss, ok, planOf } from "./helpers.ts";
@@ -74,6 +75,39 @@ describe("compare", () => {
     const agg = compare(plan, [ok(b, mainBody())], meta);
     expect(agg.skipped).toEqual(["capabilities"]);
     expect(agg.variants["+git"]?.excluded).toBe(3);
+  });
+
+  test("main and worker variants sharing an id keep separate excluded counts", () => {
+    const mb = mainReq("minimal", "minimal", 0);
+    const mr = mainReq("rerun-a", "minimal", 0);
+    const wb = { ...mainReq("base", "base", 0), kind: "worker" as const };
+    const wr = { ...mainReq("rerun-a", "base", 0), kind: "worker" as const };
+    const plan = planOf([mb, mr, wb, wr], {
+      excluded: { "rerun-a": 1, "worker:rerun-a": 4 },
+    });
+    const agg = compare(plan, [], meta);
+    expect(agg.variants["rerun-a"]?.excluded).toBe(1);
+    expect(agg.variants["worker:rerun-a"]?.excluded).toBe(4);
+  });
+
+  test("base misses count under the base variant, with kind", () => {
+    const b0 = mainReq("minimal", "minimal", 0);
+    const b1 = mainReq("minimal", "minimal", 1);
+    const agg = compare(planOf([b0, b1]), [miss(b0), ok(b1, mainBody())], meta);
+    expect(agg.variants["minimal"]?.requests).toBe(2);
+    expect(agg.variants["minimal"]?.misses).toBe(1);
+    expect(agg.variants["minimal"]?.kind).toBe("main");
+  });
+
+  test("a key absent on one side is counted as incomparable", () => {
+    const b = mainReq("minimal", "minimal", 0);
+    const v = mainReq("full", "minimal", 0);
+    const body = mainBody() as { answers: Record<string, unknown> };
+    delete body.answers["corrects"];
+    const agg = compare(planOf([b, v]), [ok(b, mainBody()), ok(v, body)], meta);
+    expect(agg.variants["full"]?.incomparable["corrects"]).toBe(1);
+    expect(agg.variants["full"]?.incomparable["strategy"]).toBe(0);
+    expect(agg.variants["full"]?.flips["corrects"]).toBe(0);
   });
 
   test("worker keys from routeLaunch", () => {

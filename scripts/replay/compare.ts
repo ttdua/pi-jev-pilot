@@ -1,6 +1,4 @@
-// Pure aggregation of replay results against noise, plus the private output files.
-import { chmodSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+// Pure aggregation of replay results against noise. File output lives in outputs.ts.
 import { cutCodePoints } from "../../src/shared/text.ts";
 import type { Answer, MissKind } from "../../src/policy/answers.ts";
 import { readAnswers } from "../../src/policy/answers.ts";
@@ -14,7 +12,7 @@ import { isSlot, slotName, type EffectiveLaunch, type Target } from "../../src/p
 import { routeLaunch } from "../../src/policy/route.ts";
 import { readWorkerOutcome } from "../../src/policy/worker.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
-import type { Plan, PlainConfig, PlannedRequest } from "./variants.ts";
+import { variantKey, type Plan, type PlainConfig, type PlannedRequest } from "./variants.ts";
 
 export type Result = {
   variant: string;
@@ -25,11 +23,14 @@ export type Result = {
 };
 
 export type VariantAggregate = {
+  kind: "main" | "worker";
   base: string;
   requests: number;
   misses: number;
   excluded: number;
   flips: Record<string, number>;
+  /** Decided keys absent on either side of a pair; neither a flip nor a miss. */
+  incomparable: Record<string, number>;
   noise: Record<string, number>;
   beyond: string[];
 };
@@ -68,11 +69,6 @@ const CASE_TEXT_POINTS = 300;
 const NONE = "none";
 
 type Decided = { keys: Record<string, string>; answers: Record<string, Answer | undefined> };
-
-/** Aggregates key a worker variant by `worker:<id>`, because `rerun-a` and `rerun-b` exist in both kinds. */
-export function variantKey(kind: "main" | "worker", id: string): string {
-  return kind === "worker" ? `worker:${id}` : id;
-}
 
 function mainKeys(answers: Record<string, Answer>): Decided {
   const out: Record<string, string> = {};
@@ -142,16 +138,20 @@ function decide(req: PlannedRequest, result: Result, config: PlainConfig): Decid
 
 type Pair = { req: PlannedRequest; own: Decided | undefined; base: Decided | undefined };
 
+function pairId(kind: string, variant: string, sample: number): string {
+  return `${kind}\0${variant}\0${sample}`;
+}
+
 function resultIndex(results: readonly Result[]): Map<string, Result> {
-  return new Map(results.map((r) => [`${r.kind}\0${r.variant}\0${r.sample}`, r]));
+  return new Map(results.map((r) => [pairId(r.kind, r.variant, r.sample), r]));
 }
 
 function pairsOf(plan: Plan, results: readonly Result[], config: PlainConfig): Pair[] {
   const index = resultIndex(results);
   const decided = new Map<Result, Decided | undefined>();
-  const reqs = new Map(plan.requests.map((r) => [`${r.kind}\0${r.variant}\0${r.sample}`, r]));
+  const reqs = new Map(plan.requests.map((r) => [pairId(r.kind, r.variant, r.sample), r]));
   const read = (kind: string, variant: string, sample: number): Decided | undefined => {
-    const id = `${kind}\0${variant}\0${sample}`;
+    const id = pairId(kind, variant, sample);
     const result = index.get(id);
     const req = reqs.get(id);
     if (result === undefined || req === undefined) return undefined;
@@ -167,27 +167,30 @@ function pairsOf(plan: Plan, results: readonly Result[], config: PlainConfig): P
     }));
 }
 
+function zeroed(kind: "main" | "worker"): Record<string, number> {
+  return Object.fromEntries(KEYS[kind].map((k) => [k, 0]));
+}
+
 function emptyVariant(base: string, kind: "main" | "worker"): VariantAggregate {
   return {
+    kind,
     base,
     requests: 0,
     misses: 0,
     excluded: 0,
-    flips: Object.fromEntries(KEYS[kind].map((k) => [k, 0])),
+    flips: zeroed(kind),
+    incomparable: zeroed(kind),
     noise: {},
     beyond: [],
   };
-}
-
-function isRerun(id: string): boolean {
-  return id === "rerun-a" || id === "rerun-b";
 }
 
 function addNoise(variants: Record<string, VariantAggregate>, kind: "main" | "worker"): void {
   const a = variants[variantKey(kind, "rerun-a")];
   const b = variants[variantKey(kind, "rerun-b")];
   for (const [id, v] of Object.entries(variants)) {
-    if (!isOfKind(id, kind) || isRerun(id.replace(/^worker:/, ""))) continue;
+    const isRerun = id === variantKey(kind, "rerun-a") || id === variantKey(kind, "rerun-b");
+    if (v.kind !== kind || isRerun) continue;
     for (const key of KEYS[kind]) {
       v.noise[key] = Math.max(a?.flips[key] ?? 0, b?.flips[key] ?? 0);
       if ((v.flips[key] ?? 0) > (v.noise[key] ?? 0)) v.beyond.push(key);
@@ -195,31 +198,60 @@ function addNoise(variants: Record<string, VariantAggregate>, kind: "main" | "wo
   }
 }
 
-function isOfKind(id: string, kind: "main" | "worker"): boolean {
-  return kind === "worker" ? id.startsWith("worker:") : !id.startsWith("worker:");
-}
-
-export function compare(plan: Plan, results: readonly Result[], meta: CompareMeta): Aggregates {
+function tally(plan: Plan): Record<string, VariantAggregate> {
   const variants: Record<string, VariantAggregate> = {};
   for (const req of plan.requests) {
     const id = variantKey(req.kind, req.variant);
     const entry = (variants[id] ??= emptyVariant(variantKey(req.kind, req.base), req.kind));
     entry.requests++;
-    entry.excluded = plan.excluded[req.variant] ?? 0;
+    entry.excluded = plan.excluded[id] ?? 0;
   }
+  return variants;
+}
+
+/** Misses of base requests count under the base variant's own aggregate. */
+function countBaseMisses(
+  plan: Plan,
+  results: readonly Result[],
+  config: PlainConfig,
+  variants: Record<string, VariantAggregate>,
+): void {
+  const index = resultIndex(results);
+  for (const req of plan.requests) {
+    if (req.variant !== req.base) continue;
+    const result = index.get(pairId(req.kind, req.variant, req.sample));
+    const entry = variants[variantKey(req.kind, req.variant)];
+    if (
+      entry !== undefined &&
+      (result === undefined || decide(req, result, config) === undefined)
+    ) {
+      entry.misses++;
+    }
+  }
+}
+
+function countPair(entry: VariantAggregate, pair: Pair & { own: Decided; base: Decided }): void {
+  for (const key of KEYS[pair.req.kind]) {
+    const mine = pair.own.keys[key];
+    const theirs = pair.base.keys[key];
+    if (mine === undefined || theirs === undefined) {
+      entry.incomparable[key] = (entry.incomparable[key] ?? 0) + 1;
+    } else if (mine !== theirs) {
+      entry.flips[key] = (entry.flips[key] ?? 0) + 1;
+    }
+  }
+}
+
+export function compare(plan: Plan, results: readonly Result[], meta: CompareMeta): Aggregates {
+  const variants = tally(plan);
+  countBaseMisses(plan, results, meta.config, variants);
   for (const pair of pairsOf(plan, results, meta.config)) {
     const entry = variants[variantKey(pair.req.kind, pair.req.variant)];
     if (entry === undefined) continue;
     if (pair.own === undefined || pair.base === undefined) {
       entry.misses++;
-      continue;
-    }
-    for (const key of KEYS[pair.req.kind]) {
-      const mine = pair.own.keys[key];
-      const theirs = pair.base.keys[key];
-      if (mine !== undefined && theirs !== undefined && mine !== theirs) {
-        entry.flips[key] = (entry.flips[key] ?? 0) + 1;
-      }
+    } else {
+      countPair(entry, { ...pair, own: pair.own, base: pair.base });
     }
   }
   addNoise(variants, "main");
@@ -260,45 +292,4 @@ export function diffCases(
     }
   }
   return cases;
-}
-
-function formatCases(cases: readonly DiffCase[]): string {
-  const blocks = cases.map((c) =>
-    [
-      `## ${c.variant} / ${c.key}`,
-      `- base: ${c.base} ${JSON.stringify(c.baseAnswer ?? null)}`,
-      `- variant: ${c.value} ${JSON.stringify(c.answer ?? null)}`,
-      "",
-      "~~~~",
-      c.text,
-      "~~~~",
-    ].join("\n"),
-  );
-  return `# Differing pairs\n\n${blocks.join("\n\n")}\n`;
-}
-
-/** Owner-only outputs. `aggregates.json` goes last, atomically, so it marks a finished run. */
-export function writeOutputs(
-  dir: string,
-  aggregates: Aggregates,
-  cases: readonly DiffCase[],
-): void {
-  const markdown = formatCases(cases);
-  const json = `${JSON.stringify(aggregates, null, 2)}\n`;
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  chmodSync(dir, 0o700);
-  const put = (name: string, content: string): void => {
-    writeFileSync(join(dir, name), content, { mode: 0o600 });
-    chmodSync(join(dir, name), 0o600);
-  };
-  put("cases.md", markdown);
-  const temp = join(dir, "aggregates.json.tmp");
-  try {
-    writeFileSync(temp, json, { mode: 0o600 });
-    chmodSync(temp, 0o600);
-    renameSync(temp, join(dir, "aggregates.json"));
-  } catch (error) {
-    rmSync(temp, { force: true });
-    throw error;
-  }
 }

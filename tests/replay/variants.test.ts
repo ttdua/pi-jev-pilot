@@ -183,9 +183,9 @@ describe("planPass", () => {
     expect(find(p, "no-description", "worker")).toEqual([]);
     expect(find(p, "no-instructions", "worker")).toEqual([]);
     expect(find(p, "base", "worker")).toHaveLength(1);
-    expect(p.excluded["parent-request"]).toBe(1);
-    expect(p.excluded["no-description"]).toBe(1);
-    expect(p.excluded["no-instructions"]).toBe(1);
+    expect(p.excluded["worker:parent-request"]).toBe(1);
+    expect(p.excluded["worker:no-description"]).toBe(1);
+    expect(p.excluded["worker:no-instructions"]).toBe(1);
   });
 
   test("shared questions and specs are frozen", () => {
@@ -199,7 +199,7 @@ describe("planPass", () => {
   test("worker without agent is excluded", () => {
     const p = plan1({ workers: [worker(false)] });
     expect(p.requests.some((r) => r.kind === "worker")).toBe(false);
-    expect(p.excluded["parent-request"]).toBe(1);
+    expect(p.excluded["worker:parent-request"]).toBe(1);
   });
 
   test("skills never asked", () => {

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compare, diffCases, writeOutputs } from "../../scripts/replay/compare.ts";
+import { compare, diffCases } from "../../scripts/replay/compare.ts";
+import { writeOutputs } from "../../scripts/replay/outputs.ts";
 import { estimate, runPlan } from "../../scripts/replay/run.ts";
 import { type JevFixture, startJevFixture } from "../jev/fixture.ts";
 import { config, mainBody, mainReq, MARKER, planOf } from "./helpers.ts";
@@ -52,6 +53,46 @@ describe("runPlan", () => {
     try {
       const p = planOf([mainReq("minimal", "minimal", 0)]);
       const [r] = await runPlan(p, opts(`http://127.0.0.1:${server.port}/`));
+      expect(r?.outcome.kind).toBe("ok");
+    } finally {
+      await server.stop(true);
+    }
+  });
+
+  test("at most 8 requests are in flight", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: async () => {
+        peak = Math.max(peak, ++inFlight);
+        await Bun.sleep(30);
+        inFlight--;
+        return Response.json(mainBody());
+      },
+    });
+    try {
+      const reqs = Array.from({ length: 24 }, (_, i) => mainReq("minimal", "minimal", i));
+      const results = await runPlan(planOf(reqs), opts(`http://127.0.0.1:${server.port}/`));
+      expect(results).toHaveLength(24);
+      expect(peak).toBe(8);
+    } finally {
+      await server.stop(true);
+    }
+  });
+
+  test("a schema rejection is retried", async () => {
+    let n = 0;
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json(n++ === 0 ? { answers: "bad" } : mainBody()),
+    });
+    try {
+      const p = planOf([mainReq("minimal", "minimal", 0)]);
+      const [r] = await runPlan(p, opts(`http://127.0.0.1:${server.port}/`));
+      expect(n).toBe(2);
       expect(r?.outcome.kind).toBe("ok");
     } finally {
       await server.stop(true);

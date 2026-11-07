@@ -29,9 +29,15 @@ export type PlannedRequest = {
   specs: Record<string, QuestionSpec>;
 };
 
+/** Keys a variant by kind. `rerun-a` and `rerun-b` exist in both kinds, so a worker id is `worker:<id>`. */
+export function variantKey(kind: "main" | "worker", id: string): string {
+  return kind === "worker" ? `worker:${id}` : id;
+}
+
 export type Plan = {
   requests: PlannedRequest[];
   skipped: string[];
+  /** Counts by `variantKey`. */
   excluded: Record<string, number>;
 };
 
@@ -109,7 +115,8 @@ function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): voi
     const q = v.reversed === true ? reversed : base;
     main.forEach((m, sample) => {
       if (v.needs.some((g) => m.missing.includes(g))) {
-        plan.excluded[v.id] = (plan.excluded[v.id] ?? 0) + 1;
+        const key = variantKey("main", v.id);
+        plan.excluded[key] = (plan.excluded[key] ?? 0) + 1;
         return;
       }
       const rich = pickRich(m.rich, v.groups);
@@ -187,7 +194,8 @@ function planWorkers(workers: RebuiltWorker[], config: PlainConfig, plan: Plan):
   for (const v of WORKER_VARIANTS) {
     workers.forEach((w, sample) => {
       if (w.agent === undefined || v.noop?.({ ...w, agent: w.agent }) === true) {
-        plan.excluded[v.id] = (plan.excluded[v.id] ?? 0) + 1;
+        const key = variantKey("worker", v.id);
+        plan.excluded[key] = (plan.excluded[key] ?? 0) + 1;
         return;
       }
       const state = initialState(w);
