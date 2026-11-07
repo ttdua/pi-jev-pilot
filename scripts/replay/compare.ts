@@ -72,7 +72,8 @@ export type DiffCase = {
 export const MAIN_KEYS = ["effort", "tier", "strategy", "risky", "corrects"] as const;
 export const WORKER_KEYS = ["tier", "effort"] as const;
 const KEYS = { main: MAIN_KEYS, worker: WORKER_KEYS } as const;
-const CASE_TEXT_POINTS = 300;
+/** Code points of a sample kept in a case entry. */
+export const CASE_TEXT_POINTS = 300;
 const NONE = "none";
 
 export type Decided = { keys: Record<string, string>; answers: Record<string, Answer | undefined> };

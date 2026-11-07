@@ -1,10 +1,17 @@
 // Pure aggregation of the report pass: the run against its plain rerun. File output lives in outputs.ts.
 import type { Answer } from "../../src/policy/answers.ts";
+import { isSlot } from "../../src/policy/launch.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
 import type { ModeName } from "../../src/policy/modes.ts";
 import { readWorkerOutcome, type WorkerAnswers } from "../../src/policy/worker.ts";
 import { cutCodePoints } from "../../src/shared/text.ts";
-import { decide, runsInBackground, type DiffCase, type Result } from "./compare.ts";
+import {
+  CASE_TEXT_POINTS,
+  decide,
+  runsInBackground,
+  type DiffCase,
+  type Result,
+} from "./compare.ts";
 import { REPORT_MODES, routeStreamRecords, type Routing } from "./report-route.ts";
 import { variantKey, type Plan, type PlainConfig, type PlannedRequest } from "./variants.ts";
 
@@ -57,8 +64,6 @@ const VARIANTS = ["report", "rerun"] as const;
 type Variant = (typeof VARIANTS)[number];
 const ROUTINGS = ["slots", "tiers"] as const;
 
-const CASE_TEXT_POINTS = 300;
-
 type ReadWorker = Extract<WorkerAnswers, { kind: "read" }>;
 type MainRead = { effort: string | undefined; answer: Answer | undefined };
 /** One variant's reads, indexed by sample; `undefined` for a miss or an unplanned sample. */
@@ -104,15 +109,14 @@ function bump(counts: Counts, key: string): void {
   counts[key] = (counts[key] ?? 0) + 1;
 }
 
-/** Plain-integer misses per variant key; a request is a miss when it has no readable answer. */
-function tallyMisses(plan: Plan, results: readonly Result[], config: PlainConfig) {
-  const index = new Map(results.map((r) => [pairId(r.kind, r.variant, r.sample), r]));
+/** Plain-integer misses per variant key; a request is a miss when its sample has no readable answer. */
+function tallyMisses(plan: Plan, sides: Record<Variant, Side>) {
   const misses: Counts = {};
   for (const req of plan.requests) {
     const key = variantKey(req.kind, req.variant);
     misses[key] ??= 0;
-    const result = index.get(pairId(req.kind, req.variant, req.sample));
-    const read = req.kind === "main" ? readMain(req, result, config) : readWorker(req, result);
+    const side = sides[req.variant as Variant];
+    const read = req.kind === "main" ? side.main[req.sample] : side.workers[req.sample];
     if (read === undefined) misses[key]++;
   }
   return misses;
@@ -186,8 +190,11 @@ function tallyWorkers(routed: (Targets | undefined)[], kinds: readonly Kind[], w
     if (r === undefined) return;
     bump(out.targets, r.target);
     bump(out.reasons, r.reason);
-    const counts = out.byKind?.[kinds[i] ?? "implementation"];
-    if (counts !== undefined && r.target.startsWith("slot::")) bump(counts, r.target);
+    // A sample without a known kind is left out of byKind rather than counted as implementation.
+    const kind = kinds[i];
+    if (out.byKind !== undefined && kind !== undefined && isSlot(r.target)) {
+      bump(out.byKind[kind], r.target);
+    }
   });
   return out;
 }
@@ -207,19 +214,30 @@ function perModeRouting<T>(f: (mode: ModeName, routing: Routing) => T) {
   ) as Record<ModeName, Record<Routing, T>>;
 }
 
+type Analysis = {
+  sides: Record<Variant, Side>;
+  routed: Record<Variant, Record<ModeName, Record<Routing, (Targets | undefined)[]>>>;
+};
+
+/** Reads each variant once and routes it in every mode and routing once. */
+function analyse(plan: Plan, results: readonly Result[], config: PlainConfig): Analysis {
+  const sides = {
+    report: sideOf(plan, results, config, "report"),
+    rerun: sideOf(plan, results, config, "rerun"),
+  };
+  const routed = {
+    report: perModeRouting((m, r) => routeSide(sides.report, config, m, r)),
+    rerun: perModeRouting((m, r) => routeSide(sides.rerun, config, m, r)),
+  };
+  return { sides, routed };
+}
+
 export function compareReport(
   plan: Plan,
   results: readonly Result[],
   meta: ReportMeta,
 ): ReportAggregates {
-  const sides = {
-    report: sideOf(plan, results, meta.config, "report"),
-    rerun: sideOf(plan, results, meta.config, "rerun"),
-  };
-  const routed = {
-    report: perModeRouting((m, r) => routeSide(sides.report, meta.config, m, r)),
-    rerun: perModeRouting((m, r) => routeSide(sides.rerun, meta.config, m, r)),
-  };
+  const { sides, routed } = analyse(plan, results, meta.config);
   const workers = (v: Variant) =>
     perModeRouting((m, r) => tallyWorkers(routed[v][m][r], meta.workerKind, r === "slots"));
   return {
@@ -229,7 +247,7 @@ export function compareReport(
     samples: meta.samples,
     skipped: [...plan.skipped],
     excluded: { ...plan.excluded },
-    misses: tallyMisses(plan, results, meta.config),
+    misses: tallyMisses(plan, sides),
     main: {
       report: tallyMain(sides.report, meta.startEffort),
       rerun: tallyMain(sides.rerun, meta.startEffort),
@@ -258,8 +276,8 @@ export function reportCases(
   config: PlainConfig,
   sampleText: (kind: "main" | "worker", sample: number) => string,
 ): DiffCase[] {
-  const report = sideOf(plan, results, config, "report");
-  const rerun = sideOf(plan, results, config, "rerun");
+  const { sides, routed } = analyse(plan, results, config);
+  const { report, rerun } = sides;
   const cases: DiffCase[] = [];
   const add = (kind: "main" | "worker", sample: number, c: Omit<DiffCase, "variant" | "text">) =>
     cases.push({
@@ -281,8 +299,8 @@ export function reportCases(
   }
   for (const mode of REPORT_MODES) {
     for (const routing of ROUTINGS) {
-      const was = routeSide(report, config, mode, routing);
-      const now = routeSide(rerun, config, mode, routing);
+      const was = routed.report[mode][routing];
+      const now = routed.rerun[mode][routing];
       for (const i of differing(
         was.map((x) => x?.target),
         now.map((x) => x?.target),

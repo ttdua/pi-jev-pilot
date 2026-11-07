@@ -3,6 +3,7 @@ import { cutPointsFor } from "../../src/policy/cutpoints.ts";
 import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/cut-window.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
 import type { ModeName } from "../../src/policy/modes.ts";
+import { isSlot } from "../../src/policy/launch.ts";
 import { routeLaunch } from "../../src/policy/route.ts";
 import { difficultyScore } from "../../src/policy/score.ts";
 import type { WorkerAnswers } from "../../src/policy/worker.ts";
@@ -69,7 +70,7 @@ export function routeStreamRecords(
     });
     const record = route.kind === "routed" ? route.record : undefined;
     const target = record?.tier ?? "none";
-    if (record !== undefined && !target.startsWith("slot::")) {
+    if (record !== undefined && !isSlot(target)) {
       const score = difficultyScore(read.answers);
       const effortP = effortProbabilities(read);
       lines.push({

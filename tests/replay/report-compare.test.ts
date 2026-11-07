@@ -154,6 +154,14 @@ describe("compareReport workers", () => {
     );
   });
 
+  test("a worker without a known kind is left out of byKind", () => {
+    const { plan, results } = workerRun(["slot::reviewer", "slot::reviewer"]);
+    const agg = compareReport(plan, results, metaOf({ workerKind: ["review"] }));
+    const byKind = agg.workers.report.standard.slots.byKind;
+    expect(byKind?.review["slot::reviewer"]).toBe(1);
+    expect(byKind?.implementation["slot::reviewer"]).toBeUndefined();
+  });
+
   test("miss excluded from noise", () => {
     const { plan, results } = workerRun(["fast", "fast"], ["rerun:1"]);
     const agg = compareReport(plan, results, metaOf({ workerKind: ["scout", "scout"] }));
