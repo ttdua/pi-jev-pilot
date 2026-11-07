@@ -18,5 +18,5 @@
 
 ## 4. Docs and gate
 
-- [ ] 4.1 Update `docs/domain-model.md` (timeout-only signal, block after revert or undo, base value, tuning record), `docs/configuration.md` (`tuning.json` content, missing/malformed/unreadable cases, precedence with base), `docs/usage-guide.md` (a config edit wins over tuning; undo blocks the same raise), `docs/workflow.md` §5 (superseded step, block) and `docs/roadmap.md` (WG-18 split: `wg-18-tuning-policy` and the host change)
-- [ ] 4.2 Run the full gate: `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`
+- [x] 4.1 Update `docs/domain-model.md` (timeout-only signal, block after revert or undo, base value, tuning record), `docs/configuration.md` (`tuning.json` content, missing/malformed/unreadable cases, precedence with base), `docs/usage-guide.md` (a config edit wins over tuning; undo blocks the same raise), `docs/workflow.md` §5 (superseded step, block) and `docs/roadmap.md` (WG-18 split: `wg-18-tuning-policy` and the host change)
+- [x] 4.2 Run the full gate: `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`
