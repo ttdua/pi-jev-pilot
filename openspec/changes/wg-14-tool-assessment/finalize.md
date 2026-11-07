@@ -7,7 +7,7 @@
 
 **Change**: `wg-14-tool-assessment`
 **Finalized at**: `2026-11-07 03:46` (UTC)
-**Outcome**: `pr-updated` (closeout stopped before push: see Deviation)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,12 +15,12 @@
 
 - **Branch**: `WG-14`
 - **Base branch**: `main`
-- **Final state**: worktree branch fast-forwarded into `WG-14` locally (`8a8ad6c..1ee1f19`). The branch is not pushed yet.
-- **PR URL**: N/A (no PR exists for `WG-14`; `WG-14` has no upstream)
+- **Final state**: `pr-open` (worktree branch fast-forwarded into `WG-14` (`8a8ad6c..1ee1f19`), pushed to `origin/WG-14`)
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/35 (closes #15)
 
 ### Deviation (project AGENTS.md)
 
-The project policy says: "Do not push, merge or open a PR without the user's explicit permission in chat". That policy overrides finalize steps 10 to 12 (push, PR prompt, PR comment). The closeout ran steps 1 to 9 and stopped before the push. The operator decides on the push and the PR separately. If they approve, re-enter finalize at step 10: push `WG-14`, open the PR, post the reviewer orientation comment, and update this receipt.
+The project policy says: "Do not push, merge or open a PR without the user's explicit permission in chat". The closeout therefore ran steps 1 to 9, then stopped and asked the operator. The operator approved "push and open the PR with the suggested title" in the Plannotator Inbox. Steps 10 to 12 ran after that approval. Before creating the PR, the active `gh` account was switched to `ttdua` (the remote owner), as AGENTS.md requires.
 
 Worktree commands used Worktrunk (`wt remove`) instead of `git worktree remove`, as AGENTS.md requires.
 
@@ -35,7 +35,7 @@ Worktree commands used Worktrunk (`wt remove`) instead of `git worktree remove`,
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`. No PR exists, and the push and PR wait for the operator's approval.
+- **PR comment status**: `posted`. https://github.com/ttdua/pi-jev-pilot/pull/35#issuecomment-6702082569
 
 ---
 
@@ -57,6 +57,6 @@ Worktree commands used Worktrunk (`wt remove`) instead of `git worktree remove`,
 
 ## Next step
 
-1. Decide on the push: push `WG-14` and open the PR against `main`, or keep it local.
-2. After the PR's code review, run `/opsx-archive` on `WG-14` and push the archive commits.
+1. Wait for the PR code review on #35.
+2. After approval, run `/opsx-archive` on `WG-14` (commits land here) and push the archive commits to update the PR.
 3. Merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands the implementation and the archive in `main`.
