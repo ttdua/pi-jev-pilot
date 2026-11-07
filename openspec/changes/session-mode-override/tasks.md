@@ -26,7 +26,7 @@
 
 ## 6. End-to-end host tests
 
-- [ ] 6.1 Host-harness tests for resume, reload, fork, `/tree` before the entry, new session, worker routed with the session mode and its ledger `mode`, other process keeps the saved mode, child inert, append failure
+- [x] 6.1 Host-harness tests for resume, reload, fork, `/tree` before the entry, new session, worker routed with the session mode and its ledger `mode`, other process keeps the saved mode, child inert, append failure
 
 ## 7. Docs
 
