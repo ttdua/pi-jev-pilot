@@ -7,7 +7,7 @@
 
 **Change**: `wg-13-slots`
 **Finalized at**: `2026-11-07 06:53` (UTC)
-**Outcome**: `pr-updated` (partial: merged locally into the feature branch; push and PR wait for operator approval, see "Policy deviation")
+**Outcome**: `pr-created`. The PR was opened after the operator approved the push in the Plannotator Inbox; see "Policy deviation".
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `WG-13`
 - **Base branch**: `main`
-- **Final state**: `merged` into `WG-13` locally (fast-forward to `c04e3bb`); not pushed
-- **PR URL**: `N/A` (no PR yet; `WG-13` has no remote tracking branch)
+- **Final state**: `pr-open`. `wg-13-slots` was fast-forwarded into `WG-13`, then `WG-13` was rebased onto `origin/main` and pushed with `-u`.
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/40`
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/40#issuecomment-6703689944)
 
 ---
 
@@ -52,20 +52,23 @@
 
 ## Policy deviation
 
-The project's `AGENTS.md` says nothing is pushed, merged or opened as a PR without the operator's explicit approval in chat. That rule overrides finalize steps 10–11:
+The project's `AGENTS.md` forbids push, merge or opening a PR without the operator's explicit approval. The sequence here was:
 
-- The push of `WG-13` waits for the operator.
-- Opening a PR waits for the operator.
-- `git pull` was skipped, because `WG-13` has no upstream.
+1. After finalize, the operator chose "Archive, rebase, push and open PR" in the Inbox.
+2. `/opsx-archive` synced the delta specs into `openspec/specs/` and archived the change on `WG-13`.
+3. `WG-13` was rebased onto `origin/main`, which had gained `ffa32a7` (WG-09 skill host) and `fa96388` (WG-14 tool assessment).
 
-`origin/main` gained `ffa32a7` (WG-09 skill host) and `fa96388` (WG-14 tool assessment) after the apply rebase. `WG-13` must be rebased or merged onto them, with tests rerun, before it is pushed for a PR.
+The rebase had conflicts in `src/jev/rubrics.ts`, `src/shared/text.ts`, `tests/jev/questions.test.ts`, `tests/shared/text.test.ts`, `tests/host/worker-ledger.test.ts` and `docs/roadmap.md`. Each side appended separate code, so both sides were kept.
 
----
+The `worker-ledger` delta's "Decision fields" requirement was rebuilt on the WG-14 baseline, so it keeps the tool-count scenarios (`8c0babe`).
+
+After the rebase:
+- `bun run typecheck`, `lint` and `fmt:check` are clean.
+- `bun test` reports 1404 pass and 0 fail.
+- `openspec validate --specs` reports 33 of 33 valid.
+
+Merging the PR stays with the operator.
 
 ## Next step
 
-1. With operator approval, run `/opsx-archive wg-13-slots` on `WG-13`. It syncs the delta specs into `openspec/specs/`.
-2. Rebase `WG-13` onto `origin/main` and run `bun test`.
-3. With operator approval, run `git push -u origin WG-13`.
-4. Open the PR, `feat(worker-routing): wg-13-slots`.
-5. After code review, merge (`gh pr merge --squash --delete-branch`). That one merge lands the implementation and the archive in `main`.
+Wait for the PR code review. The change is already archived on this branch. After approval, merge #40 (`gh pr merge --squash --delete-branch`). That one merge lands the implementation and the archive in `main`.
