@@ -9,7 +9,7 @@
 - [x] 2.1 Add the `RichInputs` type, the `SHIPPED_MAIN_GROUPS` constant (empty) and the optional group placement to `mainState`, with tests for "One group alone" and "Every group".
 - [x] 2.2 Build `last_decision` and `context_used_percent` (omission, rounding, clamping), with tests.
 - [x] 2.3 Add `parseShortstat` for `workspace.git`, with tests.
-- [ ] 2.4 Add `scanLanguages` in `src/jev/workspace.ts` (depth, entry cap, skips, thresholds, ranking), with tests.
+- [x] 2.4 Add `scanLanguages` in `src/jev/workspace.ts` (depth, entry cap, skips, thresholds, ranking), with tests.
 - [x] 2.5 Add the `capabilities` builder (first sentence, cuts, caps, name order), with tests.
 
 ## 3. Host wiring
