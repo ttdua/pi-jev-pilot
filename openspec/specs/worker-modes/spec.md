@@ -1,7 +1,7 @@
 # worker-modes Specification
 
 ## Purpose
-The operator's mode (`budget`, `standard`, `premium`) and what it selects for worker requests: one tier rubric, one `expert_needed` wording and one expert gate, with everything else the same in every mode.
+The operator's mode (`budget`, `standard`, `premium`) and what it selects for worker routing: one target table of tier shares and an expert cap, with the worker request and every other rule the same in every mode.
 
 ## Requirements
 
