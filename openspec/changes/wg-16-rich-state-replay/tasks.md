@@ -25,8 +25,8 @@
 - [x] 4.4 `scripts/replay/variants.ts`: build the pass 1 and pass 2 plans, including the reversed `effort` options and the worker variants, with tests.
 - [x] 4.5 `scripts/replay/run.ts`: concurrency 8, a 5000 ms timeout, one retry, and miss counting. Test the dry run, the send and the Jev failure scenarios against the loopback fixture.
 - [x] 4.6 `scripts/replay/compare.ts`: flips per key, noise as the larger of the two reruns, the beyond-noise mark, `aggregates.json` and `cases.md` written owner-only under `<agentDir>/jev/replay/<run-id>/`. Test the output scenarios.
-- [ ] 4.7 `scripts/replay/cli.ts`: the flags (`--pass`, `--seed`, `--main`, `--workers`, `--capabilities`, `--models`, `--url`, `--send`) and plain-JSON config reading. Add `tests/host/manual/capabilities-snapshot.ts`.
-- [ ] 4.8 In `docs/testing.md`, document the replay procedure, the snapshot procedure and `JEV_REPLAY_GIT`. In `docs/privacy.md`, document the recorder file.
+- [x] 4.7 `scripts/replay/cli.ts`: the flags (`--pass`, `--seed`, `--main`, `--workers`, `--capabilities`, `--models`, `--url`, `--send`) and plain-JSON config reading. Add `tests/host/manual/capabilities-snapshot.ts`.
+- [x] 4.8 In `docs/testing.md`, document the replay procedure, the snapshot procedure and `JEV_REPLAY_GIT`. In `docs/privacy.md`, document the recorder file.
 
 ## 5. Pass 1 (operator approval required)
 
