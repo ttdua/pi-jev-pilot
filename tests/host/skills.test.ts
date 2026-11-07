@@ -223,6 +223,17 @@ describe("loadedSkills", () => {
     expect(loadedSkills([user([{ type: "text", text }])], [debug])).toEqual(want);
   });
 
+  test("User skill block removed by a context edit", () => {
+    const u = user(`${skillBlock(debug)}\n\nfix it`);
+    expect(loadedSkills([{ sourceEntry: u.sourceEntry, messages: [] }], [debug])).toEqual([]);
+  });
+
+  test("User skill block rewritten by a context edit", () => {
+    const u = user(`${skillBlock(debug)}\n\nfix it`);
+    const messages = [{ role: "user", content: "shortened" }];
+    expect(loadedSkills([{ sourceEntry: u.sourceEntry, messages }], [debug])).toEqual([]);
+  });
+
   test("Loaded before an edit", () => {
     const text = `${skillBlock({ ...debug, body: "Old step." })}\n\nfix it`;
     const out = loadedSkills([user(text)], [debug]);

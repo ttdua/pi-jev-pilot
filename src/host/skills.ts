@@ -99,8 +99,16 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 function sameContent(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false; // circular or BigInt content cannot be compared
+  }
 }
+
+/** Fingerprint reported for an explicit skill block whose body no longer matches the catalog. */
+const STALE_FINGERPRINT = "stale";
 
 /** A `jev-skill` message that reached the model with its body, unchanged by any context edit. */
 function deliveredSkill(entry: ProjectionEntry): Loaded | undefined {
@@ -116,12 +124,13 @@ function deliveredSkill(entry: ProjectionEntry): Loaded | undefined {
   return { name, fingerprint: print };
 }
 
-/** A user prompt that starts with a Pi-expanded skill block; an outdated body is `"stale"`. */
+/** A user prompt that starts with a Pi-expanded skill block; an outdated body is `STALE_FINGERPRINT`. */
 function explicitLoaded(
   entry: ProjectionEntry,
   catalog: readonly CatalogSkill[],
 ): Loaded | undefined {
-  const message = record(record(entry.sourceEntry)?.message);
+  if (entry.messages.length !== 1) return undefined;
+  const message = record(entry.messages[0]);
   if (message?.role !== "user") return undefined;
   const content = message.content;
   let text: unknown = content;
@@ -134,7 +143,7 @@ function explicitLoaded(
   if (!skill) return undefined;
   return {
     name: skill.name,
-    fingerprint: text.startsWith(skillBlock(skill)) ? skill.fingerprint : "stale",
+    fingerprint: text.startsWith(skillBlock(skill)) ? skill.fingerprint : STALE_FINGERPRINT,
   };
 }
 
