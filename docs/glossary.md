@@ -66,7 +66,8 @@ Use these words consistently in code, docs and the user interface.
 |---|---|
 | **Ledger** | The local file of decisions and outcomes. Never holds prompt text. |
 | **Correction** | A prompt Jev reads as saying the previous turn was wrong. Marks that turn. |
-| **Tally** | Per-session counts shown by `/jev`. |
+| **Tally** | Per-session counts of prompts, workers, worker tokens and fallbacks, shown by `/jev`. |
+| **Log line** | One `jev-log` entry shown in the conversation while `verbose` is on. Labels and numbers only, never sent to the model. |
 | **Switch** | A feature's live on/off state. |
 | **Tuning** | Automatic, bounded adjustment of allowlisted parameters. |
 | **Signal** | A measure tuning watches, such as the share of unanswered requests. |
