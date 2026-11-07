@@ -5,8 +5,8 @@
 
 ## 2. Pure signals
 
-- [ ] 2.1 Create `src/policy/tuning-signals.ts` with `SignalLine`, `ModeSignals` and `signalsByMode(lines)` (latest 200 decisions per mode, deterministic order); add the `LedgerEntry` to `SignalLine` seam test in `tests/policy/tuning-seam.test.ts`
-- [ ] 2.2 Cover every `tuning-signals` scenario in `tests/policy/tuning-signals.test.ts`
+- [x] 2.1 Create `src/policy/tuning-signals.ts` with `SignalLine`, `ModeSignals` and `signalsByMode(lines)` (latest 200 decisions per mode, deterministic order); add the `LedgerEntry` to `SignalLine` seam test in `tests/policy/tuning-seam.test.ts`
+- [x] 2.2 Cover every `tuning-signals` scenario in `tests/policy/tuning-signals.test.ts`
 
 ## 3. Snapshot reads tuning.json
 
