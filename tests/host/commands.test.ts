@@ -17,7 +17,7 @@ import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
 import { readLocalMode } from "../../src/store/local-mode.ts";
-import { setMainCwd } from "../../src/host/main-cwd.ts";
+import { MAIN_CWD_KEY, mainCwd, setMainCwd } from "../../src/host/main-cwd.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
@@ -167,6 +167,20 @@ describe("usageText", () => {
 });
 
 describe("formatStatus", () => {
+  test("Malformed directory mode reported", () => {
+    const issues = [{ path: "", message: "jev-mode.json is not valid JSON" }];
+    const text = formatStatus(
+      buildSnapshot({
+        configRead: { kind: "ok", present: true, config: {} as Config },
+        stateRead: { kind: "ok", state: {} },
+        env: { TYPESAFE_API_KEY: "k" },
+        toolNames: ["subagent"],
+        localModeRead: { kind: "malformed", issues },
+      }),
+    );
+    expect(text).toContain("problems:");
+    expect(text).toContain("  local mode (malformed) (file): jev-mode.json is not valid JSON");
+  });
   test("Malformed tuning reported", () => {
     const issues = [{ path: "", message: "tuning.json is not valid JSON" }];
     const text = formatStatus(snap({ tuningRead: { kind: "malformed", record: {}, issues } }));
@@ -232,13 +246,13 @@ describe("formatStatus", () => {
       );
       expect(lines).not.toContain("cut points: seed");
     });
-    test("Session mode in the report", () => {
+    test("Directory mode in the report", () => {
       const text = formatStatus(
         snap({ state: { mode: "standard" }, sessionMode: "premium" }),
         undefined,
         entries(120, 60, 48, 12),
       );
-      expect(text).toContain("mode: premium (session; saved standard)");
+      expect(text).toContain("mode: premium (this directory; global standard)");
       expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/45\/≤5/);
     });
     test("budget target", () => {
@@ -694,20 +708,22 @@ describe("runJev directory mode", () => {
     expect(localOf(cwd)).toBe("premium");
     expect(stateBytes(dir)).toBe(before);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
-    // copy updated in Task 12
-    expect(rec.notes[0]![0]).toContain("mode: premium (session; saved standard)");
-    expect(rec.widgets[0]![1]).toEqual(["Jev · premium (session)"]);
+    expect(rec.notes[0]![0]).toContain("mode: premium (this directory; global standard)");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · premium (local)"]);
   });
 
   test.skipIf(process.getuid?.() === 0)("Set while state is unreadable", async () => {
     const dir = jevDir();
     const cwd = freshCwd();
     await run("mode standard global", dir);
+    const before = stateBytes(dir);
     chmodSync(join(dir, "state.json"), 0o000);
     const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
     chmodSync(join(dir, "state.json"), 0o600);
     expect(localOf(cwd)).toBe("premium");
+    expect(stateBytes(dir)).toBe(before);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("state (unreadable)");
   });
 
   test.skipIf(process.getuid?.() === 0)("Directory not writable", async () => {
@@ -879,11 +895,17 @@ describe("runJev directory mode", () => {
     const dir = jevDir();
     const a = freshCwd();
     const b = freshCwd();
+    const previous = mainCwd();
     setMainCwd(b);
-    const rec = await run("mode premium", dir, fakeCtx(true, "main", a));
-    expect(localOf(a)).toBe("premium");
-    expect(existsSync(localFile(b))).toBe(false);
-    expect(rec.notes[0]![0]).toContain("mode: premium");
+    try {
+      const rec = await run("mode premium", dir, fakeCtx(true, "main", a));
+      expect(localOf(a)).toBe("premium");
+      expect(existsSync(localFile(b))).toBe(false);
+      expect(rec.notes[0]![0]).toContain("mode: premium");
+    } finally {
+      if (previous === undefined) delete (globalThis as Record<symbol, unknown>)[MAIN_CWD_KEY];
+      else setMainCwd(previous);
+    }
   });
 });
 

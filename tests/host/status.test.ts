@@ -136,26 +136,26 @@ describe("drawStatus", () => {
   });
 });
 
-describe("session mode marker", () => {
-  test("Session mode marked", () =>
+describe("directory mode marker", () => {
+  test("Directory mode marked", () =>
     expect(statusText(snap({ state: { mode: "standard" }, sessionMode: "premium" }))).toBe(
-      "Jev · premium (session)",
+      "Jev · premium (local)",
     ));
-  test("Session mode with a suffix", () =>
+  test("Directory mode with a suffix", () =>
     expect(
       statusText(snap({ sessionMode: "budget" }), {
         effort: { kind: "level", level: "high" },
       }),
-    ).toBe("Jev · budget (session) · high"));
-  test("Session mode in the tally form", () =>
+    ).toBe("Jev · budget (local) · high"));
+  test("Directory mode in the tally form", () =>
     expect(
       statusText(
         snap({ sessionMode: "premium" }),
         undefined,
         "10 prompts · 0 workers · 0 fallbacks",
       ),
-    ).toBe("Jev · premium (session) · 10 prompts · 0 workers · 0 fallbacks"));
-  test("Base state wins over a session mode", () =>
+    ).toBe("Jev · premium (local) · 10 prompts · 0 workers · 0 fallbacks"));
+  test("Base state wins over a directory mode", () =>
     expect(statusText(snap({ state: allOff(), sessionMode: "premium" }))).toBe("Jev · off"));
 });
 

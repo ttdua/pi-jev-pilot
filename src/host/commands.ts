@@ -147,7 +147,9 @@ function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
 
 function modeLine(s: Snapshot): string {
   const { mode, modeSource, globalMode } = s.settings;
-  return modeSource === "local" ? `mode: ${mode} (session; saved ${globalMode})` : `mode: ${mode}`;
+  return modeSource === "local"
+    ? `mode: ${mode} (this directory; global ${globalMode})`
+    : `mode: ${mode}`;
 }
 
 export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
@@ -164,6 +166,7 @@ export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEnt
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
   problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
+  problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
   if (s.executor && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));

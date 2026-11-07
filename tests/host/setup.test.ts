@@ -86,6 +86,12 @@ const DISPOSED = "subagents:child:disposed";
 const saved = { dir: process.env.PI_CODING_AGENT_DIR, key: process.env.TYPESAFE_API_KEY };
 const EXECUTOR_KEY = Symbol.for("@gotgenes/pi-subagents:service");
 let agentDir = "";
+let cwdDirs: string[] = [];
+const cwdDir = (): string => {
+  const d = tempDir("jev-cwd-");
+  cwdDirs.push(d);
+  return d;
+};
 
 beforeEach(() => {
   agentDir = tempDir("jev-setup-");
@@ -98,6 +104,8 @@ afterEach(() => {
   delete (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY];
   delete (globalThis as Record<symbol, unknown>)[MAIN_CWD_KEY];
   rmSync(agentDir, { recursive: true, force: true });
+  for (const d of cwdDirs) rmSync(d, { recursive: true, force: true });
+  cwdDirs = [];
   if (saved.dir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = saved.dir;
   if (saved.key === undefined) delete process.env.TYPESAFE_API_KEY;
@@ -626,27 +634,24 @@ describe("setup directory mode", () => {
   }
 
   test("main session_start records the cwd and draws its directory mode", async () => {
-    const cwdA = tempDir("jev-cwd-");
+    const cwdA = cwdDir();
     writeLocalMode(cwdA, "premium");
     const f = fakePi();
     setup(f.pi);
     const { ctx, widgets } = widgetCtx("main", cwdA);
     await f.handlers.get("session_start")![0]!({ reason: "startup" }, ctx);
     expect(mainCwd()).toBe(cwdA);
-    expect(widgets.at(-1)).toContain("Jev · premium (session)");
-    rmSync(cwdA, { recursive: true, force: true });
+    expect(widgets.at(-1)).toContain("Jev · premium (local)");
   });
 
   test("Child start in another directory", async () => {
-    const cwdA = tempDir("jev-cwd-");
-    const cwdB = tempDir("jev-cwd-");
+    const cwdA = cwdDir();
+    const cwdB = cwdDir();
     const f = fakePi();
     setup(f.pi);
     await f.handlers.get("session_start")![0]!({ reason: "startup" }, widgetCtx("main", cwdA).ctx);
     f.emit(CREATED, { sessionId: "kid" });
     await f.handlers.get("session_start")![0]!({ reason: "startup" }, widgetCtx("kid", cwdB).ctx);
     expect(mainCwd()).toBe(cwdA);
-    rmSync(cwdA, { recursive: true, force: true });
-    rmSync(cwdB, { recursive: true, force: true });
   });
 });
