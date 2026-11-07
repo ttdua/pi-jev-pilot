@@ -11,7 +11,7 @@
 
 ## 3. Skill questions
 
-- [ ] 3.1 Add `WHICH_INSTRUCTION`, `NONE_CRITERION` and the gate questions in `src/jev/rubrics.ts`, verbatim from the docs, with a `BareNoulQuestion` wire type (Which options and wording, Question wire format)
+- [x] 3.1 Add `WHICH_INSTRUCTION`, `NONE_CRITERION` and the gate questions in `src/jev/rubrics.ts`, verbatim from the docs, with a `BareNoulQuestion` wire type (Which options and wording, Question wire format)
 - [ ] 3.2 Extend `mainQuestions` with an optional first batch and add `skillBatchQuestions` in `src/jev/questions.ts`; output without skills stays identical (Skill questions, Which options and wording, Question wire format)
 
 ## 4. Check
