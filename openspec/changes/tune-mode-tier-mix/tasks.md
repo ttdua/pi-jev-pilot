@@ -30,7 +30,7 @@
 
 ## 6. Docs, evidence and gate
 
-- [ ] 6.1 Add `docs/decisions/0008-mode-target-cutpoints.md` replacing ADR 0003; mark ADR 0003 superseded and update `docs/decisions/README.md`
-- [ ] 6.2 Update `docs/jev-questions.md` (one worker tier rubric, no `expert_needed`, main criteria apart), `docs/domain-model.md` (modes, decision order, expert rule, cut points), `docs/glossary.md` (rubric, mode, expert gate, difficulty score, cut point), `docs/jev-contract.md` (worker questions, `expert_needed` row, per-mode row), `docs/architecture.md` (rubrics as data, `modes.ts`, `cutpoints.ts`, window), `docs/configuration.md` (expert tier note, calibration row), `docs/workflow.md` (mode switch flow), `docs/usage-guide.md` (mode table, `/jev` mix line) and `docs/roadmap.md` (#39)
+- [x] 6.1 Add `docs/decisions/0008-mode-target-cutpoints.md` replacing ADR 0003; mark ADR 0003 superseded and update `docs/decisions/README.md`
+- [x] 6.2 Update `docs/jev-questions.md` (one worker tier rubric, no `expert_needed`, main criteria apart), `docs/domain-model.md` (modes, decision order, expert rule, cut points), `docs/glossary.md` (rubric, mode, expert gate, difficulty score, cut point), `docs/jev-contract.md` (worker questions, `expert_needed` row, per-mode row), `docs/architecture.md` (rubrics as data, `modes.ts`, `cutpoints.ts`, window), `docs/configuration.md` (expert tier note, calibration row), `docs/workflow.md` (mode switch flow), `docs/usage-guide.md` (mode table, `/jev` mix line) and `docs/roadmap.md` (#39)
 - [ ] 6.3 Run the done-when replay offline: route the 2026-11-07 briefs in launch order with the new code, plus a plain rerun, and check that every mode is inside every allowed range over all launches and over non-review launches. Write `docs/evidence/<date>-tier-mix.md` with aggregates only: the seed values, the mixes, the rerun noise and the windowed check
 - [ ] 6.4 Run the full gate: `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`
