@@ -103,7 +103,7 @@ describe("status line and /jev through the real CLI", () => {
     "all decision features off shows off",
     async () => {
       const s = await host(await fixtureWith());
-      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert", "review"]) {
+      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert"]) {
         await command(s, `/jev ${f} off`);
       }
       await s.waitFor(() => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off", "off widget");

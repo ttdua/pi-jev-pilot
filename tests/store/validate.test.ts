@@ -106,7 +106,6 @@ describe("defaults", () => {
       "strategy",
       "tools",
       "expert",
-      "review",
       "status",
       "verbose",
     ]);

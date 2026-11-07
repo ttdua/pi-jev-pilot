@@ -32,7 +32,6 @@ describe("resolveSettings", () => {
         strategy: true,
         tools: true,
         expert: true,
-        review: true,
         status: true,
         verbose: false,
       },

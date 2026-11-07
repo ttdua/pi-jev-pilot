@@ -96,7 +96,7 @@ export function usageText(): string {
     "  /jev                      show the status",
     "  /jev <feature> on|off     switch one feature",
     `      features: ${FEATURES.join(", ")}`,
-    "  /jev all on|off           switch the seven decision features",
+    "  /jev all on|off           switch the six decision features",
     "  /jev mode budget|standard|premium  choose the worker mode",
     "  /jev reset                reset switches, mode and CLI review default",
     "  /jev cli-review on|off    turn the CLI review on or off",

@@ -417,10 +417,43 @@ describe("runJev", () => {
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
   });
 
+  test("review is not a feature switch", async () => {
+    for (const a of ["review off", "review on"]) expect(parseJevArgs(a)).toEqual({ kind: "usage" });
+    const dir = jevDir();
+    await run("skills off", dir);
+    const before = readFileSync(join(dir, "state.json"), "utf8");
+    const rec = await run("review off", dir);
+    expect(rec.notes.map((n) => n[1])).toEqual(["warning"]);
+    expect(rec.notes[0]![0]).toContain("/jev <feature> on|off");
+    expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(before);
+  });
+
+  test("status lists exactly eight features", async () => {
+    const dir = jevDir();
+    const rec = await run("", dir);
+    const text = rec.notes[0]![0];
+    const lines = text.split("\n");
+    const start = lines.indexOf("features:") + 1;
+    const names = lines.slice(start, start + 8).map((l) => l.trim().split(":")[0]);
+    expect(lines[start + 8]).toMatch(/^cli review:/);
+    expect(names).toEqual([
+      "effort",
+      "subagents",
+      "skills",
+      "strategy",
+      "tools",
+      "expert",
+      "status",
+      "verbose",
+    ]);
+    expect(text).not.toContain("  review:");
+  });
+
   test("all off then all on", async () => {
     const dir = jevDir();
     await run("all off", dir);
     const sw = switches(dir)!;
+    expect(DECISION_FEATURES).toHaveLength(6);
     for (const f of DECISION_FEATURES) expect(sw[f]).toBe(false);
     expect("status" in sw).toBe(false);
     expect("verbose" in sw).toBe(false);
