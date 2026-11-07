@@ -20,7 +20,6 @@ export type Args = {
   workers: number;
   sessions?: string;
   capabilities?: string;
-  models?: string;
   url?: string;
   send: boolean;
 };
@@ -88,7 +87,6 @@ export function parseArgs(argv: readonly string[]): Args {
     workers: nums["--workers"]!,
     ...(text["--sessions"] === undefined ? {} : { sessions: text["--sessions"] }),
     ...(text["--capabilities"] === undefined ? {} : { capabilities: text["--capabilities"] }),
-    ...(text["--models"] === undefined ? {} : { models: text["--models"] }),
     ...(text["--url"] === undefined ? {} : { url: text["--url"] }),
     send,
   };

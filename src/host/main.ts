@@ -111,7 +111,7 @@ type Answered = Exclude<JevOutcome, { kind: "cancelled" }>;
 
 type Ctx = Pick<
   ExtensionContext,
-  "cwd" | "getContextUsage" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
+  "cwd" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
 >;
 
 /** Runs `f`; a throw reads as false. */
@@ -274,7 +274,6 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       groups,
       cwd: ctx.cwd,
       ...(lastDecided === undefined ? {} : { last: lastDecided }),
-      contextPercent: () => ctx.getContextUsage()?.percent,
       ...(git === undefined || !groups.includes("git") ? {} : { git }),
       tools: () => deps.rich?.tools() ?? [],
       agents: () => deps.rich?.agents(ctx.cwd) ?? [],

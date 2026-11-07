@@ -1,5 +1,4 @@
 // Operator CLI: replays real prompts through Jev. Parsing, config and orchestration only.
-import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { isAllowedJevUrl } from "../../src/shared/urls.ts";
@@ -8,7 +7,6 @@ import { type Args, parseArgs, readConfig, readGitMap, USAGE, UsageError } from 
 import { mainSamples, mainStratum, sample, workerKind, workerSamples } from "./corpus.ts";
 import {
   agentFacts,
-  parseModels,
   readSnapshot,
   rebuildMain,
   type ReplayContext,
@@ -18,14 +16,6 @@ import { writeOutputs } from "./outputs.ts";
 import { estimate, runPlan } from "./run.ts";
 import { readLedgerLines } from "./sessions.ts";
 import { type Plan, planPass } from "./variants.ts";
-
-function readText(path: string): string {
-  try {
-    return readFileSync(path, "utf8");
-  } catch {
-    throw new UsageError(`cannot read ${path}`);
-  }
-}
 
 type Env = Record<string, string | undefined>;
 
@@ -65,7 +55,6 @@ async function replay(args: Args, env: Env): Promise<number> {
   const snapshot = args.capabilities === undefined ? undefined : readSnapshot(args.capabilities);
   const ctx: ReplayContext = {
     ledger: readLedgerLines(jevDir),
-    models: parseModels(args.models === undefined ? "" : readText(args.models)),
     ...(snapshot === undefined ? {} : { capabilities: snapshot }),
     ...(args.pass === 2 ? { git: readGitMap(jevDir) } : {}),
   };

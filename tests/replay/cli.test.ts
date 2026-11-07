@@ -52,16 +52,8 @@ describe("parseArgs", () => {
       workers: 46,
       send: false,
     });
-    const a = parseArgs([
-      "--pass",
-      "2",
-      "--kept",
-      "last_decision,languages",
-      "--seed",
-      "7",
-      "--send",
-    ]);
-    expect(a).toMatchObject({ pass: 2, kept: ["last_decision", "languages"], seed: 7, send: true });
+    const a = parseArgs(["--pass", "2", "--kept", "last_decision", "--seed", "7", "--send"]);
+    expect(a).toMatchObject({ pass: 2, kept: ["last_decision"], seed: 7, send: true });
   });
 
   test("pass is required", () => {
@@ -196,10 +188,17 @@ describe("main", () => {
     expect(r.err).toContain("--capabilities");
   });
 
+  test("--models is accepted and ignored", () => {
+    expect(parseArgs(["--pass", "1", "--models", "x.txt"])).toEqual(parseArgs(["--pass", "1"]));
+  });
+
   test("bad --kept exits 2", async () => {
-    const r = await run(["--pass", "2", "--kept", "languages,nonsense", "--sessions", sessions], {
-      PI_CODING_AGENT_DIR: agentDir(),
-    });
+    const r = await run(
+      ["--pass", "2", "--kept", "last_decision,nonsense", "--sessions", sessions],
+      {
+        PI_CODING_AGENT_DIR: agentDir(),
+      },
+    );
     expect(r.code).toBe(2);
     expect(r.err).toContain("nonsense");
   });

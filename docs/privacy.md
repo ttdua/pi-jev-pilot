@@ -11,13 +11,15 @@ To TypeSafe, on every eligible prompt and launch:
 | Facts about the request | Counts and flags computed locally | Part of the same switch |
 | Project platforms | Names inferred from file names, such as `Docker` | `/jev skills off` |
 | Skill catalog | Each skill's name, description, first 300 code points of the body | `/jev skills off` |
+| Your previous decision | Effort level and strategy of the last turn | `/jev all off` |
+| Tools and agents available | Each tool's name and the first sentence of its description; each agent's name, description up to 200 characters, and tool names; no model or thinking | `/jev all off` |
 | Worker briefs | First 4000 characters | `/jev subagents off` |
 | Agent details | Name, description, first 500 characters of instructions, tool names | `/jev subagents off` |
 | Slot details | Model id and your `when` text | Remove the slot |
 | Tool descriptions | For workers under assessment | `/jev tools off` |
 | Your latest prompt with worker requests | Up to 500 characters; **off by default** | `state.parentRequest` |
 
-Pending [validation](roadmap.md#wg-16-rich-state-replay), the first release also may send: git change counts, language names, tool summaries, available agents, your last decision and context percentage. They contain no code. This table is updated when that is decided.
+Pending [validation](roadmap.md#wg-16-rich-state-replay), only git change counts may still be added. They contain no code. This table is updated when that is decided.
 
 **Never sent:** tool arguments and results, file contents, diffs, thinking blocks, images, your API keys, the full transcript, an agent's `model` or `thinking`.
 

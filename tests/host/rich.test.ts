@@ -11,7 +11,6 @@ function sources(over: Partial<Parameters<typeof buildRichInputs>[0]> = {}) {
     i: {
       groups: [],
       cwd: "/nonexistent-rich",
-      contextPercent: () => (calls.push("ctx"), 42),
       tools: () => (calls.push("tools"), [{ name: "t", description: "D." }]),
       agents: () => (calls.push("agents"), [agent]),
       ...over,
@@ -21,23 +20,19 @@ function sources(over: Partial<Parameters<typeof buildRichInputs>[0]> = {}) {
 
 describe("buildRichInputs", () => {
   test("only listed groups built", async () => {
-    const s = sources({ groups: ["context_used_percent"] });
-    expect(await buildRichInputs(s.i)).toEqual({ contextPercent: 42 });
-    expect(s.calls).toEqual(["ctx"]);
+    const s = sources({ groups: ["last_decision"], last: { effort: "low" } });
+    expect(await buildRichInputs(s.i)).toEqual({ lastDecision: { effort: "low" } });
+    expect(s.calls).toEqual([]);
   });
   test("a throwing group is omitted, others kept", async () => {
     const s = sources({
-      groups: ["context_used_percent", "capabilities"],
+      groups: ["last_decision", "capabilities"],
+      last: { effort: "low" },
       tools: () => {
         throw new Error("boom");
       },
     });
-    expect(await buildRichInputs(s.i)).toEqual({ contextPercent: 42 });
-  });
-  test("null percent omitted", async () => {
-    const s = sources({ groups: ["context_used_percent"], contextPercent: () => null });
-    const out = await buildRichInputs(s.i);
-    expect("contextPercent" in out).toBe(false);
+    expect(await buildRichInputs(s.i)).toEqual({ lastDecision: { effort: "low" } });
   });
   test("capabilities map agents to declared tools", async () => {
     const s = sources({ groups: ["capabilities"] });

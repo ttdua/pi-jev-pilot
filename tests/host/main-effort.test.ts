@@ -415,18 +415,23 @@ describe("default request state", () => {
       await s.waitFor(() => mainLines(s).length >= 1, "first main line");
       await s.prompt("second");
       await s.waitFor(() => jev.requests.length >= 2, "second jev request");
-      const states = jev.requests.map(
-        (r) => (JSON.parse(r.body) as { state: { conversation: object; workspace: object } }).state,
-      );
+      type Sent = { conversation: Record<string, unknown>; workspace: object };
+      const states = jev.requests.map((r) => (JSON.parse(r.body) as { state: Sent }).state);
+      const [first, second] = states as [Sent, Sent];
+      // Field set: the second answered turn carries the two shipped groups.
+      expect(Object.keys(second).sort()).toEqual([
+        "capabilities",
+        "conversation",
+        "request",
+        "workspace",
+      ]);
+      expect(second.conversation["last_decision"]).toMatchObject({ effort: "high" });
+      // First turn has no last decision.
+      expect(first.conversation).not.toHaveProperty("last_decision");
+      // Unshipped groups are never sent.
       for (const state of states) {
         const text = JSON.stringify(state);
-        for (const key of [
-          "last_decision",
-          "context_used_percent",
-          "git",
-          "languages",
-          "capabilities",
-        ]) {
+        for (const key of ["context_used_percent", "git", "languages"]) {
           expect(text).not.toContain(`"${key}"`);
         }
       }

@@ -70,7 +70,7 @@ src/
     questions.ts         Builds the questions for each request kind
     state.ts             Builds main, worker and tool state from plain inputs
     branch.ts            Reads Pi-shaped session entries into branch items
-    workspace.ts         Reads platform markers by file name and scans languages by extension
+    workspace.ts         Reads platform markers by file name
 
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice

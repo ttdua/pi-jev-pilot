@@ -57,12 +57,7 @@ export type PlanInput = {
   kept?: readonly RichGroup[];
 };
 
-const PASS1_GROUPS: readonly RichGroup[] = [
-  "last_decision",
-  "context_used_percent",
-  "languages",
-  "capabilities",
-];
+const PASS1_GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
 
 type MainVariant = {
   id: string;

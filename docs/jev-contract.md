@@ -63,13 +63,11 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
     "recent": [{ "role": "user", "text": "…", "tools": [{ "name": "bash", "failed": true }] }],
     "recent_tools": { "edits": 0, "commands": 1, "reads": 2, "subagents": 0, "failed": 1 },
     "turn_index": 7,
-    "last_decision": { "effort": "high", "strategy": "direct" },
-    "context_used_percent": 34
+    "last_decision": { "effort": "high", "strategy": "direct" }
   },
   "workspace": {
     "platforms": ["Docker", "GitHub Actions"],
-    "languages": ["TypeScript"],
-    "git": { "changed_files": 3, "diff_lines": 84 }
+    "git": { "changed_files": 3, "diff_lines": 84 }  // pending pass 2; not sent yet
   },
   "capabilities": {
     "tools": [{ "name": "read", "summary": "<first sentence of the description>" }],
@@ -79,7 +77,7 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
 ```
 
 > [!IMPORTANT]
-> Until replay validates them ([WG-16](roadmap.md#wg-16-rich-state-replay)), these ship off: `last_decision`, `context_used_percent`, `workspace.git`, `workspace.languages`, `capabilities`. The first release's main state is `request`, `conversation.recent`, `conversation.recent_tools`, `conversation.turn_index` and `workspace.platforms`.
+> `last_decision` and `capabilities` ship, as decided by the [replay](evidence/2026-11-07-state-replay.md). `workspace.git` is pending pass 2 and is not sent yet. `context_used_percent` and `workspace.languages` were removed: both were within noise. Every other field is always sent.
 
 ### How the fields are built
 
@@ -137,7 +135,7 @@ These patterns are English. Add Vietnamese only with replay evidence.
 
 Nothing found sends `none found`.
 
-**`workspace.git`** holds numbers only, from `git diff --shortstat`. **`capabilities.tools`** holds active tools with the first sentence of each description. **`capabilities.subagents`** holds each available agent's name, description and tools.
+**`conversation.last_decision`** holds the effort level and strategy of the previous turn. **`workspace.git`** (pending) holds numbers only, from `git diff --shortstat`. **`capabilities.tools`** holds active tools with the first sentence of each description. **`capabilities.subagents`** holds each available agent's name, description and tools.
 
 **Never sent:** the current model or effort, diffs, file contents.
 

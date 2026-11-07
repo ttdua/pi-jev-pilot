@@ -1,12 +1,10 @@
 import { pickRich, type GitCounts, type RichGroup, type RichInputs } from "../jev/state.ts";
-import { scanLanguages } from "../jev/workspace.ts";
 import type { AgentFacts } from "../policy/launch.ts";
 
 export type RichSources = {
   groups: readonly RichGroup[];
   cwd: string;
   last?: { effort?: string; strategy?: string };
-  contextPercent: () => number | null | undefined;
   git?: Promise<GitCounts | undefined>;
   tools: () => { name: string; description: string }[];
   agents: () => AgentFacts[];
@@ -17,15 +15,10 @@ type Builder = (i: RichSources) => Promise<RichInputs> | RichInputs;
 
 const BUILDERS: Record<RichGroup, Builder> = {
   last_decision: (i) => (i.last === undefined ? {} : { lastDecision: i.last }),
-  context_used_percent: (i) => {
-    const percent = i.contextPercent();
-    return percent === undefined || percent === null ? {} : { contextPercent: percent };
-  },
   git: async (i) => {
     const git = await i.git;
     return git === undefined ? {} : { git };
   },
-  languages: (i) => ({ languages: scanLanguages(i.cwd) }),
   capabilities: (i) => ({
     capabilities: {
       tools: i.tools(),

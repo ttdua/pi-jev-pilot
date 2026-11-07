@@ -178,7 +178,8 @@ function setup(
     newId: () => "11111111-1111-1111-1111-111111111111",
     platforms: () => ["none found"],
     env: () => o.env ?? { TYPESAFE_API_KEY: "test-key" },
-    ...(o.rich === undefined ? {} : { rich: o.rich }),
+    // Default: no rich group, so tests of other behaviour see the minimal state.
+    rich: o.rich ?? { groups: [], git: async () => undefined, tools: () => [], agents: () => [] },
     ...(o.record === undefined ? {} : { record: o.record }),
   };
   const main = createMain(pi as never, deps);

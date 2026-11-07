@@ -11,7 +11,6 @@ import type { AgentFacts } from "../../src/policy/launch.ts";
 import type { MainSample } from "../../scripts/replay/corpus.ts";
 import {
   agentFacts,
-  parseModels,
   readSnapshot,
   rebuildMain,
   rebuildRich,
@@ -22,14 +21,6 @@ import type { SessionEntry } from "../../scripts/replay/sessions.ts";
 
 const msg = (id: string, message: object): SessionEntry => ({ type: "message", id, message });
 const user = (id: string, text: string) => msg(id, { role: "user", content: text });
-const assistant = (id: string, totalTokens: number) =>
-  msg(id, {
-    role: "assistant",
-    content: [{ type: "text", text: "ok" }],
-    provider: "p",
-    model: "m",
-    usage: { totalTokens },
-  });
 const custom = (id: string, customType: string, data: object): SessionEntry => ({
   type: "custom",
   id,
@@ -39,7 +30,6 @@ const custom = (id: string, customType: string, data: object): SessionEntry => (
 
 const ctx = (over: Partial<ReplayContext> = {}): ReplayContext => ({
   ledger: new Map(),
-  models: new Map([["p/m", 200_000]]),
   ...over,
 });
 const sampleOf = (branch: SessionEntry[], over: Partial<MainSample> = {}): MainSample => ({
@@ -75,33 +65,7 @@ describe("last_decision", () => {
   });
 });
 
-describe("context_used_percent", () => {
-  test("context from usage", () => {
-    const r = rebuildRich(sampleOf([assistant("a", 50_000)]), ctx());
-    expect(r.rich.contextPercent).toBe(25);
-    expect(r.missing).not.toContain("context_used_percent");
-  });
-
-  test("context unknown after compaction", () => {
-    const s = sampleOf([assistant("a", 50_000), { type: "compaction", id: "k" }]);
-    const r = rebuildRich(s, ctx());
-    expect("contextPercent" in r.rich).toBe(false);
-    expect(r.missing).toContain("context_used_percent");
-  });
-
-  test("context unknown without the model", () => {
-    const r = rebuildRich(sampleOf([assistant("a", 50_000)]), ctx({ models: new Map() }));
-    expect(r.missing).toContain("context_used_percent");
-  });
-});
-
 describe("other groups", () => {
-  test("missing cwd lists languages", () => {
-    const r = rebuildRich(sampleOf([]), ctx());
-    expect(r.missing).toContain("languages");
-    expect("languages" in r.rich).toBe(false);
-  });
-
   test("unmatched git count", () => {
     const s = sampleOf([], { turnId: "t9" });
     const hit = rebuildRich(
@@ -129,21 +93,7 @@ describe("other groups", () => {
   });
 });
 
-describe("models and snapshot", () => {
-  test("parseModels reads the context column", () => {
-    const text = [
-      "provider  model  context  max-out  thinking  images",
-      "p  m  200K  64K  yes  yes",
-      "q  big  1M  64K  yes  no",
-    ].join("\n");
-    expect(parseModels(text)).toEqual(
-      new Map([
-        ["p/m", 200_000],
-        ["q/big", 1_000_000],
-      ]),
-    );
-  });
-
+describe("snapshot", () => {
   test("worker agent missing from snapshot", () => {
     const snapshot = { v: 1 as const, tools: [], agents: [] };
     expect(agentFacts(snapshot, "ghost")).toBeUndefined();
@@ -216,13 +166,6 @@ describe("snapshot element validation", () => {
     });
     expect(ok.agents[0]!.name).toBe("scout");
   });
-
-  test("non-finite token count is missing", () => {
-    for (const t of [Number.NaN, Number.POSITIVE_INFINITY]) {
-      const r = rebuildRich(sampleOf([assistant("a", t)]), ctx());
-      expect(r.missing).toContain("context_used_percent");
-    }
-  });
 });
 
 describe("same state as live", () => {
@@ -230,7 +173,7 @@ describe("same state as live", () => {
     user("u0", "earlier question?"),
     msg("a0", { role: "assistant", content: [{ type: "toolCall", name: "read", id: "x" }] }),
     msg("r0", { role: "toolResult", toolCallId: "x", isError: true }),
-    assistant("a1", 1000),
+    msg("a1", { role: "assistant", content: [{ type: "text", text: "ok" }] }),
   ];
 
   /** Runs the real `createMain` in-process (not the spawned CLI) and returns the state it sent. */
@@ -272,7 +215,6 @@ describe("same state as live", () => {
       mode: "rpc",
       signal: undefined,
       ui: { setWidget: () => undefined },
-      getContextUsage: () => undefined,
     };
     await createMain(pi as never, deps).beforeAgentStart(
       { type: "before_agent_start", messageType: "user", prompt: "go" } as never,
@@ -300,22 +242,26 @@ describe("same state as live", () => {
     }
   });
 
-  test("a shipped languages group equals the host state", async () => {
+  test("a shipped capabilities group equals the host state", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "replay-live-"));
     try {
-      writeFileSync(join(cwd, "a.ts"), "");
+      const facts = { name: "scout", description: "Recon.", declaredTools: ["read"] } as AgentFacts;
+      const tools = [{ name: "read", description: "Reads a file. More." }];
       const live = await liveState(branch, cwd, {
-        groups: ["languages"],
+        groups: ["capabilities"],
         git: async () => undefined,
-        tools: () => [],
-        agents: () => [],
+        tools: () => tools,
+        agents: () => [facts],
       });
-      const built = rebuildMain(sampleOf(branch, { cwd }), ctx());
+      const built = rebuildMain(
+        sampleOf(branch, { cwd }),
+        ctx({ capabilities: { v: 1, tools, agents: [facts] } }),
+      );
       const replay = mainState({
         prompt: "go",
         items: built.items,
         platforms: built.platforms,
-        rich: { languages: built.rich.languages! },
+        rich: { capabilities: built.rich.capabilities! },
       });
       expect(replay).toEqual(live as never);
     } finally {

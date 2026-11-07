@@ -34,9 +34,8 @@ export type MainState = {
     };
     turn_index: number;
     last_decision?: { effort?: string; strategy?: string };
-    context_used_percent?: number;
   };
-  workspace: { platforms: string[]; git?: GitCounts; languages?: string[] };
+  workspace: { platforms: string[]; git?: GitCounts };
   capabilities?: {
     tools: { name: string; summary: string }[];
     subagents: { name: string; description: string; tools: string[] | null }[];
@@ -56,29 +55,21 @@ export function parseShortstat(out: string): GitCounts | undefined {
   return { changed_files: Number(m[1]), diff_lines: Number(m[2] ?? 0) + Number(m[3] ?? 0) };
 }
 
-export const RICH_GROUPS = [
-  "last_decision",
-  "context_used_percent",
-  "git",
-  "languages",
-  "capabilities",
-] as const;
+export const RICH_GROUPS = ["last_decision", "git", "capabilities"] as const;
 
 export type RichGroup = (typeof RICH_GROUPS)[number];
 
 export type RichInputs = {
   lastDecision?: { effort?: string; strategy?: string };
-  contextPercent?: number | null;
   git?: GitCounts;
-  languages?: string[];
   capabilities?: {
     tools: { name: string; description: string }[];
     agents: { name: string; description: string; tools: string[] | null }[];
   };
 };
 
-/** Groups shipped in the main state; pass 2 of the replay decides what joins this list. */
-export const SHIPPED_MAIN_GROUPS: readonly RichGroup[] = [];
+/** Groups shipped in the main state; pass 2 of the replay decides whether `git` joins them. */
+export const SHIPPED_MAIN_GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
 
 /** Keeps only the inputs whose group is listed. */
 export function pickRich(all: RichInputs, groups: readonly RichGroup[]): RichInputs {
@@ -88,14 +79,8 @@ export function pickRich(all: RichInputs, groups: readonly RichGroup[]): RichInp
       case "last_decision":
         if (all.lastDecision !== undefined) out.lastDecision = all.lastDecision;
         break;
-      case "context_used_percent":
-        if (all.contextPercent !== undefined) out.contextPercent = all.contextPercent;
-        break;
       case "git":
         if (all.git !== undefined) out.git = all.git;
-        break;
-      case "languages":
-        if (all.languages !== undefined) out.languages = all.languages;
         break;
       case "capabilities":
         if (all.capabilities !== undefined) out.capabilities = all.capabilities;
@@ -269,12 +254,6 @@ function shapeLastDecision(
   return out.effort === undefined && out.strategy === undefined ? undefined : out;
 }
 
-/** Integer percent clamped to 0..100; undefined when missing or not finite. */
-function shapeContextPercent(percent: number | null | undefined): number | undefined {
-  if (typeof percent !== "number" || !Number.isFinite(percent)) return undefined;
-  return Math.min(100, Math.max(0, Math.round(percent)));
-}
-
 /** Text up to the first `.`, `!` or `?` followed by whitespace or the end, cut to 200 code points. */
 function firstSentence(text: string): string {
   const m = /^[\s\S]*?[.!?](?=\s|$)/.exec(text);
@@ -306,10 +285,7 @@ function addRich(state: MainState, rich: RichInputs): void {
     const decision = shapeLastDecision(rich.lastDecision);
     if (decision !== undefined) state.conversation.last_decision = decision;
   }
-  const percent = shapeContextPercent(rich.contextPercent);
-  if (percent !== undefined) state.conversation.context_used_percent = percent;
   if (rich.git !== undefined) state.workspace.git = rich.git;
-  if (rich.languages !== undefined) state.workspace.languages = rich.languages;
   if (rich.capabilities !== undefined) state.capabilities = shapeCapabilities(rich.capabilities);
 }
 

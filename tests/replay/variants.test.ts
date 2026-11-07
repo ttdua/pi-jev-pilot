@@ -8,9 +8,7 @@ const main = (missing: RichGroup[] = []): RebuiltMain => ({
   sample: { session: "s", cwd: "/w", entryId: "e", prompt: "fix the bug", branch: [] },
   rich: {
     lastDecision: { effort: "high" },
-    contextPercent: 40,
     git: { changed_files: 2, diff_lines: 10 },
-    languages: ["ts"],
     capabilities: { tools: [{ name: "bash", description: "run" }], agents: [] },
   },
   missing,
@@ -64,20 +62,20 @@ describe("planPass", () => {
   test("add-one", () => {
     const p = plan1();
     const [min] = find(p, "minimal");
-    const [add] = find(p, "+languages");
+    const [add] = find(p, "+last_decision");
     expect(add?.base).toBe("minimal");
-    expect(ws(add)).toEqual({ ...ws(min), languages: ["ts"] });
-    expect(conv(add)).toEqual(conv(min));
+    expect(ws(add)).toEqual(ws(min));
+    expect(conv(add)).toEqual({ ...conv(min), last_decision: { effort: "high" } });
   });
 
   test("leave-one-out", () => {
     const p = plan1();
     const [full] = find(p, "full");
-    const [out] = find(p, "full-languages");
+    const [out] = find(p, "full-last_decision");
     expect(out?.base).toBe("full");
-    const { languages: _l, ...rest } = ws(full);
-    expect(ws(out)).toEqual(rest);
-    expect(conv(out)).toEqual(conv(full));
+    const { last_decision: _l, ...rest } = conv(full);
+    expect(conv(out)).toEqual(rest);
+    expect(ws(out)).toEqual(ws(full));
   });
 
   test("reversed options", () => {
@@ -112,23 +110,23 @@ describe("planPass", () => {
   });
 
   test("missing inputs excluded", () => {
-    const p = plan1({ main: [main(["languages"]), main()] });
-    expect(find(p, "+languages").map((r) => r.sample)).toEqual([1]);
-    expect(find(p, "full-languages").map((r) => r.sample)).toEqual([1]);
-    expect(p.excluded["+languages"]).toBe(1);
+    const p = plan1({ main: [main(["capabilities"]), main()] });
+    expect(find(p, "+capabilities").map((r) => r.sample)).toEqual([1]);
+    expect(find(p, "full-capabilities").map((r) => r.sample)).toEqual([1]);
+    expect(p.excluded["+capabilities"]).toBe(1);
   });
 
   test("full-G pairs with full: same sample set", () => {
-    const p = plan1({ main: [main(["languages"]), main(["last_decision"])] });
+    const p = plan1({ main: [main(["capabilities"]), main(["last_decision"])] });
     expect(find(p, "full")).toEqual([]);
-    expect(find(p, "full-languages")).toEqual([]);
+    expect(find(p, "full-capabilities")).toEqual([]);
     expect(find(p, "full-last_decision")).toEqual([]);
     expect(p.excluded["full"]).toBe(2);
-    expect(p.excluded["full-languages"]).toBe(2);
+    expect(p.excluded["full-capabilities"]).toBe(2);
     expect(p.excluded["full-last_decision"]).toBe(2);
-    expect(find(p, "+languages").map((r) => r.sample)).toEqual([1]);
+    expect(find(p, "+capabilities").map((r) => r.sample)).toEqual([1]);
     expect(find(p, "+last_decision").map((r) => r.sample)).toEqual([0]);
-    expect(p.excluded["+languages"]).toBe(1);
+    expect(p.excluded["+capabilities"]).toBe(1);
     expect(p.excluded["+last_decision"]).toBe(1);
   });
 
@@ -138,7 +136,7 @@ describe("planPass", () => {
       workers: [worker()],
       config,
       hasSnapshot: true,
-      kept: ["languages"],
+      kept: ["capabilities"],
     });
     expect([...new Set(p.requests.map((r) => r.variant))]).toEqual([
       "minimal",
@@ -148,8 +146,8 @@ describe("planPass", () => {
       "+git",
       "full-git",
     ]);
-    expect(ws(find(p, "full")[0])).toMatchObject({ languages: ["ts"], git: expect.anything() });
-    expect(ws(find(p, "full-git")[0])).toHaveProperty("languages");
+    expect(ws(find(p, "full")[0])).toHaveProperty("git");
+    expect(JSON.stringify(find(p, "full-git")[0]?.state)).toContain('"capabilities"');
     expect(ws(find(p, "full-git")[0])).not.toHaveProperty("git");
     expect(find(p, "full-git")[0]?.base).toBe("full");
     expect(p.skipped).toEqual([]);

@@ -16,7 +16,6 @@ import {
   requestSignals,
   turnIndex,
   type BranchItem,
-  type MainState,
 } from "../../src/jev/state.ts";
 import type { AgentFacts } from "../../src/policy/launch.ts";
 import { tempDir } from "../helpers.ts";
@@ -342,9 +341,7 @@ describe("mainState rich groups", () => {
   const base = { prompt: "hi", items: [user("a")], platforms: ["Docker"] };
   const all: RichInputs = {
     lastDecision: { effort: "low", strategy: "direct" },
-    contextPercent: 42,
     git: { changed_files: 2, diff_lines: 10 },
-    languages: ["TypeScript"],
     capabilities: {
       tools: [{ name: "read", description: "Read files" }],
       agents: [{ name: "scout", description: "Recon", tools: ["read"] }],
@@ -352,18 +349,16 @@ describe("mainState rich groups", () => {
   };
   test("one group alone", () => {
     const plain = mainState(base);
-    const s = mainState({ ...base, rich: { languages: ["TypeScript"] } });
+    const s = mainState({ ...base, rich: { git: { changed_files: 2, diff_lines: 10 } } });
     expect(s).toEqual({
       ...plain,
-      workspace: { platforms: ["Docker"], languages: ["TypeScript"] },
+      workspace: { platforms: ["Docker"], git: { changed_files: 2, diff_lines: 10 } },
     });
   });
   test("every group", () => {
     const s = mainState({ ...base, rich: all });
     expect(s.conversation.last_decision).toEqual({ effort: "low", strategy: "direct" });
-    expect(s.conversation.context_used_percent).toBe(42);
     expect(s.workspace.git).toEqual({ changed_files: 2, diff_lines: 10 });
-    expect(s.workspace.languages).toEqual(["TypeScript"]);
     expect(s.capabilities).toEqual({
       tools: [{ name: "read", summary: "Read files" }],
       subagents: [{ name: "scout", description: "Recon", tools: ["read"] }],
@@ -373,17 +368,11 @@ describe("mainState rich groups", () => {
     expect(JSON.stringify(mainState({ ...base, rich: {} }))).toBe(JSON.stringify(mainState(base)));
   });
   test("pickRich keeps only listed groups", () => {
-    expect(pickRich(all, ["git", "languages"])).toEqual({
-      git: { changed_files: 2, diff_lines: 10 },
-      languages: ["TypeScript"],
-    });
+    expect(pickRich(all, ["git"])).toEqual({ git: { changed_files: 2, diff_lines: 10 } });
     expect(pickRich(all, [])).toEqual({});
-    expect(pickRich({ contextPercent: null }, ["context_used_percent"])).toEqual({
-      contextPercent: null,
-    });
   });
-  test("shipped list starts empty", () => {
-    expect(SHIPPED_MAIN_GROUPS).toEqual([]);
+  test("shipped list holds last_decision and capabilities", () => {
+    expect(SHIPPED_MAIN_GROUPS).toEqual(["last_decision", "capabilities"]);
   });
 });
 
@@ -406,16 +395,6 @@ describe("mainState rich shaping", () => {
   });
   test("last decision empty omitted", () => {
     expect("last_decision" in shaped({ lastDecision: {} }).conversation).toBe(false);
-  });
-  test("context rounded", () => {
-    expect(shaped({ contextPercent: 33.6 }).conversation.context_used_percent).toBe(34);
-  });
-  test("context clamped", () => {
-    expect(shaped({ contextPercent: 140 }).conversation.context_used_percent).toBe(100);
-    expect(shaped({ contextPercent: -3 }).conversation.context_used_percent).toBe(0);
-  });
-  test("context null omitted", () => {
-    expect("context_used_percent" in shaped({ contextPercent: null }).conversation).toBe(false);
   });
   test("first sentence", () => {
     const s = shaped({
@@ -483,13 +462,5 @@ describe("parseShortstat", () => {
   });
   test("garbage is undefined", () => {
     expect(parseShortstat("garbage")).toBeUndefined();
-  });
-});
-
-describe("MainState wire types", () => {
-  test("context_used_percent never allows null", () => {
-    type CtxPercent = MainState["conversation"]["context_used_percent"];
-    const noNull: null extends CtxPercent ? false : true = true;
-    expect(noNull).toBe(true);
   });
 });
