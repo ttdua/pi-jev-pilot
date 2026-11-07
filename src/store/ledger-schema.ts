@@ -150,7 +150,7 @@ export type LedgerValidation =
 
 const ID = /^[A-Za-z0-9._:-]{1,64}$/;
 const AGENT = /^[A-Za-z0-9._-]{1,64}$/;
-const SKILL = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const SKILL_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const MODEL = /^[A-Za-z0-9._-]+\/[^\s]+$/;
 const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
 const SLOT = /^slot::[a-z][a-z0-9-]{0,23}$/;
@@ -258,7 +258,7 @@ function shapeFor(kind: LedgerKind) {
         skillP: probability(),
         gate: probability(),
         corrects: probability(),
-        skill: string({ pattern: SKILL }),
+        skill: string({ pattern: SKILL_NAME }),
         toolCalls: count(),
         failures: count(),
         inputTokens: count(),
