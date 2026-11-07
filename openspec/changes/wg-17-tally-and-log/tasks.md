@@ -6,8 +6,8 @@
 
 ## 2. Session observer `src/host/tally.ts`
 
-- [ ] 2.1 `createSessionLog(pi, deps)` with `reset(sessionId)`, `record(line)`, `tally()`, `prompts()`; counts per session-tally spec (prompts, workers by model and `unrouted`, worker tokens, fallbacks), session-id guard, invalid lines ignored; unit tests in `tests/host/tally.test.ts`
-- [ ] 2.2 In `record`, append `jev-log` with the validated line while the snapshot's `verbose` is on; swallow `appendEntry` failures; unit tests for off/on/mid-session/correction order/throwing
+- [x] 2.1 `createSessionLog(pi, deps)` with `reset(sessionId)`, `record(line)`, `tally()`, `prompts()`; counts per session-tally spec (prompts, workers by model and `unrouted`, worker tokens, fallbacks), session-id guard, invalid lines ignored; unit tests in `tests/host/tally.test.ts`
+- [x] 2.2 In `record`, append `jev-log` with the validated line while the snapshot's `verbose` is on; swallow `appendEntry` failures; unit tests for off/on/mid-session/correction order/throwing
 
 ## 3. Wiring
 
