@@ -132,7 +132,7 @@ Choice, main request only.
 
 > Which of these skills, if any, is the right one to load to help with the user's latest request? Match the kind of work the request asks for (such as debugging a failure, planning, reviewing, designing, writing a document), not only a product or technology it names. A skill for one product or platform (Vercel, Supabase, AWS, Firebase, Stripe…) fits only when the request, the conversation or the project (`workspace.platforms` in the state: what its files show it uses) shows that product is the one in use here; otherwise choose a general skill or none.
 
-Each skill's criterion is `<description> — <first 300 code points of the body>`. If either is missing, use what exists, or `A skill named <name>.`
+Each skill's criterion is `<description> — <first 300 code points of the body>`. Both parts are trimmed, and an empty part counts as missing. If either is missing, use what exists, or `A skill named <name>.`
 
 The option `(none)`:
 
