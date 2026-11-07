@@ -6,9 +6,9 @@
 
 ## 2. Review tool availability
 
-- [ ] 2.1 Add the execution guard to `jev_review` in `src/host/review.ts`: off, or unreadable settings, returns the off error result and runs no process. Pass only `cli`, `model` and `effort` to `effectiveChoice`. Tests in `tests/host/review-tool.test.ts`
-- [ ] 2.2 Add `syncReviewTool` in `src/host/review.ts`: add or remove `jev_review` in `pi.setActiveTools` only on a mismatch, keeping the order of the other tools, and swallow errors. Tests in `tests/host/review-tool.test.ts`
-- [ ] 2.3 Call `syncReviewTool` from the main `before_agent_start` in `src/host/setup.ts`, before the main decision. Children keep `hideReviewInChild`. Tests in `tests/host/setup.test.ts`
+- [x] 2.1 Add the execution guard to `jev_review` in `src/host/review.ts`: off, or unreadable settings, returns the off error result and runs no process. Pass only `cli`, `model` and `effort` to `effectiveChoice`. Tests in `tests/host/review-tool.test.ts`
+- [x] 2.2 Add `syncReviewTool` in `src/host/review.ts`: add or remove `jev_review` in `pi.setActiveTools` only on a mismatch, keeping the order of the other tools, and swallow errors. Tests in `tests/host/review-tool.test.ts`
+- [x] 2.3 Call `syncReviewTool` from the main `before_agent_start` in `src/host/setup.ts`, before the main decision. Children keep `hideReviewInChild`. Tests in `tests/host/setup.test.ts`
 
 ## 3. `/jev` command
 
