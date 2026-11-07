@@ -2,6 +2,9 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DECISION_FEATURES, FEATURES, MODES, type Feature, type Mode } from "../store/defaults.ts";
 import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
 import type { Issue } from "../store/validate.ts";
+import { recentMix, WINDOW_MIN } from "../policy/cut-window.ts";
+import type { WindowEntry } from "../policy/cutpoints.ts";
+import { MODE_TARGETS } from "../policy/modes.ts";
 import { isChild } from "./child.ts";
 import {
   checkCodexChoice,
@@ -97,7 +100,20 @@ function reviewLine(r: Snapshot["settings"]["review"]): string {
   return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
 }
 
-export function formatStatus(s: Snapshot, t?: Tally): string {
+function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
+  const { n, shares } = recentMix(window);
+  if (shares === undefined) return ["mix: no routed workers yet", "cut points: seed"];
+  const tg = MODE_TARGETS[mode];
+  const lines = [
+    `mix (last ${n}, ${mode}): fast ${shares.fast}% / balanced ${shares.balanced}% / ` +
+      `deep ${shares.deep}% / expert ${shares.expert}% · ` +
+      `target ${tg.fast}/${tg.balanced}/${tg.deep}/≤${tg.expertCap}`,
+  ];
+  if (n < WINDOW_MIN) lines.push("cut points: seed");
+  return lines;
+}
+
+export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
   const lines = [statusText(s), `mode: ${s.settings.mode}`, "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
   lines.push(reviewLine(s.settings.review));
@@ -111,6 +127,7 @@ export function formatStatus(s: Snapshot, t?: Tally): string {
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
+  if (s.executor && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");
 }
@@ -193,6 +210,7 @@ export async function runJev(
     decision: () => Decision | undefined;
     exec: Exec;
     tally?: () => Tally;
+    window?: () => readonly WindowEntry[];
     overlay?: () => string | undefined;
   },
 ): Promise<void> {
@@ -259,7 +277,7 @@ export async function runJev(
     }
     const snapshot = deps.load();
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
-    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY), "info");
+    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.()), "info");
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");

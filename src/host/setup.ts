@@ -177,6 +177,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
         load: () => loadSnapshot(pi),
         decision: main.decision,
         tally: log.tally,
+        window: () => window.entries(),
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
       });
