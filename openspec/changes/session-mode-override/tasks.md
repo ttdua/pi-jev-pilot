@@ -48,10 +48,10 @@
 
 ## 11. Command forms
 
-- [ ] 11.1 Parse `/jev mode <m>` (local), `/jev mode <m> global` and `/jev mode clear`; every other form is usage; update the usage text (`jev-command` "Usage text for other input"; design D4)
-- [ ] 11.2 Run the local set and clear: write or remove the file through `ctx.cwd`, report the error code and file path on failure, `no directory mode set` when there is nothing to clear, never touch `state.json` (`directory-mode` "Set the directory mode", "Clear the directory mode")
-- [ ] 11.3 Global set: write `state.json`; while a directory mode is set, keep it and add `directory mode <d> still applies here; global mode is now <m>` (`jev-command` "Mode"; design D5)
-- [ ] 11.4 `/jev reset` removes the directory mode file only after a successful state reset (`jev-command` "Reset"; design D5)
+- [x] 11.1 Parse `/jev mode <m>` (local), `/jev mode <m> global` and `/jev mode clear`; every other form is usage; update the usage text (`jev-command` "Usage text for other input"; design D4)
+- [x] 11.2 Run the local set and clear: write or remove the file through `ctx.cwd`, report the error code and file path on failure, `no directory mode set` when there is nothing to clear, never touch `state.json` (`directory-mode` "Set the directory mode", "Clear the directory mode")
+- [x] 11.3 Global set: write `state.json`; while a directory mode is set, keep it and add `directory mode <d> still applies here; global mode is now <m>` (`jev-command` "Mode"; design D5)
+- [x] 11.4 `/jev reset` removes the directory mode file only after a successful state reset (`jev-command` "Reset"; design D5)
 
 ## 12. Visible text
 
