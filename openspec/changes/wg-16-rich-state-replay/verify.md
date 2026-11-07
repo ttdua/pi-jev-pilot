@@ -6,11 +6,13 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `wg-16-rich-state-replay`
-**Verified at**: `2026-11-07 11:42` (UTC)
-**Iteration**: `2`
-**Verifier**: The parent session ran checks 1, 2 and 6, the full test suite, typecheck, lint and fmt. The `superspec.verifier` subagent collected independent evidence for checks 3–5, with a fresh focused test run. The parent then re-checked the cited files and confirmed W1 at `src/jev/state.ts:37,273-276` in iteration 1. W1 is fixed in iteration 2.
+**Verified at**: `2026-11-07 14:01` (UTC)
+**Iteration**: `5`
+**Verifier**: the parent session, plus an independent `superspec.verifier` (checks 3–5).
+- The parent ran checks 1, 2 and 6, the full suite, typecheck, lint and fmt, and the removal greps. It ran them at HEAD `8351805`, after the iteration 5 cleanup.
+- The `superspec.verifier` ran at `51fdcd7` (iteration 4). Its warnings W-1, W-2, W-3 and W-5 were fixed in iteration 5 (`2858bad`, `8351805`), and the parent re-checked them.
 
-All commands below ran in the worktree, `/Users/naicoi/Projects/oss/pi-jev-pilot.wg-16-rich-state-replay`, at HEAD `53121b0`. This is a re-verify after iteration 2. Iteration 2 changed only `src/jev/state.ts:37` (type) and `tests/jev/state.test.ts` (type assertion). The other checks were re-run fresh, and the requirement and scenario evidence from iteration 1 still holds for untouched code.
+All commands below ran in the worktree, `/Users/naicoi/Projects/oss/pi-jev-pilot.wg-16-rich-state-replay`.
 
 ---
 
@@ -18,12 +20,9 @@ All commands below ran in the worktree, `/Users/naicoi/Projects/oss/pi-jev-pilot
 
 - [x] The command passes for this change
 
-**Result**:
-
 ```text
 $ openspec validate wg-16-rich-state-replay --strict
 Change 'wg-16-rich-state-replay' is valid
-exit=0
 ```
 
 ---
@@ -32,41 +31,31 @@ exit=0
 
 - [x] Every box is ticked, or each open box has a recorded reason
 
-The `openspec instructions apply` progress reports 18 of 27 complete. Groups 1–4 are complete; they cover plan Tasks 1–11.
+Apply progress: 25 of 29.
 
 | Open task | Reason | Blocks archive? |
 |---|---|---|
-| 5.1–5.5 (pass 1 run, decisions, evidence, apply decisions) | Operator-gated. Each `--send` needs the operator's approval at that time, stating the data and the cost (`docs/testing.md` Replay rules). The decisions are the outcome of the run. Recorded in `apply.md` under Remaining. | Yes. WG-16 is done only when every group is decided. Archive waits for Tasks 12–14, or for a later apply iteration. |
-| 6.1–6.4 (pass 2: git) | Needs a few days of `JEV_REPLAY_GIT=1` recording, then operator approval. | Yes, same as above. |
+| 6.1–6.4 (pass 2: git) | `workspace.git` cannot be rebuilt from past sessions. It needs a few days of `JEV_REPLAY_GIT=1` recording, then the operator's approval to send. Until then the recorder and the `git` builder are in code but not shipped (`SHIPPED_MAIN_GROUPS` excludes it). | Yes. WG-16 is done when git is decided too. |
+
+Note: `tasks.md` was found empty during this verify. Commit `60f5a59` had replaced the whole file by accident. It was restored from `a17b2a6`, with 5.3–5.7 ticked, in `8351805`.
 
 ---
 
 ## 3. Requirement Evidence
 
-- [x] ADDED / MODIFIED: implementation evidence (file / line)
-- [x] REMOVED: none in the deltas (grep of the delta headers)
+- [x] ADDED / MODIFIED: implementation evidence
+- [x] REMOVED: none in the deltas
 - [x] RENAMED: none
 
-| Requirement | Operation | Status | Evidence (file:line) or reason |
+| Requirement | Operation | Status | Evidence |
 |---|---|---|---|
-| main-state: Minimal main state | MODIFIED | Pass | `src/jev/state.ts:81` (`SHIPPED_MAIN_GROUPS = []`), `:316-333` (rich groups only when given); `src/host/main.ts` (`deps.rich?.groups ?? SHIPPED_MAIN_GROUPS`); `src/host/rich.ts:42-51` (`pickRich`) |
-| main-state: Rich field groups | ADDED | Pass | `src/jev/state.ts:304-314` (`addRich` placement), `:36-43` (optional keys) |
-| main-state: Last decision and context percentage | ADDED | Pass | `src/jev/state.ts:263-276`; `src/host/main.ts` (`lastDecided` set in `write()` for answered turns, cleared on `session_start`) |
-| main-state: Git counts | ADDED | Pass | `src/jev/state.ts:46-57` (`parseShortstat`); `src/host/git.ts:12-29` (500 ms timeout and race; omitted on non-zero code, killed, truncated or throw) |
-| main-state: Languages | ADDED | Pass | `src/jev/workspace.ts:102-184` (`scanLanguages`) |
-| main-state: Capabilities | ADDED | Pass | `src/jev/state.ts:255-301`; `src/host/rich.ts:29-38`; `src/host/agents.ts` (`listAgents`); `src/host/setup.ts` (active tools) |
-| git-count-record: Opt-in recorder | ADDED | Pass | `src/host/setup.ts:73` (`JEV_REPLAY_GIT === "1"`); `src/host/git-record.ts:34-53`; `src/host/main.ts` (`startRecording`, only after the ask) |
-| git-count-record: Recorder stores numbers only | ADDED | Pass | `src/host/git-record.ts:39-49` (ids and numbers; 0700/0600) |
-| git-count-record: Recorder fails open | ADDED | Pass | `src/host/git-record.ts:5-8,26-30,50-52`; `src/host/main.ts` (`safely`, `void`, `.catch`) |
-| state-replay: Replay uses the package builders | ADDED | Pass | `scripts/replay/*.ts` imports only from `src/jev`, `src/policy` and `src/shared`; `.oxlintrc.json` has a `scripts/**` rule; lint exit 0 |
-| state-replay: Corpus sampling | ADDED | Pass | `scripts/replay/corpus.ts:123-150,182-205,241-259` |
-| state-replay: Replay inputs | ADDED | Pass | `scripts/replay/inputs.ts:183-206`; `scripts/replay/variants.ts` (exclusion counts) |
-| state-replay: Snapshot is required for capabilities and workers | ADDED | Pass | `scripts/replay/inputs.ts:71-100`; `scripts/replay/variants.ts:224-230` |
-| state-replay: One change per variant | ADDED | Pass | `scripts/replay/variants.ts:76-93,126-151,176-199` |
-| state-replay: Dry run by default | ADDED | Pass | `scripts/replay/run.ts:21-33,57`; `scripts/replay/cli.ts` (dry-run print). E2E dry run against real sessions: no request sent (`apply.md`) |
-| state-replay: Jev failures are counted, not guessed | ADDED | Pass | `scripts/replay/run.ts:38-55`; `scripts/replay/compare.ts:225-275` |
-| state-replay: Comparison against noise | ADDED | Pass | `scripts/replay/compare.ts:71-145` and `countPair`/`addNoise`/`beyond` |
-| state-replay: Private and aggregate outputs | ADDED | Pass | `scripts/replay/outputs.ts:22-45`; `scripts/replay/compare.ts` (`diffCases`, 300 code points); `scripts/replay/cli.ts:105` |
+| main-state: Minimal main state (ships `last_decision`, `capabilities`; never `context_used_percent`, `languages`; `git` only if shipped) | MODIFIED | Pass | `src/jev/state.ts:72` (`SHIPPED_MAIN_GROUPS`), `:283-309`; `src/host/main.ts:215,273`; grep for `context_used_percent`, `scanLanguages` and `contextPercent` in `src/` and `scripts/` finds 0 |
+| main-state: Rich field groups | ADDED | Pass | `src/jev/state.ts:36-39,283-290` |
+| main-state: Last decision | ADDED | Pass | `src/jev/state.ts:248-255`; `src/host/main.ts:715-722,820` |
+| main-state: Git counts | ADDED | Pass | `src/jev/state.ts:48-56`; `src/host/git.ts:12-29` |
+| main-state: Capabilities | ADDED | Pass | `src/jev/state.ts:240-280`; `src/host/agents.ts` (`listAgents`, single pass) |
+| git-count-record: all three requirements | ADDED | Pass | `src/host/git-record.ts`; `src/host/setup.ts` (`JEV_REPLAY_GIT === "1"`); `src/host/main.ts` (`startRecording`) |
+| state-replay: all requirements | ADDED | Pass | `scripts/replay/{sessions,corpus,inputs,variants,run,compare,outputs,config,cli}.ts`; lint boundary clean |
 
 ---
 
@@ -75,93 +64,64 @@ The `openspec instructions apply` progress reports 18 of 27 complete. Groups 1�
 - [x] Every scenario maps to a test
 - [x] The project test command was run fresh in this step
 
-**Test command**: `bun test`, run in the worktree.
-**Result**: exit 0. 1566 pass, 0 fail, 12288 `expect()` calls, 82 files, 99.50 s.
+**Test command**: `bun test`, run in the worktree at `8351805`.
+**Result**: exit 0. 1558 pass, 0 fail, 12290 `expect()` calls, 81 files.
 
 Also run fresh:
-- `bun run typecheck`: no type errors in 165 files.
+- `bun run typecheck`: no errors in 164 files.
 - `bun run lint`: exit 0.
 - `bun run fmt:check`: exit 0.
-- The verifier's focused run over the 17 relevant test files: exit 0, 378 pass, 0 fail. Each mapped test appears as `(pass)` in that log.
-
-There is no REMOVED requirement, so no scenario is skipped. All 42 scenarios map to tests.
+- Verifier focused run at `51fdcd7`: 457 pass, 0 fail.
 
 | Scenario | Test |
 |---|---|
-| Field set | `tests/jev/state.test.ts` › mainState keys; `tests/host/main-effort.test.ts` › default request stays minimal |
-| Rich inputs ignored unless shipped | `tests/host/main-effort.test.ts` › default request state › default request stays minimal |
-| One group alone / Every group | `tests/jev/state.test.ts` › mainState rich groups |
+| Field set / First turn has no last decision / Unshipped groups never sent | `tests/host/main-effort.test.ts` › default request stays minimal: real CLI, a git repo with changes, two prompts, exact key sets |
+| One group alone | `tests/jev/state.test.ts` › one group alone: last_decision (added in iteration 5) |
+| Every group | `tests/jev/state.test.ts` › every group |
 | Previous turn known | `tests/jev/state.test.ts` › last decision kept; `tests/host/main.test.ts` › last decision carried to the next prompt |
-| Unknown context / Rounded percentage | `tests/jev/state.test.ts` › context null omitted / context rounded |
-| Shortstat parsed / Insertions only | `tests/jev/state.test.ts` › parseShortstat |
-| Not a repository | `tests/host/git.test.ts` › code 128 omits |
-| Ranked languages / Skipped directory / Too deep | `tests/jev/workspace.test.ts` › scanLanguages |
-| First sentence / Caps / Agent caps | `tests/jev/state.test.ts` › first sentence / tool cap 40 by name / agent cap 30 by name, description 200 code points |
-| Off by default / No line without a request | `tests/host/main.test.ts` › git count recorder |
-| Line written | `tests/host/git-record.test.ts` › line written; `tests/host/main.test.ts` › line written once, sharing the shipped git promise |
-| No names stored / Cap reached | `tests/host/git-record.test.ts` |
-| Write failure | `tests/host/git-record.test.ts` › write failure swallowed; `tests/host/main.test.ts` › write failure keeps the decision |
-| Lint boundary | `tests/boundaries.test.ts` › boundary rules flag exactly the forbidden imports; `bun run lint` |
-| Same state as live | `tests/replay/inputs.test.ts` › same state as live (in-process `createMain`; see apply rulings) |
-| Same seed, same corpus / Exclusions | `tests/replay/corpus.test.ts` |
-| Last decision from the earlier port / Missing cwd / Unmatched git count | `tests/replay/inputs.test.ts`; `tests/replay/variants.test.ts` › missing inputs excluded |
-| No capabilities snapshot / Worker agent missing from snapshot | `tests/replay/variants.test.ts`; `tests/replay/inputs.test.ts` |
-| Add-one variant / Reversed options / Reruns present | `tests/replay/variants.test.ts` |
-| Dry run / Send | `tests/replay/run.test.ts`; `tests/replay/cli.test.ts` |
-| Miss excluded / Retry succeeds | `tests/replay/run.test.ts` |
-| Within noise / Beyond noise | `tests/replay/compare.test.ts` |
-| Aggregates hold no text | `tests/replay/` › writeOutputs › aggregates hold no text, cases do |
-| Nothing in the repository | `tests/replay/run.test.ts` › nothing in the repository |
+| Shortstat parsed / Insertions only / Not a repository | `tests/jev/state.test.ts` › parseShortstat; `tests/host/git.test.ts` › code 128 omits |
+| First sentence / Caps / Agent caps | `tests/jev/state.test.ts` |
+| Recorder scenarios (6) | `tests/host/main.test.ts` › git count recorder; `tests/host/git-record.test.ts` |
+| Lint boundary / Same state as live | `tests/boundaries.test.ts`; `tests/replay/inputs.test.ts` |
+| Corpus, inputs, snapshot, variants, run, compare and output scenarios | `tests/replay/{corpus,inputs,variants,run,compare,cli}.test.ts` (mapping as in the iteration 1 report; the reversed-options test asserts the reverse of the shipped order) |
 
 ---
 
 ## 5. Design and Contract Coherence (warning only)
 
-- [x] Decisions in design.md match the code (D1–D7, D3a). D8 is not verified; see below.
-- [x] Contracts in plan.md, with the Contract deviations recorded in apply.md, match the code
+- [x] Decisions in design.md (D1–D9, D3a) match the code
+- [x] Contracts in plan.md, with apply.md Contract deviations, match the code
 
-**Design:**
+**Design**
+- D1–D8: matched, as in iteration 1.
+- D9 (pass 1 decisions): matched.
+  - The shipped groups are `last_decision` and `capabilities`.
+  - The removed groups are gone (grep finds 0).
+  - Worker defaults are unchanged.
+  - `EFFORT_OPTION_ORDER = high, medium, xhigh, low, max` (`src/policy/effort.ts`) is used for the main and worker wire criteria and options (`src/jev/rubrics.ts`, `src/jev/questions.ts`). Rank comparisons still use `EFFORT_LEVELS` / `EFFORT_LADDER`, from `low` to `max`.
 
-| Decision | Result | Files |
-|---|---|---|
-| D1 | matched | `state.ts:81`, `main.ts`, `setup.ts` |
-| D2 | matched | `jev/branch.ts`, `jev/workspace.ts`, `host/context.ts:6-7` |
-| D3, all five fields | matched | `state.ts`, `host/main.ts`, `host/git.ts`, `host/rich.ts`, `scripts/replay/inputs.ts` |
-| D3a | matched | `host/rich.ts`, `host/git.ts`, `host/agents.ts`, `host/setup.ts` |
-| D4 | matched | `host/git-record.ts`, `setup.ts`, `main.ts` |
-| D5 | matched, with the extra modules `config.ts` and `outputs.ts` | `scripts/replay/*`; `run.ts:7-8` |
-| D6, D7 | matched | `compare.ts`, `outputs.ts`, `cli.ts` |
-| D8 | Not verified | Applying decisions is Tasks 12–14, which are open by design. There is nothing to compare yet. |
+**Contracts:** every row matched, or is covered by a recorded deviation.
+- The `apply.md` deviations for iterations 3–5 are present in the code: `RichGroup` reduced, `--only`, single-pass `listAgents`, `EFFORT_OPTION_ORDER`, and `effort-order` removed.
+- The public `scripts/replay` CLI stays additive. `--models` is accepted as a no-op.
 
-**Contracts:** every `plan.md` Contracts row was compared with the code, and every row matched.
-- **Moved and new functions:** `SessionEntryLike`, `branchItems`, `scanPlatforms`, `scanLanguages`, `parseShortstat`, `GitCounts`, `pickRich`, `listAgents`, `gitCounts`, `buildRichInputs`, `MainDeps.rich` and `MainDeps.record`, `readLedgerLines`.
-- **Shared types:** `RichGroup` (with `RICH_GROUPS`), `RichInputs`, `SHIPPED_MAIN_GROUPS`, `mainState`.
-- **Formats and public surface:** the `replay-git.jsonl` format (public; writer at `git-record.ts:41-48`), `JEV_REPLAY_GIT` (public; `setup.ts:73`, documented in `docs/testing.md`), the `scripts/replay` CLI and `--kept` (public; `config.ts:49-95`, every documented flag present), the capabilities snapshot (writer and reader), and `effortQuestionReversed` (not a contract; local).
-
-Every `apply.md` contract deviation is present in the code as recorded:
-
-| Deviation | Evidence |
-|---|---|
-| `GitExec` | `git.ts:5` |
-| `MainSample.turnId` | `corpus.ts:6-16` |
-| `RebuiltMain`, `RebuiltWorker`, `rebuildMain` | `inputs.ts:23-31,206` |
-| `compare` with `meta` | `compare.ts:256` |
-| `aggregates.json` with `variantKey`, `kind`, `incomparable` and base entries | `compare.ts:31-52` |
-| `variantKey` | `variants.ts:33` |
-| `writeOutputs` in `outputs.ts` | `outputs.ts:22` |
-| `RICH_GROUPS` | `state.ts:59-67` |
+**Docs:**
+- `docs/jev-contract.md` (shipped fields, effort option order) matches the code.
+- `docs/privacy.md` has rows for "Your previous decision" and "Tools and agents available". Only git is listed as pending.
+- `docs/jev-questions.md`, `docs/testing.md` and `docs/architecture.md` match.
+- `docs/project-brief.md` marks `languages` as removed.
 
 **Drift warnings** (non-blocking):
-
-- None. W1 from iteration 1 was resolved in `53121b0`. `src/jev/state.ts:37` is now `context_used_percent?: number`, and the type-level test in `tests/jev/state.test.ts` fails typecheck if `null` is allowed again.
+- W-4: in `plan.md`, the Contracts rows and task text still name `scanLanguages` and `contextPercent` as they were planned. `apply.md` records the removal as a deviation. This is a historical record, and nothing needs fixing.
 
 ---
 
 ## 6. Clean Tree and Commit Range
 
-- [x] Working tree is clean: `git status --porcelain` prints 0 lines before this receipt.
+- [x] Working tree is clean (`git status --porcelain` prints 0 lines at `8351805`)
 
-**Commit range**: `3ebb2e0..53121b0`. The updated receipts are committed on top.
+**Commit range**: `3ebb2e0..8351805`.
+- The code part, through `bc55c49`, was finalized into `WG-16` at `fba404b`.
+- Iterations 3–5 (`a17b2a6..8351805`) are on the worktree branch and not yet merged into `WG-16`.
 
 ---
 
@@ -170,29 +130,23 @@ Every `apply.md` contract deviation is present in the code as recorded:
 **CRITICAL:** none.
 
 **WARNING:**
-- **W2 (still open):** D8 is not verified, and tasks 5.x and 6.x are open on purpose. Do not run `/opsx-archive` until Tasks 12–14 have run with the operator's approval. Each group's decision is applied in a later apply iteration, and verify is then repeated.
+- W2 (still open): pass 2 (git, tasks 6.x) has not run yet. Do not archive until it runs and git is decided.
+- W-4: the plan.md history names the removed builders. This is informational only.
 
 **SUGGESTION:**
-- **S1:** when Task 13 edits `docs/jev-contract.md:82` (the IMPORTANT note), name `SHIPPED_MAIN_GROUPS` as the switch that ships a group.
-- **S2:** `src/host/git-record.ts` `isFull` counts newlines by iterating over a string. It is bounded at about 2.5 MB and runs off the request path, but counting `0x0a` bytes in a `Buffer` would be cheaper. Optional.
+- Merge iterations 3–5 into `WG-16` through finalize, so that the shipped decisions reach the feature branch before pass 2 starts recording.
 
 ---
 
 ## Overall Decision
 
-- [ ] PASS: proceed with `/opsx-continue` to finalize
-- [x] PASS_WITH_WARNINGS: proceed. The remaining warning is W2: D8 and Tasks 12–14 are open by design and operator-gated. W1 is resolved. Check 5 records D8 as not verified, which caps the outcome at PASS_WITH_WARNINGS.
-- [ ] FAIL: fix the cause, then re-apply (iteration N+1)
+- [ ] PASS
+- [x] PASS_WITH_WARNINGS: proceed. The only open item is pass 2 (git), which is operator-gated and needs recorded data.
+- [ ] FAIL
 
-Any check recorded as Not verified caps the outcome at PASS_WITH_WARNINGS.
+**Next step**: re-enter finalize for iterations 3–5. That means a code review gate on `fba404b..8351805`, then a fast-forward of `WG-16`. After that, the operator starts `JEV_REPLAY_GIT=1` recording for pass 2.
 
-**Next step**:
-
-The code part (plan Tasks 1–11) is verified. There are two ways to continue:
-- (a) Run `/opsx-continue` in the worktree to finalize the code part (merge it into `WG-16`). Tasks 12–14 then follow as a later apply iteration, and archive waits until they are done.
-- (b) Run pass 1 (Task 12) from the worktree first, with the operator's approval, and finalize afterwards.
-
-The operator chose (a): finalize the code part, then run pass 1.
+Iteration 5 is at the 5-iteration cap. Any further code fix needs the operator's decision, so pass 2's decision will need either a new iteration count, under the operator's ruling, or a follow-up change.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.
