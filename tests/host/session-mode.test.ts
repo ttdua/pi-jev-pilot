@@ -28,3 +28,23 @@ describe("SessionModeHolder", () => {
     expect(h.modeFor("A")).toBeUndefined();
   });
 });
+
+describe("SessionModeHolder ensure and set", () => {
+  test("ensure rebuilds only when the id is not the current one", () => {
+    const h = createSessionModeHolder();
+    h.rebuild("A", [entry("premium")]);
+    h.ensure("A", []);
+    expect(h.modeFor("A")).toBe("premium");
+    h.ensure("B", [entry("budget")]);
+    expect(h.modeFor("A")).toBeUndefined();
+    expect(h.modeFor("B")).toBe("budget");
+  });
+
+  test("set after an empty rebuild applies to the id and to undefined", () => {
+    const h = createSessionModeHolder();
+    h.rebuild("A", []);
+    h.set("A", "premium");
+    expect(h.modeFor("A")).toBe("premium");
+    expect(h.modeFor(undefined)).toBe("premium");
+  });
+});

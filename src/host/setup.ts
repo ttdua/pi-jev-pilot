@@ -135,7 +135,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
     try {
       if (isChild(ctx.sessionManager.getSessionId())) return;
       sessionModes().rebuild(ctx.sessionManager.getSessionId(), ctx.sessionManager.getBranch());
-      drawStatus(ctx, loadSnapshot(pi), main.decision());
+      drawStatus(ctx, loadSnapshot(pi), main.decision(), main.overlay());
     } catch {
       /* swallow: the line stays as it was */
     }
@@ -215,7 +215,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       routing.clearWarnings();
       return runJev(args, ctx, {
         dir: jevDir(),
-        load: () => loadSnapshot(pi),
+        load: (sessionId) => loadSnapshot(pi, sessionId),
         appendEntry: (type, data) => pi.appendEntry(type, data),
         sessionModes: sessionModes(),
         decision: main.decision,

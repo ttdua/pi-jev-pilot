@@ -39,12 +39,12 @@
 | `SESSION_MODE_TYPE` | new | `const SESSION_MODE_TYPE = "jev-mode"` in `src/jev/session-mode.ts` | no |
 | `readSessionMode` | new | `(entries: readonly SessionEntryLike[]) => Mode \| undefined` in `src/jev/session-mode.ts` | no |
 | `jev-mode` session entry | new | custom entry, `customType: "jev-mode"`, `data: { mode: Mode \| null }`, nothing else | public (session file format) |
-| `SessionModeHolder` | new | `{ rebuild(sessionId: string, entries: readonly SessionEntryLike[]): void; set(sessionId: string, mode: Mode \| undefined): void; modeFor(sessionId: string \| undefined): Mode \| undefined }`, from `createSessionModeHolder()` in `src/host/session-mode.ts` | no |
+| `SessionModeHolder` | new | `{ rebuild(sessionId: string, entries: readonly SessionEntryLike[]): void; ensure(sessionId: string, entries: readonly SessionEntryLike[]): void; set(sessionId: string, mode: Mode \| undefined): void; modeFor(sessionId: string \| undefined): Mode \| undefined }`, from `createSessionModeHolder()` in `src/host/session-mode.ts` | no |
 | `sessionModes()` | new | process-wide `SessionModeHolder` on `globalThis` under `Symbol.for("pi-jev-pilot.sessionMode")` | no |
 | `loadSnapshot` | modified | `(pi, sessionId?: string) => Snapshot`; it uses `sessionModes().modeFor(sessionId ?? currentMainSession())` | no |
 | `buildSnapshot` input | modified | adds `sessionMode?: Mode` | no |
 | `JevArgs` | modified | adds `{ kind: "session-mode"; mode: Mode \| undefined }` | no |
-| `runJev` deps | modified | adds `appendEntry: (type: string, data: unknown) => void` and `sessionModes: SessionModeHolder` | no |
+| `runJev` deps | modified | adds `appendEntry: (type: string, data: unknown) => void` and `sessionModes: SessionModeHolder`; `load` takes the command session id: `(sessionId: string) => Snapshot` (final review: /jev must bind to its own session before session_start) | no |
 | `/jev mode <m> session`, `/jev mode session off` | new | CLI forms as in `specs/jev-command` and `specs/session-mode` | public |
 
 `currentMainSession()` is the id of the newest main session that ran `session_start`. The holder stores it at `rebuild`, so `modeFor(undefined)` resolves against that id. Hot paths without a `ctx` stay correct, because the holder holds only one session at a time.

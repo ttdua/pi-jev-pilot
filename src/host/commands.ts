@@ -274,7 +274,7 @@ export async function runJev(
   ctx: ExtensionCommandContext,
   deps: {
     dir: string;
-    load: () => Snapshot;
+    load: (sessionId: string) => Snapshot;
     decision: () => Decision | undefined;
     exec: Exec;
     tally?: () => Tally;
@@ -286,6 +286,7 @@ export async function runJev(
   try {
     const sessionId = ctx.sessionManager.getSessionId();
     if (isChild(sessionId)) return;
+    deps.sessionModes.ensure(sessionId, ctx.sessionManager.getBranch());
     const notify = (message: string, type: "info" | "warning" | "error"): void => {
       if (ctx.hasUI) ctx.ui.notify(message, type);
     };
@@ -360,7 +361,7 @@ export async function runJev(
       }
       if (parsed.kind === "reset") clearSessionModeOnReset(sessionId, deps);
     }
-    const snapshot = deps.load();
+    const snapshot = deps.load(sessionId);
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
     const report = formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.());
     notify(

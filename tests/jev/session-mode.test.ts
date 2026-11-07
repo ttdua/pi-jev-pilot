@@ -39,3 +39,16 @@ describe("readSessionMode", () => {
     expect(readSessionMode([modeEntry({ mode: "budget" }, "jev-turn")])).toBe(undefined);
   });
 });
+
+describe("readSessionMode defensive cases", () => {
+  test("the newest of two valid entries wins", () => {
+    expect(readSessionMode([modeEntry({ mode: "budget" }), modeEntry({ mode: "premium" })])).toBe(
+      "premium",
+    );
+  });
+
+  test("a non-custom entry carrying the custom type is ignored", () => {
+    const entry = { type: "message", customType: "jev-mode", data: { mode: "budget" } };
+    expect(readSessionMode([entry])).toBe(undefined);
+  });
+});

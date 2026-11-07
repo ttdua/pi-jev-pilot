@@ -314,6 +314,16 @@ describe("setup", () => {
     }
   });
 
+  test("session_tree redraw keeps an active tally overlay", async () => {
+    const ten = await runPrompt({ writable: true, prompts: 10 });
+    try {
+      await ten.fire("session_tree", {});
+      expect(ten.widgets.at(-1)).toBe("Jev · standard · 10 prompts · 0 workers · 0 fallbacks");
+    } finally {
+      await ten.fx.stop();
+    }
+  });
+
   test("tally counts with failed append", async () => {
     const { fx, status } = await runPrompt();
     try {
@@ -654,6 +664,29 @@ describe("setup session mode", () => {
     const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
     await jev.handler("", ctx);
     expect(notes.at(-1)).toContain("mode: standard");
+  });
+
+  test("Command in a new session before its session_start ignores the old mode", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    sessionModes().rebuild("A", [modeEntry("premium")]);
+    const { ctx, notes } = widgetCtx("B", () => []);
+    const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+    await jev.handler("", ctx);
+    expect(notes.at(-1)).toContain("mode: standard");
+    expect(notes.at(-1)).not.toContain("(session");
+  });
+
+  test("Setting a session mode before session_start applies to the new session", async () => {
+    const f = fakePi();
+    setup(f.pi);
+    sessionModes().rebuild("A", [modeEntry("premium")]);
+    const { ctx, notes } = widgetCtx("B", () => []);
+    const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
+    await jev.handler("mode budget session", ctx);
+    expect(f.entries).toContainEqual({ type: "jev-mode", data: { mode: "budget" } });
+    await jev.handler("", ctx);
+    expect(notes.at(-1)).toContain("mode: budget (session; saved standard)");
   });
 
   test("session_tree in a child session does not rebuild", async () => {

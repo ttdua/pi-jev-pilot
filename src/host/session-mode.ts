@@ -6,6 +6,8 @@ import type { Mode } from "../store/defaults.ts";
 export type SessionModeHolder = {
   /** Make `sessionId` the current session and read its mode from the branch entries. */
   rebuild(sessionId: string, entries: readonly SessionEntryLike[]): void;
+  /** Make `sessionId` current, rebuilding from `entries` only when it is not already. */
+  ensure(sessionId: string, entries: readonly SessionEntryLike[]): void;
   /** Change the mode; ignored when `sessionId` is not the current session. */
   set(sessionId: string, mode: Mode | undefined): void;
   /** The mode of `sessionId` (or of the current session when omitted), if it is the current one. */
@@ -19,6 +21,9 @@ export function createSessionModeHolder(): SessionModeHolder {
     rebuild(sessionId, entries) {
       currentId = sessionId;
       mode = readSessionMode(entries);
+    },
+    ensure(sessionId, entries) {
+      if (sessionId !== currentId) this.rebuild(sessionId, entries);
     },
     set(sessionId, next) {
       if (sessionId === currentId) mode = next;

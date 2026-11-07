@@ -326,7 +326,7 @@ function fakeCtx(hasUI = true, sessionId = "main") {
       notify: (m: string, t?: string) => rec.notes.push([m, t]),
       setWidget: (...a: unknown[]) => rec.widgets.push(a),
     },
-    sessionManager: { getSessionId: () => sessionId },
+    sessionManager: { getSessionId: () => sessionId, getBranch: () => [] },
     modelRegistry,
   } as unknown as ExtensionCommandContext;
   return { ctx, rec };
@@ -349,8 +349,8 @@ afterEach(() => {
   dirs = [];
 });
 
-const load = (dir: string, holder?: SessionModeHolder) => () => {
-  const sessionMode = holder?.modeFor("main-1");
+const load = (dir: string, holder?: SessionModeHolder) => (sessionId: string) => {
+  const sessionMode = holder?.modeFor(sessionId);
   return buildSnapshot({
     configRead: readConfig(dir),
     stateRead: readState(dir),
@@ -473,7 +473,7 @@ describe("runJev", () => {
       () => "10 prompts · 0 workers · 0 fallbacks",
     );
     expect(rec.widgets[0]![1]).toEqual(["Jev · standard · 10 prompts · 0 workers · 0 fallbacks"]);
-    expect(rec.notes[0]![0].split("\n")[0]).toBe(statusText(load(dir)()));
+    expect(rec.notes[0]![0].split("\n")[0]).toBe(statusText(load(dir)("main")));
   });
 
   test("plain status writes nothing, notifies and redraws", async () => {
@@ -625,7 +625,7 @@ describe("runJev", () => {
 
 describe("runJev slots", () => {
   const ADD = "reviewer fixture/fixture-review when Code review.";
-  const slotsOf = (dir: string) => load(dir)().settings.crew.slots;
+  const slotsOf = (dir: string) => load(dir)("main").settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
       buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
@@ -706,7 +706,7 @@ describe("runJev mode", () => {
   test("Mode survives a restart", async () => {
     const dir = jevDir();
     await run("mode budget", dir);
-    expect(load(dir)().settings.mode).toBe("budget");
+    expect(load(dir)("main").settings.mode).toBe("budget");
   });
 
   test("Back to standard", async () => {
@@ -1036,6 +1036,17 @@ describe("runJev session mode", () => {
     expect(rec.notes).toHaveLength(1);
     expect(rec.notes[0]![1]).toBe("error");
     expect(sd.sessionModes.modeFor("main-1")).toBeUndefined();
+  });
+
+  test("Append fails with an existing session mode keeps it", async () => {
+    for (const args of ["mode budget session", "mode session off"]) {
+      const sd = sessionDeps("premium");
+      sd.appendEntry = () => {
+        throw new Error("disk full");
+      };
+      await go(args, jevDir(), sd);
+      expect(sd.sessionModes.modeFor("main-1")).toBe("premium");
+    }
   });
 
   test("Saving keeps the session mode", async () => {
