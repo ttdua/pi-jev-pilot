@@ -7,7 +7,6 @@ import {
   buildToolState,
   buildWorkerState,
   mainState,
-  parseShortstat,
   pickRich,
   SHIPPED_MAIN_GROUPS,
   type RichInputs,
@@ -341,7 +340,6 @@ describe("mainState rich groups", () => {
   const base = { prompt: "hi", items: [user("a")], platforms: ["Docker"] };
   const all: RichInputs = {
     lastDecision: { effort: "low", strategy: "direct" },
-    git: { changed_files: 2, diff_lines: 10 },
     capabilities: {
       tools: [{ name: "read", description: "Read files" }],
       agents: [{ name: "scout", description: "Recon", tools: ["read"] }],
@@ -354,18 +352,10 @@ describe("mainState rich groups", () => {
       conversation: { ...mainState(base).conversation, last_decision: { effort: "high" } },
     });
   });
-  test("one group alone: git", () => {
-    const plain = mainState(base);
-    const s = mainState({ ...base, rich: { git: { changed_files: 2, diff_lines: 10 } } });
-    expect(s).toEqual({
-      ...plain,
-      workspace: { platforms: ["Docker"], git: { changed_files: 2, diff_lines: 10 } },
-    });
-  });
   test("every group", () => {
     const s = mainState({ ...base, rich: all });
     expect(s.conversation.last_decision).toEqual({ effort: "low", strategy: "direct" });
-    expect(s.workspace.git).toEqual({ changed_files: 2, diff_lines: 10 });
+    expect(s.workspace).toEqual({ platforms: ["Docker"] });
     expect(s.capabilities).toEqual({
       tools: [{ name: "read", summary: "Read files" }],
       subagents: [{ name: "scout", description: "Recon", tools: ["read"] }],
@@ -375,7 +365,7 @@ describe("mainState rich groups", () => {
     expect(JSON.stringify(mainState({ ...base, rich: {} }))).toBe(JSON.stringify(mainState(base)));
   });
   test("pickRich keeps only listed groups", () => {
-    expect(pickRich(all, ["git"])).toEqual({ git: { changed_files: 2, diff_lines: 10 } });
+    expect(pickRich(all, ["last_decision"])).toEqual({ lastDecision: all.lastDecision });
     expect(pickRich(all, [])).toEqual({});
   });
   test("shipped list holds last_decision and capabilities", () => {
@@ -445,29 +435,5 @@ describe("mainState rich shaping", () => {
     const agent = { name: "a", description: "d", tools: ["read"], model: "m", thinking: "high" };
     const out = shaped({ capabilities: { tools: [], agents: [agent] } }).capabilities!.subagents;
     expect(Object.keys(out[0]!)).toEqual(["name", "description", "tools"]);
-  });
-});
-
-describe("parseShortstat", () => {
-  test("parses counts", () => {
-    expect(parseShortstat(" 3 files changed, 70 insertions(+), 14 deletions(-)")).toEqual({
-      changed_files: 3,
-      diff_lines: 84,
-    });
-    expect(parseShortstat(" 1 file changed, 5 insertions(+)")).toEqual({
-      changed_files: 1,
-      diff_lines: 5,
-    });
-    expect(parseShortstat(" 2 files changed, 4 deletions(-)")).toEqual({
-      changed_files: 2,
-      diff_lines: 4,
-    });
-  });
-  test("empty output is a clean tree", () => {
-    expect(parseShortstat("")).toEqual({ changed_files: 0, diff_lines: 0 });
-    expect(parseShortstat("  \n")).toEqual({ changed_files: 0, diff_lines: 0 });
-  });
-  test("garbage is undefined", () => {
-    expect(parseShortstat("garbage")).toBeUndefined();
   });
 });

@@ -7,7 +7,6 @@ import { askJev } from "../jev/client.ts";
 import { appendLedger } from "../store/ledger.ts";
 import { scanPlatforms } from "./context.ts";
 import { listAgents } from "./agents.ts";
-import { gitCounts } from "./git.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
 import { hideReviewInChild, registerReviewTool } from "./review.ts";
@@ -65,14 +64,8 @@ export function setup(pi: ExtensionAPI): void {
     readFile: (p) => readFileSync(p, "utf8"),
     rich: {
       groups: SHIPPED_MAIN_GROUPS,
-      git: (cwd) => gitCounts((c, a, o) => pi.exec(c, a, o), cwd),
       tools: () => activeTools(pi),
       agents: (cwd) => listAgents({ cwd, agentDir: getAgentDir() }),
-    },
-    record: {
-      on: () => process.env["JEV_REPLAY_GIT"] === "1",
-      dir: jevDir,
-      git: (cwd) => gitCounts((c, a, o) => pi.exec(c, a, o), cwd),
     },
   });
 

@@ -1,7 +1,7 @@
 // Rebuilds the rich state inputs of a replayed prompt from local data only.
 import { readFileSync } from "node:fs";
 import { branchItems } from "../../src/jev/branch.ts";
-import type { BranchItem, GitCounts, RichGroup, RichInputs } from "../../src/jev/state.ts";
+import type { BranchItem, RichGroup, RichInputs } from "../../src/jev/state.ts";
 import { scanPlatforms } from "../../src/jev/workspace.ts";
 import { type AgentFacts, LOCKABLE_FIELDS } from "../../src/policy/launch.ts";
 import type { MainSample, WorkerSample } from "./corpus.ts";
@@ -16,7 +16,6 @@ export type Snapshot = {
 export type ReplayContext = {
   ledger: ReturnType<typeof readLedgerLines>;
   capabilities?: Snapshot;
-  git?: Map<string, GitCounts>;
 };
 
 export type RebuiltMain = {
@@ -143,9 +142,6 @@ export function rebuildRich(
   if (decision !== undefined) rich.lastDecision = decision;
   if (ctx.capabilities === undefined) missing.push("capabilities");
   else rich.capabilities = capabilitiesOf(ctx.capabilities);
-  const git = sample.turnId === undefined ? undefined : ctx.git?.get(sample.turnId);
-  if (git === undefined) missing.push("git");
-  else rich.git = git;
   return { rich, missing };
 }
 

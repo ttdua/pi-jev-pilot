@@ -19,8 +19,6 @@ To TypeSafe, on every eligible prompt and launch:
 | Tool descriptions | For workers under assessment | `/jev tools off` |
 | Your latest prompt with worker requests | Up to 500 characters; **off by default** | `state.parentRequest` |
 
-Pending [validation](roadmap.md#wg-16-rich-state-replay), only git change counts may still be added. They contain no code. This table is updated when that is decided.
-
 **Never sent:** tool arguments and results, file contents, diffs, thinking blocks, images, your API keys, the full transcript, an agent's `model` or `thinking`.
 
 > [!WARNING]
@@ -47,8 +45,6 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 With `verbose` on, the same labels and numbers as the ledger are also saved as `jev-log` entries in your Pi session files, which travel with session exports.
 
 Hidden skill and advice messages are saved in your Pi session files, as any context is. A skill message holds the skill's own text (its body, or only its path for `suggest`), and its details hold the skill name, a SHA-256 of the body and the form. No prompt text.
-
-`<agentDir>/jev/replay-git.jsonl`, owner-readable only, written **only** when you set `JEV_REPLAY_GIT=1` (off by default): per turn, a session id, a turn id, a time and two numbers (changed files, changed diff lines), at most 5000 lines. No paths, names or text. Delete it when you no longer need it.
 
 `<agentDir>/jev/replay/<run-id>/`, written only when you run the replay tool by hand with `--send` (see [Testing](testing.md#rich-state-replay)): private and owner-only. It holds counts and the prompts and briefs of differing pairs. It never leaves your machine unless you copy it; delete it after the decision.
 

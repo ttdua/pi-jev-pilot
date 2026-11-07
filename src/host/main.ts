@@ -8,7 +8,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { askJev, JevOutcome } from "../jev/client.ts";
 import { mainQuestions, skillBatchQuestions } from "../jev/questions.ts";
-import { mainState, SHIPPED_MAIN_GROUPS, type GitCounts, type RichGroup } from "../jev/state.ts";
+import { mainState, SHIPPED_MAIN_GROUPS, type RichGroup } from "../jev/state.ts";
 import { readAnswers, type Answer, type QuestionSpec, type ReadResult } from "../policy/answers.ts";
 import {
   deliveryForm,
@@ -32,7 +32,6 @@ import type { AgentFacts } from "../policy/launch.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
-import { recordGitCounts } from "./git-record.ts";
 import { buildRichInputs } from "./rich.ts";
 import {
   SKILL_MESSAGE_TYPE,
@@ -59,15 +58,8 @@ export type MainDeps = {
   /** Rich state inputs; `groups` defaults to the shipped list. */
   rich?: {
     groups: readonly RichGroup[];
-    git: (cwd: string) => Promise<GitCounts | undefined>;
     tools: () => { name: string; description: string }[];
     agents: (cwd: string) => AgentFacts[];
-  };
-  /** Opt-in git count recorder for replay; off unless `on()` holds. */
-  record?: {
-    on: () => boolean;
-    dir: () => string;
-    git: (cwd: string) => Promise<GitCounts | undefined>;
   };
 };
 
@@ -113,15 +105,6 @@ type Ctx = Pick<
   ExtensionContext,
   "cwd" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
 >;
-
-/** Runs `f`; a throw reads as false. */
-function safely(f: () => boolean): boolean {
-  try {
-    return f();
-  } catch {
-    return false;
-  }
-}
 
 export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   let record: TurnRecord | undefined;
@@ -171,21 +154,6 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     return true;
   }
 
-  /** Fire-and-forget; a throwing `dir` or recorder never reaches the turn. */
-  function startRecording(
-    counts: Promise<GitCounts | undefined>,
-    at: number,
-    session: string,
-    turnId: string,
-  ): void {
-    try {
-      const dir = deps.record?.dir();
-      if (dir !== undefined) void recordGitCounts({ dir, at, session, turnId, counts });
-    } catch {
-      /* fail open */
-    }
-  }
-
   async function beforeAgentStart(
     event: BeforeAgentStartEvent,
     ctx: Ctx,
@@ -219,21 +187,6 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if (model === undefined) return;
     const apiKey = deps.env()[snapshot.keyVar];
     if (apiKey === undefined || apiKey === "") return;
-    // Started after the gates so an early return cannot orphan it, and before the first await so it
-    // overlaps the rest of the setup. A rejection is dropped: git counts are optional.
-    // One call feeds both the state group and the recorder.
-    const recording = safely(() => deps.record?.on() === true);
-    const gitSource = groups.includes("git")
-      ? deps.rich?.git
-      : recording
-        ? deps.record?.git
-        : undefined;
-    const git =
-      gitSource === undefined
-        ? undefined
-        : Promise.resolve()
-            .then(() => gitSource(ctx.cwd))
-            .catch(() => undefined);
     const effortOn = snapshot.settings.switches.effort;
     const askStrategy = snapshot.settings.switches.strategy;
     // The catalog is read only after every other gate passed.
@@ -274,7 +227,6 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       groups,
       cwd: ctx.cwd,
       ...(lastDecided === undefined ? {} : { last: lastDecided }),
-      ...(git === undefined || !groups.includes("git") ? {} : { git }),
       tools: () => deps.rich?.tools() ?? [],
       agents: () => deps.rich?.agents(ctx.cwd) ?? [],
     });
@@ -318,8 +270,6 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     };
     const asked = deps.ask({ ...common, questions: questions.wire });
     const later = tryAskBatches(batches.slice(1), common);
-    // A main request is sent: record the counts without waiting for them.
-    if (recording && git !== undefined) startRecording(git, at, sessionId, rec.turnId);
     const outcome = await asked;
 
     if (outcome.kind === "cancelled") {

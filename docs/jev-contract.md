@@ -76,7 +76,7 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
 ```
 
 > [!IMPORTANT]
-> `last_decision` and `capabilities` ship, as decided by the [replay](evidence/2026-11-07-state-replay.md). `workspace.git` is pending pass 2 and is not sent yet. `context_used_percent` and `workspace.languages` were removed: both were within noise. Every other field is always sent.
+> `last_decision` and `capabilities` ship, as decided by the [replay](evidence/2026-11-07-state-replay.md). `context_used_percent`, `workspace.languages` and `workspace.git` were removed after the [replay](evidence/2026-11-07-state-replay.md). Every other field is always sent.
 
 ### How the fields are built
 
@@ -134,7 +134,7 @@ These patterns are English. Add Vietnamese only with replay evidence.
 
 Nothing found sends `none found`.
 
-**`conversation.last_decision`** holds the effort level and strategy of the previous turn. **`workspace.git`** (pending) holds numbers only, from `git diff --shortstat`. **`capabilities.tools`** holds active tools with the first sentence of each description. **`capabilities.subagents`** holds each available agent's name, description and tools.
+**`conversation.last_decision`** holds the effort level and strategy of the previous turn. **`capabilities.tools`** holds active tools with the first sentence of each description. **`capabilities.subagents`** holds each available agent's name, description and tools.
 
 **Never sent:** the current model or effort, diffs, file contents.
 

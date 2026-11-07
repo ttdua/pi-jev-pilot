@@ -85,8 +85,6 @@ src/
     context.ts           Previous turn id and hold context from the branch; re-exports
                          branchItems and scanPlatforms from jev/
     rich.ts              Builds the optional rich state inputs for the shipped groups
-    git.ts               Git change counts through pi.exec, 500 ms cap
-    git-record.ts        Optional numbers-only recorder of git counts for the replay
     agents.ts            Reads agent files and the built-in agent table
     commands.ts          /jev
     skills.ts            Skill catalog, explicit skill, loaded-in-context scan

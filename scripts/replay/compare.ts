@@ -44,7 +44,7 @@ export type VariantAggregate = {
 export type Aggregates = {
   v: 1;
   runId: string;
-  pass: 1 | 2;
+  pass: 1;
   samples: { main: number; workers: number };
   skipped: string[];
   variants: Record<string, VariantAggregate>;
@@ -52,7 +52,7 @@ export type Aggregates = {
 
 export type CompareMeta = {
   runId: string;
-  pass: 1 | 2;
+  pass: 1;
   samples: { main: number; workers: number };
   config: PlainConfig;
 };

@@ -52,8 +52,8 @@ describe("parseArgs", () => {
       workers: 46,
       send: false,
     });
-    const a = parseArgs(["--pass", "2", "--kept", "last_decision", "--seed", "7", "--send"]);
-    expect(a).toMatchObject({ pass: 2, kept: ["last_decision"], seed: 7, send: true });
+    const a = parseArgs(["--pass", "1", "--seed", "7", "--send"]);
+    expect(a).toMatchObject({ pass: 1, seed: 7, send: true });
   });
 
   test("pass is required", () => {
@@ -63,6 +63,8 @@ describe("parseArgs", () => {
   test("rejects unknown flag and bad values", () => {
     expect(() => parseArgs(["--pass", "1", "--nope"])).toThrow(UsageError);
     expect(() => parseArgs(["--pass", "3"])).toThrow(UsageError);
+    expect(() => parseArgs(["--pass", "2"])).toThrow(UsageError);
+    expect(() => parseArgs(["--pass", "1", "--kept", "last_decision"])).toThrow(UsageError);
     expect(() => parseArgs(["--pass", "1", "--seed", "x"])).toThrow(UsageError);
   });
 });
@@ -172,20 +174,20 @@ describe("main", () => {
     expect(r.out).toContain("model: m-dest");
   });
 
-  test("--kept git exits 2", async () => {
-    const r = await run(["--pass", "2", "--kept", "git", "--sessions", sessions], {
+  test("--pass 2 exits 2 with a message", async () => {
+    const r = await run(["--pass", "2", "--sessions", sessions], {
       PI_CODING_AGENT_DIR: agentDir(),
     });
     expect(r.code).toBe(2);
-    expect(r.err).toContain("git");
+    expect(r.err).toContain("--pass accepts only 1");
   });
 
-  test("--pass 2 keeping capabilities needs --capabilities", async () => {
-    const r = await run(["--pass", "2", "--kept", "capabilities", "--sessions", sessions], {
+  test("--kept is an unknown flag and exits 2", async () => {
+    const r = await run(["--pass", "1", "--kept", "last_decision", "--sessions", sessions], {
       PI_CODING_AGENT_DIR: agentDir(),
     });
     expect(r.code).toBe(2);
-    expect(r.err).toContain("--capabilities");
+    expect(r.err).toContain("--kept");
   });
 
   test("--models is accepted and ignored", () => {
@@ -207,17 +209,6 @@ describe("main", () => {
     });
     expect(r.code).toBe(2);
     expect(r.err).toContain("effort-ordr");
-  });
-
-  test("bad --kept exits 2", async () => {
-    const r = await run(
-      ["--pass", "2", "--kept", "last_decision,nonsense", "--sessions", sessions],
-      {
-        PI_CODING_AGENT_DIR: agentDir(),
-      },
-    );
-    expect(r.code).toBe(2);
-    expect(r.err).toContain("nonsense");
   });
 
   test("--send runs against the fixture and writes outputs", async () => {

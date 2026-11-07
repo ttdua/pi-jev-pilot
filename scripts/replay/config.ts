@@ -1,20 +1,18 @@
 // Argument parsing and plain-JSON config reading for the replay CLI. No import of src/store/.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { RICH_GROUPS, type RichGroup } from "../../src/jev/state.ts";
 import type { TierName } from "../../src/policy/launch.ts";
 import { MODE_NAMES, type ModeName } from "../../src/policy/modes.ts";
 import type { PlainConfig } from "./variants.ts";
 
 export const USAGE =
-  "usage: bun scripts/replay/cli.ts --pass 1|2 [--kept GROUPS] [--seed N] [--main N] [--workers N] " +
+  "usage: bun scripts/replay/cli.ts --pass 1 [--seed N] [--main N] [--workers N] " +
   "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--only VARIANTS] [--send]";
 
 export class UsageError extends Error {}
 
 export type Args = {
-  pass: 1 | 2;
-  kept?: RichGroup[];
+  pass: 1;
   only?: string[];
   seed: number;
   main: number;
@@ -36,16 +34,6 @@ function count(flag: string, value: string | undefined): number {
   return n;
 }
 
-function keptGroups(value: string | undefined): RichGroup[] {
-  if (value === undefined) throw new UsageError("--kept needs a value");
-  const names = value.split(",").filter((n) => n !== "");
-  if (names.includes("git")) throw new UsageError("--kept lists kept groups; git is always probed");
-  const known = new Set<string>(RICH_GROUPS);
-  const unknown = names.filter((n) => !known.has(n));
-  if (unknown.length > 0) throw new UsageError(`unknown group in --kept: ${unknown.join(", ")}`);
-  return names as RichGroup[];
-}
-
 function onlyVariants(value: string | undefined): string[] {
   const names = (value ?? "").split(",").filter((n) => n !== "");
   if (names.length === 0) throw new UsageError("--only needs a comma-separated list of variants");
@@ -55,8 +43,7 @@ function onlyVariants(value: string | undefined): string[] {
 export function parseArgs(argv: readonly string[]): Args {
   const text: Partial<Record<(typeof TEXT_FLAGS)[number], string>> = {};
   const nums: Record<string, number> = { "--seed": 1, "--main": 100, "--workers": 46 };
-  let pass: 1 | 2 | undefined;
-  let kept: RichGroup[] | undefined;
+  let pass: 1 | undefined;
   let send = false;
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!;
@@ -64,11 +51,9 @@ export function parseArgs(argv: readonly string[]): Args {
     if (flag === "--send") {
       send = true;
     } else if (flag === "--pass") {
-      if (value !== "1" && value !== "2") throw new UsageError("--pass must be 1 or 2");
-      pass = Number(value) as 1 | 2;
-      i++;
-    } else if (flag === "--kept") {
-      kept = keptGroups(value);
+      if (value !== "1")
+        throw new UsageError("--pass accepts only 1; pass 2 was removed (WG-16 D10)");
+      pass = 1;
       i++;
     } else if ((NUMBER_FLAGS as readonly string[]).includes(flag)) {
       nums[flag] = count(flag, value);
@@ -82,13 +67,8 @@ export function parseArgs(argv: readonly string[]): Args {
     }
   }
   if (pass === undefined) throw new UsageError("--pass is required");
-  if (kept !== undefined && pass !== 2) throw new UsageError("--kept needs --pass 2");
-  if (kept?.includes("capabilities") === true && text["--capabilities"] === undefined) {
-    throw new UsageError("--kept capabilities needs --capabilities FILE");
-  }
   return {
     pass,
-    ...(kept === undefined ? {} : { kept }),
     seed: nums["--seed"]!,
     main: nums["--main"]!,
     workers: nums["--workers"]!,
@@ -166,29 +146,4 @@ export function readConfig(jevDir: string): ReplayConfig {
       expertOn: switches.expert !== false,
     },
   };
-}
-
-/** Reads `replay-git.jsonl` into `turnId -> counts`. Bad lines are skipped. */
-export function readGitMap(
-  jevDir: string,
-): Map<string, { changed_files: number; diff_lines: number }> {
-  const out = new Map<string, { changed_files: number; diff_lines: number }>();
-  const path = join(jevDir, "replay-git.jsonl");
-  if (!existsSync(path)) return out;
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    try {
-      const rec: unknown = JSON.parse(line);
-      if (
-        isRec(rec) &&
-        typeof rec.turnId === "string" &&
-        typeof rec.changedFiles === "number" &&
-        typeof rec.diffLines === "number"
-      ) {
-        out.set(rec.turnId, { changed_files: rec.changedFiles, diff_lines: rec.diffLines });
-      }
-    } catch {
-      /* skip bad line */
-    }
-  }
-  return out;
 }

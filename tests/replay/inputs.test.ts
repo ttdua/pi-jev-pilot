@@ -66,17 +66,6 @@ describe("last_decision", () => {
 });
 
 describe("other groups", () => {
-  test("unmatched git count", () => {
-    const s = sampleOf([], { turnId: "t9" });
-    const hit = rebuildRich(
-      s,
-      ctx({ git: new Map([["t9", { changed_files: 2, diff_lines: 5 }]]) }),
-    );
-    expect(hit.rich.git).toEqual({ changed_files: 2, diff_lines: 5 });
-    expect(rebuildRich(s, ctx({ git: new Map() })).missing).toContain("git");
-    expect(rebuildRich(sampleOf([]), ctx()).missing).toContain("git");
-  });
-
   test("capabilities come from the snapshot, and are missing without it", () => {
     const agent = { name: "scout", description: "d", declaredTools: ["read"] } as AgentFacts;
     const snapshot = {
@@ -228,7 +217,6 @@ describe("same state as live", () => {
     try {
       const live = await liveState(branch, cwd, {
         groups: [],
-        git: async () => undefined,
         tools: () => [],
         agents: () => [],
       });
@@ -249,7 +237,6 @@ describe("same state as live", () => {
       const tools = [{ name: "read", description: "Reads a file. More." }];
       const live = await liveState(branch, cwd, {
         groups: ["capabilities"],
-        git: async () => undefined,
         tools: () => tools,
         agents: () => [facts],
       });

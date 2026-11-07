@@ -40,15 +40,10 @@ describe("buildRichInputs", () => {
       { name: "a", description: "d", tools: ["read"] },
     ]);
   });
-  test("git awaited and last decision passed", async () => {
-    const s = sources({
-      groups: ["git", "last_decision"],
-      git: Promise.resolve({ changed_files: 1, diff_lines: 2 }),
-      last: { effort: "high" },
-    });
-    expect(await buildRichInputs(s.i)).toEqual({
-      git: { changed_files: 1, diff_lines: 2 },
-      lastDecision: { effort: "high" },
-    });
+  test("two groups are built together", async () => {
+    const s = sources({ groups: ["capabilities", "last_decision"], last: { effort: "high" } });
+    const out = await buildRichInputs(s.i);
+    expect(out.lastDecision).toEqual({ effort: "high" });
+    expect(out.capabilities).toBeDefined();
   });
 });

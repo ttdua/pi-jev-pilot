@@ -56,7 +56,7 @@ The worker variants (`parent_request` on, agent description emptied, instruction
 
 ## Git
 
-`workspace.git` cannot be rebuilt from past sessions. It is decided in pass 2, from counts recorded locally with `JEV_REPLAY_GIT=1`.
+`workspace.git` was dropped without measurement. The operator's reason: measuring it needed the package installed for daily work.
 
 ## Cost
 

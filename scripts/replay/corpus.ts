@@ -10,8 +10,6 @@ export type MainSample = {
   prompt: string;
   branch: SessionEntry[];
   startEffort?: string;
-  /** Turn id of the first `jev-turn` entry after the prompt on its branch. */
-  turnId?: string;
 };
 
 export type WorkerSample = {
@@ -111,15 +109,6 @@ function startEffortOf(
   });
 }
 
-/** Turn id of the first `jev-turn` entry on this prompt's branch before its next user message. */
-function turnIdOf(entries: readonly SessionEntry[], index: number): string | undefined {
-  return walkBranch(entries, index, (e) =>
-    e.type === "custom" && e.customType === "jev-turn" && isRec(e.data)
-      ? str(e.data.turnId) || undefined
-      : undefined,
-  );
-}
-
 export function mainSamples(dir: string): MainSample[] {
   const ledger = readLedgerLines(dir);
   const seen = new Set<string>();
@@ -133,7 +122,6 @@ export function mainSamples(dir: string): MainSample[] {
       if (prompt === undefined || !entry.id || isExcludedPrompt(prompt) || seen.has(prompt)) return;
       seen.add(prompt);
       const startEffort = startEffortOf(entries, index, ledger);
-      const turnId = turnIdOf(entries, index);
       out.push({
         session: header.id,
         cwd: header.cwd,
@@ -141,7 +129,6 @@ export function mainSamples(dir: string): MainSample[] {
         prompt,
         branch: branchTo(entries, entry.id),
         ...(startEffort ? { startEffort } : {}),
-        ...(turnId ? { turnId } : {}),
       });
     });
   }

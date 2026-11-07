@@ -35,40 +35,26 @@ export type MainState = {
     turn_index: number;
     last_decision?: { effort?: string; strategy?: string };
   };
-  workspace: { platforms: string[]; git?: GitCounts };
+  workspace: { platforms: string[] };
   capabilities?: {
     tools: { name: string; summary: string }[];
     subagents: { name: string; description: string; tools: string[] | null }[];
   };
 };
 
-export type GitCounts = { changed_files: number; diff_lines: number };
-
-/** Parses `git diff --shortstat` output. Unparseable output gives undefined. */
-export function parseShortstat(out: string): GitCounts | undefined {
-  const trimmed = out.trim();
-  if (trimmed === "") return { changed_files: 0, diff_lines: 0 };
-  const m = /(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/.exec(
-    trimmed,
-  );
-  if (m === null) return undefined;
-  return { changed_files: Number(m[1]), diff_lines: Number(m[2] ?? 0) + Number(m[3] ?? 0) };
-}
-
-export const RICH_GROUPS = ["last_decision", "git", "capabilities"] as const;
+export const RICH_GROUPS = ["last_decision", "capabilities"] as const;
 
 export type RichGroup = (typeof RICH_GROUPS)[number];
 
 export type RichInputs = {
   lastDecision?: { effort?: string; strategy?: string };
-  git?: GitCounts;
   capabilities?: {
     tools: { name: string; description: string }[];
     agents: { name: string; description: string; tools: string[] | null }[];
   };
 };
 
-/** Groups shipped in the main state; pass 2 of the replay decides whether `git` joins them. */
+/** Groups shipped in the main state. */
 export const SHIPPED_MAIN_GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
 
 /** Keeps only the inputs whose group is listed. */
@@ -78,9 +64,6 @@ export function pickRich(all: RichInputs, groups: readonly RichGroup[]): RichInp
     switch (group) {
       case "last_decision":
         if (all.lastDecision !== undefined) out.lastDecision = all.lastDecision;
-        break;
-      case "git":
-        if (all.git !== undefined) out.git = all.git;
         break;
       case "capabilities":
         if (all.capabilities !== undefined) out.capabilities = all.capabilities;
@@ -285,7 +268,6 @@ function addRich(state: MainState, rich: RichInputs): void {
     const decision = shapeLastDecision(rich.lastDecision);
     if (decision !== undefined) state.conversation.last_decision = decision;
   }
-  if (rich.git !== undefined) state.workspace.git = rich.git;
   if (rich.capabilities !== undefined) state.capabilities = shapeCapabilities(rich.capabilities);
 }
 

@@ -50,7 +50,6 @@ export type PlanInput = {
   workers: RebuiltWorker[];
   config: PlainConfig;
   hasSnapshot: boolean;
-  kept?: readonly RichGroup[];
   /** When set, only the bases, the reruns and these variants are planned. */
   only?: readonly string[];
 };
@@ -64,7 +63,7 @@ function selected(id: string, only: readonly string[] | undefined): boolean {
   return id === "full" && only.some((o) => o.startsWith("full-"));
 }
 
-const PASS1_GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
+const GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
 
 type MainVariant = {
   id: string;
@@ -75,32 +74,26 @@ type MainVariant = {
   order?: "reversed";
 };
 
-function mainVariants(pass: 1 | 2, input: PlanInput): MainVariant[] {
+function mainVariants(input: PlanInput): MainVariant[] {
   const plain = (id: string): MainVariant => ({ id, base: "minimal", groups: [], needs: [] });
   const head = [plain("minimal"), plain("rerun-a"), plain("rerun-b")];
-  const kept = input.kept ?? [];
-  const candidates: RichGroup[] =
-    pass === 1
-      ? PASS1_GROUPS.filter((g) => g !== "capabilities" || input.hasSnapshot)
-      : [...kept, "git"];
+  const candidates: RichGroup[] = GROUPS.filter((g) => g !== "capabilities" || input.hasSnapshot);
   const full: MainVariant = { id: "full", base: "minimal", groups: candidates, needs: candidates };
-  const probed = pass === 1 ? candidates : ["git" as const];
-  const addOne = probed.map((g) => ({ id: `+${g}`, base: "minimal", groups: [g], needs: [g] }));
-  const leaveOne = probed.map((g) => ({
+  const addOne = candidates.map((g) => ({ id: `+${g}`, base: "minimal", groups: [g], needs: [g] }));
+  const leaveOne = candidates.map((g) => ({
     id: `full-${g}`,
     base: "full",
     groups: candidates.filter((c) => c !== g),
     needs: candidates, // the same sample set as `full`, so each request has a `full` pair
   }));
-  const tail: MainVariant[] =
-    pass === 1 ? [{ ...plain("effort-reversed"), order: "reversed" }] : [];
+  const tail: MainVariant[] = [{ ...plain("effort-reversed"), order: "reversed" }];
   return [...head, full, ...addOne, ...leaveOne, ...tail];
 }
 
 /** Every variant id a pass can plan, main and worker, for validating `--only`. */
-export function variantIds(pass: 1 | 2, input: PlanInput): string[] {
-  const main = mainVariants(pass, input).map((v) => v.id);
-  const workers = pass === 1 ? WORKER_VARIANTS.map((v) => v.id) : [];
+export function variantIds(input: PlanInput): string[] {
+  const main = mainVariants(input).map((v) => v.id);
+  const workers = WORKER_VARIANTS.map((v) => v.id);
   return [...new Set([...main, ...workers])];
 }
 
@@ -245,11 +238,11 @@ function planWorkers(
   }
 }
 
-export function planPass(pass: 1 | 2, input: PlanInput): Plan {
+export function planPass(input: PlanInput): Plan {
   const plan: Plan = { requests: [], skipped: [], excluded: {} };
-  if (pass === 1 && !input.hasSnapshot) plan.skipped.push("capabilities", "workers");
-  const variants = mainVariants(pass, input).filter((v) => selected(v.id, input.only));
+  if (!input.hasSnapshot) plan.skipped.push("capabilities", "workers");
+  const variants = mainVariants(input).filter((v) => selected(v.id, input.only));
   planMain(variants, input.main, plan);
-  if (pass === 1 && input.hasSnapshot) planWorkers(input.workers, input.config, plan, input.only);
+  if (input.hasSnapshot) planWorkers(input.workers, input.config, plan, input.only);
   return plan;
 }

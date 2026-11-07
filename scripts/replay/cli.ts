@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { isAllowedJevUrl } from "../../src/shared/urls.ts";
 import { compare, diffCases } from "./compare.ts";
-import { type Args, parseArgs, readConfig, readGitMap, USAGE, UsageError } from "./config.ts";
+import { type Args, parseArgs, readConfig, USAGE, UsageError } from "./config.ts";
 import { mainSamples, mainStratum, sample, workerKind, workerSamples } from "./corpus.ts";
 import {
   agentFacts,
@@ -56,7 +56,6 @@ async function replay(args: Args, env: Env): Promise<number> {
   const ctx: ReplayContext = {
     ledger: readLedgerLines(jevDir),
     ...(snapshot === undefined ? {} : { capabilities: snapshot }),
-    ...(args.pass === 2 ? { git: readGitMap(jevDir) } : {}),
   };
   const rebuilt = sample(mainSamples(sessionsDir), args.main, args.seed, mainStratum).map((s) =>
     rebuildMain(s, ctx),
@@ -72,13 +71,12 @@ async function replay(args: Args, env: Env): Promise<number> {
     workers,
     config: config.plain,
     hasSnapshot: snapshot !== undefined,
-    ...(args.kept === undefined ? {} : { kept: args.kept }),
     ...(args.only === undefined ? {} : { only: args.only }),
   };
-  const known = variantIds(args.pass, input);
+  const known = variantIds(input);
   const unknown = (args.only ?? []).filter((id) => !known.includes(id));
   if (unknown.length > 0) throw new UsageError(`unknown variant in --only: ${unknown.join(", ")}`);
-  const plan = planPass(args.pass, input);
+  const plan = planPass(input);
   const counts = { main: rebuilt.length, workers: workers.length };
   if (!args.send) {
     printDryRun(plan, counts, { url, model: config.model });

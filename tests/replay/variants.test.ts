@@ -8,7 +8,6 @@ const main = (missing: RichGroup[] = []): RebuiltMain => ({
   sample: { session: "s", cwd: "/w", entryId: "e", prompt: "fix the bug", branch: [] },
   rich: {
     lastDecision: { effort: "high" },
-    git: { changed_files: 2, diff_lines: 10 },
     capabilities: { tools: [{ name: "bash", description: "run" }], agents: [] },
   },
   missing,
@@ -49,8 +48,8 @@ const config: PlainConfig = {
   expertOn: true,
 };
 
-const plan1 = (over: Partial<Parameters<typeof planPass>[1]> = {}) =>
-  planPass(1, { main: [main()], workers: [worker()], config, hasSnapshot: true, ...over });
+const plan1 = (over: Partial<Parameters<typeof planPass>[0]> = {}) =>
+  planPass({ main: [main()], workers: [worker()], config, hasSnapshot: true, ...over });
 const find = (p: ReturnType<typeof planPass>, variant: string, kind = "main") =>
   p.requests.filter((r) => r.variant === variant && r.kind === kind);
 const ws = (r: { state: unknown } | undefined) =>
@@ -166,29 +165,6 @@ describe("planPass", () => {
     expect(find(p, "+last_decision").map((r) => r.sample)).toEqual([0]);
     expect(p.excluded["+capabilities"]).toBe(1);
     expect(p.excluded["+last_decision"]).toBe(1);
-  });
-
-  test("pass 2 variants", () => {
-    const p = planPass(2, {
-      main: [main()],
-      workers: [worker()],
-      config,
-      hasSnapshot: true,
-      kept: ["capabilities"],
-    });
-    expect([...new Set(p.requests.map((r) => r.variant))]).toEqual([
-      "minimal",
-      "rerun-a",
-      "rerun-b",
-      "full",
-      "+git",
-      "full-git",
-    ]);
-    expect(ws(find(p, "full")[0])).toHaveProperty("git");
-    expect(JSON.stringify(find(p, "full-git")[0]?.state)).toContain('"capabilities"');
-    expect(ws(find(p, "full-git")[0])).not.toHaveProperty("git");
-    expect(find(p, "full-git")[0]?.base).toBe("full");
-    expect(p.skipped).toEqual([]);
   });
 
   test("worker variants", () => {

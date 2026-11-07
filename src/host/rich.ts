@@ -1,11 +1,10 @@
-import { pickRich, type GitCounts, type RichGroup, type RichInputs } from "../jev/state.ts";
+import { pickRich, type RichGroup, type RichInputs } from "../jev/state.ts";
 import type { AgentFacts } from "../policy/launch.ts";
 
 export type RichSources = {
   groups: readonly RichGroup[];
   cwd: string;
   last?: { effort?: string; strategy?: string };
-  git?: Promise<GitCounts | undefined>;
   tools: () => { name: string; description: string }[];
   agents: () => AgentFacts[];
 };
@@ -15,10 +14,6 @@ type Builder = (i: RichSources) => Promise<RichInputs> | RichInputs;
 
 const BUILDERS: Record<RichGroup, Builder> = {
   last_decision: (i) => (i.last === undefined ? {} : { lastDecision: i.last }),
-  git: async (i) => {
-    const git = await i.git;
-    return git === undefined ? {} : { git };
-  },
   capabilities: (i) => ({
     capabilities: {
       tools: i.tools(),
