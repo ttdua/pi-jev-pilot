@@ -123,4 +123,4 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 - Ledger concurrency and trimming, provided lines are never silently lost to a parallel Pi process.
 - Exact wording of the tool assessment criteria, verified by replay.
 - How agent files are parsed, and the table of the executor's built-in agents, since no public registry API exposes them.
-- How `workspace.languages` is detected, from shallow file names only.
+- ~~How `workspace.languages` is detected~~. Removed: the [WG-16 replay](evidence/2026-11-07-state-replay.md) found it within noise.

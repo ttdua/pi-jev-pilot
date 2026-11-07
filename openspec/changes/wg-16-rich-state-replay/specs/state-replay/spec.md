@@ -60,7 +60,7 @@ Every run MUST include two plain reruns of each base.
 
 #### Scenario: Reversed options
 - **WHEN** the replay builds the `effort-reversed` variant
-- **THEN** its `effort` options are `max`, `xhigh`, `high`, `medium`, `low`, and the state is minimal
+- **THEN** its `effort` options are the shipped option order reversed (`max`, `low`, `xhigh`, `medium`, `high` for the shipped `high`, `medium`, `xhigh`, `low`, `max`), and the state is minimal
 
 #### Scenario: Reruns present
 - **WHEN** a run plan is built for pass 1
