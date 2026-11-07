@@ -5,8 +5,8 @@
 > Overwritten on each apply iteration; iteration counter grows.
 
 **Change**: `wg-08-effort-hold`
-**Iteration**: `1`
-**Applied at**: `2026-11-07T00:38Z`
+**Iteration**: `2`
+**Applied at**: `2026-11-07T01:51Z`
 **Executor**: `subagent-driven-development` (superspec.implementer per task, superspec.task-reviewer per task and for the final whole-branch review)
 
 ---
@@ -23,7 +23,7 @@
 ## Commits
 
 - **Range**: `54a93f6..722c951` (54a93f6 is the change scaffold commit on `WG-08`)
-- **Count**: `13` before this receipt
+- **Count**: `16` before this receipt
 
 ---
 
