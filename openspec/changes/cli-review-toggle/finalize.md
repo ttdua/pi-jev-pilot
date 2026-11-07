@@ -18,7 +18,7 @@ No PR existed for the feature branch before finalize (no spec pre-review PR). Th
 - **Branch**: `support-turn-off-review-cli`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending (filled in after gh pr create)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/48`
 
 ---
 
@@ -31,7 +31,7 @@ No PR existed for the feature branch before finalize (no spec pre-review PR). Th
 
 ## PR comment
 
-- **PR comment status**: `pending (filled in after the PR is created)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/48#issuecomment-6711528636)
 
 ---
 
