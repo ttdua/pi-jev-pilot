@@ -9,6 +9,9 @@ import {
   supersede,
   nextValue,
   stepTuning,
+  undoTuning,
+  resetTuning,
+  setTuningOff,
   type HistoryEntry,
   type TuningRecord,
 } from "../../src/policy/tuning.ts";
@@ -434,5 +437,168 @@ describe("stepTuning", () => {
     const first = step({}, ls);
     expect(first.events).toHaveLength(1);
     expect(step(first.record, ls)).toEqual({ record: first.record, events: [] });
+  });
+
+  test("active block caps the raise", () => {
+    const rec: TuningRecord = { history: history1000, block: { value: 1700, at: 1000 } };
+    const out = step(rec, mixed(1001, 8));
+    expect(out.events).toEqual([{ kind: "applied", from: 1500, to: 1600 }]);
+  });
+
+  test("expired block is ignored", () => {
+    const rec: TuningRecord = { history: history1000, block: { value: 1700, at: 1000 } };
+    const ls = [...mixed(1001, 8), ...lines(200, 2000)];
+    const recent = [...mixed(2200, 8)];
+    const out = step(rec, [...ls, ...recent]);
+    expect(out.events).toEqual([{ kind: "applied", from: 1500, to: 1700 }]);
+  });
+
+  test("idempotent after a revert", () => {
+    const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 2 });
+    const ls = mixed(1001, 8);
+    const first = step(rec, ls);
+    expect(first.events).toEqual([{ kind: "reverted", from: 1700, to: 1500 }]);
+    expect(step(first.record, ls)).toEqual({ record: first.record, events: [] });
+  });
+});
+
+const rule = (at: number, from: number, to: number): HistoryEntry => ({
+  at,
+  parameter: "timeoutMs",
+  from,
+  to,
+  cause: "rule",
+});
+
+describe("undoTuning", () => {
+  test("Undo a change", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 1700, base: 1500 },
+      pending: { from: 1500, to: 1700, at: 10, before: { asked: 20, timeouts: 3 } },
+      history: [rule(10, 1500, 1700)],
+    };
+    const out = undoTuning(rec, 5000);
+    expect(out).toEqual({
+      kind: "undone",
+      from: 1700,
+      to: 1500,
+      record: {
+        block: { value: 1700, at: 5000 },
+        history: [
+          rule(10, 1500, 1700),
+          { at: 5000, parameter: "timeoutMs", from: 1700, to: 1500, cause: "undo" },
+        ],
+      },
+    });
+  });
+
+  test("Undo after a revert", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 1700, base: 1500 },
+      history: [
+        rule(10, 1500, 1700),
+        rule(60, 1700, 1900),
+        { at: 120, parameter: "timeoutMs", from: 1900, to: 1700, cause: "revert" },
+      ],
+    };
+    const out = undoTuning(rec, 5000);
+    expect(out.kind).toBe("undone");
+    expect(out.record.timeoutMs).toBeUndefined();
+    expect(out.record.block).toEqual({ value: 1700, at: 5000 });
+    expect(out.record.history?.at(-1)).toEqual({
+      at: 5000,
+      parameter: "timeoutMs",
+      from: 1700,
+      to: 1500,
+      cause: "undo",
+    });
+  });
+
+  test("Second undo", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 1900, base: 1500 },
+      history: [rule(10, 1500, 1700), rule(60, 1700, 1900)],
+    };
+    const first = undoTuning(rec, 5000);
+    expect(first.record.timeoutMs).toEqual({ value: 1700, base: 1500 });
+    expect(first.record.block).toEqual({ value: 1900, at: 5000 });
+    const second = undoTuning(first.record, 6000);
+    expect(second.record.timeoutMs).toBeUndefined();
+    expect(second.record.block).toEqual({ value: 1700, at: 6000 });
+    expect(second.record.history?.slice(-2).map((h) => h.cause)).toEqual(["undo", "undo"]);
+  });
+
+  test("Nothing to undo", () => {
+    const rec: TuningRecord = { off: true, history: [rule(10, 1500, 1700)] };
+    expect(undoTuning(rec, 5000)).toEqual({ kind: "nothing", record: rec });
+  });
+
+  test("no matching rule entry drops the value", () => {
+    const rec: TuningRecord = { timeoutMs: { value: 1700, base: 1500 } };
+    const out = undoTuning(rec, 5000);
+    expect(out.record.timeoutMs).toBeUndefined();
+    expect(out.record.history).toEqual([
+      { at: 5000, parameter: "timeoutMs", from: 1700, to: 1500, cause: "undo" },
+    ]);
+  });
+
+  test("history stays bounded", () => {
+    const history = Array.from({ length: 50 }, (_, i) => rule(i, 1500, 1700));
+    const out = undoTuning({ timeoutMs: { value: 1700, base: 1500 }, history }, 5000);
+    expect(out.record.history).toHaveLength(50);
+    expect(out.record.history?.[0]?.at).toBe(1);
+  });
+
+  test("leaves its input alone", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 1700, base: 1500 },
+      history: [rule(10, 1500, 1700)],
+    };
+    const copy = structuredClone(rec);
+    undoTuning(rec, 5000);
+    expect(rec).toEqual(copy);
+  });
+});
+
+describe("resetTuning", () => {
+  test("Reset after changes", () => {
+    const rec: TuningRecord = {
+      off: true,
+      timeoutMs: { value: 1900, base: 1500 },
+      pending: { from: 1700, to: 1900, at: 60, before: { asked: 20, timeouts: 3 } },
+      block: { value: 2100, at: 70 },
+      history: [rule(10, 1500, 1700)],
+    };
+    expect(resetTuning(rec, 1500, 5000)).toEqual({
+      off: true,
+      history: [
+        rule(10, 1500, 1700),
+        { at: 5000, parameter: "timeoutMs", from: 1900, to: 1500, cause: "reset" },
+      ],
+    });
+  });
+
+  test("nothing tuned adds no entry", () => {
+    const rec: TuningRecord = { block: { value: 1700, at: 70 }, history: [rule(10, 1500, 1700)] };
+    expect(resetTuning(rec, 1500, 5000)).toEqual({ history: [rule(10, 1500, 1700)] });
+  });
+
+  test("reset with untuned out of range", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 1900, base: 1500 },
+      block: { value: 2100, at: 70 },
+    };
+    expect(resetTuning(rec, 9000, 5000)).toEqual({});
+  });
+});
+
+describe("setTuningOff", () => {
+  test("Turning off keeps the tuned value", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 1700, base: 1500 },
+      history: [rule(10, 1500, 1700)],
+    };
+    expect(setTuningOff(rec, true)).toEqual({ ...rec, off: true });
+    expect(setTuningOff({ ...rec, off: true }, false)).toEqual({ ...rec, off: false });
   });
 });

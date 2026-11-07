@@ -216,3 +216,48 @@ export function stepTuning(input: StepInput): { record: TuningRecord; events: Tu
   const fired = fireRule(input, judged.record);
   return { record: fired.record, events: present([...head, fired.event]) };
 }
+
+export type UndoResult =
+  | { kind: "undone"; record: TuningRecord; from: number; to: number }
+  | { kind: "nothing"; record: TuningRecord };
+
+/** The `from` of the latest `rule` entry that raised to `value`, if any. */
+function ruleOrigin(history: TuningRecord["history"], value: number): number | undefined {
+  return [...(history ?? [])].reverse().find((h) => h.cause === "rule" && h.to === value)?.from;
+}
+
+/** Moves the tuned value back one rule step (or drops it) and blocks the undone value. */
+export function undoTuning(record: TuningRecord, now: number): UndoResult {
+  const tuned = record.timeoutMs;
+  if (tuned === undefined) return { kind: "nothing", record };
+  const target = ruleOrigin(record.history, tuned.value);
+  const { timeoutMs: _t, pending: _p, ...rest } = record;
+  const keep = target !== undefined && target !== tuned.base;
+  const to = keep ? target : tuned.base;
+  return {
+    kind: "undone",
+    from: tuned.value,
+    to,
+    record: {
+      ...rest,
+      ...(keep ? { timeoutMs: { ...tuned, value: target } } : {}),
+      block: { value: tuned.value, at: now },
+      history: pushHistory(record.history, entry(now, tuned.value, to, "undo")),
+    },
+  };
+}
+
+/** Drops the tuned value, pending change and block; keeps `off`. */
+export function resetTuning(record: TuningRecord, untuned: number, now: number): TuningRecord {
+  const { timeoutMs, pending: _p, block: _b, ...rest } = record;
+  if (timeoutMs === undefined || !inRange(untuned)) return rest;
+  return {
+    ...rest,
+    history: pushHistory(record.history, entry(now, timeoutMs.value, untuned, "reset")),
+  };
+}
+
+/** Sets or clears the off flag; nothing else changes. */
+export function setTuningOff(record: TuningRecord, off: boolean): TuningRecord {
+  return { ...record, off };
+}

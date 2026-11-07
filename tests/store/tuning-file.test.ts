@@ -1,7 +1,8 @@
 import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { readTuning, updateTuning } from "../../src/store/tuning-file.ts";
+import type { TuningRecord } from "../../src/policy/tuning.ts";
+import { readTuning, updateTuning, type TuningDocument } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
 
 const isRoot = process.getuid?.() === 0;
@@ -170,12 +171,15 @@ describe("updateTuning", () => {
       put(dir, { version: 1 });
       const before = bytes(file(dir));
       chmodSync(file(dir), 0o000);
-      const r = updateTuning(dir, (t) => ({ ...t, off: true }));
-      expect(r.ok).toBe(false);
-      expect(JSON.stringify(r)).toContain("EACCES");
-      expect(existsSync(join(dir, "tuning.json.bad"))).toBe(false);
-      expect(mode(file(dir))).toBe(0);
-      chmodSync(file(dir), 0o600);
+      try {
+        const r = updateTuning(dir, (t) => ({ ...t, off: true }));
+        expect(r.ok).toBe(false);
+        expect(JSON.stringify(r)).toContain("EACCES");
+        expect(existsSync(join(dir, "tuning.json.bad"))).toBe(false);
+        expect(mode(file(dir))).toBe(0);
+      } finally {
+        chmodSync(file(dir), 0o600);
+      }
       expect(bytes(file(dir))).toBe(before);
     }),
   );
@@ -187,11 +191,20 @@ describe("updateTuning", () => {
         bytes(join(dir, n)),
         statSync(join(dir, n)).mtimeMs,
       ]);
-      updateTuning(dir, (t) => ({ ...t, off: true }));
+      expect(updateTuning(dir, (t) => ({ ...t, off: true }))).toEqual({ ok: true });
       const after = ["config.json", "state.json"].map((n) => [
         bytes(join(dir, n)),
         statSync(join(dir, n)).mtimeMs,
       ]);
       expect(after).toEqual(snap);
     }));
+});
+
+describe("type parity", () => {
+  test("TuningRecord and TuningDocument are mutually assignable", () => {
+    const a: TuningRecord = {} as TuningDocument;
+    const b: TuningDocument = {} as TuningRecord;
+    void a;
+    void b;
+  });
 });
