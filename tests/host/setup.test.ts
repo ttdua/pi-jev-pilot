@@ -353,11 +353,13 @@ describe("setup", () => {
       await start(f, "main");
       f.emit(CREATED, { sessionId: "kid" });
       const selectedTools = ["read", "jev_review"];
+      let fileCalls = 0;
       const ctx = {
         cwd: agentDir,
         sessionManager: {
           getSessionId: () => "kid",
           getSessionFile: (): never => {
+            fileCalls++;
             throw new Error("no session file");
           },
         },
@@ -369,6 +371,7 @@ describe("setup", () => {
       };
       expect(await f.handlers.get("before_agent_start")![0]!(event, ctx)).toBeUndefined();
       expect(selectedTools).toEqual(["read"]);
+      expect(fileCalls).toBe(1);
     });
 
     test("a throwing event leaves before_agent_start returning undefined", async () => {
