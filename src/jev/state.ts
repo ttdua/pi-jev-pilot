@@ -56,12 +56,15 @@ export function parseShortstat(out: string): GitCounts | undefined {
   return { changed_files: Number(m[1]), diff_lines: Number(m[2] ?? 0) + Number(m[3] ?? 0) };
 }
 
-export type RichGroup =
-  | "last_decision"
-  | "context_used_percent"
-  | "git"
-  | "languages"
-  | "capabilities";
+export const RICH_GROUPS = [
+  "last_decision",
+  "context_used_percent",
+  "git",
+  "languages",
+  "capabilities",
+] as const;
+
+export type RichGroup = (typeof RICH_GROUPS)[number];
 
 export type RichInputs = {
   lastDecision?: { effort?: string; strategy?: string };

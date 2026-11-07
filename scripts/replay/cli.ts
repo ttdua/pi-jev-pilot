@@ -32,8 +32,14 @@ type Env = Record<string, string | undefined>;
 const runIdOf = (pass: number): string =>
   `${new Date().toISOString().replace(/[:.]/g, "-")}-pass${pass}`;
 
-function printDryRun(plan: Plan, counts: { main: number; workers: number }): void {
+function printDryRun(
+  plan: Plan,
+  counts: { main: number; workers: number },
+  dest: { url: string; model: string },
+): void {
   const e = estimate(plan);
+  console.log(`url: ${dest.url}`);
+  console.log(`model: ${dest.model}`);
   console.log(`samples: main ${counts.main}, workers ${counts.workers}`);
   console.log(`variants: ${[...new Set(plan.requests.map((r) => r.variant))].join(", ")}`);
   console.log(`skipped: ${plan.skipped.length > 0 ? plan.skipped.join(", ") : "none"}`);
@@ -63,7 +69,7 @@ async function replay(args: Args, env: Env): Promise<number> {
     ...(snapshot === undefined ? {} : { capabilities: snapshot }),
     ...(args.pass === 2 ? { git: readGitMap(jevDir) } : {}),
   };
-  const main = sample(mainSamples(sessionsDir), args.main, args.seed, mainStratum).map((s) =>
+  const rebuilt = sample(mainSamples(sessionsDir), args.main, args.seed, mainStratum).map((s) =>
     rebuildMain(s, ctx),
   );
   const workers = sample(workerSamples(sessionsDir), args.workers, args.seed, workerKind).map(
@@ -73,24 +79,29 @@ async function replay(args: Args, env: Env): Promise<number> {
     },
   );
   const plan = planPass(args.pass, {
-    main,
+    main: rebuilt,
     workers,
     config: config.plain,
     hasSnapshot: snapshot !== undefined,
     ...(args.kept === undefined ? {} : { kept: args.kept }),
   });
-  const counts = { main: main.length, workers: workers.length };
+  const counts = { main: rebuilt.length, workers: workers.length };
   if (!args.send) {
-    printDryRun(plan, counts);
+    printDryRun(plan, counts, { url, model: config.model });
     return 0;
   }
 
-  const results = await runPlan(plan, { url, apiKey: apiKey!, model: config.model, send: true });
+  const results = await runPlan(plan, {
+    url,
+    apiKey: apiKey ?? "",
+    model: config.model,
+    send: true,
+  });
   const runId = runIdOf(args.pass);
   const meta = { runId, pass: args.pass, samples: counts, config: config.plain };
   const aggregates = compare(plan, results, meta);
   const cases = diffCases(plan, results, config.plain, (kind, i) =>
-    kind === "main" ? (main[i]?.sample.prompt ?? "") : (workers[i]?.sample.brief ?? ""),
+    kind === "main" ? (rebuilt[i]?.sample.prompt ?? "") : (workers[i]?.sample.brief ?? ""),
   );
   const outDir = join(jevDir, "replay", runId);
   writeOutputs(outDir, aggregates, cases);

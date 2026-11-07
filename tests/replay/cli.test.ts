@@ -52,8 +52,16 @@ describe("parseArgs", () => {
       workers: 46,
       send: false,
     });
-    const a = parseArgs(["--pass", "2", "--kept", "git,languages", "--seed", "7", "--send"]);
-    expect(a).toMatchObject({ pass: 2, kept: ["git", "languages"], seed: 7, send: true });
+    const a = parseArgs([
+      "--pass",
+      "2",
+      "--kept",
+      "last_decision,languages",
+      "--seed",
+      "7",
+      "--send",
+    ]);
+    expect(a).toMatchObject({ pass: 2, kept: ["last_decision", "languages"], seed: 7, send: true });
   });
 
   test("pass is required", () => {
@@ -148,8 +156,48 @@ describe("main", () => {
     expect(r.code).toBe(2);
   });
 
+  test("corrupt config.json exits 2", async () => {
+    const dir = agentDir();
+    writeFileSync(join(dir, "jev", "config.json"), "{not json");
+    const r = await run(["--pass", "1", "--sessions", sessions], { PI_CODING_AGENT_DIR: dir });
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("config.json");
+  });
+
+  test("corrupt state.json exits 2", async () => {
+    const dir = agentDir();
+    writeFileSync(join(dir, "jev", "state.json"), "[1]");
+    const r = await run(["--pass", "1", "--sessions", sessions], { PI_CODING_AGENT_DIR: dir });
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("state.json");
+  });
+
+  test("dry run shows the destination url and model", async () => {
+    const dir = agentDir({ classifier: { url: "https://x.example/v1", model: "m-dest" } });
+    const r = await run(["--pass", "1", "--sessions", sessions], { PI_CODING_AGENT_DIR: dir });
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("url: https://x.example/v1");
+    expect(r.out).toContain("model: m-dest");
+  });
+
+  test("--kept git exits 2", async () => {
+    const r = await run(["--pass", "2", "--kept", "git", "--sessions", sessions], {
+      PI_CODING_AGENT_DIR: agentDir(),
+    });
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("git");
+  });
+
+  test("--pass 2 keeping capabilities needs --capabilities", async () => {
+    const r = await run(["--pass", "2", "--kept", "capabilities", "--sessions", sessions], {
+      PI_CODING_AGENT_DIR: agentDir(),
+    });
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("--capabilities");
+  });
+
   test("bad --kept exits 2", async () => {
-    const r = await run(["--pass", "2", "--kept", "git,nonsense", "--sessions", sessions], {
+    const r = await run(["--pass", "2", "--kept", "languages,nonsense", "--sessions", sessions], {
       PI_CODING_AGENT_DIR: agentDir(),
     });
     expect(r.code).toBe(2);

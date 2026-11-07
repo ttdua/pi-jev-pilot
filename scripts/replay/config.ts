@@ -1,7 +1,7 @@
 // Argument parsing and plain-JSON config reading for the replay CLI. No import of src/store/.
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import type { RichGroup } from "../../src/jev/state.ts";
+import { basename, join } from "node:path";
+import { RICH_GROUPS, type RichGroup } from "../../src/jev/state.ts";
 import type { TierName } from "../../src/policy/launch.ts";
 import { MODE_NAMES, type ModeName } from "../../src/policy/modes.ts";
 import type { PlainConfig } from "./variants.ts";
@@ -11,14 +11,6 @@ export const USAGE =
   "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--send]";
 
 export class UsageError extends Error {}
-
-export const RICH_GROUPS: readonly RichGroup[] = [
-  "last_decision",
-  "context_used_percent",
-  "git",
-  "languages",
-  "capabilities",
-];
 
 export type Args = {
   pass: 1 | 2;
@@ -45,8 +37,9 @@ function count(flag: string, value: string | undefined): number {
 }
 
 function keptGroups(value: string | undefined): RichGroup[] {
-  const names = (value ?? "").split(",").filter((n) => n !== "");
   if (value === undefined) throw new UsageError("--kept needs a value");
+  const names = value.split(",").filter((n) => n !== "");
+  if (names.includes("git")) throw new UsageError("--kept lists kept groups; git is always probed");
   const known = new Set<string>(RICH_GROUPS);
   const unknown = names.filter((n) => !known.has(n));
   if (unknown.length > 0) throw new UsageError(`unknown group in --kept: ${unknown.join(", ")}`);
@@ -84,6 +77,9 @@ export function parseArgs(argv: readonly string[]): Args {
   }
   if (pass === undefined) throw new UsageError("--pass is required");
   if (kept !== undefined && pass !== 2) throw new UsageError("--kept needs --pass 2");
+  if (kept?.includes("capabilities") === true && text["--capabilities"] === undefined) {
+    throw new UsageError("--kept capabilities needs --capabilities FILE");
+  }
   return {
     pass,
     ...(kept === undefined ? {} : { kept }),
@@ -118,10 +114,11 @@ function readJson(path: string): Rec {
   if (!existsSync(path)) return {};
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-    return isRec(parsed) ? parsed : {};
+    if (isRec(parsed)) return parsed;
   } catch {
-    return {};
+    /* reported below */
   }
+  throw new UsageError(`${basename(path)} is not a JSON object: ${path}`);
 }
 
 function tiersOf(raw: unknown): PlainConfig["tiers"] {
@@ -143,7 +140,7 @@ function slotsOf(raw: unknown): PlainConfig["slots"] {
   });
 }
 
-/** Reads `<jevDir>/config.json` and `state.json` as plain JSON; anything missing or invalid takes its default. */
+/** Reads `<jevDir>/config.json` and `state.json` as plain JSON; a missing file takes its defaults; a corrupt one is a UsageError. */
 export function readConfig(jevDir: string): ReplayConfig {
   const config = readJson(join(jevDir, "config.json"));
   const state = readJson(join(jevDir, "state.json"));

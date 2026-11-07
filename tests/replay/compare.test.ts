@@ -77,6 +77,24 @@ describe("compare", () => {
     expect(agg.variants["+git"]?.excluded).toBe(3);
   });
 
+  test("a variant excluded for every sample still gets an entry", () => {
+    const b = mainReq("minimal", "minimal", 0);
+    const plan = planOf([b], { excluded: { "+git": 2, "worker:no-instructions": 3 } });
+    const agg = compare(plan, [ok(b, mainBody())], meta);
+    expect(agg.variants["+git"]).toMatchObject({
+      kind: "main",
+      base: "minimal",
+      requests: 0,
+      excluded: 2,
+    });
+    expect(agg.variants["worker:no-instructions"]).toMatchObject({
+      kind: "worker",
+      base: "worker:base",
+      requests: 0,
+      excluded: 3,
+    });
+  });
+
   test("main and worker variants sharing an id keep separate excluded counts", () => {
     const mb = mainReq("minimal", "minimal", 0);
     const mr = mainReq("rerun-a", "minimal", 0);

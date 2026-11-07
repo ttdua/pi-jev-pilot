@@ -70,7 +70,7 @@ src/
     questions.ts         Builds the questions for each request kind
     state.ts             Builds main, worker and tool state from plain inputs
     branch.ts            Reads Pi-shaped session entries into branch items
-    workspace.ts         Reads platform markers by file name
+    workspace.ts         Reads platform markers by file name and scans languages by extension
 
   host/                  Everything that touches Pi or the executor.
     main.ts              before_agent_start: effort, skill, advice
@@ -82,7 +82,11 @@ src/
     tool-facts.ts        Maps Pi tool info to plain tool facts
     review.ts            jev_review tool, runs the CLI, hides the tool in children
     review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
-    context.ts           Reads the branch, tools, git counts, platforms
+    context.ts           Previous turn id and hold context from the branch; re-exports
+                         branchItems and scanPlatforms from jev/
+    rich.ts              Builds the optional rich state inputs for the shipped groups
+    git.ts               Git change counts through pi.exec, 500 ms cap
+    git-record.ts        Optional numbers-only recorder of git counts for the replay
     agents.ts            Reads agent files and the built-in agent table
     commands.ts          /jev
     skills.ts            Skill catalog, explicit skill, loaded-in-context scan
@@ -104,6 +108,15 @@ src/
 
 scripts/
   replay/                Offline measurement. Output stays outside the repository.
+    cli.ts               Entry point: dry run by default, --send to call Jev
+    config.ts            Argument parsing and plain-JSON config reading
+    corpus.ts            Main-turn and worker samples, seeded stratified sampler
+    sessions.ts          Reads Pi session files and ledger lines
+    inputs.ts            Rebuilds rich state inputs from local data
+    variants.ts          Plans the variants of each pass
+    run.ts               Sends planned requests, estimates cost
+    compare.ts           Aggregates flips against rerun noise
+    outputs.ts           Owner-only aggregates.json and cases.md
 ```
 
 ### Dependency rules

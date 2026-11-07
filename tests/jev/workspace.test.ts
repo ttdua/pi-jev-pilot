@@ -70,9 +70,12 @@ describe("scanLanguages", () => {
 
   test("stops at the entry cap", () => {
     const root = tree([]);
-    for (let i = 0; i < 6000; i++) writeFileSync(join(root, `f${i}.ts`), "");
+    for (let i = 0; i < 5000; i++) writeFileSync(join(root, `f${i}.txt`), "");
+    mkdirSync(join(root, "sub"));
+    for (let i = 0; i < 10; i++) writeFileSync(join(root, "sub", `g${i}.ts`), "");
     const started = Date.now();
-    expect(scanLanguages(root)).toEqual(["TypeScript"]);
+    // The cap is reached before `sub` is visited, so its files are never counted.
+    expect(scanLanguages(root)).toEqual(["none found"]);
     expect(Date.now() - started).toBeLessThan(1000);
   });
 });

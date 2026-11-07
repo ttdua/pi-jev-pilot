@@ -34,6 +34,14 @@ export function variantKey(kind: "main" | "worker", id: string): string {
   return kind === "worker" ? `worker:${id}` : id;
 }
 
+const WORKER_PREFIX = "worker:";
+
+/** What a `variantKey` stands for: its kind and the key of the variant it is compared with. */
+export function baseOfKey(key: string): { kind: "main" | "worker"; base: string } {
+  if (key.startsWith(WORKER_PREFIX)) return { kind: "worker", base: variantKey("worker", "base") };
+  return { kind: "main", base: key.startsWith("full-") ? "full" : "minimal" };
+}
+
 export type Plan = {
   requests: PlannedRequest[];
   skipped: string[];

@@ -12,7 +12,13 @@ import { isSlot, slotName, type EffectiveLaunch, type Target } from "../../src/p
 import { routeLaunch } from "../../src/policy/route.ts";
 import { readWorkerOutcome } from "../../src/policy/worker.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
-import { variantKey, type Plan, type PlainConfig, type PlannedRequest } from "./variants.ts";
+import {
+  baseOfKey,
+  variantKey,
+  type Plan,
+  type PlainConfig,
+  type PlannedRequest,
+} from "./variants.ts";
 
 export type Result = {
   variant: string;
@@ -205,6 +211,11 @@ function tally(plan: Plan): Record<string, VariantAggregate> {
     const entry = (variants[id] ??= emptyVariant(variantKey(req.kind, req.base), req.kind));
     entry.requests++;
     entry.excluded = plan.excluded[id] ?? 0;
+  }
+  for (const [id, excluded] of Object.entries(plan.excluded)) {
+    if (variants[id] !== undefined) continue;
+    const { kind, base } = baseOfKey(id);
+    variants[id] = { ...emptyVariant(base, kind), excluded };
   }
   return variants;
 }
