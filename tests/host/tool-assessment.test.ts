@@ -183,6 +183,7 @@ describe("tool assessment through the real CLI", () => {
     async () => {
       const { jev, fixture, session, child } = await runOne({});
       expect(child?.toolNames).toContain("edit");
+      expect(child?.toolNames).toContain("ask_parent");
       const requests = toolRequests(jev);
       expect(requests.length).toBe(1);
       const keys = toolKeys(requests[0]!);
@@ -193,6 +194,7 @@ describe("tool assessment through the real CLI", () => {
         toolsScored: keys.length,
         toolsFlagged: 1,
       });
+      expect(workerLines(session)[0]?.["toolsScored"]).toBe(7);
       expect(fixture.unmatched).toEqual([]);
     },
     TIMEOUT,
@@ -244,9 +246,14 @@ describe("tool assessment through the real CLI", () => {
   test(
     "no prompt marker in the ledger",
     async () => {
-      const { session } = await runOne({ enforce: true });
+      const { session, jev } = await runOne({ enforce: true });
       const dir = join(session.agentDir, "jev");
-      for (const f of readdirSync(dir)) {
+      const files = readdirSync(dir);
+      expect(files).toContain("ledger.jsonl");
+      expect(workerLines(session).length).toBeGreaterThanOrEqual(1);
+      // Positive control: the marker did reach Jev in the tool request, so its absence below is meaningful.
+      expect(toolRequests(jev).some((r) => r.body.includes(MARKER))).toBe(true);
+      for (const f of files) {
         expect(readFileSync(join(dir, f), "utf8")).not.toContain(MARKER);
       }
     },
@@ -280,9 +287,12 @@ describe("tool assessment through the real CLI", () => {
       const requests = toolRequests(jev);
       expect(requests.length).toBe(2);
       expect(requests.map((r) => bodyOf(r).state?.agent?.name).sort()).toEqual([OPEN, OPEN2]);
+      expect(fixture.unmatched).toEqual([]);
       for (const line of workerLines(session)) {
+        const own = requests.find((r) => bodyOf(r).state?.agent?.name === line["agent"]);
+        expect(own).toBeDefined();
         expect(line).toMatchObject({ toolsFlagged: 1 });
-        expect(line["toolsScored"]).toBe(toolKeys(requests[0]!).length);
+        expect(line["toolsScored"]).toBe(toolKeys(own!).length);
       }
       expect(fixture.requests.filter(isChild).length).toBe(2);
     },
