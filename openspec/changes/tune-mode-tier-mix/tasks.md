@@ -1,7 +1,7 @@
 ## 1. Worker rubric and request
 
-- [ ] 1.1 In `src/jev/rubrics.ts`, replace `TIER_CRITERIA` and `EXPERT_NEEDED_QUESTIONS` with one `WORKER_TIER_CRITERIA` holding today's `standard` text verbatim, plus `RUBRIC_VERSION = 2`. Give `MAIN_TIER_QUESTION` its own `MAIN_TIER_CRITERIA` copy. Remove the `budget` and `premium` tier wordings and both `expert_needed` questions
-- [ ] 1.2 In `src/jev/questions.ts`, drop the `mode` parameter of `buildWorkerQuestions` and stop asking `expert_needed`. Update `tests/jev/questions.test.ts` for the `worker-request` scenarios: Worker question set, Question wording, Rubric version with a wording snapshot, Offered tiers "No slot, request unchanged", Slot criterion "Same in every mode", and Main criteria held apart. Update the `strategy-advice` "Strategy questions" tests in `tests/policy/strategy.test.ts` to name the main criteria
+- [x] 1.1 In `src/jev/rubrics.ts`, replace `TIER_CRITERIA` and `EXPERT_NEEDED_QUESTIONS` with one `WORKER_TIER_CRITERIA` holding today's `standard` text verbatim, plus `RUBRIC_VERSION = 2`. Give `MAIN_TIER_QUESTION` its own `MAIN_TIER_CRITERIA` copy. Remove the `budget` and `premium` tier wordings and both `expert_needed` questions
+- [x] 1.2 In `src/jev/questions.ts`, drop the `mode` parameter of `buildWorkerQuestions` and stop asking `expert_needed`. Update `tests/jev/questions.test.ts` for the `worker-request` scenarios: Worker question set, Question wording, Rubric version with a wording snapshot, Offered tiers "No slot, request unchanged", Slot criterion "Same in every mode", and Main criteria held apart. Update the `strategy-advice` "Strategy questions" tests in `tests/policy/strategy.test.ts` to name the main criteria
 
 ## 2. Score and cut points (pure)
 
