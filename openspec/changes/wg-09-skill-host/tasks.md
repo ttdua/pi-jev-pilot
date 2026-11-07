@@ -22,4 +22,4 @@
 
 ## 5. Check
 
-- [ ] 5.1 Update `docs/roadmap.md` (WG-09 done); run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass (Host wiring only)
+- [x] 5.1 Update `docs/roadmap.md` (WG-09 done); run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`; all pass (Host wiring only)
