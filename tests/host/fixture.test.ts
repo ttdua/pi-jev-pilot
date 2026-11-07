@@ -123,6 +123,7 @@ describe("recording loopback provider", () => {
       "fixture-main",
       "fixture-balanced",
       "fixture-fast",
+      "fixture-expert",
     ]);
   });
 });

@@ -353,3 +353,11 @@ describe("Ledger failures do not affect the launch", () => {
     expect(h.lines).toHaveLength(0);
   });
 });
+
+describe("Mode recorded", () => {
+  test("Classified in budget", async () => {
+    const h = harness({ mode: "budget" });
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ mode: "budget" });
+  });
+});
