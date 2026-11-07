@@ -17,9 +17,9 @@ What changes for you once the package is installed, with the numbers measured on
 
 **What you do.** Nothing. Leave `/thinking` where it is, or change it yourself at any time.
 
-**What the package decides.** The thinking level for that prompt. `low` is the usual answer; risky work gets `high` or `xhigh`.
+**What the package decides.** The thinking level for that prompt. It picks a level from Jev's answer, raises risky work to at least `high`, caps the start at `xhigh`, and leaves a current `max` alone ([rules](domain-model.md#maindecision)).
 
-**Measured.** In the report run, 74 of 100 prompts stayed `low`, 15 went to `high` and 6 to `xhigh` ([distribution](evidence/2026-11-08-release.md#main-effort)). Compared with a user who never changes `/thinking` (fixed `low`), 5 of the 43 prompts that had a recorded start level were raised and none was lowered. The other 57 of the 100 sampled prompts had no recorded start level. Noise between two runs was 4 of 100 ([noise](evidence/2026-11-08-release.md#rerun-noise)).
+**Measured.** In the report run, Jev chose `low` for 74 of 100 prompts, 15 went to `high` and 6 to `xhigh` ([distribution](evidence/2026-11-08-release.md#main-effort)). Compared with a user who never changes `/thinking` (fixed `low`), 5 of the 43 prompts that had a recorded start level were raised and none was lowered. The other 57 of the 100 sampled prompts had no recorded start level. Noise between two runs was 4 of 100 ([noise](evidence/2026-11-08-release.md#rerun-noise)).
 
 ## Workers get a model and effort for you
 
@@ -45,44 +45,64 @@ Between two runs, 4.5–8% of tiers-only launches changed tier ([noise](evidence
 
 **What you do.** Name the model once. See [Configuration](configuration.md#crewslots).
 
-**What the package decides.** Whether a launch is a review. Review launches go to the slot; implementation and scout launches follow the mode.
+**What the package decides.** Where each launch goes. A review brief goes to the slot when Jev's slot probability is at least .6 and no earlier rule (`expert`, `risky`) applies; other launches follow the mode's cut points ([rules](domain-model.md#workerdecision)).
 
 **Measured.** 100 of 100 review briefs went to the slot in the report run, and 5 of 100 non-review briefs did too ([reviewer slot](evidence/2026-11-08-release.md#reviewer-slot)).
 
 ## Which rule wins
 
-When two rules disagree, the first one in the list applies.
+Two kinds of list follow. In a "first match wins" list, the first rule that applies decides. In an "applied in order" list, every step runs in turn.
 
-**Worker launch** ([rules](domain-model.md#workerdecision)):
+**Worker launch** ([rules](domain-model.md#workerdecision))
 
-1. `resume`, or a fork left `untouched`: the launch is not changed.
-2. Agent file `locked`.
-3. `expert`.
-4. `risky`.
-5. Slot probability ≥ .6.
-6. Cut points.
-7. Availability fallback.
+Guards first. They leave a launch alone, or partly alone:
 
-Then the effort: Jev's choice → `high` on risk → cap `xhigh` → cap `medium` on `fast` → clamp.
+- `resume`, or a fork with `untouched`: the launch is not changed.
+- Agent `locked`: if the model is locked, only thinking is written; if both are locked, the launch is untouched.
+
+Target, first match wins:
+
+1. `expert`
+2. `risky`
+3. Slot probability ≥ .6
+4. Cut points
+
+Then availability: an unusable tier moves down, never to `expert`; an unusable slot moves to `balanced`, then `fast`.
+
+Effort, applied in order:
+
+1. Jev's choice
+2. At least `high` on risk
+3. Cap `xhigh`
+4. Cap `medium` on `fast`
+5. Clamp to the model
+
+After a fallback move, effort is `xhigh` on every tier, without the `fast` cap.
 
 To override: lock the model or thinking in the agent file.
 
-**Main prompt** ([rules](domain-model.md#maindecision)):
+**Main prompt** ([rules](domain-model.md#maindecision))
 
-1. A manual level change discards the pending result.
-2. `holdProviders` keep the last level.
-3. Jev's choice.
-4. `high` on risk.
-5. Cap `xhigh`.
-6. `max` is left alone.
+Guards first:
+
+- A manual level change during an outstanding request discards that result.
+- `holdProviders` keep the newest level until a compaction or a provider or model switch, without asking Jev.
+- A current `max` is left alone.
+
+Then, applied in order:
+
+1. Jev's choice
+2. At least `high` on risk
+3. Start capped at `xhigh`
+4. Clamp to the model
 
 To override: change the level yourself, run `/jev effort off`, or edit `effort.holdProviders` in `config.json`.
 
-**Config value** ([files](configuration.md#files)):
+**Config value** ([files](configuration.md#files)), first match wins:
 
 1. `tuning.json`
 2. `state.json`
 3. `config.json`
-4. The default.
+4. The default
 
-To override: run `/jev tune off`, or edit `config.json`. A tuned value only applies while the config value matches its recorded base.
+To override: edit `config.json` (your value replaces a tuned one), run `/jev tune undo` or `/jev tune reset` to drop a tuned value, or `/jev tune off` to stop automatic changes.
