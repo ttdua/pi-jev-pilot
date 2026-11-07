@@ -75,7 +75,7 @@ const KEYS = { main: MAIN_KEYS, worker: WORKER_KEYS } as const;
 const CASE_TEXT_POINTS = 300;
 const NONE = "none";
 
-type Decided = { keys: Record<string, string>; answers: Record<string, Answer | undefined> };
+export type Decided = { keys: Record<string, string>; answers: Record<string, Answer | undefined> };
 
 function mainKeys(answers: Record<string, Answer>): Decided {
   const out: Record<string, string> = {};
@@ -137,12 +137,16 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
   };
 }
 
-function runsInBackground(req: PlannedRequest): boolean {
+export function runsInBackground(req: PlannedRequest): boolean {
   const state = req.state as { agent?: { run_in_background?: unknown } } | null;
   return state?.agent?.run_in_background === true;
 }
 
-function decide(req: PlannedRequest, result: Result, config: PlainConfig): Decided | undefined {
+export function decide(
+  req: PlannedRequest,
+  result: Result,
+  config: PlainConfig,
+): Decided | undefined {
   if (result.outcome.kind !== "ok") return undefined;
   if (req.kind === "worker") return workerKeys(req, result.outcome.body, config);
   const read = readAnswers(req.specs, result.outcome.body);

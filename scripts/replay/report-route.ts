@@ -34,11 +34,21 @@ function effortProbabilities(answers: ReadAnswers): WindowLine["effortP"] {
   return out;
 }
 
+export type RoutedLaunch = { target: string; reason: string };
+
 /** One target per answer in sample order; a slot launch never enters the window. */
 export function routeStream(
   answers: readonly (ReadAnswers | undefined)[],
   o: RouteOptions,
 ): (string | undefined)[] {
+  return routeStreamRecords(answers, o).map((r) => r?.target);
+}
+
+/** `routeStream` with the route reason of each launch; `undefined` for a miss. */
+export function routeStreamRecords(
+  answers: readonly (ReadAnswers | undefined)[],
+  o: RouteOptions,
+): (RoutedLaunch | undefined)[] {
   const slots = o.routing === "slots" ? o.config.slots.map((s) => s.name) : [];
   const offered = offeredTiers(o.config.tiers, o.config.expertOn);
   const tierQuestion = offered.length > 0 || slots.length > 0;
@@ -66,7 +76,10 @@ export function routeStream(
         kind: "worker",
         at: i,
         ...(tierQuestion
-          ? { rubric: RUBRIC_VERSION, expertOffered: offered.includes("expert") }
+          ? {
+              rubric: RUBRIC_VERSION,
+              expertOffered: offered.includes("expert"),
+            }
           : {}),
         ...(score !== undefined ? { score } : {}),
         reason: record.reason,
@@ -75,6 +88,6 @@ export function routeStream(
         ...(effortP !== undefined ? { effortP } : {}),
       });
     }
-    return target;
+    return { target, reason: record?.reason ?? "none" };
   });
 }
