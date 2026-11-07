@@ -38,4 +38,4 @@
 - [x] 7.2 Accept a boolean legacy `switches.review` in `src/store/state-file.ts`, drop it from the returned state (and an empty `switches`), and reject a non-boolean one. Tests in `tests/store/state-file.test.ts`
 - [x] 7.3 Pin `/jev review on|off` as usage, the eight-feature status block and the six-feature `Jev · off` in `tests/host/commands.test.ts` and `tests/host/status.test.ts`
 - [x] 7.4 Update `docs/usage-guide.md` (feature lists, "six decision features", `Jev · off` row, upgrade note) and `docs/workflow.md` §6 (no `review` switch)
-- [ ] 7.5 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. All pass
+- [x] 7.5 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. All pass
