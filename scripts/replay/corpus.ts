@@ -10,6 +10,8 @@ export type MainSample = {
   prompt: string;
   branch: SessionEntry[];
   startEffort?: string;
+  /** Turn id of the first `jev-turn` entry after the prompt on its branch. */
+  turnId?: string;
 };
 
 export type WorkerSample = {
@@ -79,6 +81,22 @@ function startEffortOf(
   return undefined;
 }
 
+/** Turn id of the first `jev-turn` entry on this prompt's branch before its next user message. */
+function turnIdOf(entries: readonly SessionEntry[], index: number): string | undefined {
+  const reach = new Set<string>([entries[index]!.id!]);
+  for (let i = index + 1; i < entries.length; i++) {
+    const e = entries[i]!;
+    if (!e.id || !e.parentId || !reach.has(e.parentId)) continue;
+    reach.add(e.id);
+    if (userPrompt(e) !== undefined) return undefined;
+    if (e.type === "custom" && e.customType === "jev-turn" && isRec(e.data)) {
+      const turnId = str(e.data.turnId);
+      if (turnId) return turnId;
+    }
+  }
+  return undefined;
+}
+
 export function mainSamples(dir: string): MainSample[] {
   const ledger = readLedgerLines(dir);
   const seen = new Set<string>();
@@ -92,6 +110,7 @@ export function mainSamples(dir: string): MainSample[] {
       if (prompt === undefined || !entry.id || isExcludedPrompt(prompt) || seen.has(prompt)) return;
       seen.add(prompt);
       const startEffort = startEffortOf(entries, index, ledger);
+      const turnId = turnIdOf(entries, index);
       out.push({
         session: header.id,
         cwd: header.cwd,
@@ -99,6 +118,7 @@ export function mainSamples(dir: string): MainSample[] {
         prompt,
         branch: branchTo(entries, entry.id),
         ...(startEffort ? { startEffort } : {}),
+        ...(turnId ? { turnId } : {}),
       });
     });
   }

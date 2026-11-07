@@ -47,6 +47,12 @@ describe("mainSamples robustness", () => {
     expect(workerSamples(dir).length).toBeGreaterThan(0);
   });
 
+  test("turn id is the first jev-turn after the prompt", () => {
+    const byPrompt = new Map(mainSamples(dir).map((s) => [s.prompt, s.turnId]));
+    expect(byPrompt.get("Add gadget tests")).toBe("turn-2");
+    expect(byPrompt.get("Fix the widget parser")).toBeUndefined();
+  });
+
   test("any slash prompt is excluded", () => {
     expect(mainSamples(dir).map((s) => s.prompt)).not.toContain("/other cmd");
   });
