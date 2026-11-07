@@ -4,11 +4,15 @@ import { readFileSync } from "node:fs";
 import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
 import {
   EXPERT_NEEDED_QUESTION,
+  GATE_QUESTIONS,
+  NONE_CRITERION,
   RISKY_QUESTION,
   STANDARD_TIER_CRITERIA,
   TIER_INSTRUCTION,
+  WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
 } from "../../src/jev/rubrics.ts";
+import { GATE_KEYS } from "../../src/policy/skill.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
 
 const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
@@ -158,4 +162,20 @@ describe("Question wording", () => {
     const { questions } = buildWorkerQuestions(["balanced"], {});
     expect(questions["tier"]!.criteria["balanced"]).toBe(STANDARD_TIER_CRITERIA.balanced);
   });
+});
+
+describe("Skill wording", () => {
+  test("which instruction and none criterion are verbatim in the docs", () => {
+    expect(docs).toContain(`> ${WHICH_INSTRUCTION}\n`);
+    expect(docs).toContain(`> ${NONE_CRITERION}\n`);
+  });
+  for (const key of GATE_KEYS) {
+    test(`gate ${key} is bare noul and verbatim`, () => {
+      const q = GATE_QUESTIONS[key];
+      expect(Object.keys(q).sort()).toEqual(["instructions", "type"]);
+      expect(q.type).toBe("noul");
+      const tail = key === "gate::prose_suffices" ? " Inverted when averaged. |" : " |";
+      expect(docs).toContain(`| \`${key}\` | ${q.instructions}${tail}`);
+    });
+  }
 });

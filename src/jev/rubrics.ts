@@ -1,5 +1,6 @@
 // Wording copied verbatim from docs/jev-questions.md. A change here needs a replay.
 import type { TierName } from "../policy/launch.ts";
+import type { GateKey } from "../policy/skill.ts";
 
 export type WireQuestion = {
   type: "choice" | "noul";
@@ -67,5 +68,31 @@ export const CORRECTS_QUESTION: WireQuestion = {
     true: "The message reports a problem with what the assistant just did or said: it doesn't work, it's wrong, it missed something, it's not what was asked, try again.",
     false:
       "The message approves, continues, asks something new, or gives a new task; or there was no previous answer.",
+  },
+};
+
+export type BareNoulQuestion = { type: "noul"; instructions: string };
+
+export const WHICH_INSTRUCTION =
+  "Which of these skills, if any, is the right one to load to help with the user's latest request? Match the kind of work the request asks for (such as debugging a failure, planning, reviewing, designing, writing a document), not only a product or technology it names. A skill for one product or platform (Vercel, Supabase, AWS, Firebase, Stripe…) fits only when the request, the conversation or the project (`workspace.platforms` in the state: what its files show it uses) shows that product is the one in use here; otherwise choose a general skill or none.";
+
+export const NONE_CRITERION =
+  "None of these skills fits: the request is ordinary work that no listed skill is specifically about.";
+
+export const GATE_QUESTIONS: Record<GateKey, BareNoulQuestion> = {
+  "gate::acts_on_user_system": {
+    type: "noul",
+    instructions:
+      "Is the assistant being asked to act on the user's files, accounts, devices, or online services, rather than only to explain or advise?",
+  },
+  "gate::would_follow_documented_procedure": {
+    type: "noul",
+    instructions:
+      "Would a careful expert answering this consult a specific documented procedure or set of commands, rather than answering from general understanding?",
+  },
+  "gate::prose_suffices": {
+    type: "noul",
+    instructions:
+      "Could a knowledgeable generalist fully satisfy this request in prose, with no tools, no documentation, and no access to the user's files or accounts?",
   },
 };
