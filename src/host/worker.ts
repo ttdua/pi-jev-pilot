@@ -5,7 +5,7 @@ import {
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { askJev, type JevOutcome } from "../jev/client.ts";
-import { buildWorkerQuestions, offeredTiers } from "../jev/questions.ts";
+import { buildWorkerQuestions, offeredTiers, type SlotOption } from "../jev/questions.ts";
 import { buildWorkerState } from "../jev/state.ts";
 import type { QuestionSpec } from "../policy/answers.ts";
 import type { ModeName } from "../policy/modes.ts";
@@ -14,6 +14,7 @@ import {
   effectiveLaunch,
   type AgentFacts,
   isSlot,
+  slotTarget,
   type EffectiveLaunch,
   type Target,
   type TierName,
@@ -21,10 +22,11 @@ import {
 import { launchKind, routeLaunch, type LaunchKind, type Route } from "../policy/route.ts";
 import { readWorkerOutcome, type WorkerAnswers } from "../policy/worker.ts";
 import type { Answer } from "../policy/answers.ts";
+import type { Slot } from "../store/config.ts";
 import { appendLedger } from "../store/ledger.ts";
 import { readAgent } from "./agents.ts";
 import { isChild } from "./child.ts";
-import { checkModel, splitModel } from "./models.ts";
+import { checkModel, resolveModel, splitModel } from "./models.ts";
 import { loadSnapshot, type Snapshot } from "./readiness.ts";
 import { jevDir } from "./stores.ts";
 import { takeToolCounts } from "./tool-counts.ts";
@@ -52,6 +54,8 @@ type LaunchEntry = {
   /** Read once at classification; the request, tier decision and ledger line all use it. */
   mode: ModeName;
   offered: readonly TierName[];
+  /** Read with `offered`, so a slot removed mid-launch still resolves at `tool_call`. */
+  slots: readonly Slot[];
   outcome: Promise<JevOutcome> | undefined;
   specs: Record<string, QuestionSpec>;
   route?: Route;
@@ -147,11 +151,47 @@ function lastUserText(ctx: ExtensionContext): string | undefined {
   return undefined;
 }
 
-// Slot behavior arrives with the host slot support; until then a slot cannot run.
-const SLOT_UNSUPPORTED: Check = { ok: false, why: "slots are not supported yet" };
+/** Registry display name of a `provider/model` id, when the registry has one. */
+function displayName(ctx: ExtensionContext, model: string): string | undefined {
+  const parts = splitModel(model);
+  const found = parts === undefined ? undefined : ctx.modelRegistry.find(parts[0], parts[1]);
+  return typeof found?.name === "string" ? found.name : undefined;
+}
 
-function modelFor(tiers: Partial<Record<TierName, string>>, target: Target): string {
-  return isSlot(target) ? "" : (tiers[target] ?? "");
+function tierNames(
+  ctx: ExtensionContext,
+  tiers: Partial<Record<TierName, string>>,
+  offered: readonly TierName[],
+): Partial<Record<TierName, string>> {
+  const names: Partial<Record<TierName, string>> = {};
+  for (const tier of offered) {
+    const name = displayName(ctx, tiers[tier] ?? "");
+    if (name !== undefined) names[tier] = name;
+  }
+  return names;
+}
+
+function slotOptions(ctx: ExtensionContext, slots: readonly Slot[]): SlotOption[] {
+  return slots.map((slot) => {
+    const name = displayName(ctx, slot.model);
+    return {
+      name: slot.name,
+      model: slot.model,
+      when: slot.when,
+      ...(name ? { displayName: name } : {}),
+    };
+  });
+}
+
+/** Where to fix a target that cannot run: a slot's model or a tier's model. */
+function fixHint(target: Target): string {
+  return isSlot(target)
+    ? `crew.slots "${target.slice(slotTarget("").length)}" model`
+    : `tiers.${target}`;
+}
+
+function targetLabel(target: Target): string {
+  return isSlot(target) ? `slot ${target.slice(slotTarget("").length)}` : `tier ${target}`;
 }
 
 export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
@@ -271,30 +311,25 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const facts = readAgent(input["subagent_type"], { cwd: ctx.cwd, agentDir: agentDir() });
     const launch = effectiveLaunch(input, facts);
     const offered = offeredTiers(settings.tiers, settings.switches.expert);
-    const kind = launchKind(launch, offered, settings.subagents.forkedLaunch);
+    const slots = settings.crew.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
+    const kind = launchKind(launch, offered, settings.subagents.forkedLaunch, slots.length);
     const entry: LaunchEntry = {
       facts,
       launch,
       kind,
       mode: settings.mode,
       offered,
+      slots,
       outcome: undefined,
       specs: {},
     };
     if (kind.kind === "untouched") return entry;
 
-    const names: Partial<Record<TierName, string>> = {};
-    if (kind.tierQuestion) {
-      for (const tier of offered) {
-        const parts = splitModel(settings.tiers[tier] ?? "");
-        const found = parts === undefined ? undefined : ctx.modelRegistry.find(parts[0], parts[1]);
-        if (found !== undefined && typeof found.name === "string") names[tier] = found.name;
-      }
-    }
     const { questions, specs } = buildWorkerQuestions(
       kind.tierQuestion ? offered : [],
-      names,
+      kind.tierQuestion ? tierNames(ctx, settings.tiers, offered) : {},
       entry.mode,
+      kind.tierQuestion ? slotOptions(ctx, slots) : [],
     );
     const parentRequest = settings.state.parentRequest ? lastUserText(ctx) : undefined;
     const state = buildWorkerState({
@@ -321,19 +356,18 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
 
   const warn = (
     ctx: ExtensionContext,
-    snap: Snapshot,
-    tier: Target,
+    target: Target,
+    model: string,
     why: string,
     to: Target | undefined,
   ): void => {
     if (!ctx.hasUI) return;
-    const model = modelFor(snap.settings.tiers, tier);
-    const key = `${tier}\u0000${model}`;
+    const key = `${target}\u0000${model}`;
     if (warned.has(key)) return;
     warned.add(key);
     const tail = to === undefined ? "launch left unchanged" : `using ${to}`;
     ctx.ui.notify(
-      `Jev: tier ${tier} (${model}) cannot run (${why}); ${tail}. Fix tiers.${tier} in ${join(jevDir(), "config.json")}.`,
+      `Jev: ${targetLabel(target)} (${model}) cannot run (${why}); ${tail}. Fix ${fixHint(target)} in ${join(jevDir(), "config.json")}.`,
       "warning",
     );
   };
@@ -358,13 +392,12 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     const answers = outcome === undefined ? undefined : readWorkerOutcome(outcome, entry.specs);
     entry.jev = outcome;
     const { settings } = snap;
+    const modelOf = (t: Target): string => resolveModel(t, settings.tiers, entry.slots) ?? "";
     const checks = new Map<Target, Check>();
     const checkOf = (tier: Target): Check => {
       let c = checks.get(tier);
       if (c === undefined) {
-        c = isSlot(tier)
-          ? SLOT_UNSUPPORTED
-          : checkModel(ctx.modelRegistry, modelFor(settings.tiers, tier));
+        c = checkModel(ctx.modelRegistry, modelOf(tier));
         checks.set(tier, c);
       }
       return c;
@@ -382,8 +415,8 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         const c = checkOf(t);
         return c.ok ? c.thinking : undefined;
       },
-      modelOf: (t) => modelFor(settings.tiers, t),
-      slots: [],
+      modelOf,
+      slots: entry.slots.map((s) => s.name),
     });
     entry.answers = answers;
     entry.route = result;
@@ -399,7 +432,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       if (!c.ok) {
         const to = result.record.tier === decided ? undefined : result.record.tier;
         try {
-          warn(ctx, snap, decided, c.why, to);
+          warn(ctx, decided, modelOf(decided), c.why, to);
         } catch {
           /* a failed warning never blocks the launch */
         }

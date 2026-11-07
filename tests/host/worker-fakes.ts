@@ -3,6 +3,7 @@ import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { Snapshot } from "../../src/host/readiness.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker.ts";
 import type { Mode } from "../../src/store/defaults.ts";
+import type { Slot } from "../../src/store/config.ts";
 import { resolveSettings } from "../../src/store/settings.ts";
 import { tempDir } from "../helpers.ts";
 
@@ -21,6 +22,7 @@ export type Opts = {
   executor?: boolean;
   parentRequest?: boolean;
   forkedLaunch?: "untouched" | "thinking";
+  slots?: Slot[];
 };
 
 export function snap(o: Opts = {}): Snapshot {
@@ -29,6 +31,7 @@ export function snap(o: Opts = {}): Snapshot {
       tiers: o.tiers ?? TIERS,
       state: { parentRequest: o.parentRequest ?? false },
       subagents: { forkedLaunch: o.forkedLaunch ?? "untouched" },
+      ...(o.slots === undefined ? {} : { crew: { slots: o.slots } }),
     } as never,
     state: {
       switches: { subagents: true, ...o.switches },
@@ -144,6 +147,10 @@ export function harness(
           : { id, provider: p, name: r.name ?? id, reasoning: true, auth: r.auth !== false };
       },
       hasConfiguredAuth: (m: { auth: boolean }) => m.auth,
+      getAvailable: () =>
+        Object.entries(reg)
+          .filter(([, r]) => r.auth !== false)
+          .map(([key]) => ({ provider: key.split("/")[0], id: key.slice(key.indexOf("/") + 1) })),
     },
   };
   const asks: JevRequest[] = [];

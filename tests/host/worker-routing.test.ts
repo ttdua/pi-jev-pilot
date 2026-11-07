@@ -128,6 +128,7 @@ function config(
     deep?: boolean;
     expert?: boolean;
     forked?: "thinking" | "untouched";
+    slotModel?: string;
   } = {},
 ): Record<string, unknown> {
   const tiers: Record<string, string> = {
@@ -139,9 +140,20 @@ function config(
   return {
     classifier: { url: jev.url("/classify"), timeoutMs: extra.timeoutMs ?? 1500 },
     tiers,
+    ...(extra.slotModel === undefined
+      ? {}
+      : { crew: { slots: [{ name: "reviewer", model: extra.slotModel, when: "Code review." }] } }),
     ...(extra.forked === undefined ? {} : { subagents: { forkedLaunch: extra.forked } }),
   };
 }
+
+const SLOT = "slot::reviewer";
+const slotAnswer = (effort: string): FixtureRoute =>
+  jevAnswers({
+    tier: SLOT,
+    tiers: ["fast", "balanced", SLOT],
+    effort,
+  });
 
 const KEY = { TYPESAFE_API_KEY: "test-key" };
 
@@ -476,6 +488,70 @@ describe("worker routing through the real CLI", () => {
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
       expect(workerLines(session)[0]).toMatchObject({ mode: "premium", reason: "miss" });
+    },
+    TIMEOUT,
+  );
+
+  test.each([
+    ["Review launch on the reviewer slot", {}],
+    ["Background review launch", { run_in_background: true }],
+  ])(
+    "%s",
+    async (_name, extra) => {
+      const jev = await newJev(slotAnswer("high"));
+      const { fixture, session } = await setup(
+        script([subagentCall(launch({ model: "fixture/fixture-main", ...extra }))]),
+      );
+      writeJev(session.agentDir, { config: config(jev, { slotModel: "fixture/fixture-review" }) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      const child = childOf(fixture);
+      expect(child?.model).toBe("fixture-review");
+      expect(child?.reasoningEffort).toBe("high");
+      expect(workerLines(session)[0]).toMatchObject({
+        tier: SLOT,
+        model: "fixture/fixture-review",
+      });
+      const body = JSON.parse(workerRequests(jev)[0]?.body ?? "{}") as {
+        questions?: { tier?: { criteria?: Record<string, string> } };
+      };
+      expect(body.questions?.tier?.criteria?.[SLOT]).toContain("Code review.");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Unusable reviewer slot falls back",
+    async () => {
+      const jev = await newJev(slotAnswer("medium"));
+      const { fixture, session } = await setup(script([subagentCall(launch())]), { keyless: true });
+      writeJev(session.agentDir, {
+        config: config(jev, { slotModel: "fixture2/fixture-review-keyless" }),
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      expect(childOf(fixture)?.model).toBe("fixture-balanced");
+      expect(workerLines(session)[0]).toMatchObject({ tier: "balanced", fallback: SLOT });
+      const warned = warnings(session).filter((w) =>
+        w.message?.includes('crew.slots "reviewer" model'),
+      );
+      expect(warned.length).toBe(1);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Jev down with a slot configured",
+    async () => {
+      const jev = await newJev({ json: {}, status: 500 });
+      const { fixture, session } = await setup(script([subagentCall(launch())]));
+      writeJev(session.agentDir, { config: config(jev, { slotModel: "fixture/fixture-review" }) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      const child = childOf(fixture);
+      expect(child?.model).toBe("fixture-balanced");
+      expect(child?.reasoningEffort).toBe("low");
+      expect(workerLines(session)[0]).toMatchObject({ reason: "miss" });
     },
     TIMEOUT,
   );

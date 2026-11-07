@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { putToolCounts, takeToolCounts, TOOL_COUNTS_KEY } from "../../src/host/tool-counts.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
-import { base, body, harness, ok } from "./worker-fakes.ts";
+import { base, body, effort, harness, ok } from "./worker-fakes.ts";
 
 const saved = process.env.TYPESAFE_API_KEY;
 beforeEach(() => {
@@ -413,5 +413,43 @@ describe("Tool counts on the worker line", () => {
     expect(h.lines).toHaveLength(1);
     expect(h.lines[0]).not.toHaveProperty("toolsScored");
     expect(takeToolCounts("ag-t1")).toEqual({ toolsScored: 4, toolsFlagged: 1 });
+  });
+});
+
+describe("Slot lines", () => {
+  const slots = [{ name: "reviewer", model: "fx/review", when: "Code review." }];
+  const answer = ok({
+    answers: {
+      tier: {
+        type: "choice",
+        choice: "slot::reviewer",
+        confidence: 0.9,
+        probabilities: { fast: 0, balanced: 0, deep: 0, "slot::reviewer": 0.9 },
+      },
+      effort: effort("high"),
+      risky: { type: "noul", noul: 0.1 },
+    },
+  });
+
+  test("Slot decision recorded", async () => {
+    const h = harness({
+      slots,
+      reg: { "fx/fast": {}, "fx/balanced": {}, "fx/deep": {}, "fx/review": {} },
+    });
+    h.setScript(() => answer);
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ tier: "slot::reviewer", model: "fx/review" });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+  });
+
+  test("Slot fallback recorded", async () => {
+    const h = harness({
+      slots,
+      reg: { "fx/fast": {}, "fx/balanced": {}, "fx/deep": {}, "fx/review": { auth: false } },
+    });
+    h.setScript(() => answer);
+    await foreground(h);
+    expect(h.lines[0]).toMatchObject({ tier: "balanced", fallback: "slot::reviewer" });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
   });
 });
