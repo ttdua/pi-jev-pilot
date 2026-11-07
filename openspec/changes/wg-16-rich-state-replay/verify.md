@@ -6,11 +6,11 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `wg-16-rich-state-replay`
-**Verified at**: `2026-11-07 11:16` (UTC)
-**Iteration**: `1`
-**Verifier**: The parent session ran checks 1, 2 and 6, the full test suite, typecheck, lint and fmt. The `superspec.verifier` subagent collected independent evidence for checks 3–5, with a fresh focused test run. The parent then re-checked the cited files and confirmed W1 at `src/jev/state.ts:37,273-276`.
+**Verified at**: `2026-11-07 11:42` (UTC)
+**Iteration**: `2`
+**Verifier**: The parent session ran checks 1, 2 and 6, the full test suite, typecheck, lint and fmt. The `superspec.verifier` subagent collected independent evidence for checks 3–5, with a fresh focused test run. The parent then re-checked the cited files and confirmed W1 at `src/jev/state.ts:37,273-276` in iteration 1. W1 is fixed in iteration 2.
 
-All commands below ran in the worktree, `/Users/naicoi/Projects/oss/pi-jev-pilot.wg-16-rich-state-replay`, at HEAD `5f85935`.
+All commands below ran in the worktree, `/Users/naicoi/Projects/oss/pi-jev-pilot.wg-16-rich-state-replay`, at HEAD `53121b0`. This is a re-verify after iteration 2. Iteration 2 changed only `src/jev/state.ts:37` (type) and `tests/jev/state.test.ts` (type assertion). The other checks were re-run fresh, and the requirement and scenario evidence from iteration 1 still holds for untouched code.
 
 ---
 
@@ -76,7 +76,7 @@ The `openspec instructions apply` progress reports 18 of 27 complete. Groups 1�
 - [x] The project test command was run fresh in this step
 
 **Test command**: `bun test`, run in the worktree.
-**Result**: exit 0. 1565 pass, 0 fail, 12287 `expect()` calls, 82 files, 90.01 s.
+**Result**: exit 0. 1566 pass, 0 fail, 12288 `expect()` calls, 82 files, 99.50 s.
 
 Also run fresh:
 - `bun run typecheck`: no type errors in 165 files.
@@ -153,7 +153,7 @@ Every `apply.md` contract deviation is present in the code as recorded:
 
 **Drift warnings** (non-blocking):
 
-- **W1:** `src/jev/state.ts:37` types `conversation.context_used_percent?: number | null`, which is wider than the spec's "MUST be omitted when the percentage is unknown". The behaviour is correct: `shapeContextPercent` (`state.ts:273-276`) returns `undefined` and never `null`.
+- None. W1 from iteration 1 was resolved in `53121b0`. `src/jev/state.ts:37` is now `context_used_percent?: number`, and the type-level test in `tests/jev/state.test.ts` fails typecheck if `null` is allowed again.
 
 ---
 
@@ -161,7 +161,7 @@ Every `apply.md` contract deviation is present in the code as recorded:
 
 - [x] Working tree is clean: `git status --porcelain` prints 0 lines before this receipt.
 
-**Commit range**: `3ebb2e0..5f85935`, which includes the apply receipt. This verify receipt is committed on top.
+**Commit range**: `3ebb2e0..53121b0`. The updated receipts are committed on top.
 
 ---
 
@@ -170,8 +170,7 @@ Every `apply.md` contract deviation is present in the code as recorded:
 **CRITICAL:** none.
 
 **WARNING:**
-- **W1:** narrow `MainState.conversation.context_used_percent` in `src/jev/state.ts:37` to `context_used_percent?: number`, so that the type matches the spec and no future caller can send `null`. This is a one-line change, and typecheck confirms nothing else assigns `null` there.
-- **W2:** D8 is not verified, and tasks 5.x and 6.x are open on purpose. Do not run `/opsx-archive` until Tasks 12–14 have run with the operator's approval. Each group's decision is applied in a later apply iteration, and verify is then repeated.
+- **W2 (still open):** D8 is not verified, and tasks 5.x and 6.x are open on purpose. Do not run `/opsx-archive` until Tasks 12–14 have run with the operator's approval. Each group's decision is applied in a later apply iteration, and verify is then repeated.
 
 **SUGGESTION:**
 - **S1:** when Task 13 edits `docs/jev-contract.md:82` (the IMPORTANT note), name `SHIPPED_MAIN_GROUPS` as the switch that ships a group.
@@ -182,7 +181,7 @@ Every `apply.md` contract deviation is present in the code as recorded:
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [x] PASS_WITH_WARNINGS: proceed. The warnings are W1, a type wider than the spec while behaviour is correct, and W2, where D8 and Tasks 12–14 are open by design and operator-gated. Check 5 records D8 as not verified, which caps the outcome at PASS_WITH_WARNINGS.
+- [x] PASS_WITH_WARNINGS: proceed. The remaining warning is W2: D8 and Tasks 12–14 are open by design and operator-gated. W1 is resolved. Check 5 records D8 as not verified, which caps the outcome at PASS_WITH_WARNINGS.
 - [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 Any check recorded as Not verified caps the outcome at PASS_WITH_WARNINGS.
@@ -193,7 +192,7 @@ The code part (plan Tasks 1–11) is verified. There are two ways to continue:
 - (a) Run `/opsx-continue` in the worktree to finalize the code part (merge it into `WG-16`). Tasks 12–14 then follow as a later apply iteration, and archive waits until they are done.
 - (b) Run pass 1 (Task 12) from the worktree first, with the operator's approval, and finalize afterwards.
 
-W1 can go into the next apply iteration, or be fixed before finalize.
+The operator chose (a): finalize the code part, then run pass 1.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.

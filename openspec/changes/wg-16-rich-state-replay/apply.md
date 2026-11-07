@@ -5,8 +5,8 @@
 > Overwritten on each apply iteration; iteration counter grows.
 
 **Change**: `wg-16-rich-state-replay`
-**Iteration**: `1`
-**Applied at**: `2026-11-07 10:56` (UTC)
+**Iteration**: `2`
+**Applied at**: `2026-11-07 11:40` (UTC). Iteration 1 was at 10:56, and iteration 2 fixes verify warning W1.
 **Executor**: `subagent-driven-development`. Each task had a `superspec.implementer`, followed by a combined spec and quality review by `superspec.task-reviewer`. A final whole-branch review by `superspec.task-reviewer` covered `3ebb2e0..f91258a`. A fix wave followed, then a scoped re-review.
 
 ---
@@ -22,8 +22,10 @@
 
 ## Commits
 
-- **Range**: `3ebb2e0..ce33b74`. `3ebb2e0` is the scaffold commit on `WG-16`. The receipt commit follows `ce33b74`.
-- **Count**: `30`
+- **Range**: `3ebb2e0..53121b0`. `3ebb2e0` is the scaffold commit on `WG-16`.
+  - Iteration 1 ran `3ebb2e0..ce33b74` plus the receipts `5f85935` and `f466b98`.
+  - Iteration 2 is `53121b0` (`fix(jev): context_used_percent is never null on the wire`), a type-only narrowing tested by a type-level assertion.
+- **Count**: `33`
 
 ---
 
@@ -36,8 +38,8 @@
   - Pass 2 also needs a few days of `JEV_REPLAY_GIT=1` recording first.
   - They are deliberately outside this apply run.
 
-**Verification at `ce33b74`:**
-- `bun test`: 1565 pass, 0 fail.
+**Verification at `53121b0`:**
+- `bun test`: 1566 pass, 0 fail.
 - `bun run typecheck`, `bun run lint` and `bun run fmt:check`: clean.
 
 **E2E check:** `bun scripts/replay/cli.ts --pass 1 --models <saved pi --list-models>` was run against the real `~/.pi/agent/sessions` as a dry run, with no `--send` and no network request.
@@ -66,4 +68,4 @@ The public contracts (the `scripts/replay` CLI, `replay-git.jsonl` and `JEV_REPL
 
 ## Next step
 
-Run `/opsx-verify`. After verify and finalize, plan Tasks 12–14 run only with the operator's explicit approval for each `--send`.
+Run `/opsx-verify` for iteration 2. After verify and finalize, plan Tasks 12–14 run only with the operator's explicit approval for each `--send`.
