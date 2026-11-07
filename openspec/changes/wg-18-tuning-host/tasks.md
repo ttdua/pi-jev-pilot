@@ -26,8 +26,8 @@
 
 ## 6. Wiring
 
-- [ ] 6.1 Parse `/jev tune [undo|reset|on|off]` in `parseJevArgs`, add the form to `usageText`, and delegate to `runTune` in `runJev` (usage warning when no `tune` dep is given); update `tests/host/commands.test.ts` (Command from a later work group, Usage lists the tune form, Unknown subcommand) and the three existing tests that expect `tune` to be usage (`commands.test.ts` usage-has-no-tune and later-work-group cases, `tests/host/jev-base.test.ts` "unknown command notifies a warning")
-- [ ] 6.2 In `src/host/setup.ts`, build one `TuningDeps`, call `settleTuning` after `main.agentSettled(event)` and `showUnseenTuning` in `session_start`, each in its own `try`, main sessions only; pass `runTune` to `runJev`
+- [x] 6.1 Parse `/jev tune [undo|reset|on|off]` in `parseJevArgs`, add the form to `usageText`, and delegate to `runTune` in `runJev` (usage warning when no `tune` dep is given); update `tests/host/commands.test.ts` (Command from a later work group, Usage lists the tune form, Unknown subcommand) and the three existing tests that expect `tune` to be usage (`commands.test.ts` usage-has-no-tune and later-work-group cases, `tests/host/jev-base.test.ts` "unknown command notifies a warning")
+- [x] 6.2 In `src/host/setup.ts`, build `TuningDeps` per call (`tuningDeps()`), call `settleTuning` after `main.agentSettled(event)` and `showUnseenTuning` in `session_start`, each in its own `try`, main sessions only; pass `runTune` to `runJev`
 
 ## 7. Host tests
 

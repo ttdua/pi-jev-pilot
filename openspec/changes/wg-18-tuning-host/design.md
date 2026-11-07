@@ -35,7 +35,7 @@ Constraints: `policy/` imports only itself and `shared/`, and `store/` must not 
 | `src/host/tuning-seen.ts` | `showUnseenTuning(deps, ctx)`: the session-start line and its `seenAt` write | store, policy, text |
 | `src/host/tune-command.ts` | `runTune(deps, sub, ctx)` and `buildTuneView`: the report and the four subcommands | store, policy, text |
 
-`setup.ts` builds one `TuningDeps` and calls the three entry points; there is no combined object. `commands.ts` adds a `tune` parse result and delegates it to `runTune`, the way it delegates slot forms. `commands.ts` imports `issueLines` from `tuning-text.ts`; the tune modules never import `commands.ts`, so there is no cycle. Alternatives considered:
+`setup.ts` builds a fresh `TuningDeps` for each call (so the jev directory is resolved per call, as for the ledger) and calls the three entry points; there is no combined object. `commands.ts` adds a `tune` parse result and delegates it to `runTune`, the way it delegates slot forms. `commands.ts` imports `issueLines` from `tuning-text.ts`; the tune modules never import `commands.ts`, so there is no cycle. Alternatives considered:
 - Putting the text in `policy/`: rejected, because wording is a host concern.
 - One `createTuning` returning all three: rejected under the coding standards, since it would own three responsibilities and one dependency bag for all of them.
 

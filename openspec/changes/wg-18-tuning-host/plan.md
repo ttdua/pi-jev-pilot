@@ -353,7 +353,7 @@ Ledger fixtures:
   - **Usage.** Add `"  /jev tune [undo|reset|on|off]   show or change tuning"` to `usageText`.
   - **`runJev`.** Call `deps.tune`, and notify `info` when `ok`, `error` otherwise. With no `deps.tune`, notify the usage text as a warning, so the existing "throwing notify" test (`commands.test.ts`) keeps its meaning.
   - **`setup.ts`.**
-    - Build `TuningDeps` once, with `jevDir()`, `Date.now`, `() => loadSnapshot(pi)`, `updateTuning` and `readLedger`.
+    - Build `TuningDeps` per call through a small `tuningDeps()` function, with `jevDir()`, `Date.now`, `() => loadSnapshot(pi)`, `updateTuning` and `readLedger`. *(Changed during apply, Task 10 review: the dir is resolved per call, like the ledger and `/jev`.)*
     - Call `settleTuning(deps, ctx)` after `await main.agentSettled(event)`, in its own `try`, inside the non-child branch.
     - Call `showUnseenTuning(deps, ctx)` after `drawStatus`, in its own `try`.
     - Pass `tune: (sub, ctx) => runTune(deps, sub, ctx)` to `runJev`.
