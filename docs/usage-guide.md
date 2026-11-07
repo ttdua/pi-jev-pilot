@@ -185,7 +185,7 @@ A CLI review does not depend on the Jev key or the feature switches, only on its
 /jev                     status and session tally
 /jev skills off          one feature
 /jev all off             the seven decision features
-/jev reset               switches, mode and CLI review default back to config defaults; the CLI review goes off
+/jev reset               switches, mode and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 ```
 
 Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
@@ -254,7 +254,7 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 /jev                                         status and session tally
 /jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
 /jev all on|off                              the seven decision features, not status or verbose
-/jev reset                                   switches, mode and CLI review default back to config defaults; the CLI review goes off
+/jev reset                                   switches, mode and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 /jev mode budget|standard|premium
 /jev <slot> <provider/model> [when <text>]   add or replace a slot
 /jev <slot>                                  show it
