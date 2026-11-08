@@ -2,6 +2,7 @@
 import type { Result } from "../../scripts/replay/compare.ts";
 import type { Plan, PlannedRequest, PlainConfig } from "../../scripts/replay/variants.ts";
 import { mainQuestions } from "../../src/jev/questions.ts";
+import type { WorkerAnswers } from "../../src/policy/worker.ts";
 
 export const MARKER = "JEV-MARKER-PROMPT";
 export const config: PlainConfig = {
@@ -73,3 +74,25 @@ export const planOf = (requests: PlannedRequest[], over: Partial<Plan> = {}): Pl
   excluded: {},
   ...over,
 });
+
+export type WorkerPick = {
+  tier?: string;
+  tierP?: Record<string, number>;
+  effort?: string;
+  risky?: number;
+};
+
+/** A parsed worker answer set, as `readWorkerOutcome` would return it. */
+export function workerAnswers(p: WorkerPick = {}): Extract<WorkerAnswers, { kind: "read" }> {
+  const tier = p.tier ?? "fast";
+  const effort = p.effort ?? "low";
+  return {
+    kind: "read",
+    unanswered: {},
+    answers: {
+      tier: { type: "choice", choice: tier, probabilities: p.tierP ?? { [tier]: 1 } },
+      effort: { type: "choice", choice: effort, probabilities: { [effort]: 1 } },
+      risky: { type: "noul", noul: p.risky ?? 0.1 },
+    },
+  };
+}

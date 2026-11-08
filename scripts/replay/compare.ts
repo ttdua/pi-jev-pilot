@@ -72,10 +72,11 @@ export type DiffCase = {
 export const MAIN_KEYS = ["effort", "tier", "strategy", "risky", "corrects"] as const;
 export const WORKER_KEYS = ["tier", "effort"] as const;
 const KEYS = { main: MAIN_KEYS, worker: WORKER_KEYS } as const;
-const CASE_TEXT_POINTS = 300;
+/** Code points of a sample kept in a case entry. */
+export const CASE_TEXT_POINTS = 300;
 const NONE = "none";
 
-type Decided = { keys: Record<string, string>; answers: Record<string, Answer | undefined> };
+export type Decided = { keys: Record<string, string>; answers: Record<string, Answer | undefined> };
 
 function mainKeys(answers: Record<string, Answer>): Decided {
   const out: Record<string, string> = {};
@@ -98,7 +99,7 @@ function mainKeys(answers: Record<string, Answer>): Decided {
   return { keys: out, answers };
 }
 
-const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
+export const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
   resume: false,
   inheritContext: false,
   runInBackground,
@@ -106,13 +107,18 @@ const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
   thinkingLocked: false,
 });
 
-function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): Decided | undefined {
-  const answers = readWorkerOutcome({ kind: "ok", body }, req.specs);
-  if (answers.kind !== "read") return undefined;
-  const modelOf = (t: Target): string =>
+/** The model a target resolves to in a plain config; empty when unconfigured. */
+export function modelOfConfig(config: PlainConfig): (t: Target) => string {
+  return (t) =>
     isSlot(t)
       ? (config.slots.find((s) => s.name === slotName(t))?.model ?? "")
       : (config.tiers[t] ?? "");
+}
+
+function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): Decided | undefined {
+  const answers = readWorkerOutcome({ kind: "ok", body }, req.specs);
+  if (answers.kind !== "read") return undefined;
+  const modelOf = modelOfConfig(config);
   const route = routeLaunch({
     answers,
     launch: REPLAY_LAUNCH(runsInBackground(req)),
@@ -132,12 +138,16 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
   };
 }
 
-function runsInBackground(req: PlannedRequest): boolean {
+export function runsInBackground(req: PlannedRequest): boolean {
   const state = req.state as { agent?: { run_in_background?: unknown } } | null;
   return state?.agent?.run_in_background === true;
 }
 
-function decide(req: PlannedRequest, result: Result, config: PlainConfig): Decided | undefined {
+export function decide(
+  req: PlannedRequest,
+  result: Result,
+  config: PlainConfig,
+): Decided | undefined {
   if (result.outcome.kind !== "ok") return undefined;
   if (req.kind === "worker") return workerKeys(req, result.outcome.body, config);
   const read = readAnswers(req.specs, result.outcome.body);

@@ -1,8 +1,5 @@
 # Usage guide
 
-> [!NOTE]
-> This guide describes the planned behavior. Nothing is installable yet. See the [roadmap](roadmap.md).
-
 ## Before you install
 
 You need:
@@ -27,7 +24,7 @@ pi install npm:@gotgenes/pi-subagents
 ```
 
 ```bash
-pi install git:github.com/ttdua/pi-jev-pilot
+pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0
 ```
 
 ```bash
@@ -70,8 +67,6 @@ After each decided prompt the line shows the level that was set or kept:
 Jev · standard · high
 Jev · standard · high · delegate
 ```
-
-A later work group adds the skill.
 
 | You see | Meaning |
 |---|---|
