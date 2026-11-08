@@ -7,9 +7,9 @@
 
 **Change**: `session-mode-override`
 **Finalized at**: `2026-11-08 03:45`
-**Outcome**: `merge-locally`
+**Outcome**: `pr-created`
 
-The canonical flow ends with `pr-updated`. This run deviates from it because the project `AGENTS.md` says: "Git approval: do not push, merge or open a PR without the user's explicit permission in chat." The operator approved the code review and the local merge into the feature branch, but has not yet allowed a push or a PR. So finalize ran steps 1–9 of the git-side closeout and stopped before step 10 (push) and step 11 (PR).
+Deviation from the canonical `pr-updated` flow: the project `AGENTS.md` requires explicit permission before any push or PR. Finalize first stopped after the local merge (outcome `merge-locally`). The operator then chose "archive first, then push and open a PR". `origin/main` had moved on with #48 (`cli-review-toggle`), which conflicted with this branch in 9 files, and the operator chose to merge `origin/main` and keep both features. The merge is `ddc5036`. After a clean full check, the branch was pushed and PR #49 was opened against `main`.
 
 ---
 
@@ -17,8 +17,8 @@ The canonical flow ends with `pr-updated`. This run deviates from it because the
 
 - **Branch**: `allow-session-mode` (feature branch; `session-mode-override` was fast-forwarded into it)
 - **Base branch**: `main`
-- **Final state**: `merged` (local fast-forward into `allow-session-mode`, at `f35544a` before this receipt). The branch has no upstream and is not pushed.
-- **PR URL**: N/A
+- **Final state**: `pr-open`. `session-mode-override` was fast-forwarded into `allow-session-mode` at `f35544a`, the change was archived in `b2ef99b`, `origin/main` was merged in `ddc5036`, and the branch was pushed to `origin/allow-session-mode`.
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/49
 
 ---
 
@@ -31,7 +31,7 @@ The canonical flow ends with `pr-updated`. This run deviates from it because the
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/49#issuecomment-6715938886)
 
 ---
 
@@ -48,10 +48,10 @@ The canonical flow ends with `pr-updated`. This run deviates from it because the
 - **Baseline status at finish**: `passing`
   - Worktree before merge: `bun test` exit 0, 1845 pass, 0 fail.
   - Merged result on `allow-session-mode`: `bun run typecheck` clean, lint exit 0, fmt:check exit 0, `bun test` exit 0, 1845 pass, 0 fail.
+  - After merging `origin/main` (#48): typecheck clean, lint exit 0, fmt:check exit 0, `bun test` exit 0, 1896 pass, 0 fail; `openspec validate --specs` 41 passed, 0 failed.
 
 ---
 
 ## Next step
 
-1. Run `/opsx-archive` on `allow-session-mode`. It syncs the delta specs, including the new capability `directory-mode`, into `openspec/specs/`.
-2. After that, and only with the operator's permission, push `allow-session-mode` and open a PR against `main`. A PR would contain the implementation and the archive together.
+Wait for the code review on PR #49. The change is already archived on this branch. After approval, merge the PR (`gh pr merge 49 --squash --delete-branch` or the GitHub UI), with the operator's permission.
