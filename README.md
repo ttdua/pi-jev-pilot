@@ -13,7 +13,7 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 
 The numbers show routing, not quality, from one operator's sessions. See the [release report](docs/evidence/2026-11-08-release.md).
 
-One command shifts the whole tier mix:
+One command shifts the whole tier mix, for this directory or for all of them:
 
 ```text
 /jev mode budget global      more work goes to the fast tier
@@ -36,11 +36,11 @@ pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0
 export TYPESAFE_API_KEY="…"
 ```
 
-Then create `~/.pi/agent/jev/config.json` with your model tiers. The [configuration reference](docs/configuration.md) lists every setting.
+Then create `~/.pi/agent/jev/config.json` with your model tiers. The [configuration reference](docs/configuration.md) lists every setting. The CLI review (`jev_review`) is off until you run `/jev cli-review on`.
 
 ## Check it works
 
-Start Pi and type `/jev`. The status line should read `Jev · standard`. If it does not, see [troubleshooting](docs/usage-guide.md#troubleshooting).
+Start Pi and type `/jev`. The status line should read `Jev · standard`, or `Jev · premium (local)` when a directory mode is set. If it does not, see [troubleshooting](docs/usage-guide.md#troubleshooting).
 
 ## Documentation
 

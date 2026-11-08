@@ -25,7 +25,7 @@ What changes for you once the package is installed, with the numbers measured on
 
 **When it applies.** A prompt launches a `subagent` worker.
 
-**What you do.** Choose a mode once: `/jev mode budget|standard|premium`.
+**What you do.** Set a mode for this directory with `/jev mode budget|standard|premium`. Add `global` (`/jev mode <m> global`) to set it for every directory without its own mode, and `/jev mode clear` removes the directory mode ([usage guide](usage-guide.md#modes)).
 
 **What the package decides.** The model tier and thinking level of each launch, so one command shifts the whole tier mix.
 
@@ -49,9 +49,19 @@ Between two runs, 4.5–8% of tiers-only launches changed tier ([noise](evidence
 
 **Measured.** 100 of 100 review briefs went to the slot in the report run, and 5 of 100 non-review briefs did too ([reviewer slot](evidence/2026-11-08-release.md#reviewer-slot)).
 
+The reviewer slot is not the CLI review. The CLI review (`jev_review`, which runs Codex or OpenCode) is off by default and runs only when you ask. Turn it on with `/jev cli-review on` ([usage guide](usage-guide.md#reviews)). The replay does not measure it.
+
 ## Which rule wins
 
-Two kinds of list follow. In a "first match wins" list, the first rule that applies decides. In an "applied in order" list, every step runs in turn.
+Three kinds of list follow. In a "first match wins" list, the first rule that applies decides. In an "applied in order" list, every step runs in turn. Some rules are a single line.
+
+**Mode** for a session ([usage guide](usage-guide.md#modes)), first match wins:
+
+1. Directory mode, from `<cwd>/.pi/jev-mode.json`
+2. Global mode, from `state.json`
+3. The default, `standard`
+
+**CLI review on or off** ([configuration](configuration.md#review)), first match wins: `state.json` `cliReviewEnabled`, then `config.json` `review.enabled`, then off.
 
 **Worker launch** ([rules](domain-model.md#workerdecision))
 
