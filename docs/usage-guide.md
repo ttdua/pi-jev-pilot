@@ -55,7 +55,8 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 | `Jev · standard` | Working. The word is the current mode |
 | `Jev · no key` | `TYPESAFE_API_KEY` (or the variable named in config) is not set in this shell |
 | `Jev · config error` | `config.json` is malformed or invalid. `/jev` names the field |
-| `Jev · off` | All seven decision features are switched off |
+| `Jev · off` | All six decision features are switched off |
+| `Jev · premium (local)` | A directory mode is set for this directory. It overrides the global mode in every session started here |
 | `no executor` in `/jev` | Worker routing and tool assessment are off |
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
@@ -89,10 +90,19 @@ If you press Esc before any provider request, the status line also returns to it
 ## Modes
 
 ```text
-/jev mode budget      target mix leans to the fast tier
-/jev mode standard    the default
-/jev mode premium     target mix leans to the deep tier, with an expert cap
+/jev mode budget           target mix leans to the fast tier, in this directory
+/jev mode standard         the default, in this directory
+/jev mode premium          target mix leans to the deep tier, with an expert cap, in this directory
+/jev mode budget global    the same, for every directory without its own mode
+/jev mode clear            remove the directory mode
 ```
+
+`/jev mode <m>` sets the mode for this directory. It is stored in `<cwd>/.pi/jev-mode.json`, and every new, resumed, forked or reloaded Pi run in this directory uses it. Other directories, and subdirectories without their own file, keep the global mode. `/jev mode <m> global` sets the global mode in `state.json`, which is the saved mode. While a directory mode is set it still wins in its directory, and the report says `directory mode <d> still applies here; global mode is now <m>`. `/jev mode clear` removes the directory mode; with none set it reports `no directory mode set`. `/jev reset` removes it too. While it is set, `/jev` shows `mode: premium (this directory; global standard)`.
+
+> [!WARNING]
+> **Breaking change:** `/jev mode <m>` no longer changes every directory. Use `/jev mode <m> global` for the old effect. A mode already in `state.json` stays the global mode.
+
+The file `.pi/jev-mode.json` may show up in `git status`. The package never edits `.gitignore`. A damaged file is ignored, so the global mode applies, and `/jev` lists it as `local mode (malformed)` or `local mode (unreadable)`. `/jev mode <m>` overwrites it. Only the mode has a directory layer; switches, the CLI review default and slots stay global.
 
 Each mode is a target mix of tier-routed worker launches. Jev scores every launch for difficulty, and cut points recomputed from your recent launches keep the mix near the target ([ADR 0008](decisions/0008-mode-target-cutpoints.md)):
 
@@ -134,6 +144,8 @@ A slot offers Jev another model, with a description of when to choose it.
 
 **Routine reviews** go through a slot like the one above. Any subagent doing review work is routed to it, whichever agent it is.
 
+The CLI review is off by default. Turn it on with `/jev cli-review on`, by choosing a reviewer, or with `review.enabled` in `config.json`.
+
 **A CLI review** runs Codex or OpenCode itself, read-only, using that CLI's own login. Ask for it in words:
 
 ```text
@@ -145,12 +157,16 @@ Say `with Codex` or `with OpenCode`, and name a model or effort, to override the
 Set a default:
 
 ```text
+/jev cli-review on
+/jev cli-review off
 /jev cli-review codex luna high
 /jev cli-review opencode
 /jev cli-review opencode openai/gpt-6.1-sol high
 /jev cli-review codex default
 /jev cli-review codex luna default
 ```
+
+Choosing a reviewer turns the CLI review on. `/jev cli-review off` turns it off and keeps the reviewer choice.
 
 The model takes one of three forms:
 
@@ -162,20 +178,22 @@ The model takes one of three forms:
 
 `/jev cli-review` checks the model and effort against the CLI's own list (`codex debug models`, `opencode models`). An unknown model, an unsupported effort, or a name that two OpenCode providers list is refused, and the message suggests close matches. When the list cannot be read (CLI missing, error or timeout), the value is accepted with a warning that it was not checked. An OpenCode effort needs a model.
 
-The choice is kept in `state.json`; `config.json` is not changed. `/jev` shows it on a `cli review:` line, such as `cli review: codex (model luna, effort high)`, or `CLI defaults` when nothing is set. `/jev reset` clears it.
+The choice and the on/off setting are kept in `state.json`; `config.json` is not changed. `/jev` shows them on a `cli review:` line, such as `cli review: on (codex, model luna, effort high)`, or `cli review: off (codex, CLI defaults)` when nothing is set. `/jev reset` turns the CLI review off (unless `review.enabled` is `true` in config) and clears the reviewer choice. `/jev all on|off` leaves it alone.
 
-A CLI review does not need the Jev key and does not depend on the switches. It runs only when you ask, and it is never offered to subagents.
+A CLI review does not depend on the Jev key or the feature switches, only on its own on/off setting. It runs only when you ask, and it is never offered to subagents. While it is off, the `jev_review` tool is not offered to the model, and a call is refused with `jev_review is off. Turn it on with /jev cli-review on.`. A change applies from the next turn, without a restart.
+
+**Upgrading:** from this version, `jev_review` is off until you turn it on. An existing CLI review default does not turn it on by itself. The `review` feature switch is removed: it never controlled anything. `/jev review on|off` now prints the usage text. A `switches.review` left in `state.json` is ignored and removed at the next change.
 
 ## Switches
 
 ```text
 /jev                     status and session tally
 /jev skills off          one feature
-/jev all off             the seven decision features
-/jev reset               switches, mode and CLI review default back to config defaults
+/jev all off             the six decision features
+/jev reset               switches, mode (global and this directory) and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 ```
 
-Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`, `status`, `verbose`. `/jev all on|off` sets the seven decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review`) and leaves `status` and `verbose` alone. Switches persist across sessions and apply from the next prompt or launch.
+Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`. `/jev all on|off` sets the six decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
 
 `/jev` ends with the session tally, which starts empty in each new or resumed session:
 
@@ -239,14 +257,16 @@ Limits: one parameter and one step at a time, at least 40 decisions apart, and i
 
 ```text
 /jev                                         status and session tally
-/jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, review, status, verbose
-/jev all on|off                              the seven decision features, not status or verbose
-/jev reset                                   switches, mode and CLI review default back to config defaults
-/jev mode budget|standard|premium
+/jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, status, verbose
+/jev all on|off                              the six decision features, not status or verbose
+/jev reset                                   switches, mode (global and this directory) and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
+/jev mode budget|standard|premium [global]
+/jev mode clear                              remove the directory mode
 /jev <slot> <provider/model> [when <text>]   add or replace a slot
 /jev <slot>                                  show it
 /jev remove <slot>                           delete a slot
-/jev cli-review <codex|opencode> [model|default] [effort|default]   kept in state.json
+/jev cli-review on|off                       turn the CLI review on or off
+/jev cli-review <codex|opencode> [model|default] [effort|default]   kept in state.json; also turns it on
 /jev tune [undo|reset|on|off]               show or change tuning
 ```
 

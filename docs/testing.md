@@ -31,13 +31,13 @@ Expected values come from this documentation, not from running the code. Each [i
 The manual Q8 run and the manual CLI review run are the only Host evidence that uses real providers and logins. They are run by hand and are never part of CI.
 
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
-- Jev down: identical provider requests to a run without the package, apart from a status line and the `jev_review` tool declaration with its prompt lines (the only other difference).
+- Jev down: identical provider requests to a run without the package, apart from a status line.
 - Esc during classification: no provider request follows.
 - A worker's actual model and thinking at the child's first request, foreground and background.
 - Nothing from a hidden log line reaches a provider.
 - Installation from a packed tarball, not only a checkout.
 - CLI review with fake `codex` and `opencode` scripts on `PATH`: the exact command lines, success, failure and exit codes, one retry on timeout, tier resolution at each run, the output file removed, and no brief or output in details or the ledger.
-- The review tool is offered in the main session and absent in a child's provider request.
+- The review tool is offered in the main session only while on, and absent in a child's provider request.
 
 The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md).
 

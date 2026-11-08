@@ -4,6 +4,14 @@ import { resetState, updateState, validateCliReview } from "../store/state-file.
 import { recentMix, WINDOW_MIN } from "../policy/cut-window.ts";
 import type { WindowEntry } from "../policy/cutpoints.ts";
 import { MODE_TARGETS } from "../policy/modes.ts";
+import {
+  clearDirectoryMode,
+  NO_DIRECTORY_MODE,
+  resetDirectoryMode,
+  setDirectoryMode,
+  shadowedLine,
+  type LocalOutcome,
+} from "./local-mode-command.ts";
 import { isChild } from "./child.ts";
 import {
   checkCodexChoice,
@@ -31,8 +39,10 @@ export type JevArgs =
   | { kind: "status" }
   | { kind: "set"; feature: Feature; on: boolean }
   | { kind: "all"; on: boolean }
-  | { kind: "mode"; mode: Mode }
+  | { kind: "mode"; mode: Mode; target: "local" | "global" }
+  | { kind: "mode-clear" }
   | { kind: "reset" }
+  | { kind: "cli-review-switch"; on: boolean }
   | { kind: "cli-review"; cli: "codex" | "opencode"; model?: string; effort?: string }
   | { kind: "slot"; args: SlotArgs }
   | { kind: "tune"; sub: TuneSub }
@@ -42,6 +52,9 @@ const USAGE: JevArgs = { kind: "usage" };
 
 function parseCliReview(words: string[]): JevArgs {
   const [, cli, model, effort] = words;
+  if (words.length === 2 && (cli === "on" || cli === "off")) {
+    return { kind: "cli-review-switch", on: cli === "on" };
+  }
   if (words.length < 2 || words.length > 4) return USAGE;
   if (cli !== "codex" && cli !== "opencode") return USAGE;
   return {
@@ -62,6 +75,16 @@ function parseTune(words: string[]): JevArgs {
     : USAGE;
 }
 
+const isMode = (w: string | undefined): w is Mode => (MODES as readonly string[]).includes(w!);
+
+/** `mode <m> [global]` or `mode clear`; `value` and `rest` follow `mode`. */
+function parseMode(value: string, rest: string[]): JevArgs {
+  if (value === "clear") return rest.length === 0 ? { kind: "mode-clear" } : USAGE;
+  if (!isMode(value) || rest.length > 1) return USAGE;
+  if (rest.length === 0) return { kind: "mode", mode: value, target: "local" };
+  return rest[0] === "global" ? { kind: "mode", mode: value, target: "global" } : USAGE;
+}
+
 /** Split on whitespace and match case-sensitively; only an empty argument is the status form. */
 export function parseJevArgs(text: string): JevArgs {
   const words = text.trim() === "" ? [] : text.trim().split(/\s+/);
@@ -72,11 +95,7 @@ export function parseJevArgs(text: string): JevArgs {
   if (slot !== undefined) return slot === "usage" ? USAGE : { kind: "slot", args: slot };
   const [head, value, ...rest] = words;
   if (words.length === 1) return head === "reset" ? { kind: "reset" } : USAGE;
-  if (head === "mode") {
-    return rest.length === 0 && (MODES as readonly string[]).includes(value!)
-      ? { kind: "mode", mode: value as Mode }
-      : USAGE;
-  }
+  if (head === "mode") return parseMode(value!, rest);
   if (rest.length > 0 || (value !== "on" && value !== "off")) return USAGE;
   const on = value === "on";
   if (head === "all") return { kind: "all", on };
@@ -92,9 +111,11 @@ export function usageText(): string {
     "  /jev                      show the status",
     "  /jev <feature> on|off     switch one feature",
     `      features: ${FEATURES.join(", ")}`,
-    "  /jev all on|off           switch the seven decision features",
-    "  /jev mode budget|standard|premium  choose the worker mode",
+    "  /jev all on|off           switch the six decision features",
+    "  /jev mode budget|standard|premium [global]  choose the mode for this directory, or for all",
+    "  /jev mode clear           drop this directory's mode",
     "  /jev reset                reset switches, mode and CLI review default",
+    "  /jev cli-review on|off    turn the CLI review on or off",
     "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
     "  /jev <slot> <provider/model> [when <text>]",
     "  /jev <slot>",
@@ -108,7 +129,8 @@ function reviewLine(r: Snapshot["settings"]["review"]): string {
     ...(r.model ? [`model ${r.model}`] : []),
     ...(r.effort ? [`effort ${r.effort}`] : []),
   ];
-  return `cli review: ${r.cli} (${parts.length > 0 ? parts.join(", ") : "CLI defaults"})`;
+  const detail = parts.length > 0 ? parts : ["CLI defaults"];
+  return `cli review: ${r.enabled ? "on" : "off"} (${[r.cli, ...detail].join(", ")})`;
 }
 
 function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
@@ -124,8 +146,15 @@ function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
   return lines;
 }
 
+function modeLine(s: Snapshot): string {
+  const { mode, modeSource, globalMode } = s.settings;
+  return modeSource === "local"
+    ? `mode: ${mode} (this directory; global ${globalMode})`
+    : `mode: ${mode}`;
+}
+
 export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
-  const lines = [statusText(s), `mode: ${s.settings.mode}`, "features:"];
+  const lines = [statusText(s), modeLine(s), "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
   lines.push(reviewLine(s.settings.review));
   lines.push(`key: ${s.keyVar} ${s.keySet ? "set" : "not set"}`);
@@ -138,6 +167,7 @@ export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEnt
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
   problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
+  problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
   if (s.executor && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
@@ -181,7 +211,7 @@ async function checkAgainstCli(
   return { check: checkOpencodeChoice(a.model, a.effort, ids) };
 }
 
-type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" }>;
+type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" | "mode-clear" }>;
 
 function applyChange(
   parsed: Change,
@@ -193,9 +223,12 @@ function applyChange(
       return resetState(dir);
     case "mode":
       return updateState(dir, (st) => ({ ...st, mode: parsed.mode }));
+    case "cli-review-switch":
+      return updateState(dir, (st) => ({ ...st, cliReviewEnabled: parsed.on }));
     case "cli-review":
       return updateState(dir, (st) => ({
         ...st,
+        cliReviewEnabled: true,
         cliReview: {
           cli: parsed.cli,
           ...(cliReview?.model ? { model: cliReview.model } : {}),
@@ -213,22 +246,37 @@ function applyChange(
   }
 }
 
+/** The directory-mode forms; `undefined` for every other command. */
+function runLocalForm(parsed: JevArgs, cwd: string): LocalOutcome | undefined {
+  if (parsed.kind === "mode-clear") return clearDirectoryMode(cwd);
+  if (parsed.kind === "mode" && parsed.target === "local")
+    return setDirectoryMode(cwd, parsed.mode);
+  return undefined;
+}
+
+/** The state reset succeeded but the directory mode file could not be removed. */
+function partialResetLine(cleanupError: string): string {
+  return `global settings reset; directory mode not removed: ${cleanupError}`;
+}
+
 export async function runJev(
   args: string,
   ctx: ExtensionCommandContext,
   deps: {
     dir: string;
-    load: () => Snapshot;
+    load: (cwd: string) => Snapshot;
     decision: () => Decision | undefined;
     exec: Exec;
     tally?: () => Tally;
     window?: () => readonly WindowEntry[];
     overlay?: () => string | undefined;
     tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
+    sync?: (snapshot: Snapshot) => void;
   },
 ): Promise<void> {
   try {
-    if (isChild(ctx.sessionManager.getSessionId())) return;
+    const sessionId = ctx.sessionManager.getSessionId();
+    if (isChild(sessionId)) return;
     const notify = (message: string, type: "info" | "warning" | "error"): void => {
       if (ctx.hasUI) ctx.ui.notify(message, type);
     };
@@ -283,11 +331,24 @@ export async function runJev(
           );
           return;
         } else {
-          cliReview = { model: outcome.check.model, effort: outcome.check.effort };
+          cliReview = {
+            model: outcome.check.model,
+            effort: outcome.check.effort,
+          };
         }
       }
     }
-    if (parsed.kind !== "status") {
+    const local = runLocalForm(parsed, ctx.cwd);
+    if (local?.kind === "nothing") {
+      notify(NO_DIRECTORY_MODE, "info");
+      return;
+    }
+    if (local?.kind === "failed") {
+      notify(local.message, "error");
+      return;
+    }
+    let partialReset: string | undefined;
+    if (local === undefined && parsed.kind !== "status" && parsed.kind !== "mode-clear") {
       const result = applyChange(parsed, deps.dir, cliReview);
       if (!result.ok) {
         notify(
@@ -296,10 +357,25 @@ export async function runJev(
         );
         return;
       }
+      const reset = parsed.kind === "reset" ? resetDirectoryMode(ctx.cwd) : undefined;
+      if (reset?.kind === "failed") partialReset = partialResetLine(reset.message);
     }
-    const snapshot = deps.load();
+    const snapshot = deps.load(ctx.cwd);
+    if (parsed.kind !== "status") {
+      try {
+        deps.sync?.(snapshot);
+      } catch {
+        /* a failed tool sync must not hide the status */
+      }
+    }
     drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
-    notify(formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.()), "info");
+    const lines = [formatStatus(snapshot, deps.tally?.() ?? EMPTY_TALLY, deps.window?.())];
+    if (partialReset !== undefined) lines.unshift(partialReset);
+    const { mode, modeSource } = snapshot.settings;
+    if (parsed.kind === "mode" && parsed.target === "global" && modeSource === "local") {
+      lines.push(shadowedLine(mode, parsed.mode));
+    }
+    notify(lines.join("\n"), partialReset === undefined ? "info" : "warning");
   } catch (err) {
     try {
       if (ctx.hasUI) ctx.ui.notify(`/jev failed: ${describeError(err)}`, "error");

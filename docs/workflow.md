@@ -136,8 +136,8 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 ## 4. A mode change
 
-1. `/jev mode budget`.
-2. `state.json` is updated. No Jev call.
+1. `/jev mode budget` (this directory) or `/jev mode budget global` (every directory without its own mode).
+2. `<cwd>/.pi/jev-mode.json` or `state.json` is updated. No Jev call.
 3. The next launch uses the `budget` target table and its cut points, from the same window. The worker request is identical. Running workers are unaffected.
 4. Each ledger line records its mode, so tuning signals are never mixed across modes.
 
@@ -186,7 +186,7 @@ Only when the operator asks, such as "have Codex review this".
 3. The tool returns findings and a verdict. On failure, the result says the review did not run, gives the reason (not found, exit code, timeout, cancelled, output over 8 MiB or could not start) and the last lines of the CLI's error output. It does not switch to the other reviewer.
 4. Timeout is 10 minutes per attempt, with one retry on timeout only. A failure is not retried. A review cancelled before any CLI starts reports one attempt with outcome `cancelled`.
 
-The review needs no Jev key and ignores the `review` switch and `/jev all off`: it runs whenever the operator asks.
+The review needs no Jev key and ignores the feature switches and `/jev all off`. It needs the CLI review to be on, and runs whenever the operator asks.
 
 Codex tier names (`sol`, `terra`, `luna`) resolve at each run to the newest model of that tier listed by `codex debug models`, so a newer model is picked up without a change here. When the list cannot be read, the stored name is passed to Codex as written. The success text names the model that ran.
 

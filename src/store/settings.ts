@@ -13,8 +13,11 @@ export type Settings = {
   tools: { mode: "observe" | "enforce" };
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
-  review: { cli: "codex" | "opencode"; model?: string; effort?: string };
+  review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
+  /** Effective mode: the directory override when set, else the global mode. */
   mode: Mode;
+  modeSource: "local" | "global";
+  globalMode: Mode;
   switches: Record<Feature, boolean>;
 };
 
@@ -41,8 +44,10 @@ export function resolveSettings(input: {
   config: Config;
   state: State;
   tuning?: Tuning;
+  localMode?: Mode;
 }): Settings {
-  const { config, state, tuning } = input;
+  const { config, state, tuning, localMode } = input;
+  const globalMode = state.mode ?? DEFAULTS.mode;
   const c = config.classifier;
   const untuned = untunedTimeout(config);
 
@@ -52,9 +57,10 @@ export function resolveSettings(input: {
     if (typeof v === "boolean") switches[f] = v;
   }
 
+  const enabled = state.cliReviewEnabled ?? config.review?.enabled ?? DEFAULTS.review.enabled;
   const review: Settings["review"] = state.cliReview
-    ? { cli: state.cliReview.cli }
-    : { cli: config.review?.cli ?? (DEFAULTS.review.cli as "codex" | "opencode") };
+    ? { cli: state.cliReview.cli, enabled }
+    : { cli: config.review?.cli ?? (DEFAULTS.review.cli as "codex" | "opencode"), enabled };
   if (state.cliReview?.model !== undefined) review.model = state.cliReview.model;
   if (state.cliReview?.effort !== undefined) review.effort = state.cliReview.effort;
 
@@ -77,7 +83,9 @@ export function resolveSettings(input: {
         (DEFAULTS.subagents.forkedLaunch as "untouched" | "thinking"),
     },
     review,
-    mode: state.mode ?? DEFAULTS.mode,
+    mode: localMode ?? globalMode,
+    modeSource: localMode ? "local" : "global",
+    globalMode,
     switches,
   };
 }

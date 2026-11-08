@@ -27,7 +27,7 @@ export type Config = {
   tools?: { mode?: "observe" | "enforce" };
   state?: { parentRequest?: boolean };
   subagents?: { forkedLaunch?: "untouched" | "thinking" };
-  review?: { cli?: "codex" | "opencode" };
+  review?: { cli?: "codex" | "opencode"; enabled?: boolean };
 };
 
 export type ConfigRead =
@@ -92,7 +92,7 @@ function configValidator(): V<Config> {
     tools: object({ mode: oneOf(["observe", "enforce"] as const) }),
     state: object({ parentRequest: boolean() }),
     subagents: object({ forkedLaunch: oneOf(["untouched", "thinking"] as const) }),
-    review: object({ cli: oneOf(["codex", "opencode"] as const) }),
+    review: object({ cli: oneOf(["codex", "opencode"] as const), enabled: boolean() }),
   }) as V<Config>;
 }
 

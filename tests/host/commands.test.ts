@@ -1,20 +1,23 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
 import {
   formatStatus,
   parseJevArgs,
-  runJev,
+  runJev as runJevWith,
   usageText,
   type JevArgs,
 } from "../../src/host/commands.ts";
 import type { Exec } from "../../src/host/review-cli.ts";
 import { statusText, type Decision, type Tally } from "../../src/host/status.ts";
+import type { Mode } from "../../src/store/defaults.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";
 import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
+import { readLocalMode } from "../../src/store/local-mode.ts";
+import { MAIN_CWD_KEY, mainCwd, setMainCwd } from "../../src/host/main-cwd.ts";
 import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
 import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
@@ -31,6 +34,7 @@ function snap(
     env?: Record<string, string | undefined>;
     tools?: string[];
     tuningRead?: TuningRead;
+    sessionMode?: Mode;
   } = {},
 ): Snapshot {
   return buildSnapshot({
@@ -39,6 +43,9 @@ function snap(
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
     ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
+    ...(o.sessionMode === undefined
+      ? {}
+      : { localModeRead: { kind: "ok" as const, mode: o.sessionMode } }),
   });
 }
 
@@ -52,17 +59,41 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("tune")).toEqual({ kind: "tune", sub: "report" });
     expect(parseJevArgs("tune off")).toEqual({ kind: "tune", sub: "off" });
     for (const w of ["undo", "reset", "on"])
-      expect(parseJevArgs(`tune ${w}`)).toEqual({ kind: "tune", sub: w as "undo" });
+      expect(parseJevArgs(`tune ${w}`)).toEqual({
+        kind: "tune",
+        sub: w as "undo",
+      });
     for (const bad of ["tune apply", "tune Undo", "tune undo now"])
       expect(parseJevArgs(bad)).toEqual(usage);
   });
   test("set", () => {
-    expect(parseJevArgs("skills off")).toEqual({ kind: "set", feature: "skills", on: false });
-    expect(parseJevArgs("status on")).toEqual({ kind: "set", feature: "status", on: true });
+    expect(parseJevArgs("skills off")).toEqual({
+      kind: "set",
+      feature: "skills",
+      on: false,
+    });
+    expect(parseJevArgs("status on")).toEqual({
+      kind: "set",
+      feature: "status",
+      on: true,
+    });
   });
   test("mode", () => {
-    expect(parseJevArgs("mode premium")).toEqual({ kind: "mode", mode: "premium" });
-    expect(parseJevArgs("mode budget")).toEqual({ kind: "mode", mode: "budget" });
+    expect(parseJevArgs("mode premium")).toEqual({
+      kind: "mode",
+      mode: "premium",
+      target: "local",
+    });
+    expect(parseJevArgs("mode premium global")).toEqual({
+      kind: "mode",
+      mode: "premium",
+      target: "global",
+    });
+    expect(parseJevArgs("mode clear")).toEqual({ kind: "mode-clear" });
+  });
+  test("session forms are no longer modes", () => {
+    for (const gone of ["mode premium session", "mode session off"])
+      expect(parseJevArgs(gone)).toEqual(usage);
   });
   test("all and reset", () => {
     expect(parseJevArgs("all off")).toEqual({ kind: "all", on: false });
@@ -70,7 +101,10 @@ describe("parseJevArgs", () => {
     expect(parseJevArgs("reset")).toEqual({ kind: "reset" });
   });
   test("cli-review", () => {
-    expect(parseJevArgs("cli-review opencode")).toEqual({ kind: "cli-review", cli: "opencode" });
+    expect(parseJevArgs("cli-review opencode")).toEqual({
+      kind: "cli-review",
+      cli: "opencode",
+    });
     expect(parseJevArgs("cli-review codex default high")).toEqual({
       kind: "cli-review",
       cli: "codex",
@@ -82,7 +116,14 @@ describe("parseJevArgs", () => {
       model: "luna",
     });
   });
+  test("cli-review switch", () => {
+    expect(parseJevArgs("cli-review on")).toEqual({ kind: "cli-review-switch", on: true });
+    expect(parseJevArgs("cli-review off")).toEqual({ kind: "cli-review-switch", on: false });
+  });
   for (const bad of [
+    "cli-review off now",
+    "cli-review OFF",
+    "cli-review On",
     "cli-review",
     "cli-review claude",
     "cli-review Codex",
@@ -91,6 +132,11 @@ describe("parseJevArgs", () => {
     "mode quality",
     "mode Premium",
     "mode premium now",
+    "mode premium Global",
+    "mode global",
+    "mode clear now",
+    "mode Clear",
+    "mode premium session",
     "skills maybe",
     "skills off now",
     "Skills off",
@@ -118,7 +164,12 @@ describe("usageText", () => {
     expect(text).toContain("  /jev remove <slot>");
   });
   test("Usage lists the mode form", () => {
-    expect(text).toContain("/jev mode budget|standard|premium");
+    expect(text).toContain("/jev mode budget|standard|premium [global]");
+    expect(text).toContain("/jev mode clear");
+    expect(text).not.toContain("(session");
+  });
+  test("Usage lists the cli-review switch", () => {
+    expect(text).toContain("/jev cli-review on|off");
   });
   test("lists the cli-review form", () => {
     expect(text).toContain("  /jev cli-review <codex|opencode> [model|default] [effort|default]");
@@ -126,6 +177,21 @@ describe("usageText", () => {
 });
 
 describe("formatStatus", () => {
+  test("Malformed directory mode reported", () => {
+    const issues = [{ path: "", message: "jev-mode.json is not valid JSON" }];
+    const text = formatStatus(
+      buildSnapshot({
+        configRead: { kind: "ok", present: true, config: {} as Config },
+        stateRead: { kind: "ok", state: {} },
+        env: { TYPESAFE_API_KEY: "k" },
+        toolNames: ["subagent"],
+        localModeRead: { kind: "malformed", issues },
+      }),
+    );
+    expect(text).toContain("problems:");
+    expect(text).toContain("mode: standard");
+    expect(text).toContain("  local mode (malformed) (file): jev-mode.json is not valid JSON");
+  });
   test("Malformed tuning reported", () => {
     const issues = [{ path: "", message: "tuning.json is not valid JSON" }];
     const text = formatStatus(snap({ tuningRead: { kind: "malformed", record: {}, issues } }));
@@ -145,17 +211,20 @@ describe("formatStatus", () => {
     expect(text).not.toContain("no executor");
   });
   test("cli review default and set values", () => {
-    expect(formatStatus(snap())).toContain("cli review: codex (CLI defaults)");
-    const state: State = { cliReview: { cli: "codex", model: "luna", effort: "high" } };
+    expect(formatStatus(snap())).toContain("cli review: off (codex, CLI defaults)");
+    const state: State = {
+      cliReview: { cli: "codex", model: "luna", effort: "high" },
+      cliReviewEnabled: true,
+    };
     const lines = formatStatus(snap({ state })).split("\n");
-    expect(lines).toContain("cli review: codex (model luna, effort high)");
-    expect(lines.indexOf("cli review: codex (model luna, effort high)")).toBe(
+    expect(lines).toContain("cli review: on (codex, model luna, effort high)");
+    expect(lines.indexOf("cli review: on (codex, model luna, effort high)")).toBe(
       lines.findIndex((l) => l.startsWith("  verbose:")) + 1,
     );
     const m = formatStatus(snap({ state: { cliReview: { cli: "opencode", model: "p/m" } } }));
-    expect(m).toContain("cli review: opencode (model p/m)");
+    expect(m).toContain("cli review: off (opencode, model p/m)");
     const e = formatStatus(snap({ state: { cliReview: { cli: "opencode", effort: "high" } } }));
-    expect(e).toContain("cli review: opencode (effort high)");
+    expect(e).toContain("cli review: off (opencode, effort high)");
   });
   test("key not set", () => {
     expect(formatStatus(snap({ env: {} }))).toContain("not set");
@@ -188,6 +257,15 @@ describe("formatStatus", () => {
         "mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2",
       );
       expect(lines).not.toContain("cut points: seed");
+    });
+    test("Directory mode in the report", () => {
+      const text = formatStatus(
+        snap({ state: { mode: "standard" }, sessionMode: "premium" }),
+        undefined,
+        entries(120, 60, 48, 12),
+      );
+      expect(text).toContain("mode: premium (this directory; global standard)");
+      expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/45\/≤5/);
     });
     test("budget target", () => {
       const text = formatStatus(
@@ -258,22 +336,29 @@ const modelRegistry = {
   getAvailable: () => MODELS,
 } as unknown as ModelRegistry;
 
-function fakeCtx(hasUI = true, sessionId = "main") {
+function fakeCtx(hasUI = true, sessionId = "main", cwd: string = freshCwd()) {
   const rec: Rec = { notes: [], widgets: [] };
   const ctx = {
+    cwd,
     hasUI,
     mode: "rpc",
     ui: {
       notify: (m: string, t?: string) => rec.notes.push([m, t]),
       setWidget: (...a: unknown[]) => rec.widgets.push(a),
     },
-    sessionManager: { getSessionId: () => sessionId },
+    sessionManager: { getSessionId: () => sessionId, getBranch: () => [] },
     modelRegistry,
   } as unknown as ExtensionCommandContext;
   return { ctx, rec };
 }
 
 let dirs: string[] = [];
+let cwds: string[] = [];
+function freshCwd(): string {
+  const d = tempDir("jev-cwd-");
+  cwds.push(d);
+  return d;
+}
 function jevDir(): string {
   const d = join(tempDir("jev-cmd-"), "jev");
   dirs.push(d);
@@ -288,15 +373,25 @@ afterEach(() => {
     rmSync(join(d, ".."), { recursive: true, force: true });
   }
   dirs = [];
+  for (const d of cwds) {
+    try {
+      chmodSync(join(d, ".pi"), 0o700);
+    } catch {}
+    rmSync(d, { recursive: true, force: true });
+  }
+  cwds = [];
 });
 
-const load = (dir: string) => () =>
+const load = (dir: string) => (cwd: string) =>
   buildSnapshot({
     configRead: readConfig(dir),
     stateRead: readState(dir),
+    localModeRead: readLocalMode(cwd),
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
   });
+
+const runJev = runJevWith;
 
 const noExec: Exec = async () => {
   throw new Error("exec must not be called");
@@ -339,7 +434,9 @@ describe("runJev", () => {
 
   test("redraw keeps the decision suffix; effort off drops it", async () => {
     const dir = jevDir();
-    const decision = (): Decision => ({ effort: { kind: "level", level: "high" } });
+    const decision = (): Decision => ({
+      effort: { kind: "level", level: "high" },
+    });
     const a = await run("skills off", dir, fakeCtx(), decision);
     expect(a.widgets[0]![1]).toEqual(["Jev · standard · high"]);
     const b = await run("effort off", dir, fakeCtx(), decision);
@@ -384,7 +481,7 @@ describe("runJev", () => {
       () => "10 prompts · 0 workers · 0 fallbacks",
     );
     expect(rec.widgets[0]![1]).toEqual(["Jev · standard · 10 prompts · 0 workers · 0 fallbacks"]);
-    expect(rec.notes[0]![0].split("\n")[0]).toBe(statusText(load(dir)()));
+    expect(rec.notes[0]![0].split("\n")[0]).toBe(statusText(load(dir)("main")));
   });
 
   test("plain status writes nothing, notifies and redraws", async () => {
@@ -404,10 +501,43 @@ describe("runJev", () => {
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
   });
 
+  test("review is not a feature switch", async () => {
+    for (const a of ["review off", "review on"]) expect(parseJevArgs(a)).toEqual({ kind: "usage" });
+    const dir = jevDir();
+    await run("skills off", dir);
+    const before = readFileSync(join(dir, "state.json"), "utf8");
+    const rec = await run("review off", dir);
+    expect(rec.notes.map((n) => n[1])).toEqual(["warning"]);
+    expect(rec.notes[0]![0]).toContain("/jev <feature> on|off");
+    expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(before);
+  });
+
+  test("status lists exactly eight features", async () => {
+    const dir = jevDir();
+    const rec = await run("", dir);
+    const text = rec.notes[0]![0];
+    const lines = text.split("\n");
+    const start = lines.indexOf("features:") + 1;
+    const names = lines.slice(start, start + 8).map((l) => l.trim().split(":")[0]);
+    expect(lines[start + 8]).toMatch(/^cli review:/);
+    expect(names).toEqual([
+      "effort",
+      "subagents",
+      "skills",
+      "strategy",
+      "tools",
+      "expert",
+      "status",
+      "verbose",
+    ]);
+    expect(text).not.toContain("  review:");
+  });
+
   test("all off then all on", async () => {
     const dir = jevDir();
     await run("all off", dir);
     const sw = switches(dir)!;
+    expect(DECISION_FEATURES).toHaveLength(6);
     for (const f of DECISION_FEATURES) expect(sw[f]).toBe(false);
     expect("status" in sw).toBe(false);
     expect("verbose" in sw).toBe(false);
@@ -433,7 +563,10 @@ describe("runJev", () => {
     writeFileSync(join(dir, "state.json"), "{nope");
     await run("skills off", dir);
     expect(existsSync(join(dir, "state.json.bad"))).toBe(true);
-    expect(readState(dir)).toEqual({ kind: "ok", state: { switches: { skills: false } } });
+    expect(readState(dir)).toEqual({
+      kind: "ok",
+      state: { switches: { skills: false } },
+    });
   });
 
   test.skipIf(process.getuid?.() === 0)("unreadable state is refused", async () => {
@@ -533,7 +666,7 @@ describe("runJev", () => {
 
 describe("runJev slots", () => {
   const ADD = "reviewer fixture/fixture-review when Code review.";
-  const slotsOf = (dir: string) => load(dir)().settings.crew.slots;
+  const slotsOf = (dir: string) => load(dir)("main").settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
       buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
@@ -597,13 +730,125 @@ describe("runJev slots", () => {
   });
 });
 
-describe("runJev mode", () => {
+describe("runJev directory mode", () => {
   const modeOf = (dir: string) => (readState(dir).state as State).mode;
+  const localFile = (cwd: string) => join(cwd, ".pi", "jev-mode.json");
+  const localOf = (cwd: string) => {
+    const r = readLocalMode(cwd);
+    return r.kind === "ok" ? r.mode : r.kind;
+  };
+  const stateBytes = (dir: string) => readFileSync(join(dir, "state.json"), "utf8");
+  const writeLocal = (cwd: string, text: string) => {
+    mkdirSync(join(cwd, ".pi"), { recursive: true });
+    writeFileSync(localFile(cwd), text);
+  };
+  const GLOBAL_NOTE = "directory mode budget still applies here; global mode is now premium";
+
+  test("Set a directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode standard global", dir);
+    const before = stateBytes(dir);
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    expect(localOf(cwd)).toBe("premium");
+    expect(stateBytes(dir)).toBe(before);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("mode: premium (this directory; global standard)");
+    expect(rec.widgets[0]![1]).toEqual(["Jev · premium (local)"]);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Set while state is unreadable", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode standard global", dir);
+    const before = stateBytes(dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(localOf(cwd)).toBe("premium");
+    expect(stateBytes(dir)).toBe(before);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("state (unreadable)");
+    expect(rec.notes[0]![0]).toContain("mode: premium (this directory; global standard)");
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Directory not writable", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeFileSync(join(cwd, ".pi"), "not a directory");
+    const rec = await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain(".pi/jev-mode.json");
+    expect(rec.widgets).toHaveLength(0);
+  });
+
+  test("Clear back to the global mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode standard global", dir);
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+    expect(rec.notes[0]![1]).toBe("info");
+    expect(rec.notes[0]![0]).toContain("mode: standard");
+    expect(rec.notes[0]![0]).not.toContain("(this directory");
+    expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("Nothing to clear", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    expect(rec.notes).toEqual([["no directory mode set", "info"]]);
+    expect(rec.widgets).toHaveLength(0);
+    expect(existsSync(join(cwd, ".pi"))).toBe(false);
+  });
+
+  test("Clear removes a damaged file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeLocal(cwd, "{nope");
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).not.toBe("no directory mode set");
+  });
+
+  test.skipIf(process.getuid?.() === 0)("clear refused keeps the file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(cwd, ".pi"), 0o500);
+    const rec = await run("mode clear", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(cwd, ".pi"), 0o700);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.widgets).toHaveLength(0);
+    expect(localOf(cwd)).toBe("premium");
+  });
+
+  test("Overwrite a damaged file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeLocal(cwd, "{nope");
+    const rec = await run("mode budget", dir, fakeCtx(true, "main", cwd));
+    expect(localOf(cwd)).toBe("budget");
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+  });
+
+  test("Plain form targets the directory", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    expect(localOf(cwd)).toBe("premium");
+    expect(existsSync(join(dir, "state.json"))).toBe(false);
+  });
 
   test("Set premium", async () => {
     const dir = jevDir();
     await run("skills off", dir);
-    const rec = await run("mode premium", dir);
+    const rec = await run("mode premium global", dir);
     expect(modeOf(dir)).toBe("premium");
     expect(switches(dir)?.skills).toBe(false);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
@@ -613,14 +858,14 @@ describe("runJev mode", () => {
 
   test("Mode survives a restart", async () => {
     const dir = jevDir();
-    await run("mode budget", dir);
-    expect(load(dir)().settings.mode).toBe("budget");
+    await run("mode budget global", dir);
+    expect(load(dir)(freshCwd()).settings.mode).toBe("budget");
   });
 
   test("Back to standard", async () => {
     const dir = jevDir();
-    await run("mode premium", dir);
-    const rec = await run("mode standard", dir);
+    await run("mode premium global", dir);
+    const rec = await run("mode standard global", dir);
     expect(modeOf(dir)).toBe("standard");
     expect(rec.notes[0]![0]).toContain("mode: standard");
     expect(rec.widgets[0]![1]).toEqual(["Jev · standard"]);
@@ -628,15 +873,216 @@ describe("runJev mode", () => {
 
   test.skipIf(process.getuid?.() === 0)("Refused mode change", async () => {
     const dir = jevDir();
-    await run("mode budget", dir);
+    await run("mode budget global", dir);
     chmodSync(join(dir, "state.json"), 0o000);
-    const rec = await run("mode premium", dir);
+    const rec = await run("mode premium global", dir);
     expect(rec.notes).toHaveLength(1);
     expect(rec.notes[0]![1]).toBe("error");
     expect(rec.notes[0]![0]).toContain("EACCES");
     expect(rec.widgets).toHaveLength(0);
     chmodSync(join(dir, "state.json"), 0o600);
     expect(modeOf(dir)).toBe("budget");
+  });
+
+  test("Global set keeps the directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode budget", dir, fakeCtx(true, "main", cwd));
+    const rec = await run("mode premium global", dir, fakeCtx(true, "main", cwd));
+    expect(modeOf(dir)).toBe("premium");
+    expect(localOf(cwd)).toBe("budget");
+    expect(rec.notes[0]![0].split("\n")).toContain(GLOBAL_NOTE);
+    expect(rec.notes[0]![0].endsWith(GLOBAL_NOTE)).toBe(true);
+  });
+
+  test("Global set without a directory mode has no note", async () => {
+    const rec = await run("mode premium global", jevDir());
+    expect(rec.notes[0]![0]).not.toContain("still applies here");
+  });
+
+  test("Reset removes the directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    await run("reset", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+  });
+
+  test("Reset removes a damaged directory mode file", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    writeLocal(cwd, "{nope");
+    await run("reset", dir, fakeCtx(true, "main", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Refused reset keeps the directory mode", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("mode premium", dir, fakeCtx(true, "main", cwd));
+    await run("skills off", dir);
+    chmodSync(join(dir, "state.json"), 0o000);
+    const rec = await run("reset", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(localOf(cwd)).toBe("premium");
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Partial reset reports a warning and redraws", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    await run("skills off", dir);
+    await run("mode premium global", dir);
+    await run("mode budget", dir, fakeCtx(true, "main", cwd));
+    chmodSync(join(cwd, ".pi"), 0o500);
+    let rec: ReturnType<typeof fakeCtx>["rec"];
+    try {
+      rec = await run("reset", dir, fakeCtx(true, "main", cwd));
+    } finally {
+      chmodSync(join(cwd, ".pi"), 0o700);
+    }
+    expect(JSON.parse(readFileSync(join(dir, "state.json"), "utf8"))).toEqual({ version: 1 });
+    expect(localOf(cwd)).toBe("budget");
+    expect(rec.notes.map((n) => n[1])).toEqual(["warning"]);
+    expect(rec.notes[0]![0]).toContain("global settings reset; directory mode not removed:");
+    expect(rec.notes[0]![0]).toContain("EACCES");
+    expect(rec.notes[0]![0]).toContain("mode: budget (this directory; global standard)");
+    expect(rec.widgets).toHaveLength(1);
+    expect(rec.widgets[0]![1]).toEqual(["Jev · budget (local)"]);
+  });
+
+  test("Command in a child", async () => {
+    const dir = jevDir();
+    const cwd = freshCwd();
+    (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["kid"]);
+    const rec = await run("mode premium", dir, fakeCtx(true, "kid", cwd));
+    expect(existsSync(localFile(cwd))).toBe(false);
+    expect(rec.notes).toHaveLength(0);
+  });
+
+  test("/jev uses ctx.cwd over the main cwd holder", async () => {
+    const dir = jevDir();
+    const a = freshCwd();
+    const b = freshCwd();
+    const previous = mainCwd();
+    setMainCwd(b);
+    try {
+      const rec = await run("mode premium", dir, fakeCtx(true, "main", a));
+      expect(localOf(a)).toBe("premium");
+      expect(existsSync(localFile(b))).toBe(false);
+      expect(rec.notes[0]![0]).toContain("mode: premium");
+    } finally {
+      if (previous === undefined) delete (globalThis as Record<symbol, unknown>)[MAIN_CWD_KEY];
+      else setMainCwd(previous);
+    }
+  });
+});
+
+describe("runJev sync", () => {
+  test("sync runs after a change, not after status or usage", async () => {
+    const dir = jevDir();
+    const seen: boolean[] = [];
+    const go = async (args: string) => {
+      const c = fakeCtx();
+      await runJev(args, c.ctx, {
+        dir,
+        load: load(dir),
+        decision: noDecision,
+        exec: noExec,
+        sync: (s) => seen.push(s.settings.review.enabled),
+      });
+    };
+    await go("");
+    await go("bogus words here");
+    expect(seen).toEqual([]);
+    await go("cli-review on");
+    expect(seen).toEqual([true]);
+    await go("reset");
+    expect(seen).toEqual([true, false]);
+  });
+
+  test("sync sees the one loaded snapshot before draw and notify", async () => {
+    const dir = jevDir();
+    const events: string[] = [];
+    const marker = snap({ state: { mode: "premium" } });
+    let loads = 0;
+    let synced: Snapshot | undefined;
+    const c = fakeCtx();
+    const ui = c.ctx.ui as unknown as Record<string, (...a: unknown[]) => void>;
+    const notify = ui.notify!;
+    const setWidget = ui.setWidget!;
+    ui.notify = (...a) => {
+      events.push("notify");
+      notify(...a);
+    };
+    ui.setWidget = (...a) => {
+      events.push("draw");
+      setWidget(...a);
+    };
+    await runJev("cli-review on", c.ctx, {
+      dir,
+      load: () => {
+        loads++;
+        return marker;
+      },
+      decision: noDecision,
+      exec: noExec,
+      sync: (sn) => {
+        events.push("sync");
+        synced = sn;
+      },
+    });
+    expect(loads).toBe(1);
+    expect(synced).toBe(marker);
+    expect(events).toEqual(["sync", "draw", "notify"]);
+    expect(c.rec.widgets[0]![1]).toEqual(["Jev · premium"]);
+    expect(c.rec.notes[0]![0]).toContain("mode: premium");
+  });
+
+  test("refused changes never sync", async () => {
+    const dir = jevDir();
+    let syncs = 0;
+    const attempt = async (args: string) => {
+      const c = fakeCtx();
+      await runJev(args, c.ctx, {
+        dir,
+        load: load(dir),
+        decision: noDecision,
+        exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false, truncated: false }),
+        sync: () => void syncs++,
+      });
+      return c.rec;
+    };
+    // refused model: the CLI list parses to nothing usable, value outside state rules
+    const bad = await attempt("cli-review codex " + "x".repeat(300));
+    expect(bad.notes[0]![1]).toBe("error");
+    if (process.getuid?.() !== 0) {
+      await attempt("cli-review on");
+      expect(syncs).toBe(1);
+      chmodSync(join(dir, "state.json"), 0o000);
+      const rec = await attempt("cli-review off");
+      chmodSync(join(dir, "state.json"), 0o600);
+      expect(rec.notes[0]![1]).toBe("error");
+      expect(rec.notes[0]![0]).toContain("EACCES");
+      expect(rec.widgets).toHaveLength(0);
+    }
+    expect(syncs).toBe(process.getuid?.() === 0 ? 0 : 1);
+  });
+
+  test("a throwing sync still draws and notifies", async () => {
+    const dir = jevDir();
+    const c = fakeCtx();
+    await runJev("cli-review on", c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: noExec,
+      sync: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(c.rec.widgets).toHaveLength(1);
+    expect(c.rec.notes.map((n) => n[1])).toEqual(["info"]);
   });
 });
 
@@ -682,7 +1128,12 @@ describe("runJev cli-review", () => {
 
   async function go(args: string, f: ReturnType<typeof fake>, dir = jevDir()) {
     const c = fakeCtx();
-    await runJev(args, c.ctx, { dir, load: load(dir), decision: noDecision, exec: f.exec });
+    await runJev(args, c.ctx, {
+      dir,
+      load: load(dir),
+      decision: noDecision,
+      exec: f.exec,
+    });
     return { rec: c.rec, dir };
   }
 
@@ -690,21 +1141,121 @@ describe("runJev cli-review", () => {
     const f = fake(ok(""));
     const { rec, dir } = await go("cli-review opencode", f);
     expect(review(dir)).toEqual({ cli: "opencode" });
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
     expect(f.calls).toHaveLength(0);
     expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
-    expect(rec.notes[0]![0]).toContain("cli review: opencode (CLI defaults)");
+    expect(rec.notes[0]![0]).toContain("cli review: on (opencode, CLI defaults)");
     expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("Turn the CLI review off", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "state.json"),
+      JSON.stringify({
+        version: 1,
+        cliReview: { cli: "opencode", model: "p/m" },
+        cliReviewEnabled: true,
+      }),
+    );
+    const f = fake(ok(""));
+    const { rec } = await go("cli-review off", f, dir);
+    expect(f.calls).toHaveLength(0);
+    expect(rec.notes[0]![0]).toContain("cli review: off (opencode, model p/m)");
+    const st = readState(dir).state as State;
+    expect(st.cliReviewEnabled).toBe(false);
+    expect(st.cliReview).toEqual({ cli: "opencode", model: "p/m" });
+    expect(rec.widgets).toHaveLength(1);
+  });
+
+  test("Turn the CLI review on", async () => {
+    const f = fake(ok(""));
+    const { dir, rec } = await go("cli-review on", f);
+    expect(readState(dir).state).toEqual({ cliReviewEnabled: true });
+    expect(f.calls).toHaveLength(0);
+    expect(rec.notes.map((n) => n[1])).toEqual(["info"]);
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, CLI defaults)");
+  });
+
+  test("Switch survives a restart", async () => {
+    const { dir } = await go("cli-review on", fake(ok("")));
+    expect(load(dir)(freshCwd()).settings.review.enabled).toBe(true);
+  });
+
+  test.skipIf(process.getuid?.() === 0)("Refused switch", async () => {
+    const dir = jevDir();
+    await go("cli-review on", fake(ok("")), dir);
+    const before = readFileSync(join(dir, "state.json"));
+    chmodSync(join(dir, "state.json"), 0o000);
+    const { rec } = await go("cli-review off", fake(ok("")), dir);
+    chmodSync(join(dir, "state.json"), 0o600);
+    expect(rec.notes).toHaveLength(1);
+    expect(rec.notes[0]![1]).toBe("error");
+    expect(rec.notes[0]![0]).toContain("EACCES");
+    expect(readFileSync(join(dir, "state.json"))).toEqual(before);
+  });
+
+  function seed(dir: string, body: object) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "state.json"), JSON.stringify({ version: 1, ...body }));
+  }
+
+  test("Choosing a reviewer turns the review on", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    const { rec } = await go("cli-review codex", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, CLI defaults)");
+  });
+
+  test("Refused model leaves the review off", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    const { rec } = await go("cli-review codex nova", fake(ok(catalog)), dir);
+    expect(rec.notes[0]![1]).toBe("error");
+    const st = readState(dir).state as State;
+    expect(st.cliReviewEnabled).toBe(false);
+    expect(st.cliReview).toBeUndefined();
+  });
+
+  test("All leaves the CLI review alone", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: true });
+    await go("all off", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBe(true);
+  });
+
+  test("Reset turns the CLI review off", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: true });
+    const { rec } = await go("reset", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBeUndefined();
+    expect(rec.notes[0]![0]).toContain("cli review: off");
+  });
+
+  test("Reset falls back to config review.enabled", async () => {
+    const dir = jevDir();
+    seed(dir, { cliReviewEnabled: false });
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ review: { enabled: true } }));
+    const { rec } = await go("reset", fake(ok("")), dir);
+    expect((readState(dir).state as State).cliReviewEnabled).toBeUndefined();
+    expect(rec.notes[0]![0]).toContain("cli review: on");
   });
 
   test("tier stored as typed, list read once with the right command", async () => {
     const f = fake(ok(catalog));
     const { rec, dir } = await go("cli-review codex luna high", f);
-    expect(review(dir)).toEqual({ cli: "codex", model: "luna", effort: "high" });
+    expect(review(dir)).toEqual({
+      cli: "codex",
+      model: "luna",
+      effort: "high",
+    });
     expect(f.calls).toHaveLength(1);
     expect(f.calls[0]![0]).toBe("codex");
     expect(f.calls[0]![1]).toEqual(["debug", "models"]);
     expect(f.calls[0]![2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
-    expect(rec.notes[0]![0]).toContain("cli review: codex (model luna, effort high)");
+    expect(rec.notes[0]![0]).toContain("cli review: on (codex, model luna, effort high)");
   });
 
   test("tier in another case stored as typed", async () => {
@@ -746,7 +1297,11 @@ describe("runJev cli-review", () => {
     const { dir } = await go("cli-review opencode glm-5.3 high", f);
     expect(f.calls[0]![0]).toBe("opencode");
     expect(f.calls[0]![1]).toEqual(["models"]);
-    expect(review(dir)).toEqual({ cli: "opencode", model: "ollama-cloud/glm-5.3", effort: "high" });
+    expect(review(dir)).toEqual({
+      cli: "opencode",
+      model: "ollama-cloud/glm-5.3",
+      effort: "high",
+    });
   });
 
   test("opencode name with two providers is refused naming both", async () => {
@@ -772,7 +1327,11 @@ describe("runJev cli-review", () => {
   test("unreadable list (non-zero exit) stores with a warning", async () => {
     const f = fake({ ...ok(""), code: 1, stderr: "boom" });
     const { rec, dir } = await go("cli-review codex luna high", f);
-    expect(review(dir)).toEqual({ cli: "codex", model: "luna", effort: "high" });
+    expect(review(dir)).toEqual({
+      cli: "codex",
+      model: "luna",
+      effort: "high",
+    });
     expect(rec.notes.map((n) => n[1])).toEqual(["warning", "info"]);
     expect(rec.notes[0]![0]).toBe("CLI review model not checked: could not read the model list.");
   });
@@ -828,6 +1387,17 @@ describe("runJev cli-review", () => {
       const { rec, dir } = await go(a, f);
       expect(rec.notes).toEqual([[usageText(), "warning"]]);
       expect(existsSync(join(dir, "state.json"))).toBe(false);
+    }
+  });
+
+  test("malformed switch forms report usage and leave state.json unchanged", async () => {
+    for (const a of ["cli-review OFF", "cli-review On", "cli-review off now"]) {
+      const dir = jevDir();
+      seed(dir, { cliReviewEnabled: true });
+      const before = readFileSync(join(dir, "state.json"));
+      const { rec } = await go(a, fake(ok(catalog)), dir);
+      expect(rec.notes).toEqual([[usageText(), "warning"]]);
+      expect(readFileSync(join(dir, "state.json"))).toEqual(before);
     }
   });
 

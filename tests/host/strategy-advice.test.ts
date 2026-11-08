@@ -3,7 +3,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
-import { toolNames, withoutReview } from "./bodies";
+import { toolNames } from "./bodies";
 import { startFixture, type Fixture } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
 import type { RpcEvent } from "./rpc";
@@ -155,10 +155,9 @@ describe("strategy advice through the real CLI", () => {
       await s.waitFor(() => mainLines(s).length >= 1, "main line");
       expect(jev.requests.length).toBe(1);
       expect("advised" in mainLines(s)[0]!).toBe(false);
-      const bodies = (f: Fixture): string[] =>
-        f.requests.map((r) => JSON.stringify(withoutReview(r.body)));
+      const bodies = (f: Fixture): string[] => f.requests.map((r) => JSON.stringify(r.body));
       expect(bodies(fixture).length).toBeGreaterThan(0);
-      expect(fixture.requests.every((r) => toolNames(r.body).includes("jev_review"))).toBe(true);
+      expect(fixture.requests.every((r) => !toolNames(r.body).includes("jev_review"))).toBe(true);
       expect(bodies(fixture)).toEqual(bodies(plain));
       expect(bodies(fixture).join("")).not.toContain("<execution_strategy>");
     },

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../../src/store/defaults.ts";
-import { resolveSettings, untunedTimeout } from "../../src/store/settings.ts";
+import { resolveSettings, type Settings, untunedTimeout } from "../../src/store/settings.ts";
 
 describe("resolveSettings", () => {
   test("Forked launch from config", () => {
@@ -23,8 +23,10 @@ describe("resolveSettings", () => {
       tools: { mode: "observe" },
       state: { parentRequest: false },
       subagents: { forkedLaunch: "untouched" },
-      review: { cli: "codex" },
+      review: { cli: "codex", enabled: false },
       mode: "standard",
+      modeSource: "global",
+      globalMode: "standard",
       switches: {
         effort: true,
         subagents: true,
@@ -32,7 +34,6 @@ describe("resolveSettings", () => {
         strategy: true,
         tools: true,
         expert: true,
-        review: true,
         status: true,
         verbose: false,
       },
@@ -60,7 +61,43 @@ describe("resolveSettings", () => {
   });
 
   test("Mode from state", () => {
-    expect(resolveSettings({ config: {}, state: { mode: "premium" } }).mode).toBe("premium");
+    const s = resolveSettings({ config: {}, state: { mode: "premium" } });
+    expect(s.mode).toBe("premium");
+    expect(s.modeSource).toBe("global");
+    expect(s.globalMode).toBe("premium");
+  });
+
+  test("Directory mode over state", () => {
+    const s = resolveSettings({
+      config: {},
+      state: { mode: "premium" },
+      localMode: "budget",
+    });
+    expect(s.mode).toBe("budget");
+    expect(s.modeSource).toBe("local");
+    expect(s.globalMode).toBe("premium");
+  });
+
+  test("Directory mode over the default", () => {
+    const s = resolveSettings({ config: {}, state: {}, localMode: "premium" });
+    expect(s.mode).toBe("premium");
+    expect(s.modeSource).toBe("local");
+    expect(s.globalMode).toBe("standard");
+  });
+
+  test("Directory mode changes only the mode", () => {
+    const state = { switches: { skills: false } };
+    const without: Partial<Settings> = resolveSettings({ config: {}, state });
+    const withSession: Partial<Settings> = resolveSettings({
+      config: {},
+      state,
+      localMode: "premium",
+    });
+    for (const s of [without, withSession]) {
+      delete s.mode;
+      delete s.modeSource;
+    }
+    expect(withSession).toEqual(without);
   });
 
   test("CLI review default from state", () => {
@@ -68,9 +105,30 @@ describe("resolveSettings", () => {
       config: { review: { cli: "codex" } },
       state: { cliReview: { cli: "opencode" } },
     });
-    expect(s.review).toEqual({ cli: "opencode" });
+    expect(s.review).toEqual({ cli: "opencode", enabled: false });
     expect(Object.hasOwn(s.review, "model")).toBe(false);
     expect(Object.hasOwn(s.review, "effort")).toBe(false);
+  });
+
+  test("CLI review on from the config", () => {
+    const s = resolveSettings({ config: { review: { enabled: true } }, state: {} });
+    expect(s.review.enabled).toBe(true);
+  });
+
+  test("CLI review off from the state", () => {
+    const s = resolveSettings({
+      config: { review: { enabled: true } },
+      state: { cliReviewEnabled: false },
+    });
+    expect(s.review.enabled).toBe(false);
+  });
+
+  test("Reviewer from state keeps the config's enabled", () => {
+    const s = resolveSettings({
+      config: { review: { cli: "codex", enabled: true } },
+      state: { cliReview: { cli: "opencode" } },
+    });
+    expect(s.review).toEqual({ cli: "opencode", enabled: true });
   });
 
   test("Config review without state", () => {

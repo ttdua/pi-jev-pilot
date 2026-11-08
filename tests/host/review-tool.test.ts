@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Value } from "typebox/value";
 import { CHILDREN_KEY } from "../../src/host/child.ts";
-import { hideReviewInChild, registerReviewTool, REVIEW_TOOL } from "../../src/host/review.ts";
+import {
+  hideReviewInChild,
+  registerReviewTool,
+  REVIEW_OFF_MESSAGE,
+  REVIEW_TOOL,
+  syncReviewTool,
+} from "../../src/host/review.ts";
 import type { Exec } from "../../src/host/review-cli.ts";
 import type { Snapshot } from "../../src/host/readiness.ts";
 
@@ -20,7 +26,7 @@ type Tool = {
   ) => Promise<{ content: { type: string; text: string }[]; details?: unknown; isError?: true }>;
 };
 
-type Review = { cli: "codex" | "opencode"; model?: string; effort?: string };
+type Review = { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
 const snap = (review: Review, extra: Record<string, unknown> = {}) =>
   ({
     config: { valid: false, issues: [] },
@@ -67,7 +73,7 @@ afterEach(() => {
 
 describe("jev_review tool", () => {
   test("tool schema", () => {
-    const t = setupTool({ cli: "codex" });
+    const t = setupTool({ cli: "codex", enabled: true });
     expect(t.name).toBe(REVIEW_TOOL);
     const ok = (v: unknown) => Value.Check(t.parameters as never, v);
     expect(ok({ brief: "x" })).toBe(true);
@@ -83,7 +89,7 @@ describe("jev_review tool", () => {
   });
 
   test("description and guideline name jev_review", () => {
-    const t = setupTool({ cli: "codex" });
+    const t = setupTool({ cli: "codex", enabled: true });
     const g = (t.promptGuidelines ?? []).join("\n");
     expect(g).toContain("jev_review");
     expect(g).toMatch(/only when the user asks for a review by Codex or OpenCode/);
@@ -93,7 +99,7 @@ describe("jev_review tool", () => {
 
   test("refused in a child", async () => {
     const calls: { cmd: string; args: string[] }[] = [];
-    const t = setupTool({ cli: "codex" }, calls);
+    const t = setupTool({ cli: "codex", enabled: true }, calls);
     registry().add("kid");
     const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("kid"));
     expect(r.isError).toBe(true);
@@ -103,23 +109,47 @@ describe("jev_review tool", () => {
 
   test("independent of key and switches", async () => {
     const calls: { cmd: string; args: string[] }[] = [];
-    const t = setupTool({ cli: "codex" }, calls);
+    const t = setupTool({ cli: "codex", enabled: true }, calls);
     const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
     expect(r.isError).toBeUndefined();
     expect(calls.at(-1)!.cmd).toBe("codex");
     expect(r.content[0]!.text).toContain("looks fine");
   });
 
-  test("falls back to codex when load throws", async () => {
+  test("Refused while off", async () => {
+    const calls: { cmd: string; args: string[] }[] = [];
+    const t = setupTool({ cli: "codex", enabled: false }, calls);
+    const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
+    expect(r.isError).toBe(true);
+    expect(r.content[0]!.text).toBe(REVIEW_OFF_MESSAGE);
+    expect(calls).toEqual([]);
+  });
+
+  test("Unreadable setting counts as off", async () => {
     const calls: { cmd: string; args: string[] }[] = [];
     const t = setupTool("throw", calls);
-    await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
-    expect(calls.at(-1)!.cmd).toBe("codex");
+    const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
+    expect(r.isError).toBe(true);
+    expect(r.content[0]!.text).toBe(REVIEW_OFF_MESSAGE);
+    expect(calls).toEqual([]);
+  });
+
+  test("child refusal comes first", async () => {
+    const t = setupTool({ cli: "codex", enabled: false });
+    registry().add("kid");
+    const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("kid"));
+    expect(r.content[0]!.text).toBe("jev_review is not available in a subagent session.");
+  });
+
+  test("enabled never reaches the CLI", async () => {
+    const t = setupTool({ cli: "codex", enabled: true });
+    const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
+    expect(JSON.stringify(r.details)).not.toContain("enabled");
   });
 
   test("default from state reaches the CLI", async () => {
     const calls: { cmd: string; args: string[] }[] = [];
-    const t = setupTool({ cli: "opencode", model: "p/m" }, calls);
+    const t = setupTool({ cli: "opencode", enabled: true, model: "p/m" }, calls);
     await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
     const c = calls.at(-1)!;
     expect(c.cmd).toBe("opencode");
@@ -130,7 +160,7 @@ describe("jev_review tool", () => {
 
   test("nothing set reaches the CLI", async () => {
     const calls: { cmd: string; args: string[] }[] = [];
-    const t = setupTool({ cli: "codex" }, calls);
+    const t = setupTool({ cli: "codex", enabled: true }, calls);
     await t.execute("1", { brief: "b" }, undefined, undefined, ctx("main"));
     const c = calls.at(-1)!;
     expect(c.cmd).toBe("codex");
@@ -158,5 +188,53 @@ describe("hideReviewInChild", () => {
     ).toEqual(["read", REVIEW_TOOL]);
     expect(() => hideReviewInChild(ev(), "kid")).not.toThrow();
     expect(() => hideReviewInChild({} as never, "kid")).not.toThrow();
+  });
+});
+
+describe("syncReviewTool", () => {
+  const fake = (active: string[] | "throw", all: string[]) => {
+    const calls: string[][] = [];
+    const pi = {
+      getActiveTools: () => {
+        if (active === "throw") throw new Error("boom");
+        return active;
+      },
+      setActiveTools: (n: string[]) => calls.push(n),
+      getAllTools: () => all.map((name) => ({ name })),
+    };
+    return { pi: pi as never, calls };
+  };
+
+  test("Other tools untouched", () => {
+    const f = fake(["read", REVIEW_TOOL, "bash"], [REVIEW_TOOL]);
+    syncReviewTool(f.pi, false);
+    expect(f.calls).toEqual([["read", "bash"]]);
+  });
+
+  test("adds at the end when on", () => {
+    const f = fake(["read", "bash"], [REVIEW_TOOL]);
+    syncReviewTool(f.pi, true);
+    expect(f.calls).toEqual([["read", "bash", REVIEW_TOOL]]);
+  });
+
+  test("no call when already in sync", () => {
+    const a = fake(["read"], [REVIEW_TOOL]);
+    syncReviewTool(a.pi, false);
+    const b = fake(["read", REVIEW_TOOL], [REVIEW_TOOL]);
+    syncReviewTool(b.pi, true);
+    expect(a.calls).toEqual([]);
+    expect(b.calls).toEqual([]);
+  });
+
+  test("not registered, no add", () => {
+    const f = fake(["read"], ["read"]);
+    syncReviewTool(f.pi, true);
+    expect(f.calls).toEqual([]);
+  });
+
+  test("never throws", () => {
+    const f = fake("throw", [REVIEW_TOOL]);
+    expect(() => syncReviewTool(f.pi, true)).not.toThrow();
+    expect(f.calls).toEqual([]);
   });
 });

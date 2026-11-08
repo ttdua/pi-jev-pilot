@@ -6,7 +6,7 @@ The line above the editor shows the package's base state (config error, no key, 
 ## Requirements
 
 ### Requirement: Status line text
-In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all seven decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `review` off), and `Jev · <mode>` with the effective mode.
+In a main session, the status line SHALL show the first that applies of: `Jev · config error` (config invalid), `Jev · no key` (key not set), `Jev · off` (all six decision features `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert` off), and `Jev · <mode>` with the effective mode. When the effective mode comes from a directory mode (see `directory-mode`), `<mode>` MUST read `<m> (local)`, for example `Jev · premium (local)`, in the base form and in the tally form, with every suffix after it. Without a directory mode the text is unchanged.
 
 When the text is `Jev · <mode>`, suffixes follow in this order:
 - **Effort suffix.** When `effort` is on and a main decision has been made in this session, ` · <level>` MUST follow, with the effective level of the latest applied, kept or held decision. ` · no answer` MUST follow instead when the latest request was not held and was a miss (whatever was asked), or asked `effort` and left it unanswered. A held turn MUST show the level in force, whether or not Jev answered. A discarded or cancelled decision, and an answered request that did not ask `effort` and was not held, MUST leave this suffix as it was.
@@ -24,6 +24,22 @@ A session start MUST clear all suffixes and the tally form. Drawing the line MUS
 - **WHEN** the key is set and `state.json` sets the mode to `premium`
 - **THEN** the status line reads `Jev · premium`
 
+#### Scenario: Directory mode marked
+- **WHEN** the key is set, `state.json` sets the mode to `standard` and the directory mode is `premium`
+- **THEN** the status line reads `Jev · premium (local)`
+
+#### Scenario: Directory mode with a suffix
+- **WHEN** the directory mode is `budget` and a main decision applied `high` and attached no advice
+- **THEN** the status line reads `Jev · budget (local) · high`
+
+#### Scenario: Directory mode in the tally form
+- **WHEN** the directory mode is `premium` and the 10th prompt's request completes with no worker recorded
+- **THEN** the status line reads `Jev · premium (local) · 10 prompts · 0 workers · 0 fallbacks`
+
+#### Scenario: Base state wins over a directory mode
+- **WHEN** the directory mode is `premium` and the operator runs `/jev all off`
+- **THEN** the status line reads `Jev · off`
+
 #### Scenario: No key
 - **WHEN** the config is valid and the environment variable named by `classifier.apiKeyEnv` is unset or empty
 - **THEN** the status line reads `Jev · no key`
@@ -33,7 +49,7 @@ A session start MUST clear all suffixes and the tally form. Drawing the line MUS
 - **THEN** the status line reads `Jev · config error`
 
 #### Scenario: Everything off
-- **WHEN** the config is valid, the key is set and all seven decision features are off
+- **WHEN** the config is valid, the key is set and all six decision features are off
 - **THEN** the status line reads `Jev · off`
 
 #### Scenario: One feature off is not off
@@ -180,7 +196,7 @@ The status line SHALL be a widget with key `jev` placed above the editor. It MUS
 - **THEN** it renders the text unpadded, cut to the width
 
 #### Scenario: Refreshed after a switch change
-- **WHEN** the key is set, every decision feature but `review` is off, and the operator runs `/jev review off`
+- **WHEN** the key is set, every decision feature but `expert` is off, and the operator runs `/jev expert off`
 - **THEN** the widget is set again with `Jev · off`
 
 #### Scenario: Refreshed after a decision

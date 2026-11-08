@@ -16,9 +16,10 @@ The numbers show routing, not quality, from one operator's sessions. See the [re
 One command shifts the whole tier mix:
 
 ```text
-/jev mode budget      more work goes to the fast tier
-/jev mode standard    the default
-/jev mode premium     more work goes to the deep and expert tiers
+/jev mode budget global      more work goes to the fast tier
+/jev mode standard global    the default
+/jev mode premium global     more work goes to the deep and expert tiers
+/jev mode premium            the same, for this directory only (`/jev mode clear` removes it)
 ```
 
 ## Install
