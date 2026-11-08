@@ -12,7 +12,7 @@ import { listAgents } from "./agents.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
 import { setMainCwd } from "./main-cwd.ts";
-import { hideReviewInChild, registerReviewTool } from "./review.ts";
+import { hideReviewInChild, registerReviewTool, syncReviewTool } from "./review.ts";
 import { compactTally, drawStatus, logLine } from "./status.ts";
 import { jevDir } from "./stores.ts";
 import { runTune } from "./tune-command.ts";
@@ -142,6 +142,11 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
         await tools.beforeAgentStart(event, ctx);
         return undefined;
       }
+      try {
+        syncReviewTool(pi, loadSnapshot(pi).settings.review.enabled);
+      } catch {
+        /* the turn proceeds with the loadout as it is */
+      }
       return await main.beforeAgentStart(event, ctx);
     } catch {
       return undefined;
@@ -212,6 +217,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
         tune: (sub, c) => runTune(tuningDeps(), sub, c),
+        sync: (s) => syncReviewTool(pi, s.settings.review.enabled),
       });
     },
   });

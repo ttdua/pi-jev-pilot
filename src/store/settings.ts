@@ -13,7 +13,7 @@ export type Settings = {
   tools: { mode: "observe" | "enforce" };
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
-  review: { cli: "codex" | "opencode"; model?: string; effort?: string };
+  review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
   /** Effective mode: the directory override when set, else the global mode. */
   mode: Mode;
   modeSource: "local" | "global";
@@ -57,9 +57,10 @@ export function resolveSettings(input: {
     if (typeof v === "boolean") switches[f] = v;
   }
 
+  const enabled = state.cliReviewEnabled ?? config.review?.enabled ?? DEFAULTS.review.enabled;
   const review: Settings["review"] = state.cliReview
-    ? { cli: state.cliReview.cli }
-    : { cli: config.review?.cli ?? (DEFAULTS.review.cli as "codex" | "opencode") };
+    ? { cli: state.cliReview.cli, enabled }
+    : { cli: config.review?.cli ?? (DEFAULTS.review.cli as "codex" | "opencode"), enabled };
   if (state.cliReview?.model !== undefined) review.model = state.cliReview.model;
   if (state.cliReview?.effort !== undefined) review.effort = state.cliReview.effort;
 

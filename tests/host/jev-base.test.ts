@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
-import { toolNames, withoutReview } from "./bodies";
+import { toolNames } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
 import { command, notifies, uiRequests, type UiRequest } from "./rpc-helpers";
@@ -103,7 +103,7 @@ describe("status line and /jev through the real CLI", () => {
     "all decision features off shows off",
     async () => {
       const s = await host(await fixtureWith());
-      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert", "review"]) {
+      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert"]) {
         await command(s, `/jev ${f} off`);
       }
       await s.waitFor(() => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off", "off widget");
@@ -220,7 +220,7 @@ function noReview(f: Fixture): boolean {
 
 describe("print and JSON mode", () => {
   test(
-    "print mode shows no status line and changes provider requests only by the jev_review tool",
+    "print mode shows no status line and leaves provider requests unchanged",
     async () => {
       const agentDir = tempDir("jev-host-agent-");
       const cwd = tempDir("jev-host-cwd-");
@@ -255,13 +255,9 @@ describe("print and JSON mode", () => {
       // Ports differ per fixture, so the models.json base URL is not part of the body; compare bodies.
       const bodies = (f: Fixture): string[] =>
         f.requests.map((r: RecordedRequest) => JSON.stringify(r.body));
-      const hasReview = (f: Fixture): boolean =>
-        f.requests.every((r: RecordedRequest) => toolNames(r.body).includes("jev_review"));
-      expect(hasReview(withPkg)).toBe(true);
+      expect(noReview(withPkg)).toBe(true);
       expect(noReview(plain)).toBe(true);
-      expect(
-        withPkg.requests.map((r: RecordedRequest) => JSON.stringify(withoutReview(r.body))),
-      ).toEqual(bodies(plain));
+      expect(bodies(withPkg)).toEqual(bodies(plain));
     },
     TIMEOUT,
   );

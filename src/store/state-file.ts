@@ -18,6 +18,7 @@ export type State = {
   switches?: Partial<Record<Feature, boolean>>;
   mode?: Mode;
   cliReview?: { cli: "codex" | "opencode"; model?: string; effort?: string };
+  cliReviewEnabled?: boolean;
 };
 
 export type StateRead =
@@ -61,12 +62,22 @@ function stateValidator(): V<State & { version: 1 }> {
   return object(
     {
       version: integer({ min: 1, max: 1 }),
-      switches: object(Object.fromEntries(FEATURES.map((f) => [f, boolean()]))),
+      // `review` is a removed switch: still accepted on read, dropped by parseState.
+      switches: object(Object.fromEntries([...FEATURES, "review"].map((f) => [f, boolean()]))),
       mode: oneOf(MODES),
       cliReview: cliReviewValidator,
+      cliReviewEnabled: boolean(),
     },
     { required: ["version"] },
   ) as V<State & { version: 1 }>;
+}
+
+/** Removes the retired `switches.review` key, and `switches` itself when nothing is left. */
+function dropLegacyReview(state: State): State {
+  if (state.switches === undefined) return state;
+  const { review: _review, ...rest } = state.switches as Record<string, boolean>;
+  const { switches: _switches, ...others } = state;
+  return Object.keys(rest).length === 0 ? others : { ...others, switches: rest };
 }
 
 function parseState(text: string): { state: State } | { issues: Issue[] } {
@@ -80,7 +91,7 @@ function parseState(text: string): { state: State } | { issues: Issue[] } {
   const parsed = stateValidator()(raw, "", issues);
   if (issues.length > 0 || parsed === undefined) return { issues };
   const { version: _version, ...state } = parsed;
-  return { state };
+  return { state: dropLegacyReview(state) };
 }
 
 export function readState(dir: string): StateRead {

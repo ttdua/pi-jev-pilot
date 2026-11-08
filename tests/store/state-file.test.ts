@@ -17,7 +17,6 @@ const FEATURES = [
   "strategy",
   "tools",
   "expert",
-  "review",
   "status",
   "verbose",
 ];
@@ -73,6 +72,57 @@ describe("state content", () => {
       const r = readState(dir);
       expect(r.kind).toBe("malformed");
       expect(paths(r)).toEqual(["cliReview.model"]);
+    }));
+
+  test("CLI review switch read", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReviewEnabled":true}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: { cliReviewEnabled: true } });
+    }));
+
+  test("Non-boolean CLI review switch", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReviewEnabled":"yes"}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["cliReviewEnabled"]);
+    }));
+
+  test("Legacy review switch accepted and dropped", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"mode":"budget","switches":{"review":false,"skills":false}}');
+      expect(readState(dir)).toEqual({
+        kind: "ok",
+        state: { mode: "budget", switches: { skills: false } },
+      });
+    }));
+
+  test("Legacy review switch alone", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"review":true}}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: {} });
+    }));
+
+  test("Legacy review switch gone after a write", () =>
+    withDir((dir) => {
+      put(
+        dir,
+        '{"version":1,"mode":"budget","cliReviewEnabled":true,"switches":{"review":false,"skills":false}}',
+      );
+      expect(updateState(dir, (s) => ({ ...s, mode: "premium" })).ok).toBe(true);
+      const raw = JSON.parse(readFileSync(join(dir, "state.json"), "utf8"));
+      expect(raw.mode).toBe("premium");
+      expect(raw.cliReviewEnabled).toBe(true);
+      expect(raw.switches).toEqual({ skills: false });
+      expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
+    }));
+
+  test("Non-boolean legacy review switch", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"review":"off"}}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["switches.review"]);
     }));
 
   test("OpenCode provider/model id accepted", () =>
@@ -236,7 +286,7 @@ describe("Reset", () => {
     withDir((dir) => {
       put(
         dir,
-        '{"version":1,"switches":{"skills":false},"mode":"budget","cliReview":{"cli":"codex"}}',
+        '{"version":1,"switches":{"skills":false},"mode":"budget","cliReview":{"cli":"codex"},"cliReviewEnabled":true}',
       );
       expect(resetState(dir)).toEqual({ ok: true });
       expect(readState(dir)).toEqual({ kind: "ok", state: {} });

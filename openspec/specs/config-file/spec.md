@@ -145,7 +145,7 @@ Each of `tiers.fast`, `tiers.balanced`, `tiers.deep` and `tiers.expert` SHALL be
 - **THEN** it returns a problem at that slot's `when` and the file is unchanged
 
 ### Requirement: Other field rules
-These fields SHALL be optional and MUST follow these rules: `effort.holdProviders` is up to 32 unique provider names of 1–64 characters from letters, digits, `.`, `_`, `-`; `skills.inject` is `content` or `suggest`; `tools.mode` is `observe` or `enforce`; `state.parentRequest` is a boolean; `review.cli` is `codex` or `opencode`; `subagents.forkedLaunch` is `untouched` or `thinking`.
+These fields SHALL be optional and MUST follow these rules: `effort.holdProviders` is up to 32 unique provider names of 1–64 characters from letters, digits, `.`, `_`, `-`; `skills.inject` is `content` or `suggest`; `tools.mode` is `observe` or `enforce`; `state.parentRequest` is a boolean; `review.cli` is `codex` or `opencode`; `review.enabled` is a boolean; `subagents.forkedLaunch` is `untouched` or `thinking`.
 
 #### Scenario: Duplicate hold provider
 - **WHEN** `effort.holdProviders` is `["9router", "9router"]`
@@ -162,6 +162,14 @@ These fields SHALL be optional and MUST follow these rules: `effort.holdProvider
 #### Scenario: Enum values
 - **WHEN** `skills.inject` is `"full"`, `tools.mode` is `"remove"` and `review.cli` is `"claude"`
 - **THEN** the read is invalid with problems at `skills.inject`, `tools.mode` and `review.cli`
+
+#### Scenario: CLI review enabled accepted
+- **WHEN** `review` is `{"cli":"opencode","enabled":true}`
+- **THEN** the read is valid and returns those values
+
+#### Scenario: Non-boolean review.enabled
+- **WHEN** `review.enabled` is `"on"`
+- **THEN** the read is invalid with a problem at `review.enabled`
 
 #### Scenario: Forked launch setting accepted
 - **WHEN** `subagents.forkedLaunch` is `"thinking"`
