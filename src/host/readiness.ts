@@ -4,11 +4,15 @@ import { resolveSettings, untunedTimeout, type Settings } from "../store/setting
 import { readState, type StateRead } from "../store/state-file.ts";
 import { readTuning, type TuningDocument, type TuningRead } from "../store/tuning-file.ts";
 import type { Issue } from "../store/validate.ts";
+import { readLocalMode, type LocalModeRead } from "../store/local-mode.ts";
+import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 
 export type Snapshot = {
   config: { valid: true } | { valid: false; issues: Issue[] };
   state: { kind: StateRead["kind"]; issues: Issue[] };
+  /** The directory mode file read, kept so the status can report a bad file. */
+  localMode: { kind: LocalModeRead["kind"]; issues: Issue[] };
   settings: Settings;
   keyVar: string;
   keySet: boolean;
@@ -35,6 +39,8 @@ export function buildSnapshot(input: {
   env: Record<string, string | undefined>;
   toolNames: string[];
   tuningRead?: TuningRead;
+  /** The directory mode file read; a missing read applies nothing. */
+  localModeRead?: LocalModeRead;
 }): Snapshot {
   const { configRead, stateRead, env, toolNames } = input;
   const tuningRead: TuningRead = input.tuningRead ?? { kind: "missing", record: {} };
@@ -43,7 +49,13 @@ export function buildSnapshot(input: {
   const config = configRead.kind === "ok" ? configRead.config : {};
   // Tuning applies only on top of a valid config (design D3).
   const tuning = configRead.kind === "ok" ? tuningRead.record : undefined;
-  const settings = resolveSettings({ config, state, ...(tuning ? { tuning } : {}) });
+  const localModeRead: LocalModeRead = input.localModeRead ?? { kind: "missing" };
+  const settings = resolveSettings({
+    config,
+    state,
+    ...(tuning ? { tuning } : {}),
+    ...(localModeRead.kind === "ok" ? { localMode: localModeRead.mode } : {}),
+  });
   const keyVar = settings.classifier.apiKeyEnv;
   return {
     config:
@@ -51,6 +63,10 @@ export function buildSnapshot(input: {
     state: {
       kind: stateRead.kind,
       issues: "issues" in stateRead ? stateRead.issues : [],
+    },
+    localMode: {
+      kind: localModeRead.kind,
+      issues: "issues" in localModeRead ? localModeRead.issues : [],
     },
     settings,
     keyVar,
@@ -65,8 +81,8 @@ export function buildSnapshot(input: {
   };
 }
 
-/** Reads the three files, the environment and the tool list now; keeps nothing between calls. */
-export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">): Snapshot {
+/** Reads the three files, the directory mode file, the environment and the tool list now; keeps nothing between calls. */
+export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">, cwd?: string): Snapshot {
   const dir = jevDir();
   return buildSnapshot({
     configRead: readConfig(dir),
@@ -74,5 +90,6 @@ export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">): Snapshot {
     tuningRead: readTuning(dir),
     env: process.env,
     toolNames: pi.getAllTools().map((t) => t.name),
+    localModeRead: readLocalMode(cwd ?? mainCwd() ?? process.cwd()),
   });
 }

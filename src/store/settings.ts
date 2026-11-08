@@ -14,7 +14,10 @@ export type Settings = {
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
+  /** Effective mode: the directory override when set, else the global mode. */
   mode: Mode;
+  modeSource: "local" | "global";
+  globalMode: Mode;
   switches: Record<Feature, boolean>;
 };
 
@@ -41,8 +44,10 @@ export function resolveSettings(input: {
   config: Config;
   state: State;
   tuning?: Tuning;
+  localMode?: Mode;
 }): Settings {
-  const { config, state, tuning } = input;
+  const { config, state, tuning, localMode } = input;
+  const globalMode = state.mode ?? DEFAULTS.mode;
   const c = config.classifier;
   const untuned = untunedTimeout(config);
 
@@ -78,7 +83,9 @@ export function resolveSettings(input: {
         (DEFAULTS.subagents.forkedLaunch as "untouched" | "thinking"),
     },
     review,
-    mode: state.mode ?? DEFAULTS.mode,
+    mode: localMode ?? globalMode,
+    modeSource: localMode ? "local" : "global",
+    globalMode,
     switches,
   };
 }

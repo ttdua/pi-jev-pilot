@@ -136,8 +136,8 @@ Default is `observe`, so workers keep all their tools until the operator switche
 
 ## 4. A mode change
 
-1. `/jev mode budget`.
-2. `state.json` is updated. No Jev call.
+1. `/jev mode budget` (this directory) or `/jev mode budget global` (every directory without its own mode).
+2. `<cwd>/.pi/jev-mode.json` or `state.json` is updated. No Jev call.
 3. The next launch uses the `budget` target table and its cut points, from the same window. The worker request is identical. Running workers are unaffected.
 4. Each ledger line records its mode, so tuning signals are never mixed across modes.
 

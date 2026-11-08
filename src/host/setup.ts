@@ -11,6 +11,7 @@ import { scanPlatforms } from "./context.ts";
 import { listAgents } from "./agents.ts";
 import { createMain } from "./main.ts";
 import { loadSnapshot } from "./readiness.ts";
+import { setMainCwd } from "./main-cwd.ts";
 import { hideReviewInChild, registerReviewTool, syncReviewTool } from "./review.ts";
 import { compactTally, drawStatus, logLine } from "./status.ts";
 import { jevDir } from "./stores.ts";
@@ -118,6 +119,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
         window.clear();
       }
       log.reset(ctx.sessionManager.getSessionId());
+      setMainCwd(ctx.cwd);
       drawStatus(ctx, loadSnapshot(pi), main.decision());
     } catch {
       /* swallow: the line stays as it was */
@@ -208,7 +210,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       routing.clearWarnings();
       return runJev(args, ctx, {
         dir: jevDir(),
-        load: () => loadSnapshot(pi),
+        load: (cwd) => loadSnapshot(pi, cwd),
         decision: main.decision,
         tally: log.tally,
         window: () => window.entries(),

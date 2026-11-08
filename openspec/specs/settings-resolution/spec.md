@@ -6,11 +6,11 @@ One pure function merges tuning, state, config and code defaults into complete e
 ## Requirements
 
 ### Requirement: One resolver for effective settings
-Effective settings SHALL come from one pure function of a valid config, the state and an optional tuning layer. For each value, the tuning layer wins over the state, the state over the config, and the config over the code default, subject to the tuning limits below. The result MUST be complete: every setting has a value. The function MUST do no I/O.
+Effective settings SHALL come from one pure function of a valid config, the state, an optional tuning layer and an optional directory mode. For each value, the tuning layer wins over the state, the state over the config, and the config over the code default, subject to the tuning limits below. For the mode, the directory mode wins over the state (see State overrides). The result MUST be complete: every setting has a value. The function MUST do no I/O.
 
 #### Scenario: Everything defaulted
-- **WHEN** the config is empty, the state has no fields and there is no tuning layer
-- **THEN** the result has `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`, no tiers, no slots, `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `state.parentRequest` `false`, `review.cli` `codex`, `review.enabled` `false`, `subagents.forkedLaunch` `untouched`, mode `standard`, and every feature on except `verbose`
+- **WHEN** the config is empty, the state has no fields, and there is no tuning layer and no directory mode
+- **THEN** the result has `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`, no tiers, no slots, `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `state.parentRequest` `false`, `review.cli` `codex`, `review.enabled` `false`, `subagents.forkedLaunch` `untouched`, mode `standard` with source `global` and global mode `standard`, and every feature on except `verbose`
 
 #### Scenario: Config over default
 - **WHEN** the config sets `classifier.timeoutMs` to `2000`
@@ -25,7 +25,7 @@ Effective settings SHALL come from one pure function of a valid config, the stat
 - **THEN** the result's `subagents.forkedLaunch` is `thinking`
 
 ### Requirement: State overrides
-The state SHALL override the switches and mode defaults. Its CLI review default SHALL replace the config's `review.cli` together with any model and effort, and its `cliReviewEnabled` SHALL override the config's `review.enabled`. Each of the two MUST resolve independently of the other.
+The state SHALL override the switches and mode defaults. Its CLI review default SHALL replace the config's `review.cli` together with any model and effort, and its `cliReviewEnabled` SHALL override the config's `review.enabled`. Each of the two MUST resolve independently of the other. A directory mode, when given, SHALL override the state's mode and the default for the mode only. The result MUST carry the global mode (the state's mode, else the default) and the mode's source: `local` when the directory mode was given, otherwise `global`. A directory mode MUST NOT change any other setting.
 
 #### Scenario: Switch off
 - **WHEN** the state turns `skills` off
@@ -33,7 +33,19 @@ The state SHALL override the switches and mode defaults. Its CLI review default 
 
 #### Scenario: Mode from state
 - **WHEN** the state sets the mode to `premium`
-- **THEN** the result's mode is `premium`
+- **THEN** the result's mode is `premium`, with source `global`
+
+#### Scenario: Directory mode over state
+- **WHEN** the state sets the mode to `premium` and the directory mode is `budget`
+- **THEN** the result's mode is `budget`, with source `local` and global mode `premium`
+
+#### Scenario: Directory mode over the default
+- **WHEN** the state has no mode and the directory mode is `premium`
+- **THEN** the result's mode is `premium`, with source `local` and global mode `standard`
+
+#### Scenario: Directory mode changes only the mode
+- **WHEN** the state turns `skills` off and the directory mode is `premium`
+- **THEN** the result equals the result without a directory mode, except mode `premium` and source `local`
 
 #### Scenario: CLI review default from state
 - **WHEN** the config sets `review.cli` to `codex` and the state sets the CLI review default to `opencode` with no model

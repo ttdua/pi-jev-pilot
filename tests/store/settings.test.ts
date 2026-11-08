@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../../src/store/defaults.ts";
-import { resolveSettings, untunedTimeout } from "../../src/store/settings.ts";
+import { resolveSettings, type Settings, untunedTimeout } from "../../src/store/settings.ts";
 
 describe("resolveSettings", () => {
   test("Forked launch from config", () => {
@@ -25,6 +25,8 @@ describe("resolveSettings", () => {
       subagents: { forkedLaunch: "untouched" },
       review: { cli: "codex", enabled: false },
       mode: "standard",
+      modeSource: "global",
+      globalMode: "standard",
       switches: {
         effort: true,
         subagents: true,
@@ -59,7 +61,43 @@ describe("resolveSettings", () => {
   });
 
   test("Mode from state", () => {
-    expect(resolveSettings({ config: {}, state: { mode: "premium" } }).mode).toBe("premium");
+    const s = resolveSettings({ config: {}, state: { mode: "premium" } });
+    expect(s.mode).toBe("premium");
+    expect(s.modeSource).toBe("global");
+    expect(s.globalMode).toBe("premium");
+  });
+
+  test("Directory mode over state", () => {
+    const s = resolveSettings({
+      config: {},
+      state: { mode: "premium" },
+      localMode: "budget",
+    });
+    expect(s.mode).toBe("budget");
+    expect(s.modeSource).toBe("local");
+    expect(s.globalMode).toBe("premium");
+  });
+
+  test("Directory mode over the default", () => {
+    const s = resolveSettings({ config: {}, state: {}, localMode: "premium" });
+    expect(s.mode).toBe("premium");
+    expect(s.modeSource).toBe("local");
+    expect(s.globalMode).toBe("standard");
+  });
+
+  test("Directory mode changes only the mode", () => {
+    const state = { switches: { skills: false } };
+    const without: Partial<Settings> = resolveSettings({ config: {}, state });
+    const withSession: Partial<Settings> = resolveSettings({
+      config: {},
+      state,
+      localMode: "premium",
+    });
+    for (const s of [without, withSession]) {
+      delete s.mode;
+      delete s.modeSource;
+    }
+    expect(withSession).toEqual(without);
   });
 
   test("CLI review default from state", () => {
