@@ -5,8 +5,8 @@
 > Overwritten on each apply iteration; the iteration counter grows.
 
 **Change**: `wg-19-release`
-**Iteration**: `1`
-**Applied at**: `2026-11-08 00:52` (UTC `2026-11-07T17:52Z`)
+**Iteration**: `2`
+**Applied at**: `2026-11-08 09:22` (UTC `2026-11-08T02:22Z`)
 **Executor**: `subagent-driven-development` through `@gotgenes/pi-subagents` 25.0.5, by operator decision ("use the available or default agents"; the `superspec.*` roles are not installed). Implementer `general-purpose` per task (`easy-worker` for Task 12); one combined spec and quality review per task by `general-purpose`; final whole-branch review by `general-purpose` on the most capable model, then one fix wave and a scoped re-review.
 
 ---
@@ -22,14 +22,20 @@
 
 ## Commits
 
-- **Range**: `281a20e..94c96a8`. `281a20e` is the step 0 scaffold commit on `WG-19`. This receipt is committed after `94c96a8`.
-- **Count**: `19`
+- **Range**: `281a20e..cb34e94`. `281a20e` is the step 0 scaffold commit on `WG-19`. This receipt is committed after `cb34e94`.
+- **Count**: `26` (including the merge commit `fdf839d`)
+- **Iteration 1**: `281a20e..94c96a8` plus the receipt `c4e116d`.
+- **Iteration 2** (operator request, 2026-11-08): the operator asked to fold in two features merged to `main` after planning, #48 (CLI review on/off) and #49 (per-directory mode).
+  - `fdf839d` merges `origin/main` cleanly.
+  - `b67cd3e` adds task 4.6.
+  - `de04ef4..cb34e94` is the docs task, reviewed with one fix round.
+  - The merge does not touch `src/jev/`, `src/policy/` or `scripts/`, so the report numbers stand.
 
 ---
 
 ## Tasks
 
-- **Completed**: `17 of 19` checkboxes in tasks.md flipped to `- [x]`
+- **Completed**: `18 of 20` checkboxes in tasks.md flipped to `- [x]`
 - **Remaining**: `5.1` (push branch and `v0.1.0` tag, needs the operator's go-ahead) and `5.2` (manual install acceptance of the tag). Both belong to finalize. `4.4` covers the roadmap wording; setting WG-19 to *Done* waits for 5.2.
 
 ---
@@ -58,6 +64,8 @@
 - Final whole-branch review: 0 Critical, 2 Important, 7 Minor. The fix wave is `5eb33f8..94c96a8`, and the re-review found 7 of 8 addressed.
 - Parked: part of Minor 6. `compareReport` and `reportCases` each call the shared `analyse`, so answers are read and routed twice per run. This only costs time in an offline script.
 - Final suite at `94c96a8`: `bun run test` gives 1828 pass, 0 fail. typecheck, lint and fmt:check are clean.
+- Iteration 2, Task 4.6 (`docs/scenarios.md`, `README.md`, `CHANGELOG.md`, evidence method note): one task review with 1 Important and 1 Minor, then a fix round and a scoped re-review that addressed both.
+- Final suite at `cb34e94`: `bun run test` gives 1935 pass, 0 fail. typecheck, lint and fmt:check are clean.
 
 ---
 
