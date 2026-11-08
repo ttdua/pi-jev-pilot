@@ -53,7 +53,7 @@ A small host holder, `src/host/main-cwd.ts`, records the cwd of the newest main 
 - **Local set:** `writeLocalMode(ctx.cwd, m)`. On failure, report the error with the file path and change nothing. On success, report the status and redraw. It never touches `state.json`.
 - **Global set:** `updateState` as today. If the reloaded snapshot's `modeSource` is `local`, the report adds `directory mode <d> still applies here; global mode is now <m>`.
 - **Clear:** when no file exists, report `no directory mode set` as info, write nothing and do not redraw. Otherwise call `clearLocalMode(ctx.cwd)`, then report and redraw.
-- **Reset:** `resetState`. When it succeeds and a directory mode exists, also `clearLocalMode`. A refused reset leaves the file alone.
+- **Reset:** `resetState`. When it succeeds and a directory mode exists, also `clearLocalMode`. A refused reset leaves the file alone. When `resetState` succeeds but `clearLocalMode` fails, the command still reloads and redraws, and reports one `warning`, `global settings reset; directory mode not removed: <error>`, followed by the status. There is no rollback of `state.json`, because the two stores cannot be updated in one transaction.
 - All forms are inert in a child session (already the case for `/jev`).
 
 ### D6. Malformed or unreadable file

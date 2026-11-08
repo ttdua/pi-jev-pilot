@@ -241,7 +241,7 @@ Keep the iteration 1 helpers that still apply: `widgetShows`, the `/jev` notify 
 **jev-command**
 - Directory mode in the report, Malformed directory mode reported → `tests/host/commands.test.ts`, same names
 - Unknown mode, Usage lists the mode form → parse and usage tests in `tests/host/commands.test.ts`
-- Reset removes the directory mode, Refused reset keeps the directory mode → `tests/host/commands.test.ts`, same names
+- Reset removes the directory mode, Refused reset keeps the directory mode, Partial reset reports a warning and redraws → `tests/host/commands.test.ts`, same names
 - Set premium, Mode survives a restart, Back to standard, Refused mode change (now with `global`), Plain form targets the directory, Global set keeps the directory mode → `tests/host/commands.test.ts`, same names
 - Every other scenario → unchanged existing tests in `tests/host/commands.test.ts`
 

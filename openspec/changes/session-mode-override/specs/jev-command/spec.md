@@ -113,7 +113,7 @@ Any other argument SHALL produce usage text as a warning and change nothing. The
 - **THEN** it contains `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>` and `/jev remove <slot>`
 
 ### Requirement: Reset
-`/jev reset` SHALL reset the state through the state store, so switches, the mode and the CLI review default fall back to config or code defaults. When the reset succeeds and the current directory has a directory mode file, it SHALL also remove that file (see `directory-mode`). It then reports the status and refreshes the status line. When the state store refuses the reset, the directory mode file MUST stay as it was.
+`/jev reset` SHALL reset the state through the state store, so switches, the mode and the CLI review default fall back to config or code defaults. When the reset succeeds and the current directory has a directory mode file, it SHALL also remove that file (see `directory-mode`). It then reports the status and refreshes the status line. When the state store refuses the reset, the directory mode file MUST stay as it was. When the state reset succeeds but the file cannot be removed, the command SHALL still report the status and refresh the status line, with one warning that the global settings were reset and the directory mode was not removed, naming the error.
 
 #### Scenario: Reset after changes
 - **WHEN** `skills` is off, the mode is `premium`, and the operator runs `/jev reset`
@@ -126,6 +126,10 @@ Any other argument SHALL produce usage text as a warning and change nothing. The
 #### Scenario: Refused reset keeps the directory mode
 - **WHEN** the directory mode is `premium`, `state.json` has mode `0000`, and the operator runs `/jev reset`
 - **THEN** an error naming `EACCES` is reported and `<cwd>/.pi/jev-mode.json` still holds `premium`
+
+#### Scenario: Partial reset reports a warning and redraws
+- **WHEN** `skills` is off, the global mode is `premium`, the directory mode is `budget`, `<cwd>/.pi` cannot be written, and the operator runs `/jev reset`
+- **THEN** `state.json` holds only `version`, `<cwd>/.pi/jev-mode.json` still holds `budget`, one warning contains `global settings reset; directory mode not removed:`, the error code and `mode: budget (this directory; global standard)`, and, with the key set and the config valid, the status line is redrawn as `Jev · budget (local)`
 
 ### Requirement: Mode
 <!-- Intentional change: `/jev mode <m>` now targets the current directory; the global form needs `global`. The scenarios "Set premium", "Mode survives a restart" and "Back to standard" now use the `global` form, which carries the old behaviour. -->

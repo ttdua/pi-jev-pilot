@@ -77,7 +77,7 @@ The iteration 1 session-entry code is gone: `src/jev/session-mode.ts` and `src/h
 Every scenario name was matched against the test sources:
 - `directory-mode`: 18 of 18
 - `settings-resolution`: 11 of 11
-- `jev-command`: 23 of 35
+- `jev-command`: 24 of 36
 - `status-line`: 17 of 41
 
 The 36 unnamed scenarios are all baseline scenarios carried over unchanged into MODIFIED requirements (for example `Default status`, `Whitespace only`, `After a decision`). They are covered by the existing tests listed in the `plan.md` Scenario → test section, under short names such as `ready default`, `config error wins` and `all off` in `tests/host/status.test.ts:46-57`. This change did not alter them, and they pass in this run. Every scenario this change added has a test under its own name.
@@ -121,13 +121,13 @@ The tests that chmod files (`Set while state is unreadable`, `Directory not writ
 | design.md decision | Result |
 |---|---|
 | D1–D4 and D6–D8 | Match the code (evidence as in section 3) |
-| D5 | Matches, with one extension (the partial-reset warning); see the drift warning below |
+| D5 | Matches, including the partial-reset warning (added to D5 after the first verify run) |
 
 `apply.md` contract deviations: the iteration 1 holder and `load` change, the move to the directory mode, and the session-mode spec wording. Each one matches the final code, where the iteration 1 entries are gone and the directory mode is present.
 
 **Drift warnings** (non-blocking):
 
-- design.md D5 (Reset) does not describe the partial-reset path added by the final review fix (`src/host/commands.ts:253-256, 355-366`). When the state reset succeeds but the directory file cannot be removed, the command now redraws and reports a `warning` instead of a plain error. `specs/jev-command` "Reset" allows it, but neither the spec nor design.md has a scenario for it. Recommendation: add a "Reset succeeds but the directory mode cannot be removed" scenario to `specs/jev-command` "Reset" and one line to D5 before archive.
+- Resolved after the first verify run, on the operator's decision. The partial-reset path (`src/host/commands.ts:253-256, 355-366`) is now in `specs/jev-command` "Reset" as scenario "Partial reset reports a warning and redraws", and in design.md D5. It is covered by `tests/host/commands.test.ts` "Partial reset reports a warning and redraws", which passed in a fresh focused run. `openspec validate --strict` passes.
 
 ---
 
@@ -142,15 +142,14 @@ The tests that chmod files (`Set while state is unreadable`, `Directory not writ
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [x] PASS_WITH_WARNINGS: proceed. The partial-reset behaviour is in the code and tested, but no spec scenario or design line describes it; two minor test findings are parked (see `apply.md`).
+- [x] PASS_WITH_WARNINGS: proceed. The only remaining items are suggestions: two minor test findings are parked (see `apply.md`).
 - [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 ### Issues
 
 **CRITICAL**: none.
 
-**WARNING**
-- The partial-reset behaviour has no spec scenario (`src/host/commands.ts:355-366`). Add a scenario to `specs/jev-command/spec.md` "Reset" and a line to design.md D5, so archive syncs it into the main spec.
+**WARNING**: none remaining. The partial-reset spec gap was fixed by adding the scenario and the D5 line.
 
 **SUGGESTION**
 - `tests/host/commands.test.ts` "Set while state is unreadable" and "Clear back to the global mode" use fixture modes other than the scenario's `budget`. Swap the literals to match the scenario text.
@@ -158,7 +157,7 @@ The tests that chmod files (`Set while state is unreadable`, `Directory not writ
 
 **Next step**:
 
-Run `/opsx-continue` in the worktree to create the finalize artifact, then `/opsx-archive`. The spec-scenario warning can be fixed first, as a small artifact edit.
+Run `/opsx-continue` in the worktree to create the finalize artifact, then `/opsx-archive`.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.
