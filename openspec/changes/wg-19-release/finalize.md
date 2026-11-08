@@ -16,7 +16,7 @@
 - **Branch**: `release/0.1` (replaces `WG-19`; see *Deviation*)
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: filled in after `gh pr create` (see the follow-up commit)
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/51 (replaces https://github.com/ttdua/pi-jev-pilot/pull/50, closed with a pointer to #51; the remote branch `WG-19` is deleted)
 
 ### Deviation from the canonical closeout (operator decision, 2026-11-08)
 
@@ -43,7 +43,9 @@
 
 ## PR comment
 
-- **PR comment status**: filled in after the comment subroutine (see the follow-up commit)
+- **PR comment status**: `posted`
+
+The PR, the comment, the close of #50 and the branch deletion were done as `ttdua`, the owner of the remote. The active `gh` account reverts to `naicoi92`, so the `ttdua` token was passed per command (`GH_TOKEN`). No remote or token was changed.
 
 ---
 
@@ -51,7 +53,7 @@
 
 - **Code review**: `approved`
 - **Reviewer tier**: operator, through the Plannotator Inbox (thread `wg-19-release`). Iterations 1–2 were approved on 2026-11-08 over `281a20e..b71e0e1`; iteration 3 was approved on 2026-11-08 over `b71e0e1..cc1a30d`, with README and scenarios attached. Before each gate: per-task and whole-branch subagent reviews, recorded in `apply.md`.
-- **Commit range reviewed**: `281a20e..cc1a30d` on `WG-19`, squashed into one commit on `release/0.1`.
+- **Commit range reviewed**: `281a20e..cc1a30d` on `WG-19` (plus the receipt commit), squashed into one commit `7a8b22b` on `release/0.1` with the same tree.
 
 ---
 
