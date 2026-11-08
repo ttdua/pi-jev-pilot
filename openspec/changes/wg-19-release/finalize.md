@@ -16,7 +16,7 @@
 - **Branch**: `WG-19`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: filled in after `gh pr create` (see the follow-up commit)
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/50
 
 The feature branch had no remote and no pre-review PR. Following the finalize instruction, the PR is opened here at the operator's request: "push WG-19 and open the PR `feat(release): wg-19-release`".
 
@@ -34,7 +34,9 @@ The feature branch had no remote and no pre-review PR. Following the finalize in
 
 ## PR comment
 
-- **PR comment status**: filled in after the comment subroutine (see the follow-up commit)
+- **PR comment status**: `posted`
+
+The PR and the comment were created as `ttdua`, the owner of the remote, as the project AGENTS.md requires. The active `gh` account kept switching back to `naicoi92`, which has no push or PR rights, so the `ttdua` token was passed per command (`GH_TOKEN`). No remote or token was changed.
 
 ---
 
