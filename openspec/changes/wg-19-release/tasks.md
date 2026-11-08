@@ -26,6 +26,7 @@
 - [x] 4.3 Remove banners from `docs/README.md` and `docs/usage-guide.md`, pin the install command, and link `docs/scenarios.md` and the new evidence from `docs/README.md`
 - [x] 4.4 Update `docs/roadmap.md`: WG-19 "Done when" reworded to the git-tag install, status Done after acceptance
 - [x] 4.5 Run the full check suite (`bun run typecheck`, `lint`, `fmt:check`, `test`)
+- [ ] 4.6 Fold the features merged from `main` after planning (CLI review on/off toggle #48, per-directory mode #49) into `CHANGELOG.md`, `README.md`, `docs/scenarios.md` (inside the existing four sections) and the release evidence notes; run the full check suite
 
 ## 5. Release acceptance (operator)
 

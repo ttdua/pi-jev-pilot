@@ -27,6 +27,7 @@ Every work group before WG-19 is done and the operator already runs the package 
 - A new `docs/scenarios.md` with one section per scenario: effort follows the prompt, worker model follows difficulty, the reviewer slot, and which rule wins for model, effort and config values.
 - A new evidence file in `docs/evidence/` with the report-pass aggregates and the manual install check of the tag.
 - The "design phase" and "planned behavior" banners removed.
+- Two features merged to `main` during apply are folded into the release docs within the existing four scenarios: the CLI review on/off setting (#48), off by default, and the per-directory mode (#49), set with `/jev mode <m>`, while `/jev mode <m> global` sets the global mode. This is the operator's request of 2026-11-08.
 
 **Not in scope:** a migration guide from the earlier port (by operator decision), an npm publish, a tarball, and any change to decision behavior.
 
