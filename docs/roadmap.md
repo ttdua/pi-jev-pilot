@@ -224,8 +224,8 @@ Decide which [state fields](jev-contract.md#main-state) ship. **Sends real promp
 
 ### WG-19: Release and migration guide
 
-- **Includes:** README final, `CHANGELOG.md`, migration steps from the port, package acceptance test from a packed tarball.
-- **Done when:** a clean `PI_CODING_AGENT_DIR` installs from the tarball and passes acceptance. **Publishing needs the operator's explicit go-ahead.**
+- **Includes:** README final, `CHANGELOG.md`, usage scenarios with measured numbers (`docs/scenarios.md`), a replay report pass and its evidence, release metadata checks.
+- **Done when:** the `v0.1.0` tag installs with `pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0` into a clean `PI_CODING_AGENT_DIR` and passes the acceptance checklist in the release evidence. Pushing the tag needs the operator's explicit go-ahead.
 
 ## After 0.1
 

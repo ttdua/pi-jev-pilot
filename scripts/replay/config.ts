@@ -6,17 +6,32 @@ import { MODE_NAMES, type ModeName } from "../../src/policy/modes.ts";
 import type { PlainConfig } from "./variants.ts";
 
 export const USAGE =
-  "usage: bun scripts/replay/cli.ts --pass 1 [--seed N] [--main N] [--workers N] " +
-  "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--only VARIANTS] [--send]";
+  "usage: bun scripts/replay/cli.ts --pass 1|report [--seed N] [--main N] [--workers N] " +
+  "[--sessions DIR] [--capabilities FILE] [--models FILE] [--url URL] [--only VARIANTS] [--send]\n" +
+  "--workers defaults to 46 for pass 1 and 200 for report.";
 
 export class UsageError extends Error {}
 
+const PASS1_WORKERS = 46;
+const REPORT_WORKERS = 200;
+
+/** The worker sample size: `--workers` when given, else the pass default. */
+export const workersFor = (args: Pick<Args, "pass" | "workers">): number =>
+  args.workers ?? (args.pass === "report" ? REPORT_WORKERS : PASS1_WORKERS);
+
+function passOf(value: string | undefined): 1 | "report" {
+  if (value === "1") return 1;
+  if (value === "report") return "report";
+  throw new UsageError("--pass accepts 1 or report");
+}
+
 export type Args = {
-  pass: 1;
+  pass: 1 | "report";
   only?: string[];
   seed: number;
   main: number;
-  workers: number;
+  /** Absent when `--workers` is not given; each pass applies its own default. */
+  workers?: number;
   sessions?: string;
   capabilities?: string;
   url?: string;
@@ -42,8 +57,8 @@ function onlyVariants(value: string | undefined): string[] {
 
 export function parseArgs(argv: readonly string[]): Args {
   const text: Partial<Record<(typeof TEXT_FLAGS)[number], string>> = {};
-  const nums: Record<string, number> = { "--seed": 1, "--main": 100, "--workers": 46 };
-  let pass: 1 | undefined;
+  const nums: Record<string, number> = { "--seed": 1, "--main": 100 };
+  let pass: 1 | "report" | undefined;
   let send = false;
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!;
@@ -51,9 +66,7 @@ export function parseArgs(argv: readonly string[]): Args {
     if (flag === "--send") {
       send = true;
     } else if (flag === "--pass") {
-      if (value !== "1")
-        throw new UsageError("--pass accepts only 1; pass 2 was removed (WG-16 D10)");
-      pass = 1;
+      pass = passOf(value);
       i++;
     } else if ((NUMBER_FLAGS as readonly string[]).includes(flag)) {
       nums[flag] = count(flag, value);
@@ -67,11 +80,14 @@ export function parseArgs(argv: readonly string[]): Args {
     }
   }
   if (pass === undefined) throw new UsageError("--pass is required");
+  if (pass === "report" && text["--only"] !== undefined) {
+    throw new UsageError("--only applies to pass 1");
+  }
   return {
     pass,
     seed: nums["--seed"]!,
     main: nums["--main"]!,
-    workers: nums["--workers"]!,
+    ...(nums["--workers"] === undefined ? {} : { workers: nums["--workers"] }),
     ...(text["--sessions"] === undefined ? {} : { sessions: text["--sessions"] }),
     ...(text["--capabilities"] === undefined ? {} : { capabilities: text["--capabilities"] }),
     ...(text["--url"] === undefined ? {} : { url: text["--url"] }),
