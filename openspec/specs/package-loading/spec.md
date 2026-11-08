@@ -6,7 +6,7 @@ The repository is a Pi package whose manifest names one extension entry point th
 ## Requirements
 
 ### Requirement: Package manifest
-The repository root `package.json` SHALL declare a Pi package whose `pi.extensions` lists exactly `./src/extension.ts`, whose `keywords` include `pi-package`, whose `license` is `MIT`, and which declares `@earendil-works/pi-coding-agent` only as a `"*"` peer dependency, never as a runtime dependency. The package MUST have no runtime `dependencies`.
+The repository root `package.json` SHALL declare a Pi package whose `pi.extensions` lists exactly `./src/extension.ts`, whose `keywords` include `pi-package`, and whose `license` is `MIT`. Its `peerDependencies` SHALL be exactly the host-provided packages the source imports, `@earendil-works/pi-coding-agent` and `typebox`, each with the range `"*"`. Neither may be a runtime dependency. The package MUST have no runtime `dependencies`.
 
 #### Scenario: Manifest names one entry point
 - **WHEN** `package.json` is read
@@ -14,7 +14,11 @@ The repository root `package.json` SHALL declare a Pi package whose `pi.extensio
 
 #### Scenario: Host package is a peer, not bundled
 - **WHEN** `package.json` is read
-- **THEN** `peerDependencies["@earendil-works/pi-coding-agent"]` is `"*"`, and `dependencies` is absent or empty
+- **THEN** `peerDependencies` equals `{ "@earendil-works/pi-coding-agent": "*", "typebox": "*" }`, and `dependencies` is absent or empty
+
+#### Scenario: Every imported host package is declared
+- **WHEN** the non-relative imports under `src/` are listed, excluding `node:` built-ins
+- **THEN** each imported package name is a key of `peerDependencies`
 
 ### Requirement: Extension loads through a real install
 Installing the repository checkout with `pi install` into an isolated `PI_CODING_AGENT_DIR` SHALL make Pi's resource loader report the package's `src/extension.ts` as a loaded extension with no load errors. The check MUST NOT touch the operator's real agent directory, and MUST run offline with no credentials.
