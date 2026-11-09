@@ -9,7 +9,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "bun check",
-    "lint": "oxlint --max-warnings 65 .",
+    "lint": "oxlint --max-warnings 63 .",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
     "test": "bun test"

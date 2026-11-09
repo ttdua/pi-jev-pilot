@@ -19,7 +19,6 @@ import {
 } from "../policy/skill.ts";
 import { isHeld } from "../policy/hold.ts";
 import {
-  CORRECTION_THRESHOLD,
   canAskEffort,
   decideEffort,
   supportedLevels,
@@ -32,6 +31,14 @@ import type { AgentFacts } from "../policy/launch.ts";
 import { isChild } from "./child.ts";
 import { branchItems, holdContext, previousTurnId } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
+import {
+  correctionLine,
+  decidedAnchor,
+  decidedSummary,
+  lastAssistantStop,
+  mainLine,
+} from "./main-line.ts";
+import type { TurnRecord } from "./main-record.ts";
 import { buildRichInputs } from "./rich.ts";
 import {
   SKILL_MESSAGE_TYPE,
@@ -61,42 +68,6 @@ export type MainDeps = {
     tools: () => { name: string; description: string }[];
     agents: (cwd: string) => AgentFacts[];
   };
-};
-
-/** Per-turn bookkeeping. Internal; the ledger lines are written from it when the run settles. */
-export type TurnRecord = {
-  turnId: string;
-  at: number;
-  sessionId: string;
-  mode: string;
-  from: ThinkingLevel;
-  previousTurnId?: string;
-  held?: true;
-  provider?: string;
-  model?: string;
-  compactionId?: string;
-  answered: boolean;
-  ms: number;
-  miss?: string;
-  effortP?: Record<string, number>;
-  risky?: number;
-  corrects?: number;
-  strategy?: Strategy;
-  strategyP?: number;
-  advised?: boolean;
-  skill?: string;
-  skillP?: number;
-  gate?: number;
-  requested?: EffortLevel;
-  effective?: ThinkingLevel;
-  applied?: ThinkingLevel;
-  sawRequest: boolean;
-  toolCalls: number;
-  failures: number;
-  inputTokens: number;
-  outputTokens: number;
-  /** Stop reason of the last assistant message seen in `turn_end`. */
-  lastStop?: string;
 };
 
 type Answered = Exclude<JevOutcome, { kind: "cancelled" }>;
@@ -622,110 +593,48 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     }
   }
 
-  function lastBranchStop(ctx: Ctx | undefined): string | undefined {
+  function branchStop(ctx: Ctx | undefined): string | undefined {
     try {
-      const entries = ctx?.sessionManager.getBranch() ?? [];
-      for (let i = entries.length - 1; i >= 0; i--) {
-        const e = entries[i]!;
-        if (e.type !== "message") continue;
-        const m = e.message as { role?: string; stopReason?: unknown };
-        if (m.role === "assistant")
-          return typeof m.stopReason === "string" ? m.stopReason : undefined;
-      }
+      return lastAssistantStop(ctx?.sessionManager.getBranch() ?? []);
     } catch {
-      /* no fallback */
+      return undefined; // no fallback: the line reports `ok`
     }
-    return undefined;
   }
 
   /** `jev-turn` data: the hold anchor rides along only for a decided turn on an unchanged compaction. */
   function turnData(rec: TurnRecord, ctx: Ctx | undefined): Record<string, unknown> {
     const plain = { turnId: rec.turnId };
-    if (
-      rec.held === true ||
-      rec.effective === undefined ||
-      typeof rec.provider !== "string" ||
-      typeof rec.model !== "string" ||
-      ctx === undefined
-    ) {
-      return plain;
-    }
+    if (ctx === undefined) return plain;
     try {
       const { compactionId } = holdContext(ctx.sessionManager.getBranch());
-      if (compactionId !== rec.compactionId) return plain;
-      return {
-        ...plain,
-        decided: { provider: rec.provider, model: rec.model, level: rec.effective },
-      };
+      const decided = decidedAnchor(rec, compactionId);
+      return decided === undefined ? plain : { ...plain, decided };
     } catch {
-      return plain;
+      return plain; // a branch read failure drops only the anchor
+    }
+  }
+
+  /** Builds and appends one ledger line; a failure never affects the turn or the next line. */
+  function appendSafely(build: () => Record<string, unknown> | undefined): void {
+    try {
+      const line = build();
+      if (line !== undefined) deps.append(line);
+    } catch {
+      /* ledger failure never affects the turn */
     }
   }
 
   /** Correction line, `main` line, then the `jev-turn` entry. A failed ledger write never skips the entry. */
   function write(rec: TurnRecord, aborted: boolean, ctx: Ctx | undefined): void {
-    if (rec.answered) {
-      const effort = rec.effective ?? rec.requested;
-      lastDecided = {
-        ...(effort === undefined ? {} : { effort }),
-        ...(rec.strategy === undefined ? {} : { strategy: rec.strategy }),
-      };
-    }
-    const base = { v: 1, at: rec.at, session: rec.sessionId };
-    try {
-      if (
-        rec.corrects !== undefined &&
-        rec.corrects >= CORRECTION_THRESHOLD &&
-        rec.previousTurnId !== undefined
-      ) {
-        deps.append({
-          ...base,
-          kind: "correction",
-          turnId: rec.previousTurnId,
-          corrects: rec.corrects,
-        });
-      }
-    } catch {
-      /* the main line still goes */
-    }
-    try {
-      const stop = rec.lastStop ?? lastBranchStop(ctx);
-      const outcome = aborted ? "aborted" : stop === "error" ? "error" : "ok";
-      deps.append({
-        ...base,
-        kind: "main",
-        mode: rec.mode,
-        answered: rec.answered,
-        turnId: rec.turnId,
-        ...(rec.held === true ? { held: true } : {}),
-        ...(rec.answered || rec.miss !== undefined ? { ms: rec.ms } : {}),
-        ...(rec.miss === undefined ? {} : { miss: rec.miss }),
-        ...(rec.effortP === undefined ? {} : { effortP: rec.effortP }),
-        ...(rec.risky === undefined ? {} : { risky: rec.risky }),
-        ...(rec.corrects === undefined ? {} : { corrects: rec.corrects }),
-        ...(rec.strategy === undefined || rec.strategyP === undefined || rec.advised === undefined
-          ? {}
-          : { strategy: rec.strategy, strategyP: rec.strategyP, advised: rec.advised }),
-        ...(rec.skill === undefined ? {} : { skill: rec.skill }),
-        ...(rec.skillP === undefined ? {} : { skillP: rec.skillP }),
-        ...(rec.gate === undefined ? {} : { gate: rec.gate }),
-        ...(rec.requested === undefined ? {} : { requested: rec.requested }),
-        ...(rec.effective === undefined ? {} : { effective: rec.effective }),
-        from: rec.from,
-        toolCalls: rec.toolCalls,
-        failures: rec.failures,
-        inputTokens: rec.inputTokens,
-        outputTokens: rec.outputTokens,
-        durationMs: Math.max(0, deps.now() - rec.at),
-        outcome,
-      });
-    } catch {
-      /* ledger failure never affects the turn */
-    }
+    lastDecided = decidedSummary(rec) ?? lastDecided;
+    appendSafely(() => correctionLine(rec));
+    appendSafely(() =>
+      mainLine(rec, { stop: rec.lastStop ?? branchStop(ctx), aborted, now: deps.now() }),
+    );
     try {
       pi.appendEntry("jev-turn", turnData(rec, ctx));
     } catch {
-      /* swallow */
+      /* the session entry is best effort */
     }
   }
 
