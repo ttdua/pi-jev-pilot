@@ -1,38 +1,19 @@
 import { join } from "node:path";
-import {
-  getAgentDir,
-  type ExtensionAPI,
-  type ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
-import { askJev, type JevOutcome } from "../../jev/client.ts";
-import { buildWorkerQuestions, offeredTiers, type SlotOption } from "../../jev/questions.ts";
-import { RUBRIC_VERSION } from "../../jev/rubrics.ts";
-import { buildWorkerState } from "../../jev/state.ts";
-import type { QuestionSpec } from "../../policy/answers.ts";
-import { cutPointsFor, type CutPoints, type WindowEntry } from "../../policy/worker/index.ts";
-import type { ModeName } from "../../policy/worker/index.ts";
-import type { ModelThinking } from "../../policy/effort.ts";
-import {
-  effectiveLaunch,
-  type AgentFacts,
-  isSlot,
-  slotName,
-  type EffectiveLaunch,
-  type Target,
-  type TierName,
-} from "../../policy/launch.ts";
-import { launchKind, routeLaunch, type LaunchKind, type Route } from "../../policy/worker/index.ts";
-import { readWorkerOutcome, type WorkerAnswers } from "../../policy/worker/index.ts";
-import type { Slot } from "../../store/config.ts";
+import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { askJev } from "../../jev/client.ts";
+import type { ExecutorOutcome, WindowEntry } from "../../policy/worker/index.ts";
 import { appendLedger } from "../../store/ledger.ts";
-import { readAgent } from "../platform/index.ts";
-import { isChild } from "../platform/index.ts";
-import { checkModel, resolveModel, splitModel } from "../platform/index.ts";
-import { loadSnapshot, type Snapshot } from "../platform/index.ts";
-import { jevDir } from "../platform/index.ts";
-import { takeToolCounts } from "../tools/index.ts";
+import { jevDir, loadSnapshot, type Snapshot } from "../platform/index.ts";
+import type { LaunchEntry } from "./entry.ts";
+import {
+  onExecutorEvent,
+  onMessageEnd,
+  onToolCall,
+  onToolResult,
+  type WorkerHost,
+} from "./handlers.ts";
 import { LaunchBook } from "./launches.ts";
-import { workerLine } from "../../policy/worker/index.ts";
+import { LaunchWarnings } from "./warnings.ts";
 
 export type WorkerDeps = {
   /** The in-memory cut-point window; default empty (seed cut points). */
@@ -51,406 +32,35 @@ export type WorkerRouting = {
   pending(): number;
 };
 
-/** What a launch needs from `message_end` until its `tool_call` (and later, its ledger line). */
-type LaunchEntry = {
-  facts: AgentFacts;
-  launch: EffectiveLaunch;
-  kind: LaunchKind;
-  /** Read once at classification; the request, tier decision and ledger line all use it. */
-  mode: ModeName;
-  /** Cut points for `mode`, computed once at classification from the window as it was then. */
-  cuts: CutPoints;
-  offered: readonly TierName[];
-  /** Read with `offered`, so a slot removed mid-launch still resolves at `tool_call`. */
-  slots: readonly Slot[];
-  outcome: Promise<JevOutcome> | undefined;
-  specs: Record<string, QuestionSpec>;
-  route?: Route;
-  answers?: WorkerAnswers | undefined;
-  /** Set by `route()`: what the ledger line needs besides the route. */
-  jev?: JevOutcome | undefined;
-  session?: string;
-  callerModel?: string;
-  briefChars?: number;
-  write?: { model?: string };
-  /** Order stamp taken when `route()` last ran for this launch's `tool_call`. */
-  seq?: number;
-  /** Executor agent id, set when the tool result names one. */
-  agentId?: string;
-};
+const EXECUTOR_EVENTS = ["subagents:completed", "subagents:failed", "subagents:resumed"] as const;
 
-type Executor = {
-  status?: unknown;
-  durationMs?: unknown;
-  toolUses?: unknown;
-  tokens?: unknown;
-};
-
-function slim(data: Record<string, unknown>): Executor {
-  const tokens = data["tokens"];
+/** The handlers' shared context; dependency defaults resolved once, called detached as before. */
+function workerHost(pi: ExtensionAPI, deps: WorkerDeps): WorkerHost {
+  const { agentDir } = deps;
   return {
-    status: data["status"],
-    durationMs: data["durationMs"],
-    toolUses: data["toolUses"],
-    tokens: { total: isRecord(tokens) ? tokens["total"] : undefined },
+    book: new LaunchBook<LaunchEntry, ExecutorOutcome>(),
+    warnings: new LaunchWarnings(() => join(jevDir(), "config.json")),
+    classify: {
+      ask: deps.ask ?? askJev,
+      agentDir: () => agentDir ?? getAgentDir(),
+      window: deps.window ?? ((): readonly WindowEntry[] => []),
+      apiKey: (keyVar) => process.env[keyVar] ?? "",
+    },
+    snapshot: deps.snapshot ?? (() => loadSnapshot(pi)),
+    append: deps.append ?? ((entry: unknown): void => void appendLedger(jevDir(), entry)),
+    now: deps.now ?? Date.now,
   };
 }
 
-const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
-const EVENTS = ["subagents:completed", "subagents:failed", "subagents:resumed"] as const;
-
-type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-function textOf(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter((p): p is { type: "text"; text: string } => isRecord(p) && p["type"] === "text")
-    .map((p) => (typeof p.text === "string" ? p.text : ""))
-    .join("\n");
-}
-
-/** Text of the last user message on the branch, or undefined when empty. */
-function lastUserText(ctx: ExtensionContext): string | undefined {
-  const branch: unknown[] = ctx.sessionManager.getBranch();
-  for (let i = branch.length - 1; i >= 0; i--) {
-    const entry = branch[i];
-    if (!isRecord(entry) || entry["type"] !== "message") continue;
-    const message = entry["message"];
-    if (!isRecord(message) || message["role"] !== "user") continue;
-    const text = textOf(message["content"]);
-    return text === "" ? undefined : text;
-  }
-  return undefined;
-}
-
-/** Registry display name of a `provider/model` id, when the registry has one. */
-function displayName(ctx: ExtensionContext, model: string): string | undefined {
-  const parts = splitModel(model);
-  const found = parts === undefined ? undefined : ctx.modelRegistry.find(parts[0], parts[1]);
-  return typeof found?.name === "string" ? found.name : undefined;
-}
-
-function tierNames(
-  ctx: ExtensionContext,
-  tiers: Partial<Record<TierName, string>>,
-  offered: readonly TierName[],
-): Partial<Record<TierName, string>> {
-  const names: Partial<Record<TierName, string>> = {};
-  for (const tier of offered) {
-    const name = displayName(ctx, tiers[tier] ?? "");
-    if (name !== undefined) names[tier] = name;
-  }
-  return names;
-}
-
-function slotOptions(ctx: ExtensionContext, slots: readonly Slot[]): SlotOption[] {
-  return slots.map((slot) => {
-    const name = displayName(ctx, slot.model);
-    return {
-      name: slot.name,
-      model: slot.model,
-      when: slot.when,
-      ...(name ? { displayName: name } : {}),
-    };
-  });
-}
-
-/** Where to fix a target that cannot run: a slot's model or a tier's model. */
-function fixHint(target: Target): string {
-  return isSlot(target) ? `crew.slots "${slotName(target)}" model` : `tiers.${target}`;
-}
-
-function targetLabel(target: Target): string {
-  return isSlot(target) ? `slot ${slotName(target)}` : `tier ${target}`;
-}
-
-export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
-  const ask = deps.ask ?? askJev;
-  const snapshot = deps.snapshot ?? (() => loadSnapshot(pi));
-  const agentDir = (): string => deps.agentDir ?? getAgentDir();
-  const book = new LaunchBook<LaunchEntry, Executor>();
-  const warned = new Set<string>();
-  const append = deps.append ?? ((entry: unknown): void => void appendLedger(jevDir(), entry));
-  const now = deps.now ?? Date.now;
-  const window = deps.window ?? ((): readonly WindowEntry[] => []);
-
-  /** One `worker` line; never throws. */
-  const write = (entry: LaunchEntry, outcome: Executor | undefined): void => {
-    try {
-      // Tool counts are consumed only for a line that is written, so a launch that writes no
-      // line (no route, or a skipped one) leaves them in place.
-      if (entry.route === undefined || entry.route.kind === "skip") return;
-      const counted = entry.agentId !== undefined && !entry.launch.resume;
-      const line = workerLine({
-        at: now(),
-        session: entry.session,
-        mode: entry.mode,
-        agent: entry.facts.name,
-        briefChars: entry.briefChars ?? 0,
-        jev: entry.jev,
-        answers: entry.answers,
-        route: entry.route,
-        offered: entry.offered,
-        tierQuestion: entry.kind.kind === "ask" && entry.kind.tierQuestion,
-        rubric: RUBRIC_VERSION,
-        callerModel: entry.callerModel,
-        toolCounts: counted ? takeToolCounts(entry.agentId ?? "") : undefined,
-        outcome,
-      });
-      if (line !== undefined) append(line);
-    } catch {
-      /* a failed ledger line never affects the launch */
-    }
-  };
-
-  /** Fresh gate; returns the snapshot only when routing may act. */
-  const gate = (ctx: ExtensionContext): Snapshot | undefined => {
-    if (!book.isOpen()) return undefined;
-    if (isChild(ctx.sessionManager.getSessionId())) return undefined;
-    const snap = snapshot();
-    if (!snap.config.valid || !snap.keySet || !snap.executor) return undefined;
-    return snap.settings.switches.subagents ? snap : undefined;
-  };
-
-  const classify = (
-    input: Record<string, unknown>,
-    ctx: ExtensionContext,
-    snap: Snapshot,
-  ): LaunchEntry => {
-    const { settings } = snap;
-    const facts = readAgent(input["subagent_type"], {
-      cwd: ctx.cwd,
-      agentDir: agentDir(),
-    });
-    const launch = effectiveLaunch(input, facts);
-    const offered = offeredTiers(settings.tiers, settings.switches.expert);
-    const slots = settings.crew.slots.map((s) => ({
-      name: s.name,
-      model: s.model,
-      when: s.when,
-    }));
-    const kind = launchKind(launch, offered, settings.subagents.forkedLaunch, slots.length);
-    const entry: LaunchEntry = {
-      facts,
-      launch,
-      kind,
-      mode: settings.mode,
-      cuts: cutPointsFor(window(), settings.mode),
-      offered,
-      slots,
-      outcome: undefined,
-      specs: {},
-    };
-    if (kind.kind === "untouched") return entry;
-
-    const { questions, specs } = buildWorkerQuestions(
-      kind.tierQuestion ? offered : [],
-      kind.tierQuestion ? tierNames(ctx, settings.tiers, offered) : {},
-      kind.tierQuestion ? slotOptions(ctx, slots) : [],
-    );
-    const parentRequest = settings.state.parentRequest ? lastUserText(ctx) : undefined;
-    const state = buildWorkerState({
-      brief: typeof input["prompt"] === "string" ? input["prompt"] : "",
-      ...(typeof input["description"] === "string" ? { description: input["description"] } : {}),
-      agent: facts,
-      runInBackground: launch.runInBackground,
-      ...(parentRequest === undefined ? {} : { parentRequest }),
-    });
-    entry.specs = specs;
-    entry.outcome = Promise.resolve(
-      ask({
-        url: settings.classifier.url,
-        apiKey: process.env[snap.keyVar] ?? "",
-        model: settings.classifier.model,
-        timeoutMs: settings.classifier.timeoutMs,
-        state,
-        questions,
-        ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
-      }),
-    ).catch((): JevOutcome => ({
-      kind: "miss",
-      miss: "error",
-      reason: "ask failed",
-      ms: 0,
-    }));
-    return entry;
-  };
-
-  const warn = (
-    ctx: ExtensionContext,
-    target: Target,
-    model: string,
-    why: string,
-    to: Target | undefined,
-  ): void => {
-    if (!ctx.hasUI) return;
-    const key = `${target}\u0000${model}`;
-    if (warned.has(key)) return;
-    warned.add(key);
-    const tail = to === undefined ? "launch left unchanged" : `using ${to}`;
-    ctx.ui.notify(
-      `Jev: ${targetLabel(target)} (${model}) cannot run (${why}); ${tail}. Fix ${fixHint(target)} in ${join(jevDir(), "config.json")}.`,
-      "warning",
-    );
-  };
-
-  const route = async (
-    id: string,
-    input: Record<string, unknown>,
-    ctx: ExtensionContext,
-    snap: Snapshot,
-  ): Promise<void> => {
-    let entry = book.launch(id);
-    if (entry === undefined) {
-      entry = classify(input, ctx, snap);
-      book.remember(id, entry);
-    }
-    const caller = input["model"];
-    if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
-    entry.seq = book.nextSeq();
-    entry.session = ctx.sessionManager.getSessionId();
-    entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
-    const outcome = entry.outcome === undefined ? undefined : await entry.outcome;
-    const answers = outcome === undefined ? undefined : readWorkerOutcome(outcome, entry.specs);
-    entry.jev = outcome;
-    const { settings } = snap;
-    const modelOf = (t: Target): string => resolveModel(t, settings.tiers, entry.slots) ?? "";
-    const checks = new Map<Target, Check>();
-    const checkOf = (tier: Target): Check => {
-      let c = checks.get(tier);
-      if (c === undefined) {
-        c = checkModel(ctx.modelRegistry, modelOf(tier));
-        checks.set(tier, c);
-      }
-      return c;
-    };
-    const writesModel =
-      entry.kind.kind === "ask" && entry.kind.tierQuestion && !entry.launch.modelLocked;
-    const result = routeLaunch({
-      answers,
-      launch: entry.launch,
-      offered: entry.offered,
-      cuts: entry.cuts,
-      forkedLaunch: settings.subagents.forkedLaunch,
-      canRun: (t) => !writesModel || checkOf(t).ok,
-      thinkingOf: (t) => {
-        const c = checkOf(t);
-        return c.ok ? c.thinking : undefined;
-      },
-      modelOf,
-      slots: entry.slots.map((s) => s.name),
-    });
-    entry.answers = answers;
-    entry.route = result;
-    if (result.kind !== "routed") return;
-
-    const { model, thinking } = result.write;
-    if (model !== undefined) input["model"] = model;
-    if (thinking !== undefined) input["thinking"] = thinking;
-
-    const decided = result.record.fallback;
-    if (decided !== undefined && writesModel) {
-      const c = checkOf(decided);
-      if (!c.ok) {
-        const to = result.record.tier === decided ? undefined : result.record.tier;
-        try {
-          warn(ctx, decided, modelOf(decided), c.why, to);
-        } catch {
-          /* a failed warning never blocks the launch */
-        }
-      }
-    }
-  };
-
+/** Subscribes the executor events; a missing event bus leaves only the refused-launch lines. */
+function subscribeExecutor(pi: ExtensionAPI, host: WorkerHost): (() => void)[] {
   const offs: (() => void)[] = [];
-
-  offs.push(
-    pi.on("message_end", async (event, ctx) => {
-      try {
-        const snap = gate(ctx);
-        if (snap === undefined) return;
-        const message: unknown = event.message;
-        if (!isRecord(message) || message["role"] !== "assistant") return;
-        const content = message["content"];
-        if (!Array.isArray(content)) return;
-        const pending: Promise<JevOutcome>[] = [];
-        for (const block of content) {
-          if (!isRecord(block) || block["type"] !== "toolCall" || block["name"] !== "subagent") {
-            continue;
-          }
-          const id = block["id"];
-          const args = block["arguments"];
-          if (typeof id !== "string" || !isRecord(args)) continue;
-          try {
-            const entry = classify(args, ctx, snap);
-            book.remember(id, entry);
-            if (entry.outcome !== undefined) pending.push(entry.outcome);
-          } catch {
-            /* this launch is classified again at its tool_call */
-          }
-        }
-        await Promise.all(pending);
-      } catch {
-        /* fail open */
-      }
-    }),
-  );
-
-  offs.push(
-    pi.on("tool_call", async (event, ctx) => {
-      try {
-        if (event.toolName !== "subagent") return;
-        const snap = gate(ctx);
-        if (snap === undefined) return;
-        await route(event.toolCallId, event.input as Record<string, unknown>, ctx, snap);
-      } catch {
-        /* fail open: the input stays as the caller sent it */
-      }
-    }),
-  );
-
-  offs.push(
-    pi.on("tool_result", (event) => {
-      try {
-        if (!book.isOpen() || event.toolName !== "subagent") return;
-        const entry = book.take(event.toolCallId);
-        const details: unknown = event.details;
-        const agentId = isRecord(details) ? details["agentId"] : undefined;
-        const named = typeof agentId === "string" && agentId !== "";
-        if (entry !== undefined && named) entry.agentId = agentId;
-        if (entry?.route === undefined || entry.route.kind === "skip") {
-          // Nothing will be written for this launch: an outcome buffered for its agent
-          // belongs to an earlier run or to this unwritten launch, so drop it.
-          if (named) book.dropOutcome(agentId);
-          return;
-        }
-        if (!named) {
-          write(entry, undefined);
-          return;
-        }
-        const joined = book.join(agentId, entry);
-        if (joined.kind === "write") write(entry, joined.outcome);
-      } catch {
-        /* fail open */
-      }
-    }),
-  );
-
-  for (const name of EVENTS) {
+  for (const name of EXECUTOR_EVENTS) {
     try {
       offs.push(
         pi.events.on(name, (data: unknown) => {
           try {
-            if (!book.isOpen() || !isRecord(data) || typeof data["id"] !== "string") return;
-            const id = data["id"];
-            const entry = book.claim(id);
-            if (entry === undefined) book.buffer(id, slim(data));
-            else write(entry, slim(data));
+            onExecutorEvent(host, data);
           } catch {
             /* fail open */
           }
@@ -460,10 +70,46 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       /* a missing event bus leaves only the refused-launch lines */
     }
   }
+  return offs;
+}
 
+/** Subscribes the Pi events; every handler fails open. */
+function subscribePi(pi: ExtensionAPI, host: WorkerHost): (() => void)[] {
+  return [
+    pi.on("message_end", async (event, ctx) => {
+      try {
+        await onMessageEnd(host, event, ctx);
+      } catch {
+        /* fail open */
+      }
+    }),
+    pi.on("tool_call", async (event, ctx) => {
+      try {
+        await onToolCall(host, event, ctx);
+      } catch {
+        /* fail open: the input stays as the caller sent it */
+      }
+    }),
+    pi.on("tool_result", (event) => {
+      try {
+        onToolResult(host, event);
+      } catch {
+        /* fail open */
+      }
+    }),
+  ];
+}
+
+/**
+ * Worker routing: classifies `subagent` launches, writes the model and thinking into the tool
+ * input, and records one `worker` ledger line per launch. Every handler fails open.
+ */
+export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
+  const host = workerHost(pi, deps);
+  const offs = [...subscribePi(pi, host), ...subscribeExecutor(pi, host)];
   return {
     off() {
-      book.close();
+      host.book.close();
       for (const off of offs.splice(0)) {
         try {
           off();
@@ -473,8 +119,8 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       }
     },
     clearWarnings() {
-      warned.clear();
+      host.warnings.clear();
     },
-    pending: () => book.pending(),
+    pending: () => host.book.pending(),
   };
 }
