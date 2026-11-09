@@ -7,16 +7,10 @@ import type {
   TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
 import type { askJev, JevOutcome } from "../jev/client.ts";
-import { mainQuestions, skillBatchQuestions } from "../jev/questions.ts";
+import { mainQuestions } from "../jev/questions.ts";
 import { mainState, SHIPPED_MAIN_GROUPS, type RichGroup } from "../jev/state.ts";
-import { readAnswers, type Answer, type QuestionSpec, type ReadResult } from "../policy/answers.ts";
-import {
-  deliveryForm,
-  deliveryText,
-  pickSkill,
-  skillBatches,
-  type SkillPick,
-} from "../policy/skill.ts";
+import { readAnswers, type Answer, type ReadResult } from "../policy/answers.ts";
+import type { SkillPick } from "../policy/skill.ts";
 import { isHeld } from "../policy/hold.ts";
 import {
   canAskEffort,
@@ -39,15 +33,16 @@ import {
   mainLine,
 } from "./main-line.ts";
 import type { TurnRecord } from "./main-record.ts";
-import { buildRichInputs } from "./rich.ts";
 import {
-  SKILL_MESSAGE_TYPE,
-  explicitSkill,
-  loadedSkills,
-  readCatalog,
-  type CatalogSkill,
-  type SkillCommand,
-} from "./skills.ts";
+  askLaterBatches,
+  joinMessages,
+  pickSkillSafely,
+  planSkills,
+  skillMessage,
+  type CommonRequest,
+} from "./main-skills.ts";
+import { buildRichInputs } from "./rich.ts";
+import type { SkillCommand } from "./skills.ts";
 import { drawStatus, withDecision, type Decision } from "./status.ts";
 
 export type MainDeps = {
@@ -163,7 +158,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     // The catalog is read only after every other gate passed.
     const batches =
       effortOn || askStrategy || snapshot.settings.switches.skills
-        ? (planSkills(event.prompt, snapshot) ?? [])
+        ? (planSkills(event.prompt, snapshot.settings.switches.skills, deps) ?? [])
         : [];
     if (!effortOn && !askStrategy && batches.length === 0) return;
 
@@ -231,7 +226,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     mine.rec = rec;
     undo = { rec, ctx, snapshot, previous: current, previousOverlay: overlay, drew: false };
 
-    const common = {
+    const common: CommonRequest = {
       url: snapshot.settings.classifier.url,
       apiKey,
       model: snapshot.settings.classifier.model,
@@ -240,7 +235,7 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
       ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
     };
     const asked = deps.ask({ ...common, questions: questions.wire });
-    const later = tryAskBatches(batches.slice(1), common);
+    const later = askLaterBatches(deps.ask, batches.slice(1), common);
     const outcome = await asked;
 
     if (outcome.kind === "cancelled") {
@@ -254,9 +249,12 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     const changed = refreshOverlay();
     try {
       const read = outcome.kind === "ok" ? readAnswers(questions.specs, outcome.body) : undefined;
-      const pick = await safePick(batches, questions.specs, read, later);
+      const pick = await pickSkillSafely(batches, questions.specs, read, later);
       recordPick(rec, pick);
-      const skill = skillMessage(pick, batches, ctx, snapshot);
+      const skill = skillMessage(pick, batches, {
+        inject: snapshot.settings.skills.inject,
+        entries: () => ctx.sessionManager.buildSessionProjection().entries,
+      });
       const advice = applyOutcome(
         { rec, ctx, snapshot, held, effortOn, askEffort, askStrategy, supported, from },
         outcome,
@@ -275,143 +273,11 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     }
   }
 
-  const whichOptions = (specs: Readonly<Record<string, QuestionSpec>>): readonly string[] => {
-    const which = specs["which"];
-    return which?.type === "choice" ? which.options : [];
-  };
-
-  /** A throw while picking means no pick; the effort decision still goes ahead. */
-  async function safePick(
-    batches: readonly CatalogSkill[][],
-    specs: Readonly<Record<string, QuestionSpec>>,
-    mainRead: ReadResult | undefined,
-    later: readonly Promise<JevOutcome>[] | undefined,
-  ): Promise<SkillPick> {
-    try {
-      return await skillPick(batches, specs, mainRead, later);
-    } catch {
-      return { kind: "none", reason: "failed" };
-    }
-  }
-
   /** Put the pick's name (only when picked), leader probability and gate mean on the record. */
   function recordPick(rec: TurnRecord, pick: SkillPick): void {
     if (pick.kind === "picked") rec.skill = pick.name;
     if ("p" in pick) rec.skillP = pick.p;
     if ("gate" in pick && pick.gate !== undefined) rec.gate = pick.gate;
-  }
-
-  /** Pick one skill over the main reply and the later batches' replies; a cancel or miss reads as undefined. */
-  async function skillPick(
-    batches: readonly CatalogSkill[][],
-    specs: Readonly<Record<string, QuestionSpec>>,
-    mainRead: ReadResult | undefined,
-    later: readonly Promise<JevOutcome>[] | undefined,
-  ): Promise<SkillPick> {
-    if (batches.length === 0) return pickSkill([]);
-    // Later batches that could not be built mean a failed batch, hence no skill.
-    if (later === undefined) return { kind: "none", reason: "failed" };
-    const outcomes = await Promise.all(later);
-    const rest = batches.slice(1).map((batch, i) => {
-      const batchSpecs = skillBatchQuestions(batch).specs;
-      const outcome = outcomes[i];
-      return {
-        options: whichOptions(batchSpecs),
-        read: outcome?.kind === "ok" ? readAnswers(batchSpecs, outcome.body) : undefined,
-      };
-    });
-    return pickSkill([{ options: whichOptions(specs), read: mainRead }, ...rest]);
-  }
-
-  /** The hidden `jev-skill` message for a picked skill; any failure means no message. */
-  function skillMessage(
-    pick: SkillPick,
-    batches: readonly CatalogSkill[][],
-    ctx: Ctx,
-    snapshot: Snapshot,
-  ): BeforeAgentStartEventResult | undefined {
-    if (pick.kind !== "picked") return undefined;
-    try {
-      const catalog = batches.flat();
-      const skill = catalog.find((s) => s.name === pick.name);
-      if (skill === undefined) return undefined;
-      const loaded = loadedSkills(ctx.sessionManager.buildSessionProjection().entries, catalog);
-      const form = deliveryForm({
-        name: skill.name,
-        fingerprint: skill.fingerprint,
-        inject: snapshot.settings.skills.inject,
-        loaded,
-      });
-      return {
-        message: {
-          customType: SKILL_MESSAGE_TYPE,
-          display: false,
-          content: deliveryText(form, skill),
-          details: { name: skill.name, fingerprint: skill.fingerprint, form },
-        },
-      };
-    } catch {
-      return undefined;
-    }
-  }
-
-  /** Skill batches for this prompt; undefined when skills do not apply. A read failure means they do not. */
-  function planSkills(prompt: string, snapshot: Snapshot): CatalogSkill[][] | undefined {
-    if (!snapshot.settings.switches.skills || explicitSkill(prompt) !== undefined) return undefined;
-    try {
-      const catalog = readCatalog(deps.commands(), deps.readFile);
-      const byName = new Map(catalog.map((skill) => [skill.name, skill]));
-      const batches = skillBatches(catalog).map((batch) =>
-        batch.flatMap((entry) => {
-          const skill = byName.get(entry.name);
-          return skill === undefined ? [] : [skill];
-        }),
-      );
-      return batches.length === 0 ? undefined : batches;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /** The later batches' requests; undefined when building them threw, so the main request still proceeds. */
-  function tryAskBatches(
-    batches: readonly CatalogSkill[][],
-    common: Omit<Parameters<typeof askJev>[0], "questions">,
-  ): Promise<JevOutcome>[] | undefined {
-    try {
-      return askBatches(batches, common);
-    } catch {
-      return undefined;
-    }
-  }
-
-  /** One request per later batch, all started now; a rejection counts as a miss. */
-  function askBatches(
-    batches: readonly CatalogSkill[][],
-    common: Omit<Parameters<typeof askJev>[0], "questions">,
-  ): Promise<JevOutcome>[] {
-    return batches.map((batch) =>
-      deps.ask({ ...common, questions: skillBatchQuestions(batch).wire }).catch((): JevOutcome => ({
-        kind: "miss",
-        miss: "error",
-        reason: "request failed",
-        ms: 0,
-      })),
-    );
-  }
-
-  /** One hidden message per turn: the skill text first, then the advice. */
-  function joinMessages(
-    skill: BeforeAgentStartEventResult | undefined,
-    advice: BeforeAgentStartEventResult | undefined,
-  ): BeforeAgentStartEventResult | undefined {
-    if (skill?.message === undefined) return advice;
-    if (advice?.message === undefined) return skill;
-    const skillText = skill.message.content;
-    const adviceText = advice.message.content;
-    // Both are built here as plain text; anything else keeps the skill alone rather than corrupt it.
-    if (typeof skillText !== "string" || typeof adviceText !== "string") return skill;
-    return { message: { ...skill.message, content: `${skillText}\n\n${adviceText}` } };
   }
 
   type Turn = {
