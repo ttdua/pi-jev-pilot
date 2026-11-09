@@ -122,7 +122,7 @@ function edgeReason(from: Location, to: Location): string | undefined {
   }
   if (from.kind !== "layer") return undefined;
   if (to.kind === "entry") return `${from.layer}/ must not import the entry point.`;
-  if (to.kind !== "layer") return undefined;
+  if (to.kind !== "layer") return `${from.layer}/ must not import ${to.kind}.`;
   return LAYER_EDGES[from.layer].includes(to.layer)
     ? undefined
     : `${from.layer}/ must not import ${to.layer}/.`;

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
 import {
+  checkImport,
   importViolations,
   moduleSpecifiers,
   nestingViolations,
@@ -153,4 +154,18 @@ test("capability folders nest at most one level and other layers stay flat", () 
     ]),
   ).toEqual(["src/host/main/a/b/x.ts", "src/jev/sub/x.ts"]);
   expect(nestingViolations(tsFiles(REPO_ROOT, "src"))).toEqual([]);
+});
+
+test("layers and the entry point must not import scripts, while scripts may import scripts", () => {
+  const root = "/repo";
+  const cases: [string, string][] = [
+    ["src/policy/answers.ts", "../../scripts/replay/run.ts"],
+    ["src/host/main/gate.ts", "../../../scripts/replay/run.ts"],
+    ["src/shared/text.ts", "../../scripts/replay/run.ts"],
+    ["src/extension.ts", "../scripts/replay/run.ts"],
+  ];
+  for (const [file, specifier] of cases) {
+    expect(checkImport(root, file, specifier), `${file} -> ${specifier}`).toBeString();
+  }
+  expect(checkImport(root, "scripts/replay/a.ts", "./run.ts")).toBeUndefined();
 });
