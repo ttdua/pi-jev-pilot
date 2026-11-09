@@ -48,9 +48,9 @@ Blocked by: 2
 
 Blocked by: 3
 
-- [ ] 4.1 Update `docs/architecture.md`: module layout per capability folder, the capability rule
+- [x] 4.1 Update `docs/architecture.md`: module layout per capability folder, the capability rule
   under Dependency rules, and the pure-unit placement rule
-- [ ] 4.2 Update `CONTRIBUTING.md`: where new code goes (layer, then capability folder; pure code in
+- [x] 4.2 Update `CONTRIBUTING.md`: where new code goes (layer, then capability folder; pure code in
   `policy/`; cross-capability use through `index.ts`)
-- [ ] 4.3 Check every `src/...` path named in `docs/`, `CONTRIBUTING.md` and `README.md` exists,
+- [x] 4.3 Check every `src/...` path named in `docs/`, `CONTRIBUTING.md` and `README.md` exists,
   and that the `src/...` paths the `skill-delivery` and `skill-pick` deltas name exist (design D8)
