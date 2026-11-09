@@ -2,15 +2,15 @@
 
 Blocked by: none
 
-- [ ] 1.1 Add `bad-`/`ok-` fixtures for every scenario of the three quality-checks requirements:
+- [x] 1.1 Add `bad-`/`ok-` fixtures for every scenario of the three quality-checks requirements:
   canonical spellings under `tests/fixtures/boundaries/`, resolver-only spellings under
   `tests/fixtures/import-graph/`; rename `src/policy/sub/bad-parent.ts` to an `ok-` fixture
-- [ ] 1.2 Write the resolved-path import check and its test (real tree clean, both fixture trees,
+- [x] 1.2 Write the resolved-path import check and its test (real tree clean, both fixture trees,
   scanner cross-check against `Bun.Transpiler`, nesting limit); watch it fail, then pass
-- [ ] 1.3 Replace the host and policy overrides in `.oxlintrc.json` with per-depth overrides
+- [x] 1.3 Replace the host and policy overrides in `.oxlintrc.json` with per-depth overrides
   (design D5) and add the capability group to the entry point, `jev/` and `scripts/` overrides;
   `tests/boundaries.test.ts` passes
-- [ ] 1.4 Run `bun run lint`, `bun test tests/boundaries.test.ts tests/import-graph.test.ts` on the
+- [x] 1.4 Run `bun run lint`, `bun test tests/boundaries.test.ts tests/import-graph.test.ts` on the
   current tree: zero errors
 
 ## 2. Pure units into policy capability folders
