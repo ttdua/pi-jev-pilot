@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { decisionFields } from "../../src/host/worker-line.ts";
-import type { Answer } from "../../src/policy/answers.ts";
-import type { WorkerAnswers } from "../../src/policy/worker.ts";
+import { decisionFields } from "../../../src/policy/worker/ledger-line.ts";
+import type { Answer } from "../../../src/policy/answers.ts";
+import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 
 const tier = (pick: string): Answer => ({
   type: "choice",
@@ -24,8 +24,9 @@ describe("decisionFields", () => {
         answers: read({ tier: tier("balanced") }),
         offered: four,
         tierQuestion: true,
+        rubric: 7,
       }),
-    ).toEqual({ rubric: 2, expertOffered: true, score: 1.25 });
+    ).toEqual({ rubric: 7, expertOffered: true, score: 1.25 });
   });
 
   test("expert not offered", () => {
@@ -34,6 +35,7 @@ describe("decisionFields", () => {
         answers: read({ tier: tier("fast") }),
         offered: three,
         tierQuestion: true,
+        rubric: 7,
       }),
     ).toMatchObject({ expertOffered: false });
   });
@@ -44,13 +46,16 @@ describe("decisionFields", () => {
         answers: { kind: "miss", miss: "timeout" },
         offered: four,
         tierQuestion: true,
+        rubric: 7,
       }),
-    ).toEqual({ rubric: 2, expertOffered: true });
+    ).toEqual({ rubric: 7, expertOffered: true });
   });
 
   test("tier not answered, no score", () => {
-    expect(decisionFields({ answers: read({}), offered: four, tierQuestion: true })).toEqual({
-      rubric: 2,
+    expect(
+      decisionFields({ answers: read({}), offered: four, tierQuestion: true, rubric: 7 }),
+    ).toEqual({
+      rubric: 7,
       expertOffered: true,
     });
   });
@@ -61,6 +66,7 @@ describe("decisionFields", () => {
         answers: undefined,
         offered: four,
         tierQuestion: false,
+        rubric: 7,
       }),
     ).toEqual({});
   });
@@ -71,9 +77,10 @@ describe("decisionFields", () => {
         answers: undefined,
         offered: three,
         tierQuestion: true,
+        rubric: 7,
       }),
     ).toEqual({
-      rubric: 2,
+      rubric: 7,
       expertOffered: false,
     });
   });

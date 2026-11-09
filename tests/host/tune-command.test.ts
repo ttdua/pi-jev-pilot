@@ -10,7 +10,7 @@ import {
   ON_MESSAGE,
   resetMessage,
   undoneMessage,
-} from "../../src/host/tuning-text.ts";
+} from "../../src/policy/tuning/text.ts";
 import { readLedger } from "../../src/store/ledger.ts";
 import { readTuning, updateTuning, type TuningDocument } from "../../src/store/tuning-file.ts";
 import { fakeCtx, fakeDeps, quiet, type FakeOptions } from "./tuning-fakes.ts";

@@ -20,7 +20,7 @@ import {
   type ExecResult,
   type ReviewChoice,
   type ReviewDetails,
-} from "./review-cli.ts";
+} from "../policy/review/index.ts";
 
 export type ReviewRun = { text: string; isError: boolean; details: ReviewDetails };
 

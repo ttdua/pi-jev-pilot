@@ -1,7 +1,9 @@
 // Pure texts for tuning: change lines, session-start line, command messages and the report.
-import type { HistoryEntry, TuningEvent } from "../policy/tuning.ts";
-import type { ModeSignals } from "../policy/tuning-signals.ts";
-import type { Issue } from "../store/validate.ts";
+import type { HistoryEntry, TuningEvent } from "./rules.ts";
+import type { ModeSignals } from "./signals.ts";
+
+/** Structurally equal to the store's `Issue`; declared here so policy stays free of store types. */
+type Issue = { path: string; message: string };
 
 export type TuneView = {
   off: boolean;

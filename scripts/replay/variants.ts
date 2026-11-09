@@ -4,7 +4,7 @@ import { buildWorkerState, mainState, pickRich, type RichGroup } from "../../src
 import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
 import type { WireQuestion } from "../../src/jev/rubrics.ts";
 import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
-import type { ModeName } from "../../src/policy/modes.ts";
+import type { ModeName } from "../../src/policy/worker/index.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
 
 /** The operator config, already merged with the mode and switches kept in `state.json`. */

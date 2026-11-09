@@ -6,10 +6,11 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { askJev, type JevOutcome } from "../jev/client.ts";
 import { buildWorkerQuestions, offeredTiers, type SlotOption } from "../jev/questions.ts";
+import { RUBRIC_VERSION } from "../jev/rubrics.ts";
 import { buildWorkerState } from "../jev/state.ts";
 import type { QuestionSpec } from "../policy/answers.ts";
-import { cutPointsFor, type CutPoints, type WindowEntry } from "../policy/cutpoints.ts";
-import type { ModeName } from "../policy/modes.ts";
+import { cutPointsFor, type CutPoints, type WindowEntry } from "../policy/worker/index.ts";
+import type { ModeName } from "../policy/worker/index.ts";
 import type { ModelThinking } from "../policy/effort.ts";
 import {
   effectiveLaunch,
@@ -20,8 +21,8 @@ import {
   type Target,
   type TierName,
 } from "../policy/launch.ts";
-import { launchKind, routeLaunch, type LaunchKind, type Route } from "../policy/route.ts";
-import { readWorkerOutcome, type WorkerAnswers } from "../policy/worker.ts";
+import { launchKind, routeLaunch, type LaunchKind, type Route } from "../policy/worker/index.ts";
+import { readWorkerOutcome, type WorkerAnswers } from "../policy/worker/index.ts";
 import type { Answer } from "../policy/answers.ts";
 import type { Slot } from "../store/config.ts";
 import { appendLedger } from "../store/ledger.ts";
@@ -31,7 +32,7 @@ import { checkModel, resolveModel, splitModel } from "./models.ts";
 import { loadSnapshot, type Snapshot } from "./readiness.ts";
 import { jevDir } from "./stores.ts";
 import { takeToolCounts } from "./tool-counts.ts";
-import { decisionFields } from "./worker-line.ts";
+import { decisionFields } from "../policy/worker/index.ts";
 
 export type WorkerDeps = {
   /** The in-memory cut-point window; default empty (seed cut points). */
@@ -257,6 +258,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
           answers,
           offered: entry.offered,
           tierQuestion: entry.kind.kind === "ask" && entry.kind.tierQuestion,
+          rubric: RUBRIC_VERSION,
         }),
       );
       if (r.kind === "untouched") {

@@ -8,7 +8,7 @@ import {
   shareAbove,
   type Counts,
   type DecisionLine,
-} from "./tuning-window.ts";
+} from "./window.ts";
 
 export type { Counts };
 

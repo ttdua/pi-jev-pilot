@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { type HoldAnchor, isHeld } from "../../src/policy/hold.ts";
+import { type HoldAnchor, isHeld } from "../../../src/policy/main/hold.ts";
 
 const anchor: HoldAnchor = { provider: "9router", model: "m1", level: "high" };
 const base = { provider: "9router", model: "m1", holdProviders: ["9router"], anchor };

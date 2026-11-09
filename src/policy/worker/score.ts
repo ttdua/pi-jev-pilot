@@ -1,8 +1,8 @@
 // Pure difficulty score from Jev's worker answers. Imports nothing outside src/policy/.
 
-import type { Answer } from "./answers.ts";
-import { EFFORT_LEVELS } from "./effort.ts";
-import { TIER_LADDER } from "./launch.ts";
+import type { Answer } from "../answers.ts";
+import { EFFORT_LEVELS } from "../effort.ts";
+import { TIER_LADDER } from "../launch.ts";
 
 const EFFORT_DIVISOR = 8;
 const DEFAULT_EFFORT_RANK = EFFORT_LEVELS.indexOf("high");

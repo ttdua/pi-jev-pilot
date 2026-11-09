@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { signalsByMode, type SignalLine } from "../../src/policy/tuning-signals.ts";
+import { signalsByMode, type SignalLine } from "../../../src/policy/tuning/signals.ts";
 
 const main = (at: number, o: Partial<SignalLine> = {}): SignalLine => ({
   kind: "main",

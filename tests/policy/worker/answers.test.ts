@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import type { JevOutcome } from "../../src/jev/client.ts";
-import { buildWorkerQuestions } from "../../src/jev/questions.ts";
-import { readWorkerOutcome } from "../../src/policy/worker.ts";
+import type { JevOutcome } from "../../../src/jev/client.ts";
+import { buildWorkerQuestions } from "../../../src/jev/questions.ts";
+import { readWorkerOutcome } from "../../../src/policy/worker/answers.ts";
 
 const { specs } = buildWorkerQuestions(["fast", "balanced", "deep"], {});
 

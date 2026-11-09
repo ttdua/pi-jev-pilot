@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import type { Strategy as LedgerStrategy } from "../../src/store/ledger-schema.ts";
+import type { Strategy as LedgerStrategy } from "../../../src/store/ledger-schema.ts";
 import {
   adviseStrategy,
   GRAPH_THRESHOLD,
@@ -9,9 +9,9 @@ import {
   STRATEGY_THRESHOLD,
   strategyBlock,
   type Strategy as PolicyStrategy,
-} from "../../src/policy/strategy.ts";
+} from "../../../src/policy/main/strategy.ts";
 
-const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
+const docs = readFileSync(new URL("../../../docs/jev-questions.md", import.meta.url), "utf8");
 
 const _eq: [PolicyStrategy] extends [LedgerStrategy]
   ? [LedgerStrategy] extends [PolicyStrategy]

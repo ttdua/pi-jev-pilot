@@ -1,5 +1,5 @@
-import type { TurnRecord } from "./main-record.ts";
-import type { DecidedSummary } from "./main-line.ts";
+import type { TurnRecord } from "../policy/main/index.ts";
+import type { DecidedSummary } from "../policy/main/index.ts";
 import type { Decision } from "./status.ts";
 
 /** What an aborted start needs to put the status back. Belongs to the current record. */

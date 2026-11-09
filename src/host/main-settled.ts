@@ -6,8 +6,8 @@ import {
   decidedSummary,
   lastAssistantStop,
   mainLine,
-} from "./main-line.ts";
-import type { TurnRecord } from "./main-record.ts";
+} from "../policy/main/index.ts";
+import type { TurnRecord } from "../policy/main/index.ts";
 import { drawStatus } from "./status.ts";
 
 function branchStop(ctx: Ctx | undefined): string | undefined {

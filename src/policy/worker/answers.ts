@@ -6,7 +6,7 @@ import {
   type MissKind,
   type QuestionSpec,
   type UnansweredReason,
-} from "./answers.ts";
+} from "../answers.ts";
 
 export type WorkerOutcome =
   | { kind: "ok"; body: unknown }

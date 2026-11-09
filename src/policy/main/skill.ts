@@ -1,5 +1,5 @@
-import type { Answer, ChoiceAnswer, ReadResult } from "./answers.ts";
-import { cutCodePoints } from "../shared/text.ts";
+import type { Answer, ChoiceAnswer, ReadResult } from "../answers.ts";
+import { cutCodePoints } from "../../shared/text.ts";
 
 /** One catalog skill; `body` is already without frontmatter. */
 export type SkillEntry = { name: string; description?: string; body?: string };

@@ -1,9 +1,9 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DECISION_FEATURES, FEATURES, MODES, type Feature, type Mode } from "../store/defaults.ts";
 import { resetState, updateState, validateCliReview } from "../store/state-file.ts";
-import { recentMix, WINDOW_MIN } from "../policy/cut-window.ts";
-import type { WindowEntry } from "../policy/cutpoints.ts";
-import { MODE_TARGETS } from "../policy/modes.ts";
+import { recentMix, WINDOW_MIN } from "../policy/worker/index.ts";
+import type { WindowEntry } from "../policy/worker/index.ts";
+import { MODE_TARGETS } from "../policy/worker/index.ts";
 import {
   clearDirectoryMode,
   NO_DIRECTORY_MODE,
@@ -20,12 +20,12 @@ import {
   parseOpencodeModels,
   type CheckResult,
   type Exec,
-} from "./review-cli.ts";
+} from "../policy/review/index.ts";
 import type { Snapshot } from "./readiness.ts";
 import { parseSlotArgs, runSlot, type SlotArgs } from "./slots.ts";
 import type { TuneOutcome, TuneSub } from "./tune-command.ts";
 import type { UiCtx } from "./tuning-deps.ts";
-import { issueLines } from "./tuning-text.ts";
+import { issueLines } from "../policy/tuning/index.ts";
 import {
   EMPTY_TALLY,
   drawStatus,

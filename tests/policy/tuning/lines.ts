@@ -1,4 +1,4 @@
-import type { DecisionLine } from "../../src/policy/tuning-window.ts";
+import type { DecisionLine } from "../../../src/policy/tuning/window.ts";
 
 type Opts = Partial<Omit<DecisionLine, "kind" | "at">> & { kind?: string };
 

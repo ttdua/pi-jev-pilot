@@ -1,5 +1,5 @@
-import { CORRECTION_THRESHOLD, type ThinkingLevel } from "../policy/effort.ts";
-import type { TurnRecord } from "./main-record.ts";
+import { CORRECTION_THRESHOLD, type ThinkingLevel } from "../effort.ts";
+import type { TurnRecord } from "./record.ts";
 
 /** What a settled run adds to the record when its `main` line is written. */
 export type SettleFacts = {

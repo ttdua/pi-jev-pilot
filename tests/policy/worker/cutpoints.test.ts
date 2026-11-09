@@ -6,12 +6,12 @@ import {
   cutPointsFor,
   type CutPoints,
   type WindowEntry,
-} from "../../src/policy/cutpoints.ts";
-import { WINDOW_MIN } from "../../src/policy/cut-window.ts";
-import type { EffortLevel } from "../../src/policy/effort.ts";
-import { MODE_NAMES, MODE_TARGETS } from "../../src/policy/modes.ts";
-import { SEED_CUTPOINTS } from "../../src/policy/seed.ts";
-import { REPO_ROOT } from "../helpers";
+} from "../../../src/policy/worker/cutpoints.ts";
+import { WINDOW_MIN } from "../../../src/policy/worker/cut-window.ts";
+import type { EffortLevel } from "../../../src/policy/effort.ts";
+import { MODE_NAMES, MODE_TARGETS } from "../../../src/policy/worker/modes.ts";
+import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
+import { REPO_ROOT } from "../../helpers";
 
 function entry(score: number, effort: EffortLevel = "high"): WindowEntry {
   return { score, effort, decided: "balanced" };

@@ -1,4 +1,4 @@
-import { deliveryText } from "../../src/policy/skill.ts";
+import { deliveryText } from "../../src/policy/main/skill.ts";
 import { fingerprint, skillBlock } from "../../src/host/skills.ts";
 import { describe, expect, test } from "bun:test";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
@@ -6,7 +6,7 @@ import { createMain, type MainDeps } from "../../src/host/main.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
 import { mainQuestions } from "../../src/jev/questions.ts";
 import { mainState } from "../../src/jev/state.ts";
-import { strategyBlock } from "../../src/policy/strategy.ts";
+import { strategyBlock } from "../../src/policy/main/strategy.ts";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { ThinkingLevel } from "../../src/policy/effort.ts";
 import type { Config, ConfigRead } from "../../src/store/config.ts";

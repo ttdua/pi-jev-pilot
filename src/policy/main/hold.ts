@@ -1,6 +1,6 @@
 // Pure rule deciding whether a main prompt keeps its effort. Imports nothing outside src/policy/.
 
-import type { ThinkingLevel } from "./effort.ts";
+import type { ThinkingLevel } from "../effort.ts";
 
 export type HoldAnchor = { provider: string; model: string; level: ThinkingLevel };
 

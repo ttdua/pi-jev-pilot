@@ -5,8 +5,8 @@ import {
   decidedSummary,
   lastAssistantStop,
   mainLine,
-} from "../../src/host/main-line.ts";
-import type { TurnRecord } from "../../src/host/main-record.ts";
+} from "../../../src/policy/main/ledger-line.ts";
+import type { TurnRecord } from "../../../src/policy/main/record.ts";
 
 const record = (over: Partial<TurnRecord> = {}): TurnRecord => ({
   turnId: "t-1",

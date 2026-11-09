@@ -1,6 +1,6 @@
 import type { WindowEntry } from "./cutpoints.ts";
-import { EFFORT_LEVELS, type EffortLevel } from "./effort.ts";
-import { TIER_LADDER, type TierName } from "./launch.ts";
+import { EFFORT_LEVELS, type EffortLevel } from "../effort.ts";
+import { TIER_LADDER, type TierName } from "../launch.ts";
 
 export const WINDOW_MAX = 200;
 export const WINDOW_MIN = 100;

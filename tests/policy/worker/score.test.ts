@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { Answer } from "../../src/policy/answers.ts";
-import { difficultyScore } from "../../src/policy/score.ts";
+import type { Answer } from "../../../src/policy/answers.ts";
+import { difficultyScore } from "../../../src/policy/worker/score.ts";
 
 function choice(pick: string, probabilities: Record<string, number>): Answer {
   return { type: "choice", choice: pick, probabilities };

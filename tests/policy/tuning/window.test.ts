@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { after, counts, decisions, p90, shareAbove } from "../../src/policy/tuning-window.ts";
-import { line, lines } from "./tuning-lines.ts";
+import { after, counts, decisions, p90, shareAbove } from "../../../src/policy/tuning/window.ts";
+import { line, lines } from "./lines.ts";
 
 describe("decisions", () => {
   test("Correction lines ignored", () => {

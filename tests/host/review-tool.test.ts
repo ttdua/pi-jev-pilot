@@ -8,7 +8,7 @@ import {
   REVIEW_TOOL,
   syncReviewTool,
 } from "../../src/host/review.ts";
-import type { Exec } from "../../src/host/review-cli.ts";
+import type { Exec } from "../../src/policy/review/cli.ts";
 import type { Snapshot } from "../../src/host/readiness.ts";
 
 type Tool = {

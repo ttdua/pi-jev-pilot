@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { MODE_NAMES, MODE_TARGETS } from "../../src/policy/modes.ts";
-import { MODES } from "../../src/store/defaults.ts";
+import { MODE_NAMES, MODE_TARGETS } from "../../../src/policy/worker/modes.ts";
+import { MODES } from "../../../src/store/defaults.ts";
 
 describe("Mode names", () => {
   test("Policy and store agree", () => {

@@ -21,8 +21,8 @@ import {
   type ExecResult,
   type ReviewChoice,
   type ReviewDetails,
-} from "../../src/host/review-cli.ts";
-import { REPO_ROOT } from "../helpers.ts";
+} from "../../../src/policy/review/cli.ts";
+import { REPO_ROOT } from "../../helpers.ts";
 
 test("instructions match the docs", () => {
   const docs = readFileSync(join(REPO_ROOT, "docs", "jev-questions.md"), "utf8");
@@ -33,7 +33,7 @@ test("instructions match the docs", () => {
 });
 
 test("review-cli imports nothing from Pi", () => {
-  const src = readFileSync(join(REPO_ROOT, "src", "host", "review-cli.ts"), "utf8");
+  const src = readFileSync(join(REPO_ROOT, "src", "policy", "review", "cli.ts"), "utf8");
   expect(src).not.toContain("@earendil-works/");
 });
 

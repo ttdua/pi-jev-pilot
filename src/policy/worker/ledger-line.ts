@@ -1,7 +1,6 @@
-import { RUBRIC_VERSION } from "../jev/rubrics.ts";
-import type { TierName } from "../policy/launch.ts";
-import { difficultyScore } from "../policy/score.ts";
-import type { WorkerAnswers } from "../policy/worker.ts";
+import type { TierName } from "../launch.ts";
+import { difficultyScore } from "./score.ts";
+import type { WorkerAnswers } from "./answers.ts";
 
 export type DecisionFields = {
   score?: number;
@@ -18,10 +17,11 @@ export function decisionFields(input: {
   answers: WorkerAnswers | undefined;
   offered: readonly TierName[];
   tierQuestion: boolean;
+  rubric: number;
 }): DecisionFields {
   const fields: DecisionFields = {};
   if (input.tierQuestion) {
-    fields.rubric = RUBRIC_VERSION;
+    fields.rubric = input.rubric;
     fields.expertOffered = input.offered.includes("expert");
   }
   if (input.answers?.kind === "read") {

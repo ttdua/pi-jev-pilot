@@ -1,7 +1,7 @@
 // The session-start tuning line: mark changes seen, then announce them. Never throws.
-import { markSeen, unseenEntries } from "../policy/tuning.ts";
+import { markSeen, unseenEntries } from "../policy/tuning/index.ts";
 import type { TuningDeps, UiCtx } from "./tuning-deps.ts";
-import { sessionStartLine } from "./tuning-text.ts";
+import { sessionStartLine } from "../policy/tuning/index.ts";
 
 export function showUnseenTuning(deps: TuningDeps, ctx: UiCtx): void {
   try {

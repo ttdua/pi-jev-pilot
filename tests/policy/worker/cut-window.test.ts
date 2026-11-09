@@ -4,7 +4,7 @@ import {
   windowEntries,
   WINDOW_MAX,
   type WindowLine,
-} from "../../src/policy/cut-window.ts";
+} from "../../../src/policy/worker/cut-window.ts";
 
 const line = (o: Partial<WindowLine> = {}): WindowLine => ({
   kind: "worker",

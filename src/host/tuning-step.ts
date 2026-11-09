@@ -1,10 +1,10 @@
 // The tuning step at agent_settled: read, step, store, announce. Never throws.
-import { markSeen, stepTuning, type TuningEvent } from "../policy/tuning.ts";
-import type { DecisionLine } from "../policy/tuning-window.ts";
+import { markSeen, stepTuning, type TuningEvent } from "../policy/tuning/index.ts";
+import type { DecisionLine } from "../policy/tuning/index.ts";
 import type { TuningDocument } from "../store/tuning-file.ts";
 import type { Snapshot } from "./readiness.ts";
 import type { TuningDeps, UiCtx } from "./tuning-deps.ts";
-import { changeLine } from "./tuning-text.ts";
+import { changeLine } from "../policy/tuning/index.ts";
 
 const VISIBLE: ReadonlySet<TuningEvent["kind"]> = new Set(["applied", "reverted", "superseded"]);
 

@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { TierName } from "../../src/policy/launch.ts";
-import { MODE_NAMES, type ModeName } from "../../src/policy/modes.ts";
+import { MODE_NAMES, type ModeName } from "../../src/policy/worker/index.ts";
 import type { PlainConfig } from "./variants.ts";
 
 export const USAGE =

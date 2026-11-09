@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Answer } from "../../src/policy/answers.ts";
-import type { CutPoints } from "../../src/policy/cutpoints.ts";
-import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
-import { TIER_LADDER, type Target, type TierName } from "../../src/policy/launch.ts";
-import { difficultyScore } from "../../src/policy/score.ts";
+import type { Answer } from "../../../src/policy/answers.ts";
+import type { CutPoints } from "../../../src/policy/worker/cutpoints.ts";
+import { EFFORT_LEVELS } from "../../../src/policy/effort.ts";
+import { TIER_LADDER, type Target, type TierName } from "../../../src/policy/launch.ts";
+import { difficultyScore } from "../../../src/policy/worker/score.ts";
 import {
   chooseFallback,
   decideTier,
   type FallbackResult,
   type TierDecision,
-} from "../../src/policy/tier.ts";
-import type { WorkerAnswers } from "../../src/policy/worker.ts";
+} from "../../../src/policy/worker/tier.ts";
+import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 
 const ALL: readonly TierName[] = TIER_LADDER;
 const NO_EXPERT: readonly TierName[] = ["fast", "balanced", "deep"];

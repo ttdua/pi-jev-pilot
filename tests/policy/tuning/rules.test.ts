@@ -16,9 +16,9 @@ import {
   unseenEntries,
   type HistoryEntry,
   type TuningRecord,
-} from "../../src/policy/tuning.ts";
-import type { DecisionLine } from "../../src/policy/tuning-window.ts";
-import { line, lines } from "./tuning-lines.ts";
+} from "../../../src/policy/tuning/rules.ts";
+import type { DecisionLine } from "../../../src/policy/tuning/window.ts";
+import { line, lines } from "./lines.ts";
 
 describe("tuning contract", () => {
   test("constants are the contract values", () => {

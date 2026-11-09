@@ -10,8 +10,8 @@ import {
   tuneReport,
   undoneMessage,
   type TuneView,
-} from "../../src/host/tuning-text.ts";
-import type { HistoryEntry } from "../../src/policy/tuning.ts";
+} from "../../../src/policy/tuning/text.ts";
+import type { HistoryEntry } from "../../../src/policy/tuning/rules.ts";
 
 const entry = (
   at: number,

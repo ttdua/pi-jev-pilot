@@ -5,14 +5,14 @@ import type {
 import type { JevOutcome } from "../jev/client.ts";
 import { mainState, SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
 import { readAnswers } from "../policy/answers.ts";
-import type { SkillPick } from "../policy/skill.ts";
+import type { SkillPick } from "../policy/main/index.ts";
 import { isChild } from "./child.ts";
 import { branchItems, previousTurnId } from "./context.ts";
 import { applyOutcome } from "./main-apply.ts";
 import { gateTurn, newTurnRecord, type TurnPlan } from "./main-gate.ts";
 import { drawTurn, thinkingLevel, type Ctx, type MainHost, type Turn } from "./main-host.ts";
-import type { Answered } from "./main-outcome.ts";
-import type { TurnRecord } from "./main-record.ts";
+import type { ClassifierReply } from "../policy/main/index.ts";
+import type { TurnRecord } from "../policy/main/index.ts";
 import {
   askLaterBatches,
   joinMessages,
@@ -95,7 +95,7 @@ async function settleReply(
   host: MainHost,
   turn: Turn,
   plan: TurnPlan,
-  reply: { outcome: Answered; later: readonly Promise<JevOutcome>[] | undefined },
+  reply: { outcome: ClassifierReply; later: readonly Promise<JevOutcome>[] | undefined },
 ): Promise<StartResult> {
   const { rec, ctx, snapshot } = turn;
   const { outcome, later } = reply;

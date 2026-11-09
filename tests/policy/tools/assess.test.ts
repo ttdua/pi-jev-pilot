@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Answer } from "../../src/policy/answers.ts";
-import { flaggedTools, toolCandidates, toolCounts } from "../../src/policy/tools.ts";
+import type { Answer } from "../../../src/policy/answers.ts";
+import { flaggedTools, toolCandidates, toolCounts } from "../../../src/policy/tools/assess.ts";
 
 const noul = (value: number): Answer => ({ type: "noul", noul: value });
 

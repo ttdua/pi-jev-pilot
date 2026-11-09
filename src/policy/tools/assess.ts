@@ -1,6 +1,6 @@
 // Pure tool-assessment rules. Imports nothing outside src/policy/ and src/shared/.
 
-import type { Answer } from "./answers.ts";
+import type { Answer } from "../answers.ts";
 
 export const TOOL_THRESHOLD = 0.5;
 export const TOOL_CAP = 32;

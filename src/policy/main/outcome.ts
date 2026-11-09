@@ -1,12 +1,12 @@
-import type { BeforeAgentStartEventResult } from "@earendil-works/pi-coding-agent";
-import type { JevOutcome } from "../jev/client.ts";
-import type { Answer, ReadResult } from "../policy/answers.ts";
-import { decideEffort, type EffortLevel, type ThinkingLevel } from "../policy/effort.ts";
-import { adviseStrategy, type Strategy } from "../policy/strategy.ts";
-import type { TurnRecord } from "./main-record.ts";
+import type { Answer, ReadResult } from "../answers.ts";
+import { decideEffort, type EffortLevel, type ThinkingLevel } from "../effort.ts";
+import { adviseStrategy, type Strategy } from "./strategy.ts";
+import type { TurnRecord } from "./record.ts";
 
-/** An outcome the classifier answered or missed; cancelled outcomes never reach the plan. */
-export type Answered = Exclude<JevOutcome, { kind: "cancelled" }>;
+/** A classifier reply the plan reads: answered, or missed; a cancelled call never reaches the plan. */
+export type ClassifierReply =
+  | { kind: "ok"; ms: number; body: unknown }
+  | { kind: "miss"; miss: string; reason: string; ms: number };
 
 /** What the turn asked and allows, fixed before the classifier call. */
 export type OutcomeFlags = {
@@ -33,9 +33,12 @@ export type RecordPatch = Partial<
   >
 >;
 
-type AdviceMessage = BeforeAgentStartEventResult | undefined;
-
-type Advised = { patch: RecordPatch; nextAdvice: Strategy | undefined; message: AdviceMessage };
+/** `adviceBlock` is the text of the `<execution_strategy>` block; the host wraps it into a message. */
+type Advised = {
+  patch: RecordPatch;
+  nextAdvice: Strategy | undefined;
+  adviceBlock: string | undefined;
+};
 
 export type EffortPlan =
   /** Effort was not answered: show `no answer` when it was asked, else keep the effort suffix. */
@@ -45,8 +48,6 @@ export type OutcomePlan =
   | { kind: "miss"; patch: RecordPatch; showNoAnswer: boolean }
   | ({ kind: "held" } & Advised)
   | ({ kind: "answered"; effort: EffortPlan } & Advised);
-
-const ADVICE_MESSAGE_TYPE = "jev-advice";
 
 const noulOf = (answer: Answer | undefined): number | undefined =>
   answer?.type === "noul" ? answer.noul : undefined;
@@ -65,7 +66,7 @@ function planAdvice(
   answers: Record<string, Answer>,
   currentAdvice: Strategy | undefined,
 ): Advised {
-  if (!askStrategy) return { patch: {}, nextAdvice: currentAdvice, message: undefined };
+  if (!askStrategy) return { patch: {}, nextAdvice: currentAdvice, adviceBlock: undefined };
   const strategy = answers["strategy"];
   const tier = answers["tier"];
   const advice = adviseStrategy({
@@ -77,19 +78,17 @@ function planAdvice(
       ? {}
       : { strategy: advice.strategy, strategyP: advice.strategyP, advised: advice.advised };
   if (advice?.advised !== true || advice.block === undefined) {
-    return { patch, nextAdvice: undefined, message: undefined };
+    return { patch, nextAdvice: undefined, adviceBlock: undefined };
   }
   return {
     patch,
     nextAdvice: advice.strategy,
-    message: {
-      message: { customType: ADVICE_MESSAGE_TYPE, content: advice.block, display: false },
-    },
+    adviceBlock: advice.block,
   };
 }
 
 /** The miss kind, or undefined when the reply was read. */
-function missOf(outcome: Answered, read: ReadResult | undefined): string | undefined {
+function missOf(outcome: ClassifierReply, read: ReadResult | undefined): string | undefined {
   if (outcome.kind === "miss") return outcome.miss;
   if (read === undefined || read.kind === "miss") return "schema";
   return undefined;
@@ -131,7 +130,7 @@ function planEffort(
  */
 export function planOutcome(
   flags: OutcomeFlags,
-  outcome: Answered,
+  outcome: ClassifierReply,
   read: ReadResult | undefined,
   currentAdvice: Strategy | undefined,
 ): OutcomePlan {
@@ -143,7 +142,7 @@ export function planOutcome(
         kind: "held",
         patch: { miss: miss ?? "schema" },
         nextAdvice: undefined,
-        message: undefined,
+        adviceBlock: undefined,
       };
     }
     return planHeld(flags, read.answers, currentAdvice);

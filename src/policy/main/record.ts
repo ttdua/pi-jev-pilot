@@ -1,5 +1,5 @@
-import type { EffortLevel, ThinkingLevel } from "../policy/effort.ts";
-import type { Strategy } from "../policy/strategy.ts";
+import type { EffortLevel, ThinkingLevel } from "../effort.ts";
+import type { Strategy } from "./strategy.ts";
 
 /** Per-turn bookkeeping. Internal; the ledger lines are written from it when the run settles. */
 export type TurnRecord = {

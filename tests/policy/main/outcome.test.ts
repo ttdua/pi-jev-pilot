@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { Answer, ReadResult } from "../../src/policy/answers.ts";
-import { planOutcome, type OutcomeFlags } from "../../src/host/main-outcome.ts";
+import type { Answer, ReadResult } from "../../../src/policy/answers.ts";
+import { strategyBlock } from "../../../src/policy/main/strategy.ts";
+import { planOutcome, type OutcomeFlags } from "../../../src/policy/main/outcome.ts";
 
 const flags = (over: Partial<OutcomeFlags> = {}): OutcomeFlags => ({
   held: false,
@@ -90,7 +91,7 @@ describe("planOutcome: advice", () => {
     expect(plan).toMatchObject({
       patch: { strategy: "delegate", strategyP: 0.8, advised: true },
       nextAdvice: "delegate",
-      message: { message: { customType: "jev-advice", display: false } },
+      adviceBlock: strategyBlock("delegate"),
     });
   });
 
@@ -99,13 +100,13 @@ describe("planOutcome: advice", () => {
     expect(plan).toMatchObject({
       patch: { strategy: "delegate", advised: false },
       nextAdvice: undefined,
-      message: undefined,
+      adviceBlock: undefined,
     });
   });
 
   test("keeps the current advice when strategy was not asked", () => {
     const plan = planOutcome(flags({ askStrategy: false }), ok, read({}), "graph");
-    expect(plan).toMatchObject({ nextAdvice: "graph", message: undefined });
+    expect(plan).toMatchObject({ nextAdvice: "graph", adviceBlock: undefined });
     expect(plan.patch).not.toHaveProperty("strategy");
   });
 });
@@ -125,7 +126,7 @@ describe("planOutcome: held", () => {
       kind: "held",
       patch: { answered: true, corrects: 0.2, strategy: "delegate", strategyP: 0.8, advised: true },
       nextAdvice: "delegate",
-      message: expect.objectContaining({ message: expect.anything() }),
+      adviceBlock: strategyBlock("delegate"),
     });
   });
 
@@ -135,7 +136,7 @@ describe("planOutcome: held", () => {
       kind: "held",
       patch: { miss: "error" },
       nextAdvice: undefined,
-      message: undefined,
+      adviceBlock: undefined,
     });
   });
 

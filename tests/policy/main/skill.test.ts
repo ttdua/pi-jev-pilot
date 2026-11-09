@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import type { Answer, ChoiceAnswer, ReadResult } from "../../src/policy/answers.ts";
+import type { Answer, ChoiceAnswer, ReadResult } from "../../../src/policy/answers.ts";
 import {
   type SkillEntry,
   batchLeader,
@@ -11,7 +11,7 @@ import {
   pickSkill,
   skillBatches,
   skillCriterion,
-} from "../../src/policy/skill.ts";
+} from "../../../src/policy/main/skill.ts";
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
 
@@ -264,7 +264,7 @@ describe("deliveryText", () => {
     baseDir: "/s/debug",
     body: "Step one.",
   };
-  const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
+  const docs = readFileSync(new URL("../../../docs/jev-questions.md", import.meta.url), "utf8");
   function template(form: string): string {
     const at = docs.indexOf(`**\`${form}\`**`);
     expect(at).toBeGreaterThan(-1);

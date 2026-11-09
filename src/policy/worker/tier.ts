@@ -1,11 +1,18 @@
 // Pure tier decision and fallback. Imports nothing outside src/policy/.
 
-import { isSlot, slotName, slotTarget, TIER_LADDER, type Target, type TierName } from "./launch.ts";
-import type { Answer } from "./answers.ts";
+import {
+  isSlot,
+  slotName,
+  slotTarget,
+  TIER_LADDER,
+  type Target,
+  type TierName,
+} from "../launch.ts";
+import type { Answer } from "../answers.ts";
 import type { CutPoints } from "./cutpoints.ts";
-import { RISK_FLOOR } from "./effort.ts";
+import { RISK_FLOOR } from "../effort.ts";
 import { difficultyScore } from "./score.ts";
-import type { WorkerAnswers } from "./worker.ts";
+import type { WorkerAnswers } from "./answers.ts";
 
 export type TierDecision =
   | {

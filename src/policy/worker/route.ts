@@ -6,11 +6,11 @@ import {
   workerEffort,
   type ModelThinking,
   type ThinkingLevel,
-} from "./effort.ts";
-import type { EffectiveLaunch, Target, TierName } from "./launch.ts";
+} from "../effort.ts";
+import type { EffectiveLaunch, Target, TierName } from "../launch.ts";
 import type { CutPoints } from "./cutpoints.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
-import type { WorkerAnswers } from "./worker.ts";
+import type { WorkerAnswers } from "./answers.ts";
 
 export type ForkedLaunch = "untouched" | "thinking";
 

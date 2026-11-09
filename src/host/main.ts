@@ -6,7 +6,7 @@ import type {
   TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
 import type { Ctx, MainDeps, MainHost } from "./main-host.ts";
-import { addTurnEnd, type TurnRecord } from "./main-record.ts";
+import { addTurnEnd, type TurnRecord } from "../policy/main/index.ts";
 import { MainSession } from "./main-session.ts";
 import type { Snapshot } from "./readiness.ts";
 import { settleRun } from "./main-settled.ts";

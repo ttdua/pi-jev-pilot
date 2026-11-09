@@ -1,5 +1,5 @@
-import { windowEntries, WINDOW_MAX, type WindowLine } from "../policy/cut-window.ts";
-import type { WindowEntry } from "../policy/cutpoints.ts";
+import { windowEntries, WINDOW_MAX, type WindowLine } from "../policy/worker/index.ts";
+import type { WindowEntry } from "../policy/worker/index.ts";
 import { RUBRIC_VERSION } from "../jev/rubrics.ts";
 import { validateLedgerEntry } from "../store/ledger-schema.ts";
 

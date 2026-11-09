@@ -6,9 +6,9 @@ import {
   resetTuning,
   setTuningOff,
   undoTuning,
-} from "../policy/tuning.ts";
-import { signalsByMode } from "../policy/tuning-signals.ts";
-import { after, decisions, type DecisionLine } from "../policy/tuning-window.ts";
+} from "../policy/tuning/index.ts";
+import { signalsByMode } from "../policy/tuning/index.ts";
+import { after, decisions, type DecisionLine } from "../policy/tuning/index.ts";
 import type { LedgerRead } from "../store/ledger.ts";
 import type { TuningDocument } from "../store/tuning-file.ts";
 import type { Issue } from "../store/validate.ts";
@@ -23,7 +23,7 @@ import {
   tuneReport,
   undoneMessage,
   type TuneView,
-} from "./tuning-text.ts";
+} from "../policy/tuning/index.ts";
 
 export type TuneSub = "report" | "undo" | "reset" | "on" | "off";
 export type TuneOutcome = { ok: boolean; message: string };

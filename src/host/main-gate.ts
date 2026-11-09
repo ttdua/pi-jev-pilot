@@ -1,9 +1,9 @@
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { mainQuestions, type SkillQuestions } from "../jev/questions.ts";
 import { canAskEffort, supportedLevels, type ThinkingLevel } from "../policy/effort.ts";
-import { isHeld } from "../policy/hold.ts";
+import { isHeld } from "../policy/main/index.ts";
 import { holdContext } from "./context.ts";
-import type { TurnRecord } from "./main-record.ts";
+import type { TurnRecord } from "../policy/main/index.ts";
 import type { Snapshot } from "./readiness.ts";
 import type { CatalogSkill } from "./skills.ts";
 

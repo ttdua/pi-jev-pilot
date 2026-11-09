@@ -10,7 +10,7 @@ import {
   usageText,
   type JevArgs,
 } from "../../src/host/commands.ts";
-import type { Exec } from "../../src/host/review-cli.ts";
+import type { Exec } from "../../src/policy/review/cli.ts";
 import { statusText, type Decision, type Tally } from "../../src/host/status.ts";
 import type { Mode } from "../../src/store/defaults.ts";
 import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
@@ -23,7 +23,7 @@ import { buildWorkerQuestions } from "../../src/jev/questions.ts";
 import { readConfig } from "../../src/store/config.ts";
 import type { TuningRead } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
-import type { WindowEntry } from "../../src/policy/cutpoints.ts";
+import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
 import type { TierName } from "../../src/policy/launch.ts";
 
 function snap(

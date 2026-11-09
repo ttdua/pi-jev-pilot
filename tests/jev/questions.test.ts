@@ -10,7 +10,7 @@ import {
   type WireQuestion,
 } from "../../src/jev/questions.ts";
 import type { QuestionSpec } from "../../src/policy/answers.ts";
-import { readWorkerOutcome } from "../../src/policy/worker.ts";
+import { readWorkerOutcome } from "../../src/policy/worker/answers.ts";
 import {
   CORRECTS_QUESTION,
   GATE_QUESTIONS,
@@ -26,7 +26,7 @@ import {
   WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
 } from "../../src/jev/rubrics.ts";
-import { GATE_KEYS, skillCriterion } from "../../src/policy/skill.ts";
+import { GATE_KEYS, skillCriterion } from "../../src/policy/main/skill.ts";
 import { EFFORT_LEVELS, EFFORT_OPTION_ORDER } from "../../src/policy/effort.ts";
 
 const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");

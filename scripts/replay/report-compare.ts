@@ -2,8 +2,8 @@
 import type { Answer } from "../../src/policy/answers.ts";
 import { isSlot } from "../../src/policy/launch.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
-import type { ModeName } from "../../src/policy/modes.ts";
-import { readWorkerOutcome, type WorkerAnswers } from "../../src/policy/worker.ts";
+import type { ModeName } from "../../src/policy/worker/index.ts";
+import { readWorkerOutcome, type WorkerAnswers } from "../../src/policy/worker/index.ts";
 import { cutCodePoints } from "../../src/shared/text.ts";
 import {
   CASE_TEXT_POINTS,

@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "../policy/effort.ts";
-import type { Strategy } from "../policy/strategy.ts";
+import type { Strategy } from "../policy/main/index.ts";
 import { DECISION_FEATURES } from "../store/defaults.ts";
 import { validateLedgerEntry, type EffortLevel, type LedgerEntry } from "../store/ledger-schema.ts";
 import type { Snapshot } from "./readiness.ts";

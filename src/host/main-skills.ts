@@ -8,7 +8,7 @@ import {
   pickSkill,
   skillBatches,
   type SkillPick,
-} from "../policy/skill.ts";
+} from "../policy/main/index.ts";
 import {
   SKILL_MESSAGE_TYPE,
   explicitSkill,

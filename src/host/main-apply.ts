@@ -1,9 +1,22 @@
 import type { BeforeAgentStartEventResult } from "@earendil-works/pi-coding-agent";
 import type { ReadResult } from "../policy/answers.ts";
 import type { ThinkingLevel } from "../policy/effort.ts";
-import type { Strategy } from "../policy/strategy.ts";
+import type { Strategy } from "../policy/main/index.ts";
 import { showDecision, thinkingLevel, type MainHost, type Turn } from "./main-host.ts";
-import { planOutcome, type Answered, type OutcomeFlags, type OutcomePlan } from "./main-outcome.ts";
+import {
+  planOutcome,
+  type ClassifierReply,
+  type OutcomeFlags,
+  type OutcomePlan,
+} from "../policy/main/index.ts";
+
+const ADVICE_MESSAGE_TYPE = "jev-advice";
+
+/** Wraps the strategy block into the hidden `jev-advice` message. */
+function adviceMessage(block: string | undefined): BeforeAgentStartEventResult | undefined {
+  if (block === undefined) return undefined;
+  return { message: { customType: ADVICE_MESSAGE_TYPE, content: block, display: false } };
+}
 
 type AnsweredPlan = Extract<OutcomePlan, { kind: "answered" }>;
 
@@ -55,7 +68,7 @@ export function applyOutcome(
   host: MainHost,
   turn: Turn,
   flags: OutcomeFlags,
-  reply: { outcome: Answered; read: ReadResult | undefined },
+  reply: { outcome: ClassifierReply; read: ReadResult | undefined },
 ): BeforeAgentStartEventResult | undefined {
   const plan = planOutcome(flags, reply.outcome, reply.read, host.session.current?.advice);
   Object.assign(turn.rec, plan.patch);
@@ -67,8 +80,8 @@ export function applyOutcome(
     // A held prompt keeps the level; the suffix shows the level as it is.
     turn.rec.effective = thinkingLevel(host);
     showDecision(host, turn, { kind: "level", level: turn.rec.effective }, plan.nextAdvice);
-    return plan.message;
+    return adviceMessage(plan.adviceBlock);
   }
   applyAnswered(host, turn, plan, flags.askStrategy);
-  return plan.message;
+  return adviceMessage(plan.adviceBlock);
 }

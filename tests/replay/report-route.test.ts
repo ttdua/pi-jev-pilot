@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { REPORT_MODES, routeStream } from "../../scripts/replay/report-route.ts";
 import type { PlainConfig } from "../../scripts/replay/variants.ts";
-import { cutPointsFor } from "../../src/policy/cutpoints.ts";
-import { SEED_CUTPOINTS } from "../../src/policy/seed.ts";
-import { routeLaunch } from "../../src/policy/route.ts";
-import { difficultyScore } from "../../src/policy/score.ts";
+import { cutPointsFor } from "../../src/policy/worker/cutpoints.ts";
+import { SEED_CUTPOINTS } from "../../src/policy/worker/seed.ts";
+import { routeLaunch } from "../../src/policy/worker/route.ts";
+import { difficultyScore } from "../../src/policy/worker/score.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
 import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
-import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/cut-window.ts";
+import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/worker/cut-window.ts";
 import { modelOfConfig, REPLAY_LAUNCH } from "../../scripts/replay/compare.ts";
 import { workerAnswers } from "./helpers.ts";
 

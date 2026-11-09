@@ -12,7 +12,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runReview } from "../../../src/host/review.ts";
-import type { Exec, ExecResult, ReviewChoice } from "../../../src/host/review-cli.ts";
+import type { Exec, ExecResult, ReviewChoice } from "../../../src/policy/review/cli.ts";
 
 /** Mirrors `pi.exec`: no stdin, timeout kill, output cap, ENOENT as code 1. */
 const exec: Exec = async (command, args, options) => {

@@ -1,8 +1,8 @@
 // Pure cut points from a window of scores and a mode target. Imports nothing outside src/policy/.
 
 import { WINDOW_MIN } from "./cut-window.ts";
-import type { EffortLevel } from "./effort.ts";
-import type { TierName } from "./launch.ts";
+import type { EffortLevel } from "../effort.ts";
+import type { TierName } from "../launch.ts";
 import { MODE_TARGETS, type ModeName, type ModeTarget } from "./modes.ts";
 import { SEED_CUTPOINTS } from "./seed.ts";
 

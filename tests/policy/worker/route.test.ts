@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Answer } from "../../src/policy/answers.ts";
-import { SEED_CUTPOINTS } from "../../src/policy/seed.ts";
-import type { ModelThinking } from "../../src/policy/effort.ts";
+import type { Answer } from "../../../src/policy/answers.ts";
+import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
+import type { ModelThinking } from "../../../src/policy/effort.ts";
 import {
   TIER_LADDER,
   type EffectiveLaunch,
   type Target,
   type TierName,
-} from "../../src/policy/launch.ts";
+} from "../../../src/policy/launch.ts";
 import {
   launchKind,
   routeLaunch,
@@ -16,9 +16,9 @@ import {
   type Route,
   type RouteInput,
   type RouteReason,
-} from "../../src/policy/route.ts";
-import type { WorkerAnswers } from "../../src/policy/worker.ts";
-import { validateLedgerEntry, type WorkerReason } from "../../src/store/ledger-schema.ts";
+} from "../../../src/policy/worker/route.ts";
+import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
+import { validateLedgerEntry, type WorkerReason } from "../../../src/store/ledger-schema.ts";
 
 const _ok: (r: RouteReason) => WorkerReason = (r) => r;
 void _ok;
