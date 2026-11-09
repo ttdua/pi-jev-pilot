@@ -17,7 +17,7 @@ Read the [architecture](docs/architecture.md) and the [glossary](docs/glossary.m
 
 - `bun install`: install the pinned dependencies.
 - `bun run typecheck`: type-check the whole project.
-- `bun run lint`: run oxlint, including the dependency-boundary rules.
+- `bun run lint`: run oxlint, including the dependency-boundary rules and the function-size rules (50 lines, complexity 12, 4 params, 25 statements, depth 4; off for `tests/`). The size rules warn for now and `--max-warnings` caps the total at the current baseline, so a new violation fails. Lower the cap as refactors land; once it reaches zero, set the size rules to `error` and go back to `--deny-warnings`.
 - `bun run fmt`: format every file in place.
 - `bun run fmt:check`: fail if any file is unformatted.
 - `bun run test`: run all tests.

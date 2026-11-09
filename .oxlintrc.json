@@ -1,6 +1,26 @@
 {
   "ignorePatterns": ["tests/fixtures/**", "node_modules/**"],
+  "rules": {
+    "eslint/max-lines-per-function": [
+      "warn",
+      { "max": 50, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+    ],
+    "eslint/complexity": ["warn", 12],
+    "eslint/max-params": ["warn", 4],
+    "eslint/max-statements": ["warn", 25],
+    "eslint/max-depth": ["warn", 4]
+  },
   "overrides": [
+    {
+      "files": ["tests/**"],
+      "rules": {
+        "eslint/max-lines-per-function": "off",
+        "eslint/complexity": "off",
+        "eslint/max-params": "off",
+        "eslint/max-statements": "off",
+        "eslint/max-depth": "off"
+      }
+    },
     {
       "files": ["src/policy/**"],
       "rules": {
