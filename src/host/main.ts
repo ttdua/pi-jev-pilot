@@ -6,18 +6,16 @@ import type {
   ExtensionContext,
   TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { askJev } from "../jev/client.ts";
-import { mainQuestions } from "../jev/questions.ts";
+import type { askJev, JevOutcome } from "../jev/client.ts";
 import { mainState, SHIPPED_MAIN_GROUPS, type RichGroup } from "../jev/state.ts";
 import { readAnswers, type ReadResult } from "../policy/answers.ts";
 import type { SkillPick } from "../policy/skill.ts";
-import { isHeld } from "../policy/hold.ts";
-import { canAskEffort, supportedLevels, type ThinkingLevel } from "../policy/effort.ts";
+import type { ThinkingLevel } from "../policy/effort.ts";
 import type { Strategy } from "../policy/strategy.ts";
 import type { WriteResult } from "../store/validate.ts";
 import type { AgentFacts } from "../policy/launch.ts";
 import { isChild } from "./child.ts";
-import { branchItems, holdContext, previousTurnId } from "./context.ts";
+import { branchItems, holdContext } from "./context.ts";
 import type { Snapshot } from "./readiness.ts";
 import {
   correctionLine,
@@ -27,9 +25,11 @@ import {
   mainLine,
 } from "./main-line.ts";
 import { planOutcome, type Answered, type OutcomeFlags, type OutcomePlan } from "./main-outcome.ts";
+import { gateTurn, newTurnRecord, type TurnPlan } from "./main-gate.ts";
 import type { TurnRecord } from "./main-record.ts";
 
 type AnsweredPlan = Extract<OutcomePlan, { kind: "answered" }>;
+type Branch = TurnPlan["branch"];
 import {
   askLaterBatches,
   joinMessages,
@@ -66,6 +66,9 @@ type Ctx = Pick<
   ExtensionContext,
   "cwd" | "hasUI" | "mode" | "model" | "sessionManager" | "signal" | "ui"
 >;
+
+/** One decided turn, as the apply step sees it. */
+type Turn = { rec: TurnRecord; ctx: Ctx; snapshot: Snapshot; from: ThinkingLevel };
 
 export function createMain(pi: ExtensionAPI, deps: MainDeps) {
   let record: TurnRecord | undefined;
@@ -133,137 +136,120 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     }
   }
 
-  async function decide(
-    event: BeforeAgentStartEvent,
-    ctx: Ctx,
-    mine: { rec?: TurnRecord },
-  ): Promise<BeforeAgentStartEventResult | undefined> {
-    if (event.messageType !== "user" || event.prompt.trim() === "") return;
-    const sessionId = ctx.sessionManager.getSessionId();
-    if (isChild(sessionId)) return;
-    const groups = deps.rich?.groups ?? SHIPPED_MAIN_GROUPS;
-    const snapshot = deps.load();
-    if (!snapshot.config.valid || !snapshot.keySet) return;
-    const model = ctx.model;
-    if (model === undefined) return;
-    const apiKey = deps.env()[snapshot.keyVar];
-    if (apiKey === undefined || apiKey === "") return;
-    const effortOn = snapshot.settings.switches.effort;
-    const askStrategy = snapshot.settings.switches.strategy;
-    // The catalog is read only after every other gate passed.
-    const batches =
-      effortOn || askStrategy || snapshot.settings.switches.skills
-        ? (planSkills(event.prompt, snapshot.settings.switches.skills, deps) ?? [])
-        : [];
-    if (!effortOn && !askStrategy && batches.length === 0) return;
-
-    const supported = supportedLevels({
-      reasoning: model.reasoning,
-      thinkingLevelMap: (model as { thinkingLevelMap?: never }).thinkingLevelMap,
+  /** Reads the gate inputs from the event, the context and the deps, lazily and in gate order. */
+  function gate(prompt: string | undefined, ctx: Ctx): TurnPlan | undefined {
+    return gateTurn({
+      prompt,
+      get isChildSession() {
+        return isChild(ctx.sessionManager.getSessionId());
+      },
+      load: deps.load,
+      model: ctx.model,
+      apiKey: (keyVar) => deps.env()[keyVar],
+      branch: () => ctx.sessionManager.getBranch(),
+      planSkills: (skillsOn) => planSkills(prompt ?? "", skillsOn, deps),
     });
-    const entries = ctx.sessionManager.getBranch();
-    const { anchor, compactionId } = holdContext(entries);
-    const provider = typeof model.provider === "string" ? model.provider : undefined;
-    const modelId = typeof model.id === "string" ? model.id : undefined;
-    // A hold keeps the effort decision, so it applies only while `effort` is on.
-    const held =
-      snapshot.settings.switches.effort &&
-      isHeld({
-        provider,
-        model: modelId,
-        holdProviders: snapshot.settings.effort.holdProviders,
-        anchor,
-      });
-    const askEffort = effortOn && !held && canAskEffort(supported);
-    const first = batches[0];
-    const questions =
-      first === undefined
-        ? mainQuestions({ askEffort, askStrategy })
-        : mainQuestions({ askEffort, askStrategy, skills: first });
-    // `from` and `at` are read before the rich inputs are awaited, so a level change during that wait
-    // or the Jev call is seen.
-    const from = level();
-    const at = deps.now();
+  }
+
+  /** Builds this prompt's classifier state; `from` and `at` are read before the await. */
+  async function classifierState(prompt: string, ctx: Ctx, branch: Branch) {
     const rich = await buildRichInputs({
-      groups,
+      groups: deps.rich?.groups ?? SHIPPED_MAIN_GROUPS,
       cwd: ctx.cwd,
       ...(lastDecided === undefined ? {} : { last: lastDecided }),
       tools: () => deps.rich?.tools() ?? [],
       agents: () => deps.rich?.agents(ctx.cwd) ?? [],
     });
-    const state = mainState({
-      prompt: event.prompt,
-      items: branchItems(entries),
+    return mainState({
+      prompt,
+      items: branchItems(branch),
       platforms: deps.platforms(ctx.cwd),
       rich,
     });
-    const prev = previousTurnId(entries);
-    const rec: TurnRecord = {
+  }
+
+  /** Makes `rec` the current record, with what an abort needs to put the status back. */
+  function begin(rec: TurnRecord, ctx: Ctx, snapshot: Snapshot): void {
+    record = rec;
+    undo = { rec, ctx, snapshot, previous: current, previousOverlay: overlay, drew: false };
+  }
+
+  /** Drops `rec` unless a newer turn already replaced it. */
+  function drop(rec: TurnRecord): void {
+    if (record !== rec) return;
+    record = undefined;
+    undo = undefined;
+  }
+
+  async function decide(
+    event: BeforeAgentStartEvent,
+    ctx: Ctx,
+    mine: { rec?: TurnRecord },
+  ): Promise<BeforeAgentStartEventResult | undefined> {
+    const prompt = event.messageType === "user" ? event.prompt : undefined;
+    const plan = gate(prompt, ctx);
+    if (plan === undefined || prompt === undefined) return undefined;
+    const { snapshot, branch } = plan;
+    // `from` and `at` are read before the rich inputs are awaited, so a level change during that wait
+    // or the Jev call is seen.
+    const from = level();
+    const at = deps.now();
+    const state = await classifierState(prompt, ctx, branch);
+    const rec = newTurnRecord(plan, {
       turnId: deps.newId(),
       at,
-      sessionId,
+      sessionId: ctx.sessionManager.getSessionId(),
       mode: snapshot.settings.mode,
       from,
-      ...(prev === undefined ? {} : { previousTurnId: prev }),
-      ...(held ? { held: true as const } : {}),
-      ...(provider === undefined ? {} : { provider }),
-      ...(modelId === undefined ? {} : { model: modelId }),
-      ...(compactionId === undefined ? {} : { compactionId }),
-      answered: false,
-      ms: 0,
-      sawRequest: false,
-      toolCalls: 0,
-      failures: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-    };
-    record = rec;
+    });
     mine.rec = rec;
-    undo = { rec, ctx, snapshot, previous: current, previousOverlay: overlay, drew: false };
+    begin(rec, ctx, snapshot);
 
     const common: CommonRequest = {
       url: snapshot.settings.classifier.url,
-      apiKey,
+      apiKey: plan.apiKey,
       model: snapshot.settings.classifier.model,
       timeoutMs: snapshot.settings.classifier.timeoutMs,
       state,
       ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
     };
-    const asked = deps.ask({ ...common, questions: questions.wire });
-    const later = askLaterBatches(deps.ask, batches.slice(1), common);
+    const asked = deps.ask({ ...common, questions: plan.questions.wire });
+    const later = askLaterBatches(deps.ask, plan.batches.slice(1), common);
     const outcome = await asked;
-
     if (outcome.kind === "cancelled") {
-      if (record === rec) {
-        record = undefined;
-        undo = undefined;
-      }
+      drop(rec);
       return undefined;
     }
     rec.ms = outcome.ms;
+    return settle({ rec, ctx, snapshot, from }, plan, outcome, later);
+  }
+
+  /** Reads the reply, picks the skill and applies the outcome; redraws a changed overlay. */
+  async function settle(
+    turn: Turn,
+    plan: TurnPlan,
+    outcome: Answered,
+    later: readonly Promise<JevOutcome>[] | undefined,
+  ): Promise<BeforeAgentStartEventResult | undefined> {
+    const { rec, ctx, snapshot } = turn;
     const changed = refreshOverlay();
     try {
-      const read = outcome.kind === "ok" ? readAnswers(questions.specs, outcome.body) : undefined;
-      const pick = await pickSkillSafely(batches, questions.specs, read, later);
+      const { specs } = plan.questions;
+      const read = outcome.kind === "ok" ? readAnswers(specs, outcome.body) : undefined;
+      const pick = await pickSkillSafely(plan.batches, specs, read, later);
       recordPick(rec, pick);
-      const skill = skillMessage(pick, batches, {
+      const skill = skillMessage(pick, plan.batches, {
         inject: snapshot.settings.skills.inject,
         entries: () => ctx.sessionManager.buildSessionProjection().entries,
       });
-      const advice = applyOutcome(
-        { rec, ctx, snapshot, from },
-        { held, effortOn, askEffort, askStrategy, supported },
-        outcome,
-        read,
-      );
-      return joinMessages(skill, advice);
+      return joinMessages(skill, applyOutcome(turn, plan, outcome, read));
     } finally {
       // The overlay changed but no branch drew: show it (or its removal) over the old suffix.
       if (changed && !drawnBy.has(rec)) {
         try {
           draw(rec, ctx, snapshot);
         } catch {
-          /* fail open */
+          /* fail open: the old status stays */
         }
       }
     }
@@ -275,8 +261,6 @@ export function createMain(pi: ExtensionAPI, deps: MainDeps) {
     if ("p" in pick) rec.skillP = pick.p;
     if ("gate" in pick && pick.gate !== undefined) rec.gate = pick.gate;
   }
-
-  type Turn = { rec: TurnRecord; ctx: Ctx; snapshot: Snapshot; from: ThinkingLevel };
 
   /** Redraws with the given effort part and advice suffix. */
   function show(turn: Turn, effort: Decision["effort"], advice: Strategy | undefined): void {
