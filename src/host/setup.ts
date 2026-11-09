@@ -1,28 +1,29 @@
 import { readFileSync } from "node:fs";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isChild, subscribeChildren } from "./platform/index.ts";
+import {
+  isChild,
+  subscribeChildren,
+  scanPlatforms,
+  listAgents,
+  loadSnapshot,
+  setMainCwd,
+  jevDir,
+} from "./platform/index.ts";
 import { runJev } from "./commands/index.ts";
 import { SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
 import { updateTuning } from "../store/tuning-file.ts";
 import { askJev } from "../jev/client.ts";
 import { appendLedger, readLedger } from "../store/ledger.ts";
-import { createCutpointWindow, type CutpointWindow } from "./worker/index.ts";
-import { scanPlatforms } from "./platform/index.ts";
-import { listAgents } from "./platform/index.ts";
+import {
+  createCutpointWindow,
+  type CutpointWindow,
+  registerWorkerRouting,
+} from "./worker/index.ts";
 import { createMain } from "./main/index.ts";
-import { loadSnapshot } from "./platform/index.ts";
-import { setMainCwd } from "./platform/index.ts";
 import { hideReviewInChild, registerReviewTool, syncReviewTool } from "./review/index.ts";
-import { compactTally, drawStatus, logLine } from "./status/index.ts";
-import { jevDir } from "./platform/index.ts";
-import { runTune } from "./tuning/index.ts";
-import type { TuningDeps } from "./tuning/index.ts";
-import { showUnseenTuning } from "./tuning/index.ts";
-import { settleTuning } from "./tuning/index.ts";
-import { createSessionLog } from "./status/index.ts";
-import { captureMainService, clearMainService } from "./tools/index.ts";
-import { createToolAssessment } from "./tools/index.ts";
-import { registerWorkerRouting } from "./worker/index.ts";
+import { compactTally, drawStatus, logLine, createSessionLog } from "./status/index.ts";
+import { runTune, type TuningDeps, showUnseenTuning, settleTuning } from "./tuning/index.ts";
+import { captureMainService, clearMainService, createToolAssessment } from "./tools/index.ts";
 
 /** Draw `jev-log` entries as one truncated line; older Pi without the API is skipped. */
 function registerLogRenderer(pi: ExtensionAPI): void {
