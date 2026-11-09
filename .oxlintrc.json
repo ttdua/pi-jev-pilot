@@ -3,7 +3,12 @@
   "rules": {
     "eslint/max-lines-per-function": [
       "warn",
-      { "max": 50, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+      {
+        "max": 50,
+        "skipBlankLines": true,
+        "skipComments": true,
+        "IIFEs": true
+      }
     ],
     "eslint/complexity": ["warn", 12],
     "eslint/max-params": ["warn", 4],
@@ -22,47 +27,20 @@
       }
     },
     {
-      "files": ["src/policy/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["../**", "!../shared/**", "!../../shared/**"],
-                "message": "policy/ imports only itself and shared/."
-              },
-              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "files": ["src/shared/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
-              { "group": ["../**"], "message": "shared/ imports nothing outside itself." },
-              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["src/jev/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              { "group": ["../host/**"], "message": "jev/ must not import host/." },
-              { "group": ["../store/**"], "message": "jev/ must not import store/." },
-              { "group": ["../extension*"], "message": "jev/ must not import the entry point." },
-              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+              {
+                "group": ["../**"],
+                "message": "shared/ imports nothing outside itself."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              }
             ]
           }
         ]
@@ -75,39 +53,170 @@
           "error",
           {
             "patterns": [
-              { "group": ["../host/**"], "message": "store/ must not import host/." },
-              { "group": ["../jev/**"], "message": "store/ must not import jev/." },
-              { "group": ["../policy/**"], "message": "store/ must not import policy/." },
-              { "group": ["../extension*"], "message": "store/ must not import the entry point." },
-              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+              {
+                "group": ["../host/**"],
+                "message": "store/ must not import host/."
+              },
+              {
+                "group": ["../jev/**"],
+                "message": "store/ must not import jev/."
+              },
+              {
+                "group": ["../policy/**"],
+                "message": "store/ must not import policy/."
+              },
+              {
+                "group": ["../extension*"],
+                "message": "store/ must not import the entry point."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              }
             ]
           }
         ]
       }
     },
     {
-      "files": ["scripts/**"],
+      "files": ["src/policy/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
-              { "group": ["**/src/host/**"], "message": "scripts/ must not import host/." },
-              { "group": ["**/src/store/**"], "message": "scripts/ must not import store/." },
-              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+              {
+                "group": ["../**", "!../policy/**", "!../shared/**"],
+                "message": "policy/ imports only itself and shared/."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              },
+              {
+                "group": ["./[!.]*/**", "!./[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
             ]
           }
         ]
       }
     },
     {
-      "files": ["src/host/**"],
+      "files": ["src/policy/*/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
-              { "group": ["../extension*"], "message": "host/ must not import the entry point." }
+              {
+                "group": ["../../**", "!../../policy/**", "!../../shared/**"],
+                "message": "policy/ imports only itself and shared/."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              },
+              {
+                "group": ["../[!.]*/**", "!../[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/policy/*/*/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../../../**", "!../../../policy/**", "!../../../shared/**"],
+                "message": "policy/ imports only itself and shared/."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              },
+              {
+                "group": ["../../[!.]*/**", "!../../[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/host/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../extension*"],
+                "message": "host/ must not import the entry point."
+              },
+              {
+                "group": ["./[!.]*/**", "!./[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              },
+              {
+                "group": ["../policy/[!.]*/**", "!../policy/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/host/*/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../../extension*"],
+                "message": "host/ must not import the entry point."
+              },
+              {
+                "group": ["../[!.]*/**", "!../[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              },
+              {
+                "group": ["../../policy/[!.]*/**", "!../../policy/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/host/*/*/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../../../extension*"],
+                "message": "host/ must not import the entry point."
+              },
+              {
+                "group": ["../../[!.]*/**", "!../../[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              },
+              {
+                "group": ["../../../policy/[!.]*/**", "!../../../policy/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
             ]
           }
         ]
@@ -120,7 +229,18 @@
           "error",
           {
             "patterns": [
-              { "group": ["../extension*"], "message": "host/ must not import the entry point." },
+              {
+                "group": ["../extension*"],
+                "message": "host/ must not import the entry point."
+              },
+              {
+                "group": ["./[!.]*/**", "!./[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              },
+              {
+                "group": ["../policy/[!.]*/**", "!../policy/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              },
               {
                 "group": ["@earendil-works/*"],
                 "message": "review-cli.ts stays free of Pi imports."
@@ -137,11 +257,90 @@
           "error",
           {
             "patterns": [
-              { "group": ["./policy/**"], "message": "The entry point wires only host/." },
-              { "group": ["./jev/**"], "message": "The entry point wires only host/." },
-              { "group": ["./store/**"], "message": "The entry point wires only host/." },
-              { "group": ["./shared/**"], "message": "The entry point wires only host/." },
-              { "group": ["@earendil-works/*"], "message": "Only host/ may import Pi." }
+              {
+                "group": ["./policy/**"],
+                "message": "The entry point wires only host/."
+              },
+              {
+                "group": ["./jev/**"],
+                "message": "The entry point wires only host/."
+              },
+              {
+                "group": ["./store/**"],
+                "message": "The entry point wires only host/."
+              },
+              {
+                "group": ["./shared/**"],
+                "message": "The entry point wires only host/."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              },
+              {
+                "group": ["./host/[!.]*/**", "!./host/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/jev/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../host/**"],
+                "message": "jev/ must not import host/."
+              },
+              {
+                "group": ["../store/**"],
+                "message": "jev/ must not import store/."
+              },
+              {
+                "group": ["../extension*"],
+                "message": "jev/ must not import the entry point."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              },
+              {
+                "group": ["../policy/[!.]*/**", "!../policy/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["scripts/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/src/host/**"],
+                "message": "scripts/ must not import host/."
+              },
+              {
+                "group": ["**/src/store/**"],
+                "message": "scripts/ must not import store/."
+              },
+              {
+                "group": ["@earendil-works/*"],
+                "message": "Only host/ may import Pi."
+              },
+              {
+                "group": ["**/src/policy/[!.]*/**", "!**/src/policy/[!.]*/index.ts"],
+                "message": "Use the capability's index.ts."
+              }
             ]
           }
         ]
