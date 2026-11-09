@@ -36,3 +36,23 @@ export type TurnRecord = {
   /** Stop reason of the last assistant message seen in `turn_end`. */
   lastStop?: string;
 };
+
+/** The `turn_end` fields the record reads; Pi's event is wider. */
+export type TurnEndFacts = {
+  toolResults?: readonly { isError?: boolean }[];
+  message: unknown;
+};
+
+/** Adds one turn's tool calls, failures and token usage, and keeps its stop reason. */
+export function addTurnEnd(rec: TurnRecord, event: TurnEndFacts): void {
+  const results = event.toolResults ?? [];
+  rec.toolCalls += results.length;
+  rec.failures += results.filter((r) => r.isError === true).length;
+  const message = event.message as {
+    usage?: { input?: unknown; output?: unknown };
+    stopReason?: unknown;
+  };
+  if (typeof message.usage?.input === "number") rec.inputTokens += message.usage.input;
+  if (typeof message.usage?.output === "number") rec.outputTokens += message.usage.output;
+  if (typeof message.stopReason === "string") rec.lastStop = message.stopReason;
+}

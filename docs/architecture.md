@@ -79,7 +79,17 @@ src/
     workspace.ts         Reads platform markers by file name
 
   host/                  Everything that touches Pi or the executor.
-    main.ts              before_agent_start: effort, skill, advice
+    main.ts              Main-session handlers; wires the main-* units, owns no logic
+    main-start.ts        before_agent_start: gate, ask Jev, apply the reply
+    main-gate.ts         Pure: whether a turn is decided, what it asks, the new record
+    main-outcome.ts      Pure: classifier outcome to record fields, effort target and advice
+    main-apply.ts        Applies an outcome plan: thinking level and status
+    main-skills.ts       Skill catalog, later batches, pick and the hidden skill message
+    main-settled.ts      agent_settled: correction, main and jev-turn lines; abort undo
+    main-line.ts         Pure: correction and main ledger lines, hold anchor
+    main-session.ts      MainSession: the turn in flight, status decision, overlay
+    main-record.ts       TurnRecord and turn_end accumulation
+    main-host.ts         MainDeps, shared handler context, status drawing
     cutpoint-window.ts   In-memory window of eligible worker lines
     worker-line.ts       Score, rubric and expertOffered for the ledger line
     worker.ts            message_end batch; tool_call route and mutation; warnings; ledger join
