@@ -31,6 +31,7 @@ import { checkModel, resolveModel, splitModel } from "../platform/index.ts";
 import { loadSnapshot, type Snapshot } from "../platform/index.ts";
 import { jevDir } from "../platform/index.ts";
 import { takeToolCounts } from "../tools/index.ts";
+import { LaunchBook } from "./launches.ts";
 import { workerLine } from "../../policy/worker/index.ts";
 
 export type WorkerDeps = {
@@ -85,9 +86,6 @@ type Executor = {
   tokens?: unknown;
 };
 
-/** The only executor fields a ledger line needs, stamped with arrival order. */
-type Buffered = { seq: number; outcome: Executor };
-
 function slim(data: Record<string, unknown>): Executor {
   const tokens = data["tokens"];
   return {
@@ -100,8 +98,6 @@ function slim(data: Record<string, unknown>): Executor {
 
 const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
 const EVENTS = ["subagents:completed", "subagents:failed", "subagents:resumed"] as const;
-
-const CACHE_MAX = 256;
 
 type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
 
@@ -177,28 +173,11 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   const ask = deps.ask ?? askJev;
   const snapshot = deps.snapshot ?? (() => loadSnapshot(pi));
   const agentDir = (): string => deps.agentDir ?? getAgentDir();
-  const cache = new Map<string, LaunchEntry>();
+  const book = new LaunchBook<LaunchEntry, Executor>();
   const warned = new Set<string>();
   const append = deps.append ?? ((entry: unknown): void => void appendLedger(jevDir(), entry));
   const now = deps.now ?? Date.now;
   const window = deps.window ?? ((): readonly WindowEntry[] => []);
-  /** Launches whose tool result arrived, by executor agent id. */
-  const byAgent = new Map<string, LaunchEntry>();
-  /** Executor outcomes that arrived before their tool result, by agent id. */
-  const outcomes = new Map<string, Buffered>();
-  /** Monotonic order of tool calls and buffered outcomes (the clock is not strictly increasing). */
-  let seq = 0;
-  let active = true;
-
-  const put = <T>(map: Map<string, T>, key: string, value: T): void => {
-    map.delete(key);
-    map.set(key, value);
-    while (map.size > CACHE_MAX) {
-      const oldest = map.keys().next().value;
-      if (oldest === undefined) break;
-      map.delete(oldest);
-    }
-  };
 
   /** One `worker` line; never throws. */
   const write = (entry: LaunchEntry, outcome: Executor | undefined): void => {
@@ -229,19 +208,9 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     }
   };
 
-  const remember = (id: string, entry: LaunchEntry): void => {
-    cache.delete(id);
-    cache.set(id, entry);
-    while (cache.size > CACHE_MAX) {
-      const oldest = cache.keys().next().value;
-      if (oldest === undefined) break;
-      cache.delete(oldest);
-    }
-  };
-
   /** Fresh gate; returns the snapshot only when routing may act. */
   const gate = (ctx: ExtensionContext): Snapshot | undefined => {
-    if (!active) return undefined;
+    if (!book.isOpen()) return undefined;
     if (isChild(ctx.sessionManager.getSessionId())) return undefined;
     const snap = snapshot();
     if (!snap.config.valid || !snap.keySet || !snap.executor) return undefined;
@@ -336,14 +305,14 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
     ctx: ExtensionContext,
     snap: Snapshot,
   ): Promise<void> => {
-    let entry = cache.get(id);
+    let entry = book.launch(id);
     if (entry === undefined) {
       entry = classify(input, ctx, snap);
-      remember(id, entry);
+      book.remember(id, entry);
     }
     const caller = input["model"];
     if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
-    entry.seq = ++seq;
+    entry.seq = book.nextSeq();
     entry.session = ctx.sessionManager.getSessionId();
     entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
     const outcome = entry.outcome === undefined ? undefined : await entry.outcome;
@@ -419,7 +388,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
           if (typeof id !== "string" || !isRecord(args)) continue;
           try {
             const entry = classify(args, ctx, snap);
-            remember(id, entry);
+            book.remember(id, entry);
             if (entry.outcome !== undefined) pending.push(entry.outcome);
           } catch {
             /* this launch is classified again at its tool_call */
@@ -448,9 +417,8 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   offs.push(
     pi.on("tool_result", (event) => {
       try {
-        if (!active || event.toolName !== "subagent") return;
-        const entry = cache.get(event.toolCallId);
-        cache.delete(event.toolCallId);
+        if (!book.isOpen() || event.toolName !== "subagent") return;
+        const entry = book.take(event.toolCallId);
         const details: unknown = event.details;
         const agentId = isRecord(details) ? details["agentId"] : undefined;
         const named = typeof agentId === "string" && agentId !== "";
@@ -458,21 +426,15 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
         if (entry?.route === undefined || entry.route.kind === "skip") {
           // Nothing will be written for this launch: an outcome buffered for its agent
           // belongs to an earlier run or to this unwritten launch, so drop it.
-          if (named) outcomes.delete(agentId);
+          if (named) book.dropOutcome(agentId);
           return;
         }
         if (!named) {
           write(entry, undefined);
           return;
         }
-        const buffered = outcomes.get(agentId);
-        outcomes.delete(agentId);
-        // Only an outcome that arrived after this launch's tool_call can be its own.
-        if (buffered === undefined || buffered.seq < (entry.seq ?? 0)) {
-          put(byAgent, agentId, entry);
-          return;
-        }
-        write(entry, buffered.outcome);
+        const joined = book.join(agentId, entry);
+        if (joined.kind === "write") write(entry, joined.outcome);
       } catch {
         /* fail open */
       }
@@ -484,15 +446,11 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
       offs.push(
         pi.events.on(name, (data: unknown) => {
           try {
-            if (!active || !isRecord(data) || typeof data["id"] !== "string") return;
+            if (!book.isOpen() || !isRecord(data) || typeof data["id"] !== "string") return;
             const id = data["id"];
-            const entry = byAgent.get(id);
-            if (entry === undefined) {
-              put(outcomes, id, { seq: ++seq, outcome: slim(data) });
-              return;
-            }
-            byAgent.delete(id);
-            write(entry, slim(data));
+            const entry = book.claim(id);
+            if (entry === undefined) book.buffer(id, slim(data));
+            else write(entry, slim(data));
           } catch {
             /* fail open */
           }
@@ -505,7 +463,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
 
   return {
     off() {
-      active = false;
+      book.close();
       for (const off of offs.splice(0)) {
         try {
           off();
@@ -513,13 +471,10 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
           /* keep shutdown clean */
         }
       }
-      cache.clear();
-      byAgent.clear();
-      outcomes.clear();
     },
     clearWarnings() {
       warned.clear();
     },
-    pending: () => cache.size + byAgent.size + outcomes.size,
+    pending: () => book.pending(),
   };
 }
