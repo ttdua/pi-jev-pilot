@@ -34,6 +34,15 @@ function literalText(node: ts.Node | undefined): string | undefined {
   return undefined;
 }
 
+/** `import(...)` or a bare `require(...)` call. */
+function isModuleLoad(node: ts.CallExpression): boolean {
+  const callee = node.expression;
+  return (
+    callee.kind === ts.SyntaxKind.ImportKeyword ||
+    (ts.isIdentifier(callee) && callee.text === "require")
+  );
+}
+
 /** The module specifier a node names, if it is an import form. */
 function specifierOf(node: ts.Node): string | undefined {
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
@@ -42,7 +51,7 @@ function specifierOf(node: ts.Node): string | undefined {
   if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
     return literalText(node.moduleReference.expression);
   }
-  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+  if (ts.isCallExpression(node) && isModuleLoad(node)) {
     return literalText(node.arguments[0]) ?? NON_LITERAL;
   }
   if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
@@ -94,10 +103,15 @@ function shortestPath(root: string, file: string, specifier: string): string {
   return rel.startsWith("..") ? rel : `./${rel}`;
 }
 
+const BUILTIN_SCHEME = /^(node|bun):/;
+
 function malformedReason(specifier: string): string | undefined {
   if (specifier === NON_LITERAL) return "Import with a string literal.";
   if (specifier.startsWith("/") || /^[a-zA-Z]:[\\/]|^file:/.test(specifier)) {
     return "Use a relative path, not an absolute one.";
+  }
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(specifier) && !BUILTIN_SCHEME.test(specifier)) {
+    return "Import a relative path or a package, not a URL.";
   }
   if (specifier.startsWith(".") && !/\.(ts|json)$/.test(specifier)) {
     return "Name the file with its extension.";

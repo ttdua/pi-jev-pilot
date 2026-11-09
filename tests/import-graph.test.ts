@@ -143,6 +143,39 @@ test("violations name the file, the import and the fix", async () => {
   });
 });
 
+test("the scanner reads CommonJS require() calls", () => {
+  expect(moduleSpecifiers('const w = require("../worker/routing.ts");')).toEqual([
+    "../worker/routing.ts",
+  ]);
+  expect(moduleSpecifiers('const t = "../worker/routing.ts"; const w = require(t);')).toEqual([
+    "<non-literal>",
+  ]);
+  expect(moduleSpecifiers("const o = { require: 1 }; o.require(x);")).toEqual([]);
+});
+
+test("literal and non-literal require() calls are checked like imports", () => {
+  const root = "/repo";
+  const file = "src/host/main/gate.ts";
+  expect(checkImport(root, file, "../worker/routing.ts")).toBeString();
+  expect(checkImport(root, file, "<non-literal>")).toBeString();
+});
+
+test("only relative paths, bare packages and node:/bun: built-ins are accepted", () => {
+  const root = "/repo";
+  const file = "src/host/main/gate.ts";
+  for (const bad of [
+    "data:text/javascript,export default 42",
+    "https://example.com/x.js",
+    "http://example.com/x.js",
+    "blob:abc",
+  ]) {
+    expect(checkImport(root, file, bad), bad).toBeString();
+  }
+  for (const good of ["node:path", "bun:test", "typebox", "@scope/pkg", "typebox/compile"]) {
+    expect(checkImport(root, file, good), good).toBeUndefined();
+  }
+});
+
 test("capability folders nest at most one level and other layers stay flat", () => {
   expect(
     nestingViolations([
