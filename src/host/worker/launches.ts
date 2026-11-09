@@ -59,9 +59,13 @@ export class LaunchBook<E extends { seq?: number }, O> {
     return entry;
   }
 
-  /** Keeps an executor outcome until its launch's tool result arrives. */
-  buffer(agentId: string, outcome: O): void {
-    putNewest(this.#outcomes, agentId, { seq: this.nextSeq(), outcome }, this.#max);
+  /**
+   * Keeps an executor outcome until its launch's tool result arrives. The order stamp is taken
+   * before `read` runs, so reading the outcome cannot reorder it behind a later tool call.
+   */
+  buffer(agentId: string, read: () => O): void {
+    const seq = this.nextSeq();
+    putNewest(this.#outcomes, agentId, { seq, outcome: read() }, this.#max);
   }
 
   dropOutcome(agentId: string): void {
@@ -94,9 +98,13 @@ export class LaunchBook<E extends { seq?: number }, O> {
     return this.#launches.size + this.#parked.size + this.#outcomes.size;
   }
 
-  /** Stops the book and forgets everything. */
-  close(): void {
+  /** Stops the book: handlers ignore new events; what it holds stays until `clear`. */
+  stop(): void {
     this.#open = false;
+  }
+
+  /** Forgets every launch, parked launch and buffered outcome. */
+  clear(): void {
     this.#launches.clear();
     this.#parked.clear();
     this.#outcomes.clear();

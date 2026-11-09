@@ -34,8 +34,11 @@ export type WorkerLineInput = {
   tierQuestion: boolean;
   rubric: number;
   callerModel: string | undefined;
-  /** Counts taken for this agent; undefined for a resume or an unnamed agent. */
-  toolCounts: ToolCounts | undefined;
+  /**
+   * Takes this agent's tool counts; undefined for a resume or an unnamed agent. Called after the
+   * fields before it are built, so a line that fails earlier leaves the counts in place.
+   */
+  toolCounts: () => ToolCounts | undefined;
   outcome: ExecutorOutcome | undefined;
 };
 
@@ -144,9 +147,10 @@ export function workerLine(input: WorkerLineInput): Line | undefined {
   );
   routeFields(line, route);
   put(line, "callerModel", input.callerModel);
-  if (input.toolCounts !== undefined) {
-    line["toolsScored"] = input.toolCounts.toolsScored;
-    line["toolsFlagged"] = input.toolCounts.toolsFlagged;
+  const counts = input.toolCounts();
+  if (counts !== undefined) {
+    line["toolsScored"] = counts.toolsScored;
+    line["toolsFlagged"] = counts.toolsFlagged;
   }
   executorFields(line, input.outcome);
   return line;

@@ -78,6 +78,12 @@ function slotOptions(ctx: Ctx, slots: readonly Slot[]): SlotOption[] {
   });
 }
 
+/** The cut-point window, called detached as before the split: `window` never receives a `this`. */
+function windowEntries(deps: ClassifyDeps): readonly WindowEntry[] {
+  const { window } = deps;
+  return window();
+}
+
 /** The launch as routing first sees it, before any classifier question is asked. */
 function newEntry(input: Input, ctx: Ctx, settings: Settings, deps: ClassifyDeps): LaunchEntry {
   const facts = readAgent(input["subagent_type"], { cwd: ctx.cwd, agentDir: deps.agentDir() });
@@ -89,7 +95,7 @@ function newEntry(input: Input, ctx: Ctx, settings: Settings, deps: ClassifyDeps
     launch,
     kind: launchKind(launch, offered, settings.subagents.forkedLaunch, slots.length),
     mode: settings.mode,
-    cuts: cutPointsFor(deps.window(), settings.mode),
+    cuts: cutPointsFor(windowEntries(deps), settings.mode),
     offered,
     slots,
     outcome: undefined,

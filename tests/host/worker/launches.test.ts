@@ -41,10 +41,10 @@ describe("LaunchBook: launches by tool call id", () => {
 });
 
 describe("LaunchBook: joining launches and executor outcomes", () => {
-  test("an outcome that arrives first waits for its launch", () => {
+  test("an outcome stamped after the launch's tool call joins it", () => {
     const book = new LaunchBook<Entry, string>();
-    book.buffer("ag-1", "done");
-    const launch = entry("a", book.nextSeq() - 2);
+    const launch = entry("a", book.nextSeq());
+    book.buffer("ag-1", () => "done");
 
     expect(book.join("ag-1", launch)).toEqual({ kind: "write", outcome: "done" });
     expect(book.pending()).toBe(0);
@@ -52,7 +52,7 @@ describe("LaunchBook: joining launches and executor outcomes", () => {
 
   test("an outcome stamped before the launch's tool call is not its own", () => {
     const book = new LaunchBook<Entry, string>();
-    book.buffer("ag-1", "stale");
+    book.buffer("ag-1", () => "stale");
     const launch = entry("a", book.nextSeq());
 
     expect(book.join("ag-1", launch)).toEqual({ kind: "parked" });
@@ -70,7 +70,7 @@ describe("LaunchBook: joining launches and executor outcomes", () => {
 
   test("dropping an agent forgets its buffered outcome", () => {
     const book = new LaunchBook<Entry, string>();
-    book.buffer("ag-1", "done");
+    book.buffer("ag-1", () => "done");
     book.dropOutcome("ag-1");
 
     expect(book.pending()).toBe(0);
@@ -78,15 +78,17 @@ describe("LaunchBook: joining launches and executor outcomes", () => {
 });
 
 describe("LaunchBook: switching off", () => {
-  test("close forgets everything and stops the book", () => {
+  test("stop ignores new events and clear forgets what was held", () => {
     const book = new LaunchBook<Entry, string>();
     book.remember("t1", entry("a"));
-    book.buffer("ag-2", "done");
+    book.buffer("ag-2", () => "done");
     book.join("ag-3", entry("c", book.nextSeq()));
 
-    book.close();
-
-    expect(book.pending()).toBe(0);
+    book.stop();
     expect(book.isOpen()).toBe(false);
+    expect(book.pending()).toBe(3);
+
+    book.clear();
+    expect(book.pending()).toBe(0);
   });
 });

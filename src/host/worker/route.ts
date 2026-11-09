@@ -13,17 +13,18 @@ type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
 /** A caller-chosen model id the ledger may record. */
 const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
 
-/** Stamps what the ledger line needs from this `tool_call`, before the answer is awaited. */
-export function stampToolCall(
-  entry: LaunchEntry,
-  input: Input,
-  sessionId: string,
-  seq: number,
-): void {
+/** Where a tool call's stamps come from, read in this order when the launch is stamped. */
+export type StampSource = { nextSeq: () => number; sessionId: () => string };
+
+/**
+ * Stamps what the ledger line needs from this `tool_call`, before the answer is awaited: the
+ * caller's model, then the order stamp, then the session, then the brief length.
+ */
+export function stampToolCall(entry: LaunchEntry, input: Input, source: StampSource): void {
   const caller = input["model"];
   if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
-  entry.seq = seq;
-  entry.session = sessionId;
+  entry.seq = source.nextSeq();
+  entry.session = source.sessionId();
   entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
 }
 

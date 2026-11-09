@@ -38,7 +38,7 @@ const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
   tierQuestion: true,
   rubric: 2,
   callerModel: undefined,
-  toolCounts: undefined,
+  toolCounts: () => undefined,
   outcome: { status: "completed", durationMs: 1200.6, toolUses: 3, tokens: { total: 11 } },
   ...over,
 });
@@ -46,7 +46,7 @@ const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
 describe("workerLine", () => {
   test("writes every key of a routed, answered launch in ledger order", () => {
     const line = workerLine(
-      input({ callerModel: "caller/m", toolCounts: { toolsScored: 4, toolsFlagged: 1 } }),
+      input({ callerModel: "caller/m", toolCounts: () => ({ toolsScored: 4, toolsFlagged: 1 }) }),
     );
     expect(Object.keys(line ?? {})).toEqual([
       "v",
@@ -82,6 +82,21 @@ describe("workerLine", () => {
     const line = workerLine(input());
     expect(line).toMatchObject({ ms: 7, durationMs: 1201, toolUses: 3, tokens: 11 });
     expect(line?.["effortP"]).toEqual({ low: 0.1, medium: 0.8, high: 0.1 });
+  });
+
+  test("takes the tool counts only after the fields before them are built", () => {
+    let taken = false;
+    const broken = {
+      kind: "ok",
+      get ms(): number {
+        throw new Error("ms unavailable");
+      },
+    } as unknown as WorkerLineInput["jev"];
+
+    expect(() =>
+      workerLine(input({ jev: broken, toolCounts: () => ((taken = true), undefined) })),
+    ).toThrow();
+    expect(taken).toBe(false);
   });
 
   test("returns undefined for a skipped or missing route", () => {

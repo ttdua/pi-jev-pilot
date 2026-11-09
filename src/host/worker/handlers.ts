@@ -59,7 +59,7 @@ function writeLine(
       tierQuestion: entry.kind.kind === "ask" && entry.kind.tierQuestion,
       rubric: RUBRIC_VERSION,
       callerModel: entry.callerModel,
-      toolCounts: counted ? takeToolCounts(entry.agentId ?? "") : undefined,
+      toolCounts: () => (counted ? takeToolCounts(entry.agentId ?? "") : undefined),
       outcome,
     });
     if (line !== undefined) append(line);
@@ -68,19 +68,20 @@ function writeLine(
   }
 }
 
-/** The `subagent` tool calls of an assistant message, as id and arguments. */
-function subagentCalls(message: unknown): [string, Record<string, unknown>][] {
-  if (!isRecord(message) || message["role"] !== "assistant") return [];
+/**
+ * The `subagent` tool calls of an assistant message, as id and arguments. A generator, so each
+ * block is read only after the previous launch was classified, as before the split.
+ */
+function* subagentCalls(message: unknown): Generator<[string, Record<string, unknown>]> {
+  if (!isRecord(message) || message["role"] !== "assistant") return;
   const content = message["content"];
-  if (!Array.isArray(content)) return [];
-  const calls: [string, Record<string, unknown>][] = [];
+  if (!Array.isArray(content)) return;
   for (const block of content) {
     if (!isRecord(block) || block["type"] !== "toolCall" || block["name"] !== "subagent") continue;
     const id = block["id"];
     const args = block["arguments"];
-    if (typeof id === "string" && isRecord(args)) calls.push([id, args]);
+    if (typeof id === "string" && isRecord(args)) yield [id, args];
   }
-  return calls;
 }
 
 /** `message_end`: classify every launch of the message and wait for the classifier. */
@@ -120,7 +121,10 @@ export async function onToolCall(
     entry = classifyLaunch(input, ctx, snap, host.classify);
     book.remember(event.toolCallId, entry);
   }
-  stampToolCall(entry, input, ctx.sessionManager.getSessionId(), book.nextSeq());
+  stampToolCall(entry, input, {
+    nextSeq: () => book.nextSeq(),
+    sessionId: () => ctx.sessionManager.getSessionId(),
+  });
   const problem = await routeToolCall(entry, input, ctx, snap);
   if (problem === undefined || !ctx.hasUI) return;
   try {
@@ -161,6 +165,6 @@ export function onExecutorEvent(host: WorkerHost, data: unknown): void {
   if (!book.isOpen() || !isRecord(data) || typeof data["id"] !== "string") return;
   const id = data["id"];
   const entry = book.claim(id);
-  if (entry === undefined) book.buffer(id, slim(data));
+  if (entry === undefined) book.buffer(id, () => slim(data));
   else writeLine(host, entry, slim(data));
 }

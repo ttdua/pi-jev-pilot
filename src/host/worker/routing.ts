@@ -36,13 +36,13 @@ const EXECUTOR_EVENTS = ["subagents:completed", "subagents:failed", "subagents:r
 
 /** The handlers' shared context; dependency defaults resolved once, called detached as before. */
 function workerHost(pi: ExtensionAPI, deps: WorkerDeps): WorkerHost {
-  const { agentDir } = deps;
   return {
     book: new LaunchBook<LaunchEntry, ExecutorOutcome>(),
     warnings: new LaunchWarnings(() => join(jevDir(), "config.json")),
     classify: {
       ask: deps.ask ?? askJev,
-      agentDir: () => agentDir ?? getAgentDir(),
+      // Read when a launch is classified, so a later value counts and a failing read fails open.
+      agentDir: () => deps.agentDir ?? getAgentDir(),
       window: deps.window ?? ((): readonly WindowEntry[] => []),
       apiKey: (keyVar) => process.env[keyVar] ?? "",
     },
@@ -109,7 +109,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   const offs = [...subscribePi(pi, host), ...subscribeExecutor(pi, host)];
   return {
     off() {
-      host.book.close();
+      host.book.stop();
       for (const off of offs.splice(0)) {
         try {
           off();
@@ -117,6 +117,7 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
           /* keep shutdown clean */
         }
       }
+      host.book.clear();
     },
     clearWarnings() {
       host.warnings.clear();
