@@ -97,15 +97,26 @@ describe("MainSession: abort restore", () => {
     expect(s.restoreBefore(rec)).toEqual({ ctx: "ctx", snapshot: "snap" });
     expect(s.current).toEqual({ advice: "graph" });
     expect(s.overlay).toBe("before");
-    expect(s.record).toBeUndefined();
   });
 
-  test("restores nothing for a turn that never drew, but still clears it", () => {
+  test("keeps the turn in flight until clearTurn, so the redraw sees it", () => {
     const s = session();
     const rec = record();
     s.begin(rec, "ctx", "snap");
-    expect(s.restoreBefore(rec)).toBeUndefined();
+    s.decide(rec, { advice: "graph" });
+    s.restoreBefore(rec);
+    expect(s.record).toBe(rec);
+    s.clearTurn();
     expect(s.record).toBeUndefined();
+  });
+
+  test("restores nothing for a turn that never drew", () => {
+    const s = session();
+    const rec = record();
+    s.begin(rec, "ctx", "snap");
+    s.decide(record("other"), { advice: "graph" });
+    expect(s.restoreBefore(rec)).toBeUndefined();
+    expect(s.current).toEqual({ advice: "graph" });
   });
 });
 

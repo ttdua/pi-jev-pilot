@@ -101,12 +101,12 @@ export class MainSession<Ctx, Snap> {
   }
 
   /**
-   * Clears an aborted turn that never reached the provider. When it drew, puts the decision and
-   * overlay back and returns where to redraw them.
+   * For an aborted turn that never reached the provider and drew: puts the decision and overlay
+   * back and returns where to redraw them. The turn stays in flight until `clearTurn`, so a
+   * redraw sees the same state as before the split.
    */
   restoreBefore(rec: TurnRecord): { ctx: Ctx; snapshot: Snap } | undefined {
     const undo = this.#undo?.rec === rec ? this.#undo : undefined;
-    this.clearTurn();
     if (undo === undefined || !undo.drew) return undefined;
     this.#current = undo.previous;
     this.#overlay = undo.previousOverlay;

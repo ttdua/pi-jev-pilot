@@ -2,7 +2,7 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { mainQuestions, type SkillQuestions } from "../jev/questions.ts";
 import { canAskEffort, supportedLevels, type ThinkingLevel } from "../policy/effort.ts";
 import { isHeld } from "../policy/hold.ts";
-import { holdContext, previousTurnId } from "./context.ts";
+import { holdContext } from "./context.ts";
 import type { TurnRecord } from "./main-record.ts";
 import type { Snapshot } from "./readiness.ts";
 import type { CatalogSkill } from "./skills.ts";
@@ -22,9 +22,12 @@ export type GateModel = {
 export type GateInput = {
   /** The user prompt; undefined for a run started by a custom message. */
   prompt: string | undefined;
-  isChildSession: boolean;
+  /** The session id, read once; the record keeps the value the child gate saw. */
+  sessionId: () => string;
+  isChild: (sessionId: string) => boolean;
   load: () => Snapshot;
-  model: GateModel | undefined;
+  /** Read after the config and key gates, so a model selected while loading is seen. */
+  model: () => GateModel | undefined;
   /** The API key value for the snapshot's key variable. */
   apiKey: (keyVar: string) => string | undefined;
   /** The session branch; read once, after the eligibility gates. */
@@ -35,6 +38,7 @@ export type GateInput = {
 
 /** A turn the package decides: what it asks and the context its record carries. */
 export type TurnPlan = {
+  sessionId: string;
   snapshot: Snapshot;
   branch: readonly SessionEntry[];
   apiKey: string;
@@ -48,25 +52,26 @@ export type TurnPlan = {
   provider: string | undefined;
   modelId: string | undefined;
   compactionId: string | undefined;
-  previousTurnId: string | undefined;
 };
 
 const stringOrUndefined = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
 
-type Eligible = { snapshot: Snapshot; model: GateModel; apiKey: string };
+type Eligible = { sessionId: string; snapshot: Snapshot; model: GateModel; apiKey: string };
 
-/** Whether the prompt, session, config and key allow a decision at all. */
+/** Whether the prompt, session, config and key allow a decision at all; reads in gate order. */
 function eligible(input: GateInput): Eligible | undefined {
-  const { prompt, model } = input;
+  const { prompt } = input;
   if (prompt === undefined || prompt.trim() === "") return undefined;
-  if (input.isChildSession) return undefined;
+  const sessionId = input.sessionId();
+  if (input.isChild(sessionId)) return undefined;
   const snapshot = input.load();
   if (!snapshot.config.valid || !snapshot.keySet) return undefined;
+  const model = input.model();
   if (model === undefined) return undefined;
   const apiKey = input.apiKey(snapshot.keyVar);
   if (apiKey === undefined || apiKey === "") return undefined;
-  return { snapshot, model, apiKey };
+  return { sessionId, snapshot, model, apiKey };
 }
 
 function questionsFor(o: {
@@ -87,7 +92,7 @@ function questionsFor(o: {
 export function gateTurn(input: GateInput): TurnPlan | undefined {
   const ok = eligible(input);
   if (ok === undefined) return undefined;
-  const { snapshot, model, apiKey } = ok;
+  const { sessionId, snapshot, model, apiKey } = ok;
   const { switches, effort } = snapshot.settings;
   const effortOn = switches.effort;
   const askStrategy = switches.strategy;
@@ -109,6 +114,7 @@ export function gateTurn(input: GateInput): TurnPlan | undefined {
     effortOn && isHeld({ provider, model: modelId, holdProviders: effort.holdProviders, anchor });
   const askEffort = effortOn && !held && canAskEffort(supported);
   return {
+    sessionId,
     snapshot,
     branch,
     apiKey,
@@ -122,18 +128,19 @@ export function gateTurn(input: GateInput): TurnPlan | undefined {
     provider,
     modelId,
     compactionId,
-    previousTurnId: previousTurnId(branch),
   };
 }
 
 /** The record fields fixed when the turn starts. */
-export type TurnStart = Pick<TurnRecord, "turnId" | "at" | "sessionId" | "mode" | "from">;
+export type TurnStart = Pick<TurnRecord, "turnId" | "at" | "mode" | "from" | "previousTurnId">;
 
 /** A fresh record for a decided turn; optional context fields only when known. */
 export function newTurnRecord(plan: TurnPlan, start: TurnStart): TurnRecord {
+  const { previousTurnId, ...fixed } = start;
   return {
-    ...start,
-    ...(plan.previousTurnId === undefined ? {} : { previousTurnId: plan.previousTurnId }),
+    ...fixed,
+    sessionId: plan.sessionId,
+    ...(previousTurnId === undefined ? {} : { previousTurnId }),
     ...(plan.held ? { held: true as const } : {}),
     ...(plan.provider === undefined ? {} : { provider: plan.provider }),
     ...(plan.modelId === undefined ? {} : { model: plan.modelId }),

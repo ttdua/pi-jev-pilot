@@ -21,9 +21,10 @@ const skill: CatalogSkill = {
 const model = { provider: "p", id: "m", reasoning: true, thinkingLevelMap: { xhigh: "xhigh" } };
 const input = (over: Partial<GateInput> = {}): GateInput => ({
   prompt: "do the thing",
-  isChildSession: false,
+  sessionId: () => "s-1",
+  isChild: () => false,
   load: () => snapshot({ switches: { strategy: false, skills: false } }),
-  model,
+  model: () => model,
   apiKey: () => "k",
   branch: () => [],
   planSkills: () => undefined,
@@ -34,8 +35,8 @@ describe("gateTurn: untouched turns", () => {
   const untouched: [string, Partial<GateInput>][] = [
     ["a run started by a custom message", { prompt: undefined }],
     ["a blank prompt", { prompt: "  " }],
-    ["a child session", { isChildSession: true }],
-    ["no model", { model: undefined }],
+    ["a child session", { isChild: () => true }],
+    ["no model", { model: () => undefined }],
     ["no API key value", { apiKey: () => undefined }],
     ["an empty API key", { apiKey: () => "" }],
     ["no key set in the snapshot", { load: () => snapshot({}, {} as never) }],
@@ -59,7 +60,7 @@ describe("gateTurn: untouched turns", () => {
   test("does not load the snapshot for a child session or a blank prompt", () => {
     let loads = 0;
     const load = () => (loads++, snapshot());
-    gateTurn(input({ isChildSession: true, load }));
+    gateTurn(input({ isChild: () => true, load }));
     gateTurn(input({ prompt: " ", load }));
     expect(loads).toBe(0);
   });
@@ -78,7 +79,7 @@ describe("gateTurn: decided turns", () => {
   });
 
   test("asks no effort for a model without reasoning", () => {
-    const plan = gateTurn(input({ model: { ...model, reasoning: false } }));
+    const plan = gateTurn(input({ model: () => ({ ...model, reasoning: false }) }));
     expect(plan).toMatchObject({ askEffort: false, supported: ["off"] });
   });
 
@@ -111,17 +112,22 @@ describe("gateTurn: decided turns", () => {
     expect(plan).toMatchObject({ held: true, askEffort: false });
   });
 
-  test("carries provider, model, compaction and previous turn from the branch", () => {
-    const branch = [
-      { type: "compaction", id: "c-1" },
-      { type: "custom", customType: "jev-turn", data: { turnId: "t-0" } },
-    ];
+  test("carries the session id, provider, model and compaction", () => {
+    const branch = [{ type: "compaction", id: "c-1" }];
     expect(gateTurn(input({ branch: () => branch as never }))).toMatchObject({
+      sessionId: "s-1",
       provider: "p",
       modelId: "m",
       compactionId: "c-1",
-      previousTurnId: "t-0",
     });
+  });
+
+  test("does not read the model for a child session or an unloadable config", () => {
+    let reads = 0;
+    const counted = () => (reads++, model);
+    gateTurn(input({ isChild: () => true, model: counted }));
+    gateTurn(input({ load: () => snapshot({}, {} as never), model: counted }));
+    expect(reads).toBe(0);
   });
 });
 
@@ -131,14 +137,15 @@ describe("newTurnRecord", () => {
     const rec = newTurnRecord(plan, {
       turnId: "t-1",
       at: 1000,
-      sessionId: "s",
       mode: "balanced",
       from: "low",
+      previousTurnId: "t-0",
     });
     expect(rec).toEqual({
       turnId: "t-1",
       at: 1000,
-      sessionId: "s",
+      sessionId: "s-1",
+      previousTurnId: "t-0",
       mode: "balanced",
       from: "low",
       provider: "p",
@@ -155,7 +162,7 @@ describe("newTurnRecord", () => {
 
   test("marks a held turn", () => {
     const plan = { ...gateTurn(input())!, held: true };
-    const ids = { turnId: "t", at: 1, sessionId: "s", mode: "balanced", from: "low" } as const;
+    const ids = { turnId: "t", at: 1, mode: "balanced", from: "low" } as const;
     expect(newTurnRecord(plan, ids).held).toBe(true);
   });
 });

@@ -117,7 +117,8 @@ export async function pickSkillSafely(
 
 /** What delivering a picked skill needs from the session. */
 export type DeliveryContext = {
-  inject: "content" | "suggest";
+  /** The configured delivery form; read only when a skill was picked, inside the failure boundary. */
+  inject: () => "content" | "suggest";
   /** Session projection entries, read only when a skill was picked. */
   entries: () => Parameters<typeof loadedSkills>[0];
 };
@@ -133,11 +134,12 @@ export function skillMessage(
     const catalog = batches.flat();
     const skill = catalog.find((s) => s.name === pick.name);
     if (skill === undefined) return undefined;
+    const loaded = loadedSkills(delivery.entries(), catalog);
     const form = deliveryForm({
       name: skill.name,
       fingerprint: skill.fingerprint,
-      inject: delivery.inject,
-      loaded: loadedSkills(delivery.entries(), catalog),
+      inject: delivery.inject(),
+      loaded,
     });
     return {
       message: {

@@ -21,7 +21,8 @@ function branchStop(ctx: Ctx | undefined): string | undefined {
 /** `jev-turn` data: the hold anchor rides along only for a decided turn on an unchanged compaction. */
 function turnData(rec: TurnRecord, ctx: Ctx | undefined): Record<string, unknown> {
   const plain = { turnId: rec.turnId };
-  if (ctx === undefined) return plain;
+  // Without a context, or for a turn that cannot carry an anchor, skip the branch read.
+  if (ctx === undefined || decidedAnchor(rec, rec.compactionId) === undefined) return plain;
   try {
     const { compactionId } = holdContext(ctx.sessionManager.getBranch());
     const decided = decidedAnchor(rec, compactionId);
@@ -71,6 +72,7 @@ function undoAbortedStart(host: MainHost, rec: TurnRecord): void {
   if (redraw !== undefined) {
     drawStatus(redraw.ctx, redraw.snapshot, session.current, session.overlay);
   }
+  session.clearTurn();
 }
 
 /** `agent_settled`: write the turn's lines, or undo a start that never reached the provider. */

@@ -37,6 +37,11 @@ describe("correctionLine", () => {
     });
   });
 
+  test("writes its keys in ledger order", () => {
+    const line = correctionLine(record({ corrects: 0.9, previousTurnId: "t-0" }));
+    expect(Object.keys(line!)).toEqual(["v", "at", "session", "kind", "turnId", "corrects"]);
+  });
+
   test("returns undefined below the threshold", () => {
     expect(correctionLine(record({ corrects: 0.69, previousTurnId: "t-0" }))).toBeUndefined();
   });
@@ -70,6 +75,75 @@ describe("mainLine", () => {
       durationMs: 500,
       outcome: "ok",
     });
+  });
+
+  test("writes every key of a full line in ledger order", () => {
+    const full = record({
+      answered: true,
+      held: true,
+      ms: 12,
+      miss: "schema",
+      effortP: { low: 0.8 },
+      risky: 0.1,
+      corrects: 0.2,
+      strategy: "delegate",
+      strategyP: 0.6,
+      advised: true,
+      skill: "tdd",
+      skillP: 0.9,
+      gate: 0.5,
+      requested: "low",
+      effective: "low",
+    });
+    expect(Object.keys(mainLine(full, facts))).toEqual([
+      "v",
+      "at",
+      "session",
+      "kind",
+      "mode",
+      "answered",
+      "turnId",
+      "held",
+      "ms",
+      "miss",
+      "effortP",
+      "risky",
+      "corrects",
+      "strategy",
+      "strategyP",
+      "advised",
+      "skill",
+      "skillP",
+      "gate",
+      "requested",
+      "effective",
+      "from",
+      "toolCalls",
+      "failures",
+      "inputTokens",
+      "outputTokens",
+      "durationMs",
+      "outcome",
+    ]);
+  });
+
+  test("writes only the always-present keys for an unanswered turn", () => {
+    expect(Object.keys(mainLine(record(), facts))).toEqual([
+      "v",
+      "at",
+      "session",
+      "kind",
+      "mode",
+      "answered",
+      "turnId",
+      "from",
+      "toolCalls",
+      "failures",
+      "inputTokens",
+      "outputTokens",
+      "durationMs",
+      "outcome",
+    ]);
   });
 
   test("includes ms and miss for a missed turn", () => {
@@ -112,10 +186,18 @@ describe("mainLine", () => {
     });
   });
 
-  test("omits strategy unless strategy, strategyP and advised are all set", () => {
-    const line = mainLine(record({ answered: true, strategy: "delegate", strategyP: 0.6 }), facts);
-    expect(line).not.toHaveProperty("strategy");
-    expect(line).not.toHaveProperty("strategyP");
+  const trio = { strategy: "delegate", strategyP: 0.6, advised: false } as const;
+  const strategyKeys = ["strategy", "strategyP", "advised"];
+  for (const missing of strategyKeys) {
+    test(`omits the whole strategy group when ${missing} is missing`, () => {
+      const { [missing as keyof typeof trio]: _dropped, ...partial } = trio;
+      const keys = Object.keys(mainLine(record({ answered: true, ...partial }), facts));
+      expect(keys.filter((key) => strategyKeys.includes(key))).toEqual([]);
+    });
+  }
+
+  test("keeps the strategy group when advised is false", () => {
+    expect(mainLine(record({ answered: true, ...trio }), facts)).toMatchObject(trio);
   });
 
   test("reports aborted before the stop reason", () => {

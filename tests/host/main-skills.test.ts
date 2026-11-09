@@ -147,7 +147,7 @@ describe("skillMessage", () => {
   const picked = { kind: "picked", name: "debug", p: 0.95 } as const;
 
   test("returns a hidden content message for a picked skill", () => {
-    const result = skillMessage(picked, batches, { inject: "content", entries: () => [] });
+    const result = skillMessage(picked, batches, { inject: () => "content", entries: () => [] });
     expect(result?.message).toMatchObject({
       customType: "jev-skill",
       display: false,
@@ -157,19 +157,37 @@ describe("skillMessage", () => {
 
   test("returns undefined when nothing was picked", () => {
     const none = { kind: "none", reason: "no-batch" } as const;
-    expect(skillMessage(none, batches, { inject: "content", entries: () => [] })).toBeUndefined();
+    expect(
+      skillMessage(none, batches, { inject: () => "content", entries: () => [] }),
+    ).toBeUndefined();
   });
 
   test("returns undefined when the picked name is not in the catalog", () => {
     const other = { ...picked, name: "deploy" };
-    expect(skillMessage(other, batches, { inject: "content", entries: () => [] })).toBeUndefined();
+    expect(
+      skillMessage(other, batches, { inject: () => "content", entries: () => [] }),
+    ).toBeUndefined();
+  });
+
+  test("returns undefined when reading the inject setting throws", () => {
+    const inject = (): "content" => {
+      throw new Error("no settings");
+    };
+    expect(skillMessage(picked, batches, { inject, entries: () => [] })).toBeUndefined();
+  });
+
+  test("does not read the inject setting when nothing was picked", () => {
+    let reads = 0;
+    const none = { kind: "none", reason: "below", p: 0.2 } as const;
+    skillMessage(none, batches, { inject: () => (reads++, "content"), entries: () => [] });
+    expect(reads).toBe(0);
   });
 
   test("returns undefined when reading the session entries throws", () => {
     const entries = () => {
       throw new Error("no projection");
     };
-    expect(skillMessage(picked, batches, { inject: "content", entries })).toBeUndefined();
+    expect(skillMessage(picked, batches, { inject: () => "content", entries })).toBeUndefined();
   });
 });
 

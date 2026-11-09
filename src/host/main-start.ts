@@ -7,7 +7,7 @@ import { mainState, SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
 import { readAnswers } from "../policy/answers.ts";
 import type { SkillPick } from "../policy/skill.ts";
 import { isChild } from "./child.ts";
-import { branchItems } from "./context.ts";
+import { branchItems, previousTurnId } from "./context.ts";
 import { applyOutcome } from "./main-apply.ts";
 import { gateTurn, newTurnRecord, type TurnPlan } from "./main-gate.ts";
 import { drawTurn, thinkingLevel, type Ctx, type MainHost, type Turn } from "./main-host.ts";
@@ -28,13 +28,13 @@ type StartResult = BeforeAgentStartEventResult | undefined;
 /** Reads the gate inputs from the context and the deps, lazily and in gate order. */
 function gate(host: MainHost, prompt: string | undefined, ctx: Ctx): TurnPlan | undefined {
   const { deps } = host;
+  // Every dependency is called through `deps`, so a method-style dependency keeps its receiver.
   return gateTurn({
     prompt,
-    get isChildSession() {
-      return isChild(ctx.sessionManager.getSessionId());
-    },
-    load: deps.load,
-    model: ctx.model,
+    sessionId: () => ctx.sessionManager.getSessionId(),
+    isChild,
+    load: () => deps.load(),
+    model: () => ctx.model,
     apiKey: (keyVar) => deps.env()[keyVar],
     branch: () => ctx.sessionManager.getBranch(),
     planSkills: (skillsOn) => planSkills(prompt ?? "", skillsOn, deps),
@@ -106,7 +106,7 @@ async function settleReply(
     const pick = await pickSkillSafely(plan.batches, specs, read, later);
     recordPick(rec, pick);
     const skill = skillMessage(pick, plan.batches, {
-      inject: snapshot.settings.skills.inject,
+      inject: () => snapshot.settings.skills.inject,
       entries: () => ctx.sessionManager.buildSessionProjection().entries,
     });
     return joinMessages(skill, applyOutcome(host, turn, plan, { outcome, read }));
@@ -141,19 +141,21 @@ export async function startTurn(
   const from = thinkingLevel(host);
   const at = host.deps.now();
   const state = await classifierState(host, prompt, ctx, plan);
+  // The previous turn is looked up after the rich inputs, as the branch stands when the record starts.
+  const previous = previousTurnId(plan.branch);
   const rec = newTurnRecord(plan, {
     turnId: host.deps.newId(),
     at,
-    sessionId: ctx.sessionManager.getSessionId(),
     mode: snapshot.settings.mode,
     from,
+    ...(previous === undefined ? {} : { previousTurnId: previous }),
   });
   mine.rec = rec;
   host.session.begin(rec, ctx, snapshot);
 
   const common = commonRequest(plan, ctx, state);
   const asked = host.deps.ask({ ...common, questions: plan.questions.wire });
-  const later = askLaterBatches(host.deps.ask, plan.batches.slice(1), common);
+  const later = askLaterBatches((request) => host.deps.ask(request), plan.batches.slice(1), common);
   const outcome = await asked;
   if (outcome.kind === "cancelled") {
     host.session.drop(rec);
