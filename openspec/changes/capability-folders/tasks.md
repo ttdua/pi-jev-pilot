@@ -33,15 +33,15 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 `git mv` the `host/` files into `platform/`, `status/`, `main/`, `worker/`, `tools/`,
+- [x] 3.1 `git mv` the `host/` files into `platform/`, `status/`, `main/`, `worker/`, `tools/`,
   `review/`, `tuning/`, `commands/` with the new names of design D1; `setup.ts` stays at the root;
   commit with no content change
-- [ ] 3.2 Add `index.ts` with named exports to each `host/` capability folder; rewrite imports in
+- [x] 3.2 Add `index.ts` with named exports to each `host/` capability folder; rewrite imports in
   `src/` (including `src/extension.ts` → `host/setup.ts`) and `tests/`
-- [ ] 3.3 Update `tests/host-stores.test.ts`, which locates `stores.ts` by path, and move unit
+- [x] 3.3 Update `tests/host-stores.test.ts`, which locates `stores.ts` by path, and move unit
   tests of moved host files to `tests/host/<capability>/`; seam and integration tests stay (design D6)
-- [ ] 3.4 Check every moved basename has no reference left at its old location
-- [ ] 3.5 Typecheck, lint, format check and the full test suite pass; the extension still loads
+- [x] 3.4 Check every moved basename has no reference left at its old location
+- [x] 3.5 Typecheck, lint, format check and the full test suite pass; the extension still loads
   (`tests/load.test.ts`)
 
 ## 4. Documentation
