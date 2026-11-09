@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { MainSession } from "../../src/host/main-session.ts";
-import { addTurnEnd, type TurnRecord } from "../../src/policy/main/record.ts";
+import { MainSession } from "../../../src/host/main/session.ts";
+import { addTurnEnd, type TurnRecord } from "../../../src/policy/main/record.ts";
 
 const record = (turnId = "t-1"): TurnRecord => ({
   turnId,

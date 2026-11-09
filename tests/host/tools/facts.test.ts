@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Type } from "typebox";
-import { toolFacts } from "../../src/host/tool-facts.ts";
+import { toolFacts } from "../../../src/host/tools/facts.ts";
 
 describe("toolFacts", () => {
   test("maps TypeBox parameters with descriptions only", () => {

@@ -1,14 +1,18 @@
 import { describe, expect, test } from "bun:test";
-import type { JevOutcome } from "../../src/jev/client.ts";
-import { skillBatchQuestions } from "../../src/jev/questions.ts";
+import type { JevOutcome } from "../../../src/jev/client.ts";
+import { skillBatchQuestions } from "../../../src/jev/questions.ts";
 import {
   askLaterBatches,
   joinMessages,
   pickSkillSafely,
   planSkills,
   skillMessage,
-} from "../../src/host/main-skills.ts";
-import { skillBlock, type CatalogSkill, type SkillCommand } from "../../src/host/skills.ts";
+} from "../../../src/host/main/skills.ts";
+import {
+  skillBlock,
+  type CatalogSkill,
+  type SkillCommand,
+} from "../../../src/host/main/catalog.ts";
 
 const command = (name: string): SkillCommand => ({
   name: `skill:${name}`,

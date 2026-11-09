@@ -4,7 +4,7 @@ import {
   captureMainService,
   clearMainService,
   mainService,
-} from "../../src/host/tool-service.ts";
+} from "../../../src/host/tools/service.ts";
 
 const EXECUTOR = Symbol.for("@gotgenes/pi-subagents:service");
 const g = globalThis as Record<symbol, unknown>;

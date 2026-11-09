@@ -1,15 +1,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { askJev } from "../jev/client.ts";
-import type { RichGroup } from "../jev/state.ts";
-import type { ThinkingLevel } from "../policy/effort.ts";
-import type { AgentFacts } from "../policy/launch.ts";
-import type { Strategy } from "../policy/main/index.ts";
-import type { WriteResult } from "../store/validate.ts";
-import type { TurnRecord } from "../policy/main/index.ts";
-import type { MainSession } from "./main-session.ts";
-import type { Snapshot } from "./readiness.ts";
-import type { SkillCommand } from "./skills.ts";
-import { drawStatus, withDecision, type Decision } from "./status.ts";
+import type { askJev } from "../../jev/client.ts";
+import type { RichGroup } from "../../jev/state.ts";
+import type { ThinkingLevel } from "../../policy/effort.ts";
+import type { AgentFacts } from "../../policy/launch.ts";
+import type { Strategy } from "../../policy/main/index.ts";
+import type { WriteResult } from "../../store/validate.ts";
+import type { TurnRecord } from "../../policy/main/index.ts";
+import type { MainSession } from "./session.ts";
+import type { Snapshot } from "../platform/index.ts";
+import type { SkillCommand } from "./catalog.ts";
+import { drawStatus, withDecision, type Decision } from "../status/index.ts";
 
 export type MainDeps = {
   load: () => Snapshot;

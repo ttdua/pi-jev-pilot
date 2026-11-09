@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createCutpointWindow } from "../../src/host/cutpoint-window.ts";
-import { setup } from "../../src/host/setup.ts";
-import { MAIN_SERVICE_KEY } from "../../src/host/tool-service.ts";
-import { CHILDREN_KEY } from "../../src/host/child.ts";
-import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
-import { readLedger } from "../../src/store/ledger.ts";
-import { tempDir } from "../helpers.ts";
+import { createCutpointWindow } from "../../../src/host/worker/cutpoint-window.ts";
+import { setup } from "../../../src/host/setup.ts";
+import { MAIN_SERVICE_KEY } from "../../../src/host/tools/service.ts";
+import { CHILDREN_KEY } from "../../../src/host/platform/child.ts";
+import { RUBRIC_VERSION } from "../../../src/jev/rubrics.ts";
+import { readLedger } from "../../../src/store/ledger.ts";
+import { tempDir } from "../../helpers.ts";
 
 const worker = (at: number, extra: Record<string, unknown> = {}) => ({
   v: 1,

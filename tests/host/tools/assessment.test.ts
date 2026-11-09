@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CHILDREN_KEY } from "../../src/host/child.ts";
-import type { Snapshot } from "../../src/host/readiness.ts";
-import { TOOL_COUNTS_KEY, takeToolCounts } from "../../src/host/tool-counts.ts";
+import { CHILDREN_KEY } from "../../../src/host/platform/child.ts";
+import type { Snapshot } from "../../../src/host/platform/readiness.ts";
+import { TOOL_COUNTS_KEY, takeToolCounts } from "../../../src/host/tools/counts.ts";
 import {
   MAIN_SERVICE_KEY,
   captureMainService,
   clearMainService,
-} from "../../src/host/tool-service.ts";
-import { createToolAssessment } from "../../src/host/tools.ts";
-import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
-import { resolveSettings } from "../../src/store/settings.ts";
-import { tempDir } from "../helpers.ts";
+} from "../../../src/host/tools/service.ts";
+import { createToolAssessment } from "../../../src/host/tools/assessment.ts";
+import type { JevOutcome, JevRequest } from "../../../src/jev/client.ts";
+import { resolveSettings } from "../../../src/store/settings.ts";
+import { tempDir } from "../../helpers.ts";
 
 const EXECUTOR_KEY = Symbol.for("@gotgenes/pi-subagents:service");
 const SESSION = "child-1";

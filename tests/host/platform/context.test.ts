@@ -3,7 +3,12 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import { branchItems, holdContext, previousTurnId, scanPlatforms } from "../../src/host/context.ts";
+import {
+  branchItems,
+  holdContext,
+  previousTurnId,
+  scanPlatforms,
+} from "../../../src/host/platform/context.ts";
 
 const e = (x: unknown) => x as SessionEntry;
 const msg = (message: unknown) => e({ type: "message", message });

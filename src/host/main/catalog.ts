@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 import { parseFrontmatter, stripFrontmatter } from "@earendil-works/pi-coding-agent";
-import { SKILL_NAME } from "../store/ledger-schema.ts";
+import { SKILL_NAME } from "../../store/ledger-schema.ts";
 
 export const SKILL_MESSAGE_TYPE = "jev-skill";
 

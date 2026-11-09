@@ -6,8 +6,8 @@ import {
   LOCKABLE_FIELDS,
   type LockableField,
   type LockDeclaration,
-} from "../policy/launch.ts";
-import { cutCodePoints } from "../shared/text.ts";
+} from "../../policy/launch.ts";
+import { cutCodePoints } from "../../shared/text.ts";
 
 const READ_ONLY_TOOLS = ["read", "bash", "grep", "find", "ls"];
 const EXCERPT_MAX = 500;

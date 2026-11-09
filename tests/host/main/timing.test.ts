@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createMain, type MainDeps } from "../../src/host/main.ts";
-import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
-import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
-import type { ThinkingLevel } from "../../src/policy/effort.ts";
+import { createMain, type MainDeps } from "../../../src/host/main/create.ts";
+import { buildSnapshot, type Snapshot } from "../../../src/host/platform/readiness.ts";
+import type { JevOutcome, JevRequest } from "../../../src/jev/client.ts";
+import type { ThinkingLevel } from "../../../src/policy/effort.ts";
 
 // Regressions for when and through what the main handlers read their inputs: the receiver of
 // dependency methods, values captured around the rich-input wait, lazy context reads, and the

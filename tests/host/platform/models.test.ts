@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import { checkModel, nearestModels, resolveModel, splitModel } from "../../src/host/models.ts";
+import {
+  checkModel,
+  nearestModels,
+  resolveModel,
+  splitModel,
+} from "../../../src/host/platform/models.ts";
 
 type FakeModel = { provider: string; id: string; reasoning: boolean; thinkingLevelMap?: undefined };
 

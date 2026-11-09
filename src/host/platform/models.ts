@@ -1,9 +1,9 @@
 // Model id helpers shared by worker routing and the slot commands.
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import type { ModelThinking } from "../policy/effort.ts";
-import { slotTarget, type Target, type TierName } from "../policy/launch.ts";
-import { editDistance } from "../shared/text.ts";
-import type { Slot } from "../store/config.ts";
+import type { ModelThinking } from "../../policy/effort.ts";
+import { slotTarget, type Target, type TierName } from "../../policy/launch.ts";
+import { editDistance } from "../../shared/text.ts";
+import type { Slot } from "../../store/config.ts";
 
 export type ModelCheck =
   | { ok: true; thinking: ModelThinking }

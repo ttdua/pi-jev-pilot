@@ -1,6 +1,6 @@
 // Shared fakes for the tuning host tests.
-import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
-import type { TuningDeps, UiCtx } from "../../src/host/tuning-deps.ts";
+import { buildSnapshot, type Snapshot } from "../../src/host/platform/readiness.ts";
+import type { TuningDeps, UiCtx } from "../../src/host/tuning/deps.ts";
 import type { LedgerRead } from "../../src/store/ledger.ts";
 import type { MainEntry } from "../../src/store/ledger-schema.ts";
 import type { TuningDocument, TuningRead } from "../../src/store/tuning-file.ts";

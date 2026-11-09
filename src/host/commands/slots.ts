@@ -1,9 +1,9 @@
 // The `/jev` slot forms: add or replace, show and remove a custom model slot.
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { readConfig, writeSlots, type Slot } from "../store/config.ts";
-import { RESERVED_SLOT_NAMES } from "../store/defaults.ts";
-import type { Issue } from "../store/validate.ts";
-import { checkModel, nearestModels, splitModel } from "./models.ts";
+import { readConfig, writeSlots, type Slot } from "../../store/config.ts";
+import { RESERVED_SLOT_NAMES } from "../../store/defaults.ts";
+import type { Issue } from "../../store/validate.ts";
+import { checkModel, nearestModels, splitModel } from "../platform/index.ts";
 
 export type SlotArgs =
   | { kind: "set"; name: string; model: string; when?: string }

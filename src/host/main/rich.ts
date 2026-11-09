@@ -1,5 +1,5 @@
-import { pickRich, type RichGroup, type RichInputs } from "../jev/state.ts";
-import type { AgentFacts } from "../policy/launch.ts";
+import { pickRich, type RichGroup, type RichInputs } from "../../jev/state.ts";
+import type { AgentFacts } from "../../policy/launch.ts";
 
 export type RichSources = {
   groups: readonly RichGroup[];

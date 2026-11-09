@@ -1,14 +1,14 @@
-import { holdContext } from "./context.ts";
-import type { Ctx, MainHost } from "./main-host.ts";
+import { holdContext } from "../platform/index.ts";
+import type { Ctx, MainHost } from "./host.ts";
 import {
   correctionLine,
   decidedAnchor,
   decidedSummary,
   lastAssistantStop,
   mainLine,
-} from "../policy/main/index.ts";
-import type { TurnRecord } from "../policy/main/index.ts";
-import { drawStatus } from "./status.ts";
+} from "../../policy/main/index.ts";
+import type { TurnRecord } from "../../policy/main/index.ts";
+import { drawStatus } from "../status/index.ts";
 
 function branchStop(ctx: Ctx | undefined): string | undefined {
   try {

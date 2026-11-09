@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Value } from "typebox/value";
-import { CHILDREN_KEY } from "../../src/host/child.ts";
+import { CHILDREN_KEY } from "../../src/host/platform/child.ts";
 import {
   hideReviewInChild,
   registerReviewTool,
   REVIEW_OFF_MESSAGE,
   REVIEW_TOOL,
   syncReviewTool,
-} from "../../src/host/review.ts";
+} from "../../src/host/review/tool.ts";
 import type { Exec } from "../../src/policy/review/cli.ts";
-import type { Snapshot } from "../../src/host/readiness.ts";
+import type { Snapshot } from "../../src/host/platform/readiness.ts";
 
 type Tool = {
   name: string;

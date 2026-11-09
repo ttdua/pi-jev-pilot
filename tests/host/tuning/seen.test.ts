@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { showUnseenTuning } from "../../src/host/tuning-seen.ts";
-import type { TuningDocument } from "../../src/store/tuning-file.ts";
-import { fakeCtx, fakeDeps } from "./tuning-fakes.ts";
+import { showUnseenTuning } from "../../../src/host/tuning/seen.ts";
+import type { TuningDocument } from "../../../src/store/tuning-file.ts";
+import { fakeCtx, fakeDeps } from "../tuning-fakes.ts";
 
 const entry = (at: number, from: number, to: number) =>
   ({ at, parameter: "timeoutMs", from, to, cause: "rule" }) as const;

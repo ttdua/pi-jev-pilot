@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { gateTurn, newTurnRecord, type GateInput } from "../../src/host/main-gate.ts";
-import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
-import type { CatalogSkill } from "../../src/host/skills.ts";
-import type { State } from "../../src/store/state-file.ts";
+import { gateTurn, newTurnRecord, type GateInput } from "../../../src/host/main/gate.ts";
+import { buildSnapshot, type Snapshot } from "../../../src/host/platform/readiness.ts";
+import type { CatalogSkill } from "../../../src/host/main/catalog.ts";
+import type { State } from "../../../src/store/state-file.ts";
 
 const snapshot = (state: State = {}, env = { TYPESAFE_API_KEY: "k" }): Snapshot =>
   buildSnapshot({

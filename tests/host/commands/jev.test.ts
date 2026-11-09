@@ -2,29 +2,29 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { CHILDREN_KEY } from "../../src/host/child.ts";
+import { CHILDREN_KEY } from "../../../src/host/platform/child.ts";
 import {
   formatStatus,
   parseJevArgs,
   runJev as runJevWith,
   usageText,
   type JevArgs,
-} from "../../src/host/commands.ts";
-import type { Exec } from "../../src/policy/review/cli.ts";
-import { statusText, type Decision, type Tally } from "../../src/host/status.ts";
-import type { Mode } from "../../src/store/defaults.ts";
-import { buildSnapshot, type Snapshot } from "../../src/host/readiness.ts";
-import type { Config, ConfigRead } from "../../src/store/config.ts";
-import { DECISION_FEATURES, FEATURES } from "../../src/store/defaults.ts";
-import { readLocalMode } from "../../src/store/local-mode.ts";
-import { MAIN_CWD_KEY, mainCwd, setMainCwd } from "../../src/host/main-cwd.ts";
-import { readState, type State, type StateRead } from "../../src/store/state-file.ts";
-import { buildWorkerQuestions } from "../../src/jev/questions.ts";
-import { readConfig } from "../../src/store/config.ts";
-import type { TuningRead } from "../../src/store/tuning-file.ts";
-import { tempDir } from "../helpers.ts";
-import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
-import type { TierName } from "../../src/policy/launch.ts";
+} from "../../../src/host/commands/jev.ts";
+import type { Exec } from "../../../src/policy/review/cli.ts";
+import { statusText, type Decision, type Tally } from "../../../src/host/status/line.ts";
+import type { Mode } from "../../../src/store/defaults.ts";
+import { buildSnapshot, type Snapshot } from "../../../src/host/platform/readiness.ts";
+import type { Config, ConfigRead } from "../../../src/store/config.ts";
+import { DECISION_FEATURES, FEATURES } from "../../../src/store/defaults.ts";
+import { readLocalMode } from "../../../src/store/local-mode.ts";
+import { MAIN_CWD_KEY, mainCwd, setMainCwd } from "../../../src/host/platform/main-cwd.ts";
+import { readState, type State, type StateRead } from "../../../src/store/state-file.ts";
+import { buildWorkerQuestions } from "../../../src/jev/questions.ts";
+import { readConfig } from "../../../src/store/config.ts";
+import type { TuningRead } from "../../../src/store/tuning-file.ts";
+import { tempDir } from "../../helpers.ts";
+import type { WindowEntry } from "../../../src/policy/worker/cutpoints.ts";
+import type { TierName } from "../../../src/policy/launch.ts";
 
 function snap(
   o: {

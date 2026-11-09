@@ -1,10 +1,10 @@
 // Turns Pi session data into the plain inputs of the pure state builder.
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import { LEVELS } from "../policy/effort.ts";
-import type { HoldAnchor } from "../policy/main/index.ts";
+import { LEVELS } from "../../policy/effort.ts";
+import type { HoldAnchor } from "../../policy/main/index.ts";
 
-export { branchItems } from "../jev/branch.ts";
-export { scanPlatforms } from "../jev/workspace.ts";
+export { branchItems } from "../../jev/branch.ts";
+export { scanPlatforms } from "../../jev/workspace.ts";
 
 /** The turn id of the newest `jev-turn` entry on the given branch. */
 export function previousTurnId(entries: readonly SessionEntry[]): string | undefined {

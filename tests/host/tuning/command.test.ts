@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildTuneView, runTune } from "../../src/host/tune-command.ts";
-import type { TuningDeps } from "../../src/host/tuning-deps.ts";
+import { buildTuneView, runTune } from "../../../src/host/tuning/command.ts";
+import type { TuningDeps } from "../../../src/host/tuning/deps.ts";
 import {
   NOTHING_TO_UNDO,
   OFF_MESSAGE,
   ON_MESSAGE,
   resetMessage,
   undoneMessage,
-} from "../../src/policy/tuning/text.ts";
-import { readLedger } from "../../src/store/ledger.ts";
-import { readTuning, updateTuning, type TuningDocument } from "../../src/store/tuning-file.ts";
-import { fakeCtx, fakeDeps, quiet, type FakeOptions } from "./tuning-fakes.ts";
+} from "../../../src/policy/tuning/text.ts";
+import { readLedger } from "../../../src/store/ledger.ts";
+import { readTuning, updateTuning, type TuningDocument } from "../../../src/store/tuning-file.ts";
+import { fakeCtx, fakeDeps, quiet, type FakeOptions } from "../tuning-fakes.ts";
 
 const rule = { at: 500, parameter: "timeoutMs", from: 1500, to: 1700, cause: "rule" } as const;
 const tuned: TuningDocument = { timeoutMs: { value: 1700, base: 1500 }, history: [rule] };

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildRichInputs } from "../../src/host/rich.ts";
-import type { AgentFacts } from "../../src/policy/launch.ts";
+import { buildRichInputs } from "../../../src/host/main/rich.ts";
+import type { AgentFacts } from "../../../src/policy/launch.ts";
 
 const agent = { name: "a", description: "d", declaredTools: ["read"] } as AgentFacts;
 

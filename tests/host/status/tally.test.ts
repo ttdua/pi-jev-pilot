@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createSessionLog } from "../../src/host/tally.ts";
+import { createSessionLog } from "../../../src/host/status/tally.ts";
 
 type Entry = { t: string; d: unknown };
 

@@ -1,6 +1,6 @@
-import type { Mode } from "../store/defaults.ts";
-import { clearLocalMode, readLocalMode, writeLocalMode } from "../store/local-mode.ts";
-import type { Issue, WriteResult } from "../store/validate.ts";
+import type { Mode } from "../../store/defaults.ts";
+import { clearLocalMode, readLocalMode, writeLocalMode } from "../../store/local-mode.ts";
+import type { Issue, WriteResult } from "../../store/validate.ts";
 
 export const NO_DIRECTORY_MODE = "no directory mode set";
 

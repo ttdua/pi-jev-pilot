@@ -10,12 +10,12 @@ import {
   tallyLines,
   withDecision,
   type Tally,
-} from "../../src/host/status.ts";
-import { buildSnapshot } from "../../src/host/readiness.ts";
-import type { Config, ConfigRead } from "../../src/store/config.ts";
-import type { Mode } from "../../src/store/defaults.ts";
-import { DECISION_FEATURES } from "../../src/store/defaults.ts";
-import type { State, StateRead } from "../../src/store/state-file.ts";
+} from "../../../src/host/status/line.ts";
+import { buildSnapshot } from "../../../src/host/platform/readiness.ts";
+import type { Config, ConfigRead } from "../../../src/store/config.ts";
+import type { Mode } from "../../../src/store/defaults.ts";
+import { DECISION_FEATURES } from "../../../src/store/defaults.ts";
+import type { State, StateRead } from "../../../src/store/state-file.ts";
 
 type Over = {
   config?: ConfigRead;

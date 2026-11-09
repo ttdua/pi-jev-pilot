@@ -3,8 +3,8 @@ import { WORKER_TIER_CRITERIA } from "../../src/jev/rubrics.ts";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
-import { CHILDREN_KEY } from "../../src/host/child.ts";
-import { registerWorkerRouting } from "../../src/host/worker.ts";
+import { CHILDREN_KEY } from "../../src/host/platform/child.ts";
+import { registerWorkerRouting } from "../../src/host/worker/routing.ts";
 import { tempDir } from "../helpers.ts";
 import {
   base,

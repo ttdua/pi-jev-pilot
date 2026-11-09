@@ -4,8 +4,8 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseJevArgs } from "../../src/host/commands.ts";
-import { parseSlotArgs, runSlot, type SlotArgs } from "../../src/host/slots.ts";
+import { parseJevArgs } from "../../../src/host/commands/jev.ts";
+import { parseSlotArgs, runSlot, type SlotArgs } from "../../../src/host/commands/slots.ts";
 
 type FakeModel = { provider: string; id: string; reasoning: boolean; thinkingLevelMap?: undefined };
 

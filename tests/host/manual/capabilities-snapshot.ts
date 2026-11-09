@@ -11,7 +11,7 @@
 import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { listAgents } from "../../../src/host/agents.ts";
+import { listAgents } from "../../../src/host/platform/agents.ts";
 import { tempDir } from "../../helpers.ts";
 import { spawnRpc } from "../rpc.ts";
 

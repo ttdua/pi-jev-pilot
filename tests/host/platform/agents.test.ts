@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { listAgents, readAgent } from "../../src/host/agents.ts";
-import { tempDir } from "../helpers.ts";
+import { listAgents, readAgent } from "../../../src/host/platform/agents.ts";
+import { tempDir } from "../../helpers.ts";
 
 function setup() {
   const cwd = tempDir("agents-cwd-");

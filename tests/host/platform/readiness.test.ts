@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildSnapshot, hasExecutor, isKeySet, loadSnapshot } from "../../src/host/readiness.ts";
-import { MAIN_CWD_KEY, setMainCwd } from "../../src/host/main-cwd.ts";
-import { writeLocalMode } from "../../src/store/local-mode.ts";
-import type { Config, ConfigRead } from "../../src/store/config.ts";
-import type { StateRead } from "../../src/store/state-file.ts";
-import type { TuningRead } from "../../src/store/tuning-file.ts";
-import { tempDir } from "../helpers.ts";
+import {
+  buildSnapshot,
+  hasExecutor,
+  isKeySet,
+  loadSnapshot,
+} from "../../../src/host/platform/readiness.ts";
+import { MAIN_CWD_KEY, setMainCwd } from "../../../src/host/platform/main-cwd.ts";
+import { writeLocalMode } from "../../../src/store/local-mode.ts";
+import type { Config, ConfigRead } from "../../../src/store/config.ts";
+import type { StateRead } from "../../../src/store/state-file.ts";
+import type { TuningRead } from "../../../src/store/tuning-file.ts";
+import { tempDir } from "../../helpers.ts";
 
 const okConfig = (config: Config = {}): ConfigRead => ({ kind: "ok", present: true, config });
 const okState: StateRead = { kind: "missing", state: {} };

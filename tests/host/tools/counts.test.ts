@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { TOOL_COUNTS_KEY, putToolCounts, takeToolCounts } from "../../src/host/tool-counts.ts";
+import { TOOL_COUNTS_KEY, putToolCounts, takeToolCounts } from "../../../src/host/tools/counts.ts";
 
 afterEach(() => {
   delete (globalThis as Record<symbol, unknown>)[TOOL_COUNTS_KEY];

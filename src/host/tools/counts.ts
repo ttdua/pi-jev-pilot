@@ -1,4 +1,4 @@
-import type { ToolCounts } from "../policy/tools/index.ts";
+import type { ToolCounts } from "../../policy/tools/index.ts";
 
 /** Process-wide counts keyed by worker agent id, shared by every extension instance. */
 export const TOOL_COUNTS_KEY: unique symbol = Symbol.for("pi-jev-pilot.toolCounts") as never;

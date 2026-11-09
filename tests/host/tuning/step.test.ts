@@ -1,13 +1,13 @@
 import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { buildSnapshot } from "../../src/host/readiness.ts";
-import type { TuningDeps } from "../../src/host/tuning-deps.ts";
-import { settleTuning } from "../../src/host/tuning-step.ts";
-import { appendLedger, readLedger } from "../../src/store/ledger.ts";
-import { readTuning, updateTuning, type TuningDocument } from "../../src/store/tuning-file.ts";
-import { tempDir } from "../helpers.ts";
-import { fakeCtx, fakeDeps, firing, quiet } from "./tuning-fakes.ts";
+import { buildSnapshot } from "../../../src/host/platform/readiness.ts";
+import type { TuningDeps } from "../../../src/host/tuning/deps.ts";
+import { settleTuning } from "../../../src/host/tuning/step.ts";
+import { appendLedger, readLedger } from "../../../src/store/ledger.ts";
+import { readTuning, updateTuning, type TuningDocument } from "../../../src/store/tuning-file.ts";
+import { tempDir } from "../../helpers.ts";
+import { fakeCtx, fakeDeps, firing, quiet } from "../tuning-fakes.ts";
 
 const isRoot = process.getuid?.() === 0;
 

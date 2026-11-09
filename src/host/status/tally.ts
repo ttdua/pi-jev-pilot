@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { validateLedgerEntry, type LedgerEntry } from "../store/ledger-schema.ts";
-import type { Tally } from "./status.ts";
+import { validateLedgerEntry, type LedgerEntry } from "../../store/ledger-schema.ts";
+import type { Tally } from "./line.ts";
 
 /** In-memory session observer fed by validated ledger lines. */
 export type SessionLog = {

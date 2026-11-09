@@ -4,19 +4,19 @@ import {
   type ExtensionAPI,
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { askJev, type JevOutcome, type JevRequest } from "../jev/client.ts";
-import { buildToolQuestions } from "../jev/questions.ts";
-import { buildToolState } from "../jev/state.ts";
-import type { QuestionSpec } from "../policy/answers.ts";
-import type { AgentFacts } from "../policy/launch.ts";
-import { flaggedTools, toolCandidates, toolCounts } from "../policy/tools/index.ts";
-import { readWorkerOutcome } from "../policy/worker/index.ts";
-import { readAgent } from "./agents.ts";
-import { isChild } from "./child.ts";
-import { loadSnapshot, type Snapshot } from "./readiness.ts";
-import { putToolCounts } from "./tool-counts.ts";
-import { toolFacts, type ToolFacts } from "./tool-facts.ts";
-import { mainService, type ServiceLike } from "./tool-service.ts";
+import { askJev, type JevOutcome, type JevRequest } from "../../jev/client.ts";
+import { buildToolQuestions } from "../../jev/questions.ts";
+import { buildToolState } from "../../jev/state.ts";
+import type { QuestionSpec } from "../../policy/answers.ts";
+import type { AgentFacts } from "../../policy/launch.ts";
+import { flaggedTools, toolCandidates, toolCounts } from "../../policy/tools/index.ts";
+import { readWorkerOutcome } from "../../policy/worker/index.ts";
+import { readAgent } from "../platform/index.ts";
+import { isChild } from "../platform/index.ts";
+import { loadSnapshot, type Snapshot } from "../platform/index.ts";
+import { putToolCounts } from "./counts.ts";
+import { toolFacts, type ToolFacts } from "./facts.ts";
+import { mainService, type ServiceLike } from "./service.ts";
 
 export type ToolAssessmentDeps = {
   ask?: typeof askJev;

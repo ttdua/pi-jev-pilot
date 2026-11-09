@@ -1,6 +1,6 @@
-import type { TurnRecord } from "../policy/main/index.ts";
-import type { DecidedSummary } from "../policy/main/index.ts";
-import type { Decision } from "./status.ts";
+import type { TurnRecord } from "../../policy/main/index.ts";
+import type { DecidedSummary } from "../../policy/main/index.ts";
+import type { Decision } from "../status/index.ts";
 
 /** What an aborted start needs to put the status back. Belongs to the current record. */
 type Undo<Ctx, Snap> = {

@@ -7,7 +7,7 @@ import {
   readCatalog,
   skillBlock,
   type SkillCommand,
-} from "../../src/host/skills.ts";
+} from "../../../src/host/main/catalog.ts";
 
 const EMPTY_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 

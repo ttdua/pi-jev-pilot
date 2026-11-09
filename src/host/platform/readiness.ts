@@ -1,10 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readConfig, type ConfigRead } from "../store/config.ts";
-import { resolveSettings, untunedTimeout, type Settings } from "../store/settings.ts";
-import { readState, type StateRead } from "../store/state-file.ts";
-import { readTuning, type TuningDocument, type TuningRead } from "../store/tuning-file.ts";
-import type { Issue } from "../store/validate.ts";
-import { readLocalMode, type LocalModeRead } from "../store/local-mode.ts";
+import { readConfig, type ConfigRead } from "../../store/config.ts";
+import { resolveSettings, untunedTimeout, type Settings } from "../../store/settings.ts";
+import { readState, type StateRead } from "../../store/state-file.ts";
+import { readTuning, type TuningDocument, type TuningRead } from "../../store/tuning-file.ts";
+import type { Issue } from "../../store/validate.ts";
+import { readLocalMode, type LocalModeRead } from "../../store/local-mode.ts";
 import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 

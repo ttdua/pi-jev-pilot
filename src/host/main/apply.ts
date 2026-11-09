@@ -1,14 +1,14 @@
 import type { BeforeAgentStartEventResult } from "@earendil-works/pi-coding-agent";
-import type { ReadResult } from "../policy/answers.ts";
-import type { ThinkingLevel } from "../policy/effort.ts";
-import type { Strategy } from "../policy/main/index.ts";
-import { showDecision, thinkingLevel, type MainHost, type Turn } from "./main-host.ts";
+import type { ReadResult } from "../../policy/answers.ts";
+import type { ThinkingLevel } from "../../policy/effort.ts";
+import type { Strategy } from "../../policy/main/index.ts";
+import { showDecision, thinkingLevel, type MainHost, type Turn } from "./host.ts";
 import {
   planOutcome,
   type ClassifierReply,
   type OutcomeFlags,
   type OutcomePlan,
-} from "../policy/main/index.ts";
+} from "../../policy/main/index.ts";
 
 const ADVICE_MESSAGE_TYPE = "jev-advice";
 

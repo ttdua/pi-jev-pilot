@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { CHILDREN_KEY, isChild, subscribeChildren } from "../../src/host/child.ts";
+import { CHILDREN_KEY, isChild, subscribeChildren } from "../../../src/host/platform/child.ts";
 
 type Handler = (data: unknown) => void;
 

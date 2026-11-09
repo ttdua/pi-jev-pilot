@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { logLine } from "../../src/host/status.ts";
+import { logLine } from "../../src/host/status/line.ts";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { startFixture, type Fixture } from "./fixture";
 import { tempDir } from "../helpers";

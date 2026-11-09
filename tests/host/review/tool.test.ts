@@ -2,8 +2,8 @@ import { existsSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
-import { runReview } from "../../src/host/review.ts";
-import type { Exec, ExecResult, ReviewChoice } from "../../src/policy/review/cli.ts";
+import { runReview } from "../../../src/host/review/tool.ts";
+import type { Exec, ExecResult, ReviewChoice } from "../../../src/policy/review/cli.ts";
 
 type Opts = Parameters<Exec>[2];
 type Call = { command: string; args: string[]; options: Opts };

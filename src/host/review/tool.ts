@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BeforeAgentStartEvent, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { isChild } from "./child.ts";
-import { loadSnapshot, type Snapshot } from "./readiness.ts";
+import { isChild } from "../platform/index.ts";
+import { loadSnapshot, type Snapshot } from "../platform/index.ts";
 import {
   buildPrompt,
   classifyAttempt,
@@ -20,7 +20,7 @@ import {
   type ExecResult,
   type ReviewChoice,
   type ReviewDetails,
-} from "../policy/review/index.ts";
+} from "../../policy/review/index.ts";
 
 export type ReviewRun = { text: string; isError: boolean; details: ReviewDetails };
 

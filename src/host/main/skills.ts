@@ -1,14 +1,14 @@
 import type { BeforeAgentStartEventResult } from "@earendil-works/pi-coding-agent";
-import type { askJev, JevOutcome } from "../jev/client.ts";
-import { skillBatchQuestions } from "../jev/questions.ts";
-import { readAnswers, type QuestionSpec, type ReadResult } from "../policy/answers.ts";
+import type { askJev, JevOutcome } from "../../jev/client.ts";
+import { skillBatchQuestions } from "../../jev/questions.ts";
+import { readAnswers, type QuestionSpec, type ReadResult } from "../../policy/answers.ts";
 import {
   deliveryForm,
   deliveryText,
   pickSkill,
   skillBatches,
   type SkillPick,
-} from "../policy/main/index.ts";
+} from "../../policy/main/index.ts";
 import {
   SKILL_MESSAGE_TYPE,
   explicitSkill,
@@ -16,7 +16,7 @@ import {
   readCatalog,
   type CatalogSkill,
   type SkillCommand,
-} from "./skills.ts";
+} from "./catalog.ts";
 
 type Ask = typeof askJev;
 /** Request fields shared by the main request and every later batch. */

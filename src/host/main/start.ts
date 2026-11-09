@@ -2,17 +2,17 @@ import type {
   BeforeAgentStartEvent,
   BeforeAgentStartEventResult,
 } from "@earendil-works/pi-coding-agent";
-import type { JevOutcome } from "../jev/client.ts";
-import { mainState, SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
-import { readAnswers } from "../policy/answers.ts";
-import type { SkillPick } from "../policy/main/index.ts";
-import { isChild } from "./child.ts";
-import { branchItems, previousTurnId } from "./context.ts";
-import { applyOutcome } from "./main-apply.ts";
-import { gateTurn, newTurnRecord, type TurnPlan } from "./main-gate.ts";
-import { drawTurn, thinkingLevel, type Ctx, type MainHost, type Turn } from "./main-host.ts";
-import type { ClassifierReply } from "../policy/main/index.ts";
-import type { TurnRecord } from "../policy/main/index.ts";
+import type { JevOutcome } from "../../jev/client.ts";
+import { mainState, SHIPPED_MAIN_GROUPS } from "../../jev/state.ts";
+import { readAnswers } from "../../policy/answers.ts";
+import type { SkillPick } from "../../policy/main/index.ts";
+import { isChild } from "../platform/index.ts";
+import { branchItems, previousTurnId } from "../platform/index.ts";
+import { applyOutcome } from "./apply.ts";
+import { gateTurn, newTurnRecord, type TurnPlan } from "./gate.ts";
+import { drawTurn, thinkingLevel, type Ctx, type MainHost, type Turn } from "./host.ts";
+import type { ClassifierReply } from "../../policy/main/index.ts";
+import type { TurnRecord } from "../../policy/main/index.ts";
 import {
   askLaterBatches,
   joinMessages,
@@ -20,7 +20,7 @@ import {
   planSkills,
   skillMessage,
   type CommonRequest,
-} from "./main-skills.ts";
+} from "./skills.ts";
 import { buildRichInputs } from "./rich.ts";
 
 type StartResult = BeforeAgentStartEventResult | undefined;

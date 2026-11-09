@@ -6,14 +6,14 @@ import {
   resetTuning,
   setTuningOff,
   undoTuning,
-} from "../policy/tuning/index.ts";
-import { signalsByMode } from "../policy/tuning/index.ts";
-import { after, decisions, type DecisionLine } from "../policy/tuning/index.ts";
-import type { LedgerRead } from "../store/ledger.ts";
-import type { TuningDocument } from "../store/tuning-file.ts";
-import type { Issue } from "../store/validate.ts";
-import type { Snapshot } from "./readiness.ts";
-import type { TuningDeps, UiCtx } from "./tuning-deps.ts";
+} from "../../policy/tuning/index.ts";
+import { signalsByMode } from "../../policy/tuning/index.ts";
+import { after, decisions, type DecisionLine } from "../../policy/tuning/index.ts";
+import type { LedgerRead } from "../../store/ledger.ts";
+import type { TuningDocument } from "../../store/tuning-file.ts";
+import type { Issue } from "../../store/validate.ts";
+import type { Snapshot } from "../platform/index.ts";
+import type { TuningDeps, UiCtx } from "./deps.ts";
 import {
   NOTHING_TO_UNDO,
   OFF_MESSAGE,
@@ -23,7 +23,7 @@ import {
   tuneReport,
   undoneMessage,
   type TuneView,
-} from "../policy/tuning/index.ts";
+} from "../../policy/tuning/index.ts";
 
 export type TuneSub = "report" | "undo" | "reset" | "on" | "off";
 export type TuneOutcome = { ok: boolean; message: string };

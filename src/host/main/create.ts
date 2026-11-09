@@ -5,19 +5,19 @@ import type {
   ExtensionAPI,
   TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { Ctx, MainDeps, MainHost } from "./main-host.ts";
-import { addTurnEnd, type TurnRecord } from "../policy/main/index.ts";
-import { MainSession } from "./main-session.ts";
-import type { Snapshot } from "./readiness.ts";
-import { settleRun } from "./main-settled.ts";
-import { startTurn } from "./main-start.ts";
-import type { Decision } from "./status.ts";
+import type { Ctx, MainDeps, MainHost } from "./host.ts";
+import { addTurnEnd, type TurnRecord } from "../../policy/main/index.ts";
+import { MainSession } from "./session.ts";
+import type { Snapshot } from "../platform/index.ts";
+import { settleRun } from "./settled.ts";
+import { startTurn } from "./start.ts";
+import type { Decision } from "../status/index.ts";
 
-export type { MainDeps } from "./main-host.ts";
+export type { MainDeps } from "./host.ts";
 
 /**
  * The main-session handlers. Every handler fails open: a throw leaves Pi as it would run
- * without the package. The units it wires: `main-start` (gate, ask, apply), `main-settled`
+ * without the package. The units it wires: `start` (gate, ask, apply), `settled`
  * (ledger lines, abort undo) and `MainSession` (the only mutable state).
  */
 export function createMain(pi: ExtensionAPI, deps: MainDeps) {
