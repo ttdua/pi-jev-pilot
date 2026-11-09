@@ -17,17 +17,17 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 `git mv` the `policy/` files into `main/`, `worker/`, `tools/`, `tuning/`, `review/` and the
+- [x] 2.1 `git mv` the `policy/` files into `main/`, `worker/`, `tools/`, `tuning/`, `review/` and the
   five pure host units into `policy/<capability>/` with the new names of design D1; commit with no
   content change
-- [ ] 2.2 Remove the outer-layer types from the moved pure units (design D3): advice block as a
+- [x] 2.2 Remove the outer-layer types from the moved pure units (design D3): advice block as a
   string, a local classifier reply type, `rubric` as an input, a local `Issue` type; adapt their
   host callers
-- [ ] 2.3 Add `index.ts` with named exports to each `policy/` capability folder; rewrite imports in
+- [x] 2.3 Add `index.ts` with named exports to each `policy/` capability folder; rewrite imports in
   `src/`, `scripts/replay/` and `tests/` to go through `index.ts` (tests may import internals)
-- [ ] 2.4 Move the unit tests of moved files to `tests/policy/<capability>/`, mirroring `src/`; fix
+- [x] 2.4 Move the unit tests of moved files to `tests/policy/<capability>/`, mirroring `src/`; fix
   the `review-cli` source path the moved test reads and drop the `review-cli.ts` lint override
-- [ ] 2.5 Typecheck, lint (capability rule included) and the full test suite pass
+- [x] 2.5 Typecheck, lint (capability rule included) and the full test suite pass
 
 ## 3. Host capability folders
 
