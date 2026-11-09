@@ -23,7 +23,6 @@ import {
 } from "../../policy/launch.ts";
 import { launchKind, routeLaunch, type LaunchKind, type Route } from "../../policy/worker/index.ts";
 import { readWorkerOutcome, type WorkerAnswers } from "../../policy/worker/index.ts";
-import type { Answer } from "../../policy/answers.ts";
 import type { Slot } from "../../store/config.ts";
 import { appendLedger } from "../../store/ledger.ts";
 import { readAgent } from "../platform/index.ts";
@@ -32,7 +31,7 @@ import { checkModel, resolveModel, splitModel } from "../platform/index.ts";
 import { loadSnapshot, type Snapshot } from "../platform/index.ts";
 import { jevDir } from "../platform/index.ts";
 import { takeToolCounts } from "../tools/index.ts";
-import { decisionFields } from "../../policy/worker/index.ts";
+import { workerLine } from "../../policy/worker/index.ts";
 
 export type WorkerDeps = {
   /** The in-memory cut-point window; default empty (seed cut points). */
@@ -100,8 +99,6 @@ function slim(data: Record<string, unknown>): Executor {
 }
 
 const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
-const STATUSES = ["completed", "aborted", "stopped", "error"] as const;
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 const EVENTS = ["subagents:completed", "subagents:failed", "subagents:resumed"] as const;
 
 const CACHE_MAX = 256;
@@ -110,29 +107,6 @@ type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-function count(v: unknown): number | undefined {
-  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : undefined;
-}
-
-function probs(
-  answer: Answer | undefined,
-  keys?: readonly string[],
-): Record<string, number> | undefined {
-  if (answer?.type !== "choice") return undefined;
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(answer.probabilities)) {
-    if (keys === undefined || keys.includes(k)) {
-      Object.defineProperty(out, k, {
-        value: v,
-        enumerable: true,
-        writable: true,
-        configurable: true,
-      });
-    }
-  }
-  return out;
 }
 
 function textOf(content: unknown): string {
@@ -229,68 +203,27 @@ export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): 
   /** One `worker` line; never throws. */
   const write = (entry: LaunchEntry, outcome: Executor | undefined): void => {
     try {
-      const { route: r, answers, jev, facts } = entry;
-      if (r === undefined || r.kind === "skip") return;
-      const line: Record<string, unknown> = {
-        v: 1,
+      // Tool counts are consumed only for a line that is written, so a launch that writes no
+      // line (no route, or a skipped one) leaves them in place.
+      if (entry.route === undefined || entry.route.kind === "skip") return;
+      const counted = entry.agentId !== undefined && !entry.launch.resume;
+      const line = workerLine({
         at: now(),
-        kind: "worker",
         session: entry.session,
         mode: entry.mode,
-        answered: jev?.kind === "ok" && answers?.kind === "read",
-        agent: facts.name,
+        agent: entry.facts.name,
         briefChars: entry.briefChars ?? 0,
-      };
-      if (jev !== undefined && jev.kind !== "cancelled") line["ms"] = count(jev.ms);
-      if (answers?.kind === "miss") line["miss"] = answers.miss;
-      if (answers?.kind === "read") {
-        const a = answers.answers;
-        const risky = a["risky"];
-        if (risky?.type === "noul") line["risky"] = risky.noul;
-        const tierP = probs(a["tier"]);
-        if (tierP !== undefined) line["tierP"] = tierP;
-        const effortP = probs(a["effort"], EFFORTS);
-        if (effortP !== undefined) line["effortP"] = effortP;
-      }
-      Object.assign(
-        line,
-        decisionFields({
-          answers,
-          offered: entry.offered,
-          tierQuestion: entry.kind.kind === "ask" && entry.kind.tierQuestion,
-          rubric: RUBRIC_VERSION,
-        }),
-      );
-      if (r.kind === "untouched") {
-        line["reason"] = "untouched";
-        if (r.locked === true) line["locked"] = true;
-      } else {
-        const { record } = r;
-        line["reason"] = record.reason;
-        if (record.tier !== undefined) line["tier"] = record.tier;
-        if (record.fallback !== undefined) line["fallback"] = record.fallback;
-        if (record.effort !== undefined) line["effort"] = record.effort;
-        if (record.locked === true) line["locked"] = true;
-        if (r.write.model !== undefined) line["model"] = r.write.model;
-      }
-      if (entry.callerModel !== undefined) line["callerModel"] = entry.callerModel;
-      if (entry.agentId !== undefined && !entry.launch.resume) {
-        const counts = takeToolCounts(entry.agentId);
-        if (counts !== undefined) {
-          line["toolsScored"] = counts.toolsScored;
-          line["toolsFlagged"] = counts.toolsFlagged;
-        }
-      }
-      const status = STATUSES.find((s) => s === outcome?.status);
-      line["status"] = outcome === undefined ? "error" : (status ?? "error");
-      const durationMs = count(outcome?.durationMs);
-      if (durationMs !== undefined) line["durationMs"] = durationMs;
-      const toolUses = count(outcome?.toolUses);
-      if (toolUses !== undefined) line["toolUses"] = toolUses;
-      const t = outcome?.tokens;
-      const tokens = isRecord(t) ? count(t["total"]) : undefined;
-      if (tokens !== undefined) line["tokens"] = tokens;
-      append(line);
+        jev: entry.jev,
+        answers: entry.answers,
+        route: entry.route,
+        offered: entry.offered,
+        tierQuestion: entry.kind.kind === "ask" && entry.kind.tierQuestion,
+        rubric: RUBRIC_VERSION,
+        callerModel: entry.callerModel,
+        toolCounts: counted ? takeToolCounts(entry.agentId ?? "") : undefined,
+        outcome,
+      });
+      if (line !== undefined) append(line);
     } catch {
       /* a failed ledger line never affects the launch */
     }
