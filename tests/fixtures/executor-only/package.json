@@ -1,0 +1,7 @@
+{
+  "name": "executor-only",
+  "private": true,
+  "type": "module",
+  "keywords": ["pi-package"],
+  "pi": { "extensions": ["../../../packages/pi-subagents/src/index.ts"] }
+}

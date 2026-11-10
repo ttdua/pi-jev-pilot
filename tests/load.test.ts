@@ -41,12 +41,17 @@ function resolvesTo(path: string, target: string): boolean {
 
 describe("package loading", () => {
   const entry = join(REPO_ROOT, "src", "extension.ts");
+  const executorEntry = join(REPO_ROOT, "packages", "pi-subagents", "src", "index.ts");
 
   test("installed checkout is loaded", async () => {
     const result = await installAndLoad(REPO_ROOT);
     expect(result.errors).toEqual([]);
     const matches = result.extensions.filter((e) => resolvesTo(e.resolvedPath, entry));
     expect(matches.length).toBe(1);
+    const executors = result.extensions.filter((e) => resolvesTo(e.resolvedPath, executorEntry));
+    expect(executors.length).toBe(1);
+    const tools = [...(executors[0]?.tools.keys() ?? [])];
+    expect(tools).toContain("subagent");
   }, 60_000);
 
   test("loaded extension registers only /jev and handlers", async () => {

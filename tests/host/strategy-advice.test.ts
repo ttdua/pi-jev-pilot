@@ -132,6 +132,7 @@ describe("strategy advice through the real CLI", () => {
         mode: "print",
         message: "hello",
         self: false,
+        install: "executor-only",
         agentDir,
         cwd,
         env: KEY,
@@ -143,7 +144,7 @@ describe("strategy advice through the real CLI", () => {
       fixtures.push(fixture);
       const s = await startHostSession({
         fixture,
-        self: true,
+        install: "jev-only",
         env: KEY,
         timeoutMs: 60_000,
         agentDir,

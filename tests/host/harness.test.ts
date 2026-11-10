@@ -99,12 +99,20 @@ describe("host session harness", () => {
     });
   }, 60_000);
 
-  test("installs executor offline", async () => {
+  test("installs the vendored executor offline", async () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
     ]);
-    const s = await sessionWith(fixture, { executor: true });
-    expect(s.installPath === "node_modules" || s.installPath === "tarball").toBe(true);
+    const s = await sessionWith(fixture, { install: "executor-only" });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).toContain("subagent");
+  }, 60_000);
+
+  test("installs the checkout, which brings the executor", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { install: "checkout" });
     await s.prompt("hi");
     expect(fixture.requests[0]?.toolNames).toContain("subagent");
   }, 60_000);

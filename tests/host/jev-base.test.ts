@@ -152,7 +152,7 @@ describe("status line and /jev through the real CLI", () => {
   test(
     "/jev reports a missing executor",
     async () => {
-      const s = await host(await fixtureWith());
+      const s = await host(await fixtureWith(), { self: false, install: "jev-only" });
       await command(s, "/jev");
       await s.waitFor(() => notifies(s).length >= 1, "notify");
       expect(notifies(s).at(-1)?.message).toContain("no executor");
@@ -232,6 +232,7 @@ describe("print and JSON mode", () => {
         mode: "print",
         message: "hello",
         self: false,
+        install: "executor-only",
         agentDir,
         cwd,
         env: KEY,
@@ -242,7 +243,8 @@ describe("print and JSON mode", () => {
         fixture: withPkg,
         mode: "print",
         message: "hello",
-        self: true,
+        self: false,
+        install: "jev-only",
         agentDir,
         cwd,
         env: KEY,

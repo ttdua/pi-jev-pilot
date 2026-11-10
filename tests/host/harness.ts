@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { PI_BIN, REPO_ROOT, tempDir } from "../helpers";
 import { fixtureModelsJson, type Fixture } from "./fixture";
@@ -16,7 +16,6 @@ export type ProbeRecord = {
 export type HostSession = RpcProcess & {
   agentDir: string;
   cwd: string;
-  installPath: "node_modules" | "tarball" | null;
   probeRecords(): ProbeRecord[];
 };
 
@@ -28,7 +27,8 @@ export function assertProbeReportClean(reportPath: string): void {
   }
 }
 
-const EXECUTOR_DIR = join(REPO_ROOT, "node_modules", "@gotgenes", "pi-subagents");
+const EXECUTOR_ONLY_DIR = join(REPO_ROOT, "tests", "fixtures", "executor-only");
+const JEV_ONLY_DIR = join(REPO_ROOT, "tests", "fixtures", "jev-only");
 
 type Dirs = { agentDir: string; home: string; cwd: string };
 
@@ -69,42 +69,32 @@ function isInstalled(dirs: Dirs, match: (resolved: string) => boolean): boolean 
   return list.some((p) => typeof p === "string" && match(resolve(dirs.agentDir, p)));
 }
 
-function installExecutor(dirs: Dirs): "node_modules" | "tarball" {
-  const primary = install(EXECUTOR_DIR, dirs);
-  if (primary.code === 0) return "node_modules";
-  const packDir = tempDir("jev-pack-");
-  try {
-    const packed = runSync(["bun", "pm", "pack", "--destination", packDir], {
-      cwd: EXECUTOR_DIR,
-    });
-    if (packed.exitCode !== 0) throw new Error(`bun pm pack failed: ${packed.stderr.toString()}`);
-    const tarball = readdirSync(packDir).find((f) => f.endsWith(".tgz"));
-    if (!tarball) throw new Error("bun pm pack produced no tarball");
-    const fallback = install(join(packDir, tarball), dirs);
-    if (fallback.code !== 0) {
-      throw new Error(`executor install failed (${primary.out} / ${fallback.out})`);
-    }
-    return "tarball";
-  } finally {
-    rmSync(packDir, { recursive: true, force: true });
-  }
-}
-
 type Prepared = {
   dirs: Dirs;
-  installPath: HostSession["installPath"];
   /** Removes the directories this call created; given directories are left to the caller. */
   cleanDirs: () => void;
+};
+
+/** `jev-only` installs jev-pilot alone, to layer it over an already installed executor or to test its absence. */
+export type InstallMode = "checkout" | "executor-only" | "jev-only";
+
+const INSTALL_SOURCES: Record<InstallMode, string> = {
+  checkout: REPO_ROOT,
+  "executor-only": EXECUTOR_ONLY_DIR,
+  "jev-only": JEV_ONLY_DIR,
 };
 
 type PrepareOpts = {
   fixture: Fixture;
   probes?: string[];
+  /** Needs the vendored executor; installs the checkout when `self` is set, else the executor-only fixture. */
   executor?: boolean;
+  /** Which package to install: the whole checkout (executor and jev-pilot) or only the vendored executor. */
+  install?: InstallMode;
   /** Adds provider `fixture2` (no credentials) to models.json. */
   keyless?: boolean;
   agents?: Record<string, string>;
-  /** Install this checkout (`pi install REPO_ROOT`) into the agent directory. */
+  /** Install this checkout (`pi install REPO_ROOT`) into the agent directory; same as `install: "checkout"`. */
   self?: boolean;
   /** Reuse an agent directory (left for the caller to remove); packages already listed in its settings.json are not installed again. */
   agentDir?: string;
@@ -144,6 +134,17 @@ function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): 
   );
 }
 
+/** Installs the checkout or the executor-only fixture, unless the agent directory already lists it. */
+function installMode(opts: PrepareOpts, dirs: Dirs): void {
+  const mode =
+    opts.install ?? (opts.self ? "checkout" : opts.executor ? "executor-only" : undefined);
+  if (mode === undefined) return;
+  const source = INSTALL_SOURCES[mode];
+  if (isInstalled(dirs, (p) => p === source)) return;
+  const r = install(source, dirs);
+  if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
+}
+
 /** Shared setup: temp dirs, models.json, agents and installs. */
 function prepare(opts: PrepareOpts): Prepared {
   const ownAgent = opts.agentDir === undefined;
@@ -173,20 +174,14 @@ function prepare(opts: PrepareOpts): Prepared {
         writeFileSync(join(agentDir, "agents", `${stem}.md`), text);
       }
     }
-    let installPath: HostSession["installPath"] = null;
-    if (opts.executor && !isInstalled(dirs, (p) => p.includes("pi-subagents")))
-      installPath = installExecutor(dirs);
-    if (opts.self && !isInstalled(dirs, (p) => p === REPO_ROOT)) {
-      const r = install(REPO_ROOT, dirs);
-      if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
-    }
+    installMode(opts, dirs);
     if (ownAgent) {
       for (const probe of opts.probes ?? []) {
         const r = install(join(REPO_ROOT, "tests", "host", "probes", probe), dirs);
         if (r.code !== 0) throw new Error(`probe install failed (${probe}): ${r.out}`);
       }
     }
-    return { dirs, installPath, cleanDirs };
+    return { dirs, cleanDirs };
   } catch (error) {
     cleanDirs();
     throw error;
@@ -204,7 +199,7 @@ export async function startHostSession(
     args?: string[];
   },
 ): Promise<HostSession> {
-  const { dirs, installPath, cleanDirs } = prepare(opts);
+  const { dirs, cleanDirs } = prepare(opts);
   const { agentDir, home, cwd } = dirs;
   let rpc: RpcProcess | undefined;
   try {
@@ -230,7 +225,6 @@ export async function startHostSession(
       ...spawned,
       agentDir,
       cwd,
-      installPath,
       probeRecords: () => {
         if (!existsSync(reportPath)) return [];
         return readFileSync(reportPath, "utf8")
@@ -265,6 +259,7 @@ export async function runOnce(opts: {
   mode: "print" | "json";
   message: string;
   self: boolean;
+  install?: InstallMode;
   agentDir?: string;
   cwd?: string;
   env?: Record<string, string>;
@@ -273,6 +268,7 @@ export async function runOnce(opts: {
   const { dirs, cleanDirs } = prepare({
     fixture: opts.fixture,
     self: opts.self,
+    install: opts.install,
     agentDir: opts.agentDir,
     cwd: opts.cwd,
     jevConfig: opts.jevConfig,

@@ -6,6 +6,7 @@ import {
   importViolations,
   moduleSpecifiers,
   nestingViolations,
+  typeOnlySpecifiers,
   type ImportViolation,
 } from "./support/import-graph.ts";
 import { REPO_ROOT } from "./helpers.ts";
@@ -201,4 +202,21 @@ test("layers and the entry point must not import scripts, while scripts may impo
     expect(checkImport(root, file, specifier), `${file} -> ${specifier}`).toBeString();
   }
   expect(checkImport(root, "scripts/replay/a.ts", "./run.ts")).toBeUndefined();
+});
+
+test("Runtime import rejected", async () => {
+  const bad = await fixtureViolations("src/host/bad-executor-runtime.ts");
+  expect(bad).toHaveLength(1);
+  expect(bad[0]?.specifier).toBe("@ttdua/pi-subagents");
+  const root = "/repo";
+  const file = "src/host/main/gate.ts";
+  expect(checkImport(root, file, "../../../packages/pi-subagents/src/index.ts")).toBeString();
+  expect(checkImport(root, file, "@ttdua/pi-subagents/settings")).toBeString();
+});
+
+test("Type import allowed", async () => {
+  expect(await fixtureViolations("src/host/ok-executor-type.ts")).toEqual([]);
+  expect(
+    typeOnlySpecifiers('import type { A } from "@ttdua/pi-subagents"; import { b } from "x";'),
+  ).toEqual(["@ttdua/pi-subagents"]);
 });

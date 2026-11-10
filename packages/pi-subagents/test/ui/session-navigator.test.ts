@@ -44,7 +44,9 @@ function ansiTheme() {
 const DEFAULT_HEADING: EntryHeading = { name: "Explore", modeLabel: undefined, description: "Find auth files" };
 
 /** Pi's keybindings with the given overrides, as Pi passes them to a `ui.custom` factory. */
-const keysWith = (overrides: KeybindingsConfig = {}): PaneKeys => new KeybindingsManager(TUI_KEYBINDINGS, overrides);
+// pi-tui 1.5.0 binds top/bottom to ctrl+home/ctrl+end; these tests were written against 1.0.0's home/end.
+const keysWith = (overrides: KeybindingsConfig = {}): PaneKeys =>
+  new KeybindingsManager(TUI_KEYBINDINGS, { "tui.altScreen.top": "home", "tui.altScreen.bottom": "end", ...overrides });
 
 function makePane(
   opts: {

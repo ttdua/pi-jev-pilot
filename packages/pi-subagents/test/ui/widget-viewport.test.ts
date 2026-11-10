@@ -40,6 +40,7 @@ function fakeTerminal(columns: number, rows: number): Terminal {
 		clearScreen: () => {},
 		setTitle: () => {},
 		setProgress: () => {},
+		setProgramStatus: () => {},
 	};
 }
 
