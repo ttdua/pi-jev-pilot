@@ -143,23 +143,43 @@ function mainLine(e: Extract<LedgerEntry, { kind: "main" }>): string {
 
 const HIDDEN_WHY: readonly string[] = ["cut", "choice", "untouched"];
 
-function workerLine(e: Extract<LedgerEntry, { kind: "worker" }>): string {
-  const target = e.tier ?? (e.reason === "untouched" ? "untouched" : "-");
-  const segs = [`jev · ${e.agent} → ${target} · ${e.effort ?? "-"}`];
-  if (e.ms !== undefined) segs.push(`${seconds(e.ms)}s`);
-  if (e.tierP) {
-    const present = Object.keys(e.tierP);
-    const keys = [
-      ...TIER_ORDER.filter((k) => present.includes(k)),
-      ...present.filter((k) => !TIER_ORDER.includes(k)),
-    ];
-    if (keys.length > 0) segs.push(`p ${probabilityPairs(keys, e.tierP)}`);
-  }
+type WorkerEntry = Extract<LedgerEntry, { kind: "worker" }>;
+
+/** Tiers in their fixed order, then any other target in key order. */
+function tierKeys(tierP: Readonly<Record<string, number>>): string[] {
+  const present = Object.keys(tierP);
+  return [
+    ...TIER_ORDER.filter((k) => present.includes(k)),
+    ...present.filter((k) => !TIER_ORDER.includes(k)),
+  ];
+}
+
+function workerProbabilities(e: WorkerEntry): string[] {
+  if (!e.tierP) return [];
+  const keys = tierKeys(e.tierP);
+  return keys.length > 0 ? [`p ${probabilityPairs(keys, e.tierP)}`] : [];
+}
+
+function workerReasons(e: WorkerEntry): string[] {
+  const segs: string[] = [];
   if (!HIDDEN_WHY.includes(e.reason)) segs.push(`why ${e.reason}`);
   if (e.miss !== undefined) segs.push(`miss ${e.miss}`);
   if (e.fallback !== undefined && e.fallback !== e.tier) segs.push(`fallback ${e.fallback}`);
+  return segs;
+}
+
+function workerFlags(e: WorkerEntry): string[] {
+  const segs: string[] = [];
   if (e.locked === true) segs.push("locked");
   if (e.status !== "completed") segs.push(e.status);
+  return segs;
+}
+
+function workerLine(e: WorkerEntry): string {
+  const target = e.tier ?? (e.reason === "untouched" ? "untouched" : "-");
+  const segs = [`jev · ${e.agent} → ${target} · ${e.effort ?? "-"}`];
+  if (e.ms !== undefined) segs.push(`${seconds(e.ms)}s`);
+  segs.push(...workerProbabilities(e), ...workerReasons(e), ...workerFlags(e));
   return segs.join(" · ");
 }
 
