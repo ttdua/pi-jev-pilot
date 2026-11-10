@@ -97,7 +97,7 @@ describe("AgentTool — resume path", () => {
 	// call's signal, and the claim that keeps the outcome it returns from being
 	// announced. The background door passes the background mode and neither of
 	// the others, so these options tell the doors apart.
-	const foregroundStart = { background: false, signal: expect.any(AbortSignal), claimOutcome: true };
+	const foregroundStart = { background: false, signal: expect.any(AbortSignal), claimOutcome: true, toolCallId: "tc-1" };
 
 	describe("refused", () => {
 		it("names an id no record answers to", async () => {
@@ -478,7 +478,7 @@ describe("AgentTool — resume path", () => {
 
 			await execute(deps, backgroundResume);
 
-			expect(deps.manager.startResume).toHaveBeenCalledExactlyOnceWith("agent-1", "continue", { background: true });
+			expect(deps.manager.startResume).toHaveBeenCalledExactlyOnceWith("agent-1", "continue", { background: true, toolCallId: "tc-1" });
 		});
 
 		it("returns the background launch message for the resumed agent", async () => {

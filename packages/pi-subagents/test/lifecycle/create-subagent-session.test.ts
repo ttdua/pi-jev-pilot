@@ -53,7 +53,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("returns a born-complete SubagentSession wrapping the created session", async () => {
     const sub = await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -63,7 +63,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("holds the session to the agent's maxTurns over the run config's default", async () => {
     const sub = await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore", turnLimits: { defaultMaxTurns: 9, wrapUpTurns: 3 } },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", turnLimits: { defaultMaxTurns: 9, wrapUpTurns: 3 } },
       createSubagentSessionDeps({ io, exec, registry: createAgentLookup({ maxTurns: 7 }) }),
     );
 
@@ -74,7 +74,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("exposes the persisted session file as outputFile", async () => {
     const sub = await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -83,7 +83,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("binds extensions before returning", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -93,7 +93,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("passes the effective cwd and agentDir to the loader, settings, and session", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore", cwd: "/tmp/worktree" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", cwd: "/tmp/worktree" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -115,7 +115,7 @@ describe("createSubagentSession — assembly", () => {
     io.createLoaderSettingsManager.mockReturnValue(loaderSettings);
 
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -130,7 +130,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("creates the session's settings manager exactly once and reuses it", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -140,7 +140,7 @@ describe("createSubagentSession — assembly", () => {
 
   it("suppresses AGENTS.md/CLAUDE.md/APPEND_SYSTEM.md for subagents", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
@@ -157,7 +157,7 @@ describe("createSubagentSession — assembly", () => {
   it("calls newSession with parentSession when parentSessionId is provided", async () => {
     await createSubagentSession(
       {
-        snapshot: STUB_SNAPSHOT,
+        agentId: "a1", snapshot: STUB_SNAPSHOT,
         type: "Explore",
         parentSession: { parentSessionFile: "/sessions/parent.jsonl", parentSessionId: "parent-id-123" },
       },
@@ -181,7 +181,7 @@ describe("createSubagentSession — lifecycle ordering", () => {
 
   it("emits spawning before session-created", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
     );
 
@@ -193,7 +193,7 @@ describe("createSubagentSession — lifecycle ordering", () => {
 
   it("emits session-created before bindExtensions()", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
     );
 
@@ -205,7 +205,7 @@ describe("createSubagentSession — lifecycle ordering", () => {
 
   it("emits bound after bindExtensions()", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
     );
 
@@ -218,7 +218,7 @@ describe("createSubagentSession — lifecycle ordering", () => {
   it("carries the session id and parent session id in bound", async () => {
     await createSubagentSession(
       {
-        snapshot: STUB_SNAPSHOT,
+        agentId: "a1", snapshot: STUB_SNAPSHOT,
         type: "Explore",
         parentSession: {
           parentSessionFile: "/sessions/parent.jsonl",
@@ -228,10 +228,9 @@ describe("createSubagentSession — lifecycle ordering", () => {
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
     );
 
-    expect(lifecycle.bound).toHaveBeenCalledWith({
-      sessionId: "child-session-id",
-      parentSessionId: "parent-session-42",
-    });
+    expect(lifecycle.bound).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "child-session-id", parentSessionId: "parent-session-42" }),
+    );
   });
 
   it("carries the session id and parent session id in session-created", async () => {
@@ -239,7 +238,7 @@ describe("createSubagentSession — lifecycle ordering", () => {
 
     await createSubagentSession(
       {
-        snapshot: STUB_SNAPSHOT,
+        agentId: "a1", snapshot: STUB_SNAPSHOT,
         type: "Explore",
         parentSession: {
           parentSessionFile: "/sessions/parent.jsonl",
@@ -249,15 +248,14 @@ describe("createSubagentSession — lifecycle ordering", () => {
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
     );
 
-    expect(lifecycle.sessionCreated).toHaveBeenCalledWith({
-      sessionId: "child-session-id",
-      parentSessionId: "parent-session-42",
-    });
+    expect(lifecycle.sessionCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "child-session-id", parentSessionId: "parent-session-42" }),
+    );
   });
 
   it("does not emit completed or disposed during creation", async () => {
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
     );
 
@@ -276,7 +274,7 @@ describe("createSubagentSession — dispose on creation failure", () => {
 
     await expect(
       createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore" },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
         createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
       ),
     ).rejects.toThrow("bind failed");
@@ -296,7 +294,7 @@ describe("createSubagentSession — dispose on creation failure", () => {
 
     await expect(
       createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore" },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
         createSubagentSessionDeps({ io, exec, registry: mockAgentLookup, lifecycle }),
       ),
     ).rejects.toThrow("bind failed");
@@ -313,7 +311,7 @@ describe("createSubagentSession — dispose on creation failure", () => {
 
     await expect(
       createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore" },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
         createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
       ),
     ).rejects.toThrow("bind failed");
@@ -334,7 +332,7 @@ describe("createSubagentSession — recursion guard", () => {
   it("denies this extension's spawn tools when creating the child session", async () => {
     arrangeFactory();
 
-    await createSubagentSession({ snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
+    await createSubagentSession({ agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
 
     expect(io.createSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -346,7 +344,7 @@ describe("createSubagentSession — recursion guard", () => {
   it("leaves the child's active tool set untouched after bind", async () => {
     const session = arrangeFactory();
 
-    await createSubagentSession({ snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
+    await createSubagentSession({ agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
 
     expect(session.setActiveToolsByName).not.toHaveBeenCalled();
   });
@@ -363,7 +361,7 @@ describe("createSubagentSession — the core's own child tools", () => {
       arrangeFactory();
 
       await createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore", askParent: vi.fn() },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", askParent: vi.fn() },
         defaultDeps(),
       );
 
@@ -376,7 +374,7 @@ describe("createSubagentSession — the core's own child tools", () => {
       arrangeFactory();
 
       await createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore", askParent: vi.fn() },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", askParent: vi.fn() },
         defaultDeps(),
       );
 
@@ -388,7 +386,7 @@ describe("createSubagentSession — the core's own child tools", () => {
       arrangeFactory();
 
       await createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore", askParent: vi.fn() },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", askParent: vi.fn() },
         createSubagentSessionDeps({ io, exec, registry: createAgentLookup({ toolNames: [] }) }),
       );
 
@@ -402,7 +400,7 @@ describe("createSubagentSession — the core's own child tools", () => {
       const askParent = vi.fn<(question: string) => void>();
 
       await createSubagentSession(
-        { snapshot: STUB_SNAPSHOT, type: "Explore", askParent },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", askParent },
         defaultDeps(),
       );
 
@@ -422,7 +420,7 @@ describe("createSubagentSession — the core's own child tools", () => {
     it("leaves the agent's declared allowlist alone", async () => {
       arrangeFactory();
 
-      await createSubagentSession({ snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
+      await createSubagentSession({ agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
 
       expect(io.createSession).toHaveBeenCalledWith(
         expect.objectContaining({ tools: ["read"] }),
@@ -432,7 +430,7 @@ describe("createSubagentSession — the core's own child tools", () => {
     it("installs no custom tools", async () => {
       arrangeFactory();
 
-      await createSubagentSession({ snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
+      await createSubagentSession({ agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
 
       const opts = io.createSession.mock.calls[0][0] as CreateSessionOptions;
       expect(opts.customTools).toEqual([]);
@@ -451,7 +449,7 @@ describe("createSubagentSession — prompt inheritance", () => {
 
     await createSubagentSession(
       {
-        snapshot: { ...STUB_SNAPSHOT, portablePrompt: "You are a specialist." },
+        agentId: "a1", snapshot: { ...STUB_SNAPSHOT, portablePrompt: "You are a specialist." },
         type: "Explore",
       },
       defaultDeps(),
@@ -464,7 +462,7 @@ describe("createSubagentSession — prompt inheritance", () => {
     arrangeFactory();
 
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({
         io,
         exec,
@@ -490,7 +488,7 @@ describe("createSubagentSession — Pi built-in extensions", () => {
     arrangeFactory();
 
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({
         io,
         exec,
@@ -504,7 +502,7 @@ describe("createSubagentSession — Pi built-in extensions", () => {
   it("hands the loader no built-ins when the agent's tools call for none", async () => {
     arrangeFactory();
 
-    await createSubagentSession({ snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
+    await createSubagentSession({ agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" }, defaultDeps());
 
     expect(loadedBuiltinNames()).toEqual([]);
   });
@@ -526,7 +524,7 @@ describe("createSubagentSession — MCP tool patterns", () => {
     arrangeFactory();
 
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       depsDeclaring(["read", "mcp__github__*"], PARENT_TOOLS),
     );
 
@@ -540,7 +538,7 @@ describe("createSubagentSession — MCP tool patterns", () => {
     arrangeFactory();
 
     await createSubagentSession(
-      { snapshot: STUB_SNAPSHOT, type: "Explore" },
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       depsDeclaring(["read", "mcp__github__*"], ["read", "mcp__gitlab__c"]),
     );
 

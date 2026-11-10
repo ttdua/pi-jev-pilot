@@ -45,10 +45,13 @@ export interface ServiceRuntimeLike {
 
 /** Adapter that wraps SubagentManager to satisfy SubagentsService. */
 export class SubagentsServiceAdapter implements SubagentsService {
+  readonly implementation = "@ttdua/pi-subagents" as const;
+
   constructor(
     private readonly manager: SubagentManagerLike,
     private readonly resolveModel: (input: string, registry: ModelRegistry) => Model<any> | string,
     private readonly runtime: ServiceRuntimeLike,
+    readonly sessionId: string = "",
   ) {}
 
   spawn(type: string, prompt: string, options?: SpawnOptions): string {
@@ -192,6 +195,9 @@ export function toSubagentRecord(record: Subagent): SubagentRecord {
   if (record.turnBudget !== undefined) out.turnBudget = { ...record.turnBudget };
   if (record.outputFile !== undefined) out.outputFile = record.outputFile;
   if (record.resumeRefusal !== undefined) out.resumeRefusal = record.resumeRefusal;
+  const { effectiveModel, effectiveThinking } = record.effective;
+  if (effectiveModel !== undefined) out.effectiveModel = effectiveModel;
+  if (effectiveThinking !== undefined) out.effectiveThinking = effectiveThinking;
 
   return out;
 }

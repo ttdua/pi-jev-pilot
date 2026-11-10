@@ -23,6 +23,7 @@ import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import { effectiveFacts, launchIdentity } from "#src/seams/identity";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
 import { resolveTurnLimits, type TurnLimitRequest } from "#src/lifecycle/turn-limits";
 import { AskParentTool, type QuestionRecorder } from "#src/session/ask-parent-tool";
@@ -168,6 +169,8 @@ export interface SubagentSessionDeps {
 
 /** Per-spawn parameters — the fields that vary per child session. */
 export interface CreateSubagentSessionParams {
+  /** The record id `spawn()` returned; names the launch on every child event. */
+  agentId: string;
   snapshot: ParentSnapshot;
   type: SubagentType;
   /** Resolved workspace cwd; undefined → parent cwd. */
@@ -216,7 +219,12 @@ export async function createSubagentSession(
 ): Promise<SubagentSession> {
   const { snapshot, type } = params;
   const parentSessionId = params.parentSession?.parentSessionId;
-  deps.lifecycle.spawning({ agentName: type, parentSessionId });
+  const identity = launchIdentity({
+    id: params.agentId,
+    type,
+    currentToolCallId: params.parentSession?.toolCallId,
+  });
+  deps.lifecycle.spawning({ agentName: type, parentSessionId, ...identity });
 
   // Resolve working directory upfront - needed for detectEnv before assembly.
   const effectiveCwd = params.cwd ?? snapshot.cwd;
@@ -315,7 +323,7 @@ export async function createSubagentSession(
   // entry in place for the first permission check during child extension
   // initialization. The event bus dispatches synchronously, so a synchronous
   // subscriber completes before this returns.
-  deps.lifecycle.sessionCreated({ sessionId, parentSessionId });
+  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, ...identity, ...effectiveFacts(session) });
 
   try {
     // Bind extensions so that session_start fires and extensions can initialize.
@@ -331,7 +339,7 @@ export async function createSubagentSession(
   // Every child session_start handler has now run, so this is the first — and
   // only — moment a parent can observe what the child's extensions installed.
   // Deliberately outside the try above: a child whose binding threw never ran.
-  deps.lifecycle.bound({ sessionId, parentSessionId });
+  deps.lifecycle.bound({ sessionId, parentSessionId, ...identity });
 
   return subagentSession;
 }

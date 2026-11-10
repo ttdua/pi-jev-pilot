@@ -433,6 +433,7 @@ export class SubagentManager {
         background: options.background,
         signal: options.signal,
         claimOutcome: options.claimOutcome,
+        toolCallId: options.toolCallId,
       },
       options.background ? this.admitBackground : undefined,
     );

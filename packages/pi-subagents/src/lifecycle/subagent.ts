@@ -21,6 +21,7 @@ import type { LifetimeUsage } from "#src/lifecycle/usage";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import { WorkspaceBracket } from "#src/lifecycle/workspace-bracket";
 import type { RunConfig } from "#src/runtime";
+import { type EffectiveFacts, effectiveFacts } from "#src/seams/identity";
 import type { CompactionInfo, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 
 /** Per-subagent lifecycle observer — created by SubagentManager for each spawn. */
@@ -127,6 +128,8 @@ export interface ResumeRunOptions {
 	 * announced like any other completion.
 	 */
 	claimOutcome?: boolean;
+	/** The `subagent` tool call that resumes the agent; absent for a service resume. */
+	toolCallId?: string;
 }
 
 export interface SubagentInit {
@@ -226,6 +229,8 @@ export class Subagent {
 	private _releasedModel?: Model<any>;
 	private _releasedThinkingLevel?: ThinkingLevel;
 	private _sessionReleased = false;
+	private _resumeToolCallId?: string;
+	private _effective: EffectiveFacts = {};
 	/** True once releaseSession() has freed a live session (distinct from never having had one). */
 	get sessionReleased(): boolean { return this._sessionReleased; }
 
@@ -267,6 +272,16 @@ export class Subagent {
 	/** The tool call ID that spawned this background agent, if any. */
 	get toolCallId(): string | undefined {
 		return this.execution.parentSession?.toolCallId;
+	}
+
+	/** The tool call that started the current run: the spawn's, or the resume's. */
+	get currentToolCallId(): string | undefined {
+		return this.currentRun.kind === "resume" ? this._resumeToolCallId : this.toolCallId;
+	}
+
+	/** The model and thinking level the session was created with; empty until it exists. */
+	get effective(): EffectiveFacts {
+		return this._effective;
 	}
 
 	/** Returns true when a SubagentSession is available (session is ready). */
@@ -415,6 +430,7 @@ export class Subagent {
 		const runConfig = this.execution.getRunConfig?.();
 		try {
 			this.subagentSession = await this.execution.createSubagentSession({
+				agentId: this.id,
 				snapshot: this.execution.snapshot,
 				type: this.type,
 				cwd,
@@ -438,6 +454,7 @@ export class Subagent {
 			this.fail(run, err);
 			return;
 		}
+		this._effective = effectiveFacts(this.subagentSession);
 
 		this.flushPendingSteers();
 		this.execution.observer?.onSessionCreated?.(this);
@@ -598,6 +615,7 @@ export class Subagent {
 		// still holds it.
 		this.currentRun.release();
 		this.currentRun.markReplaced();
+		this._resumeToolCallId = options.toolCallId;
 		const run = new SubagentRun("resume", options.background);
 		if (options.claimOutcome) run.claim();
 		this.currentRun = run;

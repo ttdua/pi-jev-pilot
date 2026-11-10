@@ -103,9 +103,9 @@ export class AgentTool {
 			// Only the caller's explicit flag: an agent file's run_in_background
 			// default describes how that type spawns, not how a resume is collected.
 			if (params.run_in_background === true) {
-				return this.resumeInBackground(id, prompt, config);
+				return this.resumeInBackground(id, prompt, config, toolCallId);
 			}
-			return this.resumeExisting(id, prompt, signal, onUpdate, config.presentation.detailBase);
+			return this.resumeExisting(id, prompt, signal, onUpdate, config.presentation.detailBase, toolCallId);
 		}
 
 		// ---- Background execution ----
@@ -136,6 +136,7 @@ export class AgentTool {
 		signal: AbortSignal | undefined,
 		onUpdate: ((update: AgentToolResult<AgentDetails>) => void) | undefined,
 		detailBase: SpawnPresentation["detailBase"],
+		toolCallId: string,
 	) {
 		// The manager owns whether a resume happens; this door owns only how the
 		// answer is worded. Resuming commits this call to delivering the outcome,
@@ -144,6 +145,7 @@ export class AgentTool {
 			background: false,
 			signal: signal ?? new AbortController().signal,
 			claimOutcome: true,
+			toolCallId,
 		});
 		if (start.kind === "refused") {
 			return textResult(resumeRefusalMessage(start.reason, id));
@@ -171,8 +173,8 @@ export class AgentTool {
 	 * wired, as for a background spawn, and like one it may wait for a
 	 * concurrency slot, which the launch message reports.
 	 */
-	private resumeInBackground(id: string, prompt: string, config: ResolvedSpawnConfig) {
-		const start = this.manager.startResume(id, prompt, { background: true });
+	private resumeInBackground(id: string, prompt: string, config: ResolvedSpawnConfig, toolCallId: string) {
+		const start = this.manager.startResume(id, prompt, { background: true, toolCallId });
 		if (start.kind === "refused") {
 			return textResult(resumeRefusalMessage(start.reason, id));
 		}

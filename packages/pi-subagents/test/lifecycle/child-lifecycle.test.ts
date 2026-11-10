@@ -10,6 +10,8 @@ import {
 } from "#src/lifecycle/child-lifecycle";
 import { childCompletedEvent } from "#test/helpers/turn-loop-result";
 
+const ID = { agentId: "a1", agentType: "Explore" };
+
 function setup(): {
   emit: ReturnType<typeof vi.fn>;
   publisher: ChildLifecyclePublisher;
@@ -23,12 +25,13 @@ describe("createChildLifecyclePublisher", () => {
   it("emits subagents:child:spawning with the agent identity", () => {
     const { emit, publisher } = setup();
 
-    publisher.spawning({ agentName: "Explore", parentSessionId: "parent-42" });
+    publisher.spawning({ agentName: "Explore", parentSessionId: "parent-42", ...ID });
 
     expect(emit).toHaveBeenCalledOnce();
     expect(emit).toHaveBeenCalledWith(SUBAGENT_CHILD_SPAWNING, {
       agentName: "Explore",
       parentSessionId: "parent-42",
+      ...ID,
     });
   });
 
@@ -38,12 +41,14 @@ describe("createChildLifecyclePublisher", () => {
     publisher.sessionCreated({
       sessionId: "child-session-abc",
       parentSessionId: "parent-42",
+      ...ID,
     });
 
     expect(emit).toHaveBeenCalledOnce();
     expect(emit).toHaveBeenCalledWith(SUBAGENT_CHILD_SESSION_CREATED, {
       sessionId: "child-session-abc",
       parentSessionId: "parent-42",
+      ...ID,
     });
   });
 
@@ -63,12 +68,14 @@ describe("createChildLifecyclePublisher", () => {
     publisher.bound({
       sessionId: "child-session-abc",
       parentSessionId: "parent-42",
+      ...ID,
     });
 
     expect(emit).toHaveBeenCalledOnce();
     expect(emit).toHaveBeenCalledWith(SUBAGENT_CHILD_BOUND, {
       sessionId: "child-session-abc",
       parentSessionId: "parent-42",
+      ...ID,
     });
   });
 
@@ -86,11 +93,12 @@ describe("createChildLifecyclePublisher", () => {
   it("passes an undefined parentSessionId through unchanged", () => {
     const { emit, publisher } = setup();
 
-    publisher.spawning({ agentName: "general-purpose", parentSessionId: undefined });
+    publisher.spawning({ agentName: "general-purpose", parentSessionId: undefined, ...ID });
 
     expect(emit).toHaveBeenCalledWith(SUBAGENT_CHILD_SPAWNING, {
       agentName: "general-purpose",
       parentSessionId: undefined,
+      ...ID,
     });
   });
 

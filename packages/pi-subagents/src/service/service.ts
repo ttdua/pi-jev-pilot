@@ -9,6 +9,7 @@
  *   svc?.spawn("Explore", "Check for stale TODOs");
  */
 
+import type { SubagentThinkingLevel } from "#src/config/thinking-level";
 import type { ResumeRefusal, SubagentStatus } from "#src/lifecycle/subagent";
 import type { ResumeRefusalReason } from "#src/lifecycle/subagent-manager";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
@@ -88,6 +89,10 @@ export interface SubagentRecord {
    * starts; the other reasons are final.
    */
   resumeRefusal?: ResumeRefusal;
+  /** The model the session was created with, as `provider/id`; absent until it exists. */
+  effectiveModel?: string;
+  /** The thinking level the session was created with; absent until it exists. */
+  effectiveThinking?: SubagentThinkingLevel;
 }
 
 /** Options for resuming an agent via the service. */
@@ -135,6 +140,12 @@ export interface SpawnOptions {
 
 /** The public service contract for cross-extension subagent access. */
 export interface SubagentsService {
+  /** Which package published this service. */
+  readonly implementation: "@ttdua/pi-subagents";
+
+  /** The id of the session whose extension instance published this service. */
+  readonly sessionId: string;
+
   /** Spawn an agent. Returns the agent ID immediately. */
   spawn(type: string, prompt: string, options?: SpawnOptions): string;
 

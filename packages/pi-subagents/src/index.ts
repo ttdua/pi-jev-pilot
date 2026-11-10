@@ -39,8 +39,8 @@ import {
 } from "#src/observation/notification";
 import { SubagentEventsObserver } from "#src/observation/subagent-events-observer";
 import { createSubagentRuntime } from "#src/runtime";
-import { publishSubagentsService, unpublishSubagentsService } from "#src/service/service";
 import { SubagentsServiceAdapter } from "#src/service/service-adapter";
+import { ServicePublication, trackChildSessions } from "#src/seams/service-identity";
 import { detectEnv } from "#src/session/env";
 import { resolveModel } from "#src/session/model-resolver";
 import { createExcludedPackagesStorage } from "#src/session/package-exclusions";
@@ -173,7 +173,9 @@ export default function (pi: ExtensionAPI) {
     },
     exec: (cmd, args, opts) => pi.exec(cmd, args, opts),
     registry,
-    lifecycle: createChildLifecyclePublisher((channel, data) => pi.events.emit(channel, data)),
+    lifecycle: createChildLifecyclePublisher(
+      trackChildSessions((channel, data) => pi.events.emit(channel, data)),
+    ),
     // Resolved here, at the composition root, so the assembly factory stays
     // free of the policy and gets a ready-made settings view — the same shape
     // the extension-exclusion policy reaches it in. It is a resolver rather
@@ -200,14 +202,15 @@ export default function (pi: ExtensionAPI) {
 
   // Typed service published via Symbol.for() for cross-extension access.
   // Consumers: const { getSubagentsService } = await import("@gotgenes/pi-subagents");
-  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime);
-  publishSubagentsService(service);
+  // Built and published per session in `session_start`, main sessions only;
+  // the service names the session that published it.
+  const publication = new ServicePublication();
 
   const lifecycle = new SessionLifecycleHandler(
     runtime,
     manager,
     () => notifications.dispose(),
-    unpublishSubagentsService,
+    () => publication.stop(),
   );
 
   // Live widget: constructed after the manager (it polls listAgents()) and
@@ -220,6 +223,12 @@ export default function (pi: ExtensionAPI) {
   // registrations rather than sharing a lambda with an unrelated concern.
   const widgetEvents = new WidgetEventsHandler(widget);
 
+  pi.on("session_start", (_event, ctx) => {
+    publication.start(
+      ctx.sessionManager.getSessionId(),
+      (sessionId) => new SubagentsServiceAdapter(manager, resolveModel, runtime, sessionId),
+    );
+  });
   pi.on("session_start", (event, ctx) => lifecycle.handleSessionStart(event, ctx));
   pi.on("session_start", (event, ctx) => widgetEvents.handleSessionStart(event, ctx));
   pi.on("session_before_switch", () => lifecycle.handleSessionBeforeSwitch());
