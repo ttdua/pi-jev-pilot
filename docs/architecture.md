@@ -61,7 +61,7 @@ src/
       strategy.ts           Advice gates and advice text
     review/
       index.ts              Entry point for other folders
-      cli.ts                CLI commands, model catalogs, tier names, result text
+      cli.ts                CLI commands, model catalogs, tier names, result text, details
     tools/
       index.ts              Entry point for other folders
       assess.ts             Candidates, the 32 cap, the flag threshold
@@ -148,7 +148,10 @@ src/
       entry.ts              LaunchEntry and the executor outcome fields a line needs
     review/
       index.ts              Entry point for other folders
-      tool.ts               jev_review tool, runs the CLI, hides the tool in children and while off
+      tool.ts               jev_review tool, hides the tool in children and while off
+      run.ts                runReview: prepare, attempt loop (one retry after a timeout), result
+      attempt.ts            One CLI exec with its error mapping, exec options
+      codex.ts              Codex tier-to-model resolve and the 0700 output directory
     commands/
       index.ts              Entry point for other folders
       jev.ts                /jev command entry point
