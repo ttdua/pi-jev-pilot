@@ -2,14 +2,14 @@
 
 Blocked by: none
 
-- [ ] 1.1 Split `packages/pi-subagents` from `gotgenes/pi-packages` at the `@gotgenes/pi-subagents` 25.0.5 release and add it with `git subtree add --squash` under `packages/pi-subagents/` (design D2)
-- [ ] 1.2 Rename the vendored workspace to `@ttdua/pi-subagents`, `private: true`; keep its `imports` map; drop `pnpm-lock.yaml`; stop its `lint` script calling `pnpm` (D4, D13)
-- [ ] 1.3 Add `packages/pi-subagents` to root `workspaces`; set root `pi.extensions` to `./packages/pi-subagents/src/index.ts` then `./src/extension.ts`; set root `peerDependencies` to `pi-ai`, `pi-coding-agent`, `pi-tui`, `typebox`; remove the `@gotgenes/pi-subagents` devDependency; refresh `bun.lock` (specs `executor-vendoring`, `package-loading`, `host-test-harness`)
-- [ ] 1.4 Write `packages/pi-subagents/VENDORED.md` (upstream repo, path, tag, commit, local-change list) and add the `NOTICE.md` entry (spec `executor-vendoring` "Upstream provenance", "Upstream license kept")
-- [ ] 1.5 Add a repository test that fails when an upstream file under `packages/pi-subagents/` differs from the recorded commit without a `VENDORED.md` entry
-- [ ] 1.6 Add root script `test:executor` running the vendored unit tests and type check; exclude `packages/` from jev-pilot's lint, `tsc`, function-size rules and import-graph scope; extend the import-graph test to reject runtime imports of `packages/` or `@ttdua/pi-subagents` from `src/` while allowing `import type`; run both suites in CI
-- [ ] 1.7 Switch the host-test harness to install the checkout (both extensions) and add a fixture package that installs only the executor; update package-loading tests for two entry points and the new peers
-- [ ] 1.8 Checkpoint: run `bun run test`, `bun run test:executor` and the host suite unchanged in behavior; if Pi cannot resolve `#src/*` for the nested extension, rewrite to relative imports and record it in `VENDORED.md` (design Risks)
+- [x] 1.1 Split `packages/pi-subagents` from `gotgenes/pi-packages` at the `@gotgenes/pi-subagents` 25.0.5 release and add it with `git subtree add --squash` under `packages/pi-subagents/` (design D2)
+- [x] 1.2 Rename the vendored workspace to `@ttdua/pi-subagents`, `private: true`; keep its `imports` map; drop `pnpm-lock.yaml`; stop its `lint` script calling `pnpm` (D4, D13)
+- [x] 1.3 Add `packages/pi-subagents` to root `workspaces`; set root `pi.extensions` to `./packages/pi-subagents/src/index.ts` then `./src/extension.ts`; set root `peerDependencies` to `pi-ai`, `pi-coding-agent`, `pi-tui`, `typebox`; remove the `@gotgenes/pi-subagents` devDependency; refresh `bun.lock` (specs `executor-vendoring`, `package-loading`, `host-test-harness`)
+- [x] 1.4 Write `packages/pi-subagents/VENDORED.md` (upstream repo, path, tag, commit, local-change list) and add the `NOTICE.md` entry (spec `executor-vendoring` "Upstream provenance", "Upstream license kept")
+- [x] 1.5 Add a repository test that fails when an upstream file under `packages/pi-subagents/` differs from the recorded commit without a `VENDORED.md` entry
+- [x] 1.6 Add root script `test:executor` running the vendored unit tests and type check; exclude `packages/` from jev-pilot's lint, `tsc`, function-size rules and import-graph scope; extend the import-graph test to reject runtime imports of `packages/` or `@ttdua/pi-subagents` from `src/` while allowing `import type`; run both suites in CI
+- [x] 1.7 Switch the host-test harness to install the checkout (both extensions) and add a fixture package that installs only the executor; update package-loading tests for two entry points and the new peers
+- [x] 1.8 Checkpoint: run `bun run test`, `bun run test:executor` and the host suite unchanged in behavior; if Pi cannot resolve `#src/*` for the nested extension, rewrite to relative imports and record it in `VENDORED.md` (design Risks)
 
 ## 2. Executor: service identity, launch identity and effective launch facts
 
