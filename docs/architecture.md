@@ -154,7 +154,13 @@ src/
       codex.ts              Codex tier-to-model resolve and the 0700 output directory
     commands/
       index.ts              Entry point for other folders
-      jev.ts                /jev command entry point
+      jev.ts                runJev: child gate, parse, dispatch, one fail-open catch; usage text
+      args.ts               /jev argument grammar: one parser per sub-command
+      jev-notify.ts         notifier: the hasUI-guarded notify
+      cli-review.ts         checkCliReview: state rules and the model/effort check against the CLI list
+      apply.ts              applyCommand: directory-mode forms, state change, reset cleanup
+      status-format.ts      formatStatus: the status report text
+      status-reply.ts       statusReply: status text plus partial-reset and shadowed-mode lines, level
       local-mode.ts         The directory mode command
       slots.ts              The /jev custom model slot forms: add or replace, show, remove
 

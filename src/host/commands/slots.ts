@@ -72,13 +72,16 @@ function modelRefusal(registry: ModelRegistry, model: string): SlotOutcome | und
   return refuse(near.length > 0 ? `${base}\nTry: ${near.join(", ")}` : base);
 }
 
-function runSet(
-  args: Extract<SlotArgs, { kind: "set" }>,
-  existing: Slot | undefined,
-  slots: readonly Slot[],
-  registry: ModelRegistry,
-  dir: string,
-): SlotOutcome {
+/** What a slot form works against: the stored slots and where they are written. */
+type SlotStore = {
+  existing: Slot | undefined;
+  slots: readonly Slot[];
+  registry: ModelRegistry;
+  dir: string;
+};
+
+function runSet(args: Extract<SlotArgs, { kind: "set" }>, store: SlotStore): SlotOutcome {
+  const { existing, slots, registry, dir } = store;
   if (splitModel(args.model) === undefined) {
     return refuse(`${args.model}: not a provider/model`, true);
   }
@@ -109,7 +112,7 @@ export function runSlot(args: SlotArgs, registry: ModelRegistry, dir: string): S
   if (read.kind === "invalid") return refuse(issueMessage(read.issues));
   const slots = read.config.crew?.slots ?? [];
   const existing = slots.find((s) => s.name === args.name);
-  if (args.kind === "set") return runSet(args, existing, slots, registry, dir);
+  if (args.kind === "set") return runSet(args, { existing, slots, registry, dir });
   if (existing === undefined) return refuse(`no slot named ${args.name}`, true);
   return args.kind === "show"
     ? { ok: true, message: report(existing) }
