@@ -259,77 +259,128 @@ const measuredShape = {
   durationMs: count(),
 };
 
-function shapeFor(kind: LedgerKind) {
-  const head = { ...commonShape, kind: oneOf([kind] as const) };
-  if (kind === "main")
-    return object(
-      {
-        ...head,
-        ...measuredShape,
-        turnId: string({ pattern: ID }),
-        requested: level(),
-        effective: level(),
-        from: level(),
-        held: boolean(),
-        advised: boolean(),
-        strategy: oneOf(["direct", "delegate", "parallel", "graph"] as const),
-        strategyP: probability(),
-        skillP: probability(),
-        gate: probability(),
-        corrects: probability(),
-        skill: string({ pattern: SKILL_NAME }),
-        toolCalls: count(),
-        failures: count(),
-        inputTokens: count(),
-        outputTokens: count(),
-        outcome: oneOf(["ok", "error", "aborted"] as const),
-      },
-      { required: ["v", "at", "kind", "session", "mode", "answered", "turnId", "outcome"] },
-    );
-  if (kind === "worker")
-    return object(
-      {
-        ...head,
-        ...measuredShape,
-        agent: string({ pattern: AGENT }),
-        briefChars: count(),
-        tierP: record(target(), probability(), MAX_TARGETS),
-        expertNeeded: probability(),
-        score: score(),
-        rubric: rubricVersion(),
-        expertOffered: boolean(),
-        tier: target(),
-        fallback: target(),
-        model: string({ pattern: MODEL, max: 128 }),
-        effort: level(),
-        reason: oneOf([...DECIDING_REASONS, "untouched", "miss"] as const),
-        callerModel: string({ pattern: CALLER_MODEL }),
-        locked: boolean(),
-        toolsScored: count(),
-        toolsFlagged: count(),
-        tokens: count(),
-        toolUses: count(),
-        status: oneOf(["completed", "aborted", "stopped", "error"] as const),
-      },
-      {
-        required: [
-          "v",
-          "at",
-          "kind",
-          "session",
-          "mode",
-          "answered",
-          "agent",
-          "briefChars",
-          "reason",
-          "status",
-        ],
-      },
-    );
+const MAIN_REQUIRED = [
+  "v",
+  "at",
+  "kind",
+  "session",
+  "mode",
+  "answered",
+  "turnId",
+  "outcome",
+] as const;
+const WORKER_REQUIRED = [
+  "v",
+  "at",
+  "kind",
+  "session",
+  "mode",
+  "answered",
+  "agent",
+  "briefChars",
+  "reason",
+  "status",
+] as const;
+const CORRECTION_REQUIRED = ["v", "at", "kind", "session", "turnId", "corrects"] as const;
+
+function mainShape(kind: LedgerKind) {
   return object(
-    { ...head, turnId: string({ pattern: ID }), corrects: probability() },
-    { required: ["v", "at", "kind", "session", "turnId", "corrects"] },
+    {
+      ...commonShape,
+      kind: oneOf([kind] as const),
+      ...measuredShape,
+      turnId: string({ pattern: ID }),
+      requested: level(),
+      effective: level(),
+      from: level(),
+      held: boolean(),
+      advised: boolean(),
+      strategy: oneOf(["direct", "delegate", "parallel", "graph"] as const),
+      strategyP: probability(),
+      skillP: probability(),
+      gate: probability(),
+      corrects: probability(),
+      skill: string({ pattern: SKILL_NAME }),
+      toolCalls: count(),
+      failures: count(),
+      inputTokens: count(),
+      outputTokens: count(),
+      outcome: oneOf(["ok", "error", "aborted"] as const),
+    },
+    { required: MAIN_REQUIRED },
   );
+}
+
+function workerShape(kind: LedgerKind) {
+  return object(
+    {
+      ...commonShape,
+      kind: oneOf([kind] as const),
+      ...measuredShape,
+      agent: string({ pattern: AGENT }),
+      briefChars: count(),
+      tierP: record(target(), probability(), MAX_TARGETS),
+      expertNeeded: probability(),
+      score: score(),
+      rubric: rubricVersion(),
+      expertOffered: boolean(),
+      tier: target(),
+      fallback: target(),
+      model: string({ pattern: MODEL, max: 128 }),
+      effort: level(),
+      reason: oneOf([...DECIDING_REASONS, "untouched", "miss"] as const),
+      callerModel: string({ pattern: CALLER_MODEL }),
+      locked: boolean(),
+      toolsScored: count(),
+      toolsFlagged: count(),
+      tokens: count(),
+      toolUses: count(),
+      status: oneOf(["completed", "aborted", "stopped", "error"] as const),
+    },
+    { required: WORKER_REQUIRED },
+  );
+}
+
+function correctionShape(kind: LedgerKind) {
+  return object(
+    {
+      ...commonShape,
+      kind: oneOf([kind] as const),
+      turnId: string({ pattern: ID }),
+      corrects: probability(),
+    },
+    { required: CORRECTION_REQUIRED },
+  );
+}
+
+// One shape per line kind; built on demand like before the split.
+const SHAPES: Record<LedgerKind, (kind: LedgerKind) => V<Record<string, unknown>>> = {
+  main: mainShape,
+  worker: workerShape,
+  correction: correctionShape,
+};
+
+function shapeFor(kind: LedgerKind): V<Record<string, unknown>> {
+  return SHAPES[kind](kind);
+}
+
+function isLedgerKind(kind: unknown): kind is LedgerKind {
+  return kind === "main" || kind === "worker" || kind === "correction";
+}
+
+function checkTier(out: Record<string, unknown>, issues: Issue[]): void {
+  if (DECIDING_REASONS.includes(out["reason"] as string) && out["tier"] === undefined)
+    issues.push({ path: "tier", message: "required for this reason" });
+}
+
+function checkMiss(out: Record<string, unknown>, issues: Issue[]): void {
+  if (out["miss"] !== undefined && out["answered"] !== false)
+    issues.push({ path: "miss", message: "expected answered to be false" });
+}
+
+function crossChecks(kind: LedgerKind, out: Record<string, unknown>, issues: Issue[]): void {
+  if (kind === "worker") checkTier(out, issues);
+  if (kind !== "correction") checkMiss(out, issues);
 }
 
 export function validateLedgerEntry(
@@ -341,22 +392,15 @@ export function validateLedgerEntry(
     return { ok: false, issues: [{ path: "", message: "expected an object" }] };
   }
   const kind = (value as Record<string, unknown>)["kind"];
-  if (kind !== "main" && kind !== "worker" && kind !== "correction") {
+  if (!isLedgerKind(kind)) {
     return {
       ok: false,
       issues: [{ path: "kind", message: "expected one of: main, worker, correction" }],
     };
   }
-  const out = shapeFor(kind)(value, "", issues) as Record<string, unknown> | undefined;
+  const out = shapeFor(kind)(value, "", issues);
   if (out === undefined) return { ok: false, issues };
-  if (
-    kind === "worker" &&
-    DECIDING_REASONS.includes(out["reason"] as string) &&
-    out["tier"] === undefined
-  )
-    issues.push({ path: "tier", message: "required for this reason" });
-  if (kind !== "correction" && out["miss"] !== undefined && out["answered"] !== false)
-    issues.push({ path: "miss", message: "expected answered to be false" });
+  crossChecks(kind, out, issues);
   if (issues.length > 0) return { ok: false, issues };
   const line = `${JSON.stringify(out)}\n`;
   if (Buffer.byteLength(line) > (opts?.maxLineBytes ?? LEDGER_MAX_LINE_BYTES))

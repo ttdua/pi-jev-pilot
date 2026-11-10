@@ -89,6 +89,17 @@ export function array<T>(
 type Shape = Record<string, V<unknown>>;
 type Out<S extends Shape> = { [K in keyof S]?: Exclude<ReturnType<S[K]>, undefined> };
 
+function reportUnknownKeys(
+  shape: Shape,
+  src: Record<string, unknown>,
+  path: string,
+  issues: Issue[],
+) {
+  for (const key of Object.keys(src)) {
+    if (!Object.hasOwn(shape, key)) fail(issues, joinPath(path, key), "unknown key");
+  }
+}
+
 export function object<S extends Shape>(
   shape: S,
   opts: { required?: readonly (keyof S & string)[] } = {},
@@ -98,9 +109,7 @@ export function object<S extends Shape>(
       return fail(issues, path, "expected an object");
     const src = value as Record<string, unknown>;
     const out: Record<string, unknown> = {};
-    for (const key of Object.keys(src)) {
-      if (!Object.hasOwn(shape, key)) fail(issues, joinPath(path, key), "unknown key");
-    }
+    reportUnknownKeys(shape, src, path, issues);
     const before = issues.length;
     for (const key of Object.keys(shape)) {
       const p = joinPath(path, key);
