@@ -55,30 +55,56 @@ function onlyVariants(value: string | undefined): string[] {
   return names;
 }
 
-export function parseArgs(argv: readonly string[]): Args {
-  const text: Partial<Record<(typeof TEXT_FLAGS)[number], string>> = {};
-  const nums: Record<string, number> = { "--seed": 1, "--main": 100 };
-  let pass: 1 | "report" | undefined;
-  let send = false;
-  for (let i = 0; i < argv.length; i++) {
-    const flag = argv[i]!;
-    const value = argv[i + 1];
-    if (flag === "--send") {
-      send = true;
-    } else if (flag === "--pass") {
-      pass = passOf(value);
-      i++;
-    } else if ((NUMBER_FLAGS as readonly string[]).includes(flag)) {
-      nums[flag] = count(flag, value);
-      i++;
-    } else if ((TEXT_FLAGS as readonly string[]).includes(flag)) {
-      if (value === undefined || value === "") throw new UsageError(`${flag} needs a value`);
-      text[flag as (typeof TEXT_FLAGS)[number]] = value;
-      i++;
-    } else {
-      throw new UsageError(`unknown argument: ${flag}`);
-    }
+type TextFlag = (typeof TEXT_FLAGS)[number];
+type ParseState = {
+  text: Partial<Record<TextFlag, string>>;
+  nums: Record<string, number>;
+  pass: 1 | "report" | undefined;
+  send: boolean;
+};
+
+const isNumberFlag = (flag: string): boolean => (NUMBER_FLAGS as readonly string[]).includes(flag);
+const isTextFlag = (flag: string): flag is TextFlag =>
+  (TEXT_FLAGS as readonly string[]).includes(flag);
+
+function textValue(flag: string, value: string | undefined): string {
+  if (value === undefined || value === "") throw new UsageError(`${flag} needs a value`);
+  return value;
+}
+
+/** Applies one flag to `state`; returns true when it consumed the following value. */
+function applyFlag(state: ParseState, flag: string, value: string | undefined): boolean {
+  if (flag === "--send") {
+    state.send = true;
+    return false;
   }
+  if (flag === "--pass") {
+    state.pass = passOf(value);
+  } else if (isNumberFlag(flag)) {
+    state.nums[flag] = count(flag, value);
+  } else if (isTextFlag(flag)) {
+    state.text[flag] = textValue(flag, value);
+  } else {
+    throw new UsageError(`unknown argument: ${flag}`);
+  }
+  return true;
+}
+
+function optional<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
+  return (value === undefined ? {} : { [key]: value }) as { [P in K]?: V };
+}
+
+export function parseArgs(argv: readonly string[]): Args {
+  const state: ParseState = {
+    text: {},
+    nums: { "--seed": 1, "--main": 100 },
+    pass: undefined,
+    send: false,
+  };
+  for (let i = 0; i < argv.length; i++) {
+    if (applyFlag(state, argv[i]!, argv[i + 1])) i++;
+  }
+  const { text, nums, pass, send } = state;
   if (pass === undefined) throw new UsageError("--pass is required");
   if (pass === "report" && text["--only"] !== undefined) {
     throw new UsageError("--only applies to pass 1");
@@ -87,10 +113,10 @@ export function parseArgs(argv: readonly string[]): Args {
     pass,
     seed: nums["--seed"]!,
     main: nums["--main"]!,
-    ...(nums["--workers"] === undefined ? {} : { workers: nums["--workers"] }),
-    ...(text["--sessions"] === undefined ? {} : { sessions: text["--sessions"] }),
-    ...(text["--capabilities"] === undefined ? {} : { capabilities: text["--capabilities"] }),
-    ...(text["--url"] === undefined ? {} : { url: text["--url"] }),
+    ...optional("workers", nums["--workers"]),
+    ...optional("sessions", text["--sessions"]),
+    ...optional("capabilities", text["--capabilities"]),
+    ...optional("url", text["--url"]),
     ...(text["--only"] === undefined ? {} : { only: onlyVariants(text["--only"]) }),
     send,
   };
