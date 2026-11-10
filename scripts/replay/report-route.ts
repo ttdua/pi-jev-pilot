@@ -45,6 +45,34 @@ export function routeStream(
   return routeStreamRecords(answers, o).map((r) => r?.target);
 }
 
+type RouteRecord = NonNullable<
+  Extract<ReturnType<typeof routeLaunch>, { kind: "routed" }>["record"]
+>;
+type StreamContext = { offered: ReturnType<typeof offeredTiers>; tierQuestion: boolean };
+
+/** The window line the host appends after a non-slot launch. */
+function windowLine(
+  read: ReadAnswers,
+  record: RouteRecord,
+  at: number,
+  ctx: StreamContext,
+): WindowLine {
+  const score = difficultyScore(read.answers);
+  const effortP = effortProbabilities(read);
+  return {
+    kind: "worker",
+    at,
+    ...(ctx.tierQuestion
+      ? { rubric: RUBRIC_VERSION, expertOffered: ctx.offered.includes("expert") }
+      : {}),
+    ...(score !== undefined ? { score } : {}),
+    reason: record.reason,
+    ...(record.tier !== undefined ? { tier: record.tier } : {}),
+    ...(record.fallback !== undefined ? { fallback: record.fallback } : {}),
+    ...(effortP !== undefined ? { effortP } : {}),
+  };
+}
+
 /** `routeStream` with the route reason of each launch; `undefined` for a miss. */
 export function routeStreamRecords(
   answers: readonly (ReadAnswers | undefined)[],
@@ -52,7 +80,7 @@ export function routeStreamRecords(
 ): (RoutedLaunch | undefined)[] {
   const slots = o.routing === "slots" ? o.config.slots.map((s) => s.name) : [];
   const offered = offeredTiers(o.config.tiers, o.config.expertOn);
-  const tierQuestion = offered.length > 0 || slots.length > 0;
+  const ctx: StreamContext = { offered, tierQuestion: offered.length > 0 || slots.length > 0 };
   const modelOf = modelOfConfig(o.config);
   const lines: WindowLine[] = [];
   return answers.map((read, i) => {
@@ -70,25 +98,7 @@ export function routeStreamRecords(
     });
     const record = route.kind === "routed" ? route.record : undefined;
     const target = record?.tier ?? "none";
-    if (record !== undefined && !isSlot(target)) {
-      const score = difficultyScore(read.answers);
-      const effortP = effortProbabilities(read);
-      lines.push({
-        kind: "worker",
-        at: i,
-        ...(tierQuestion
-          ? {
-              rubric: RUBRIC_VERSION,
-              expertOffered: offered.includes("expert"),
-            }
-          : {}),
-        ...(score !== undefined ? { score } : {}),
-        reason: record.reason,
-        ...(record.tier !== undefined ? { tier: record.tier } : {}),
-        ...(record.fallback !== undefined ? { fallback: record.fallback } : {}),
-        ...(effortP !== undefined ? { effortP } : {}),
-      });
-    }
+    if (record !== undefined && !isSlot(target)) lines.push(windowLine(read, record, i, ctx));
     return { target, reason: record?.reason ?? "none" };
   });
 }
