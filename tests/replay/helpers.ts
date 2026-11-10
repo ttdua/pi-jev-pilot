@@ -2,7 +2,7 @@
 import type { Result } from "../../scripts/replay/compare.ts";
 import type { Plan, PlannedRequest, PlainConfig } from "../../scripts/replay/variants.ts";
 import { mainQuestions } from "../../src/jev/questions.ts";
-import type { WorkerAnswers } from "../../src/policy/worker.ts";
+import type { WorkerAnswers } from "../../src/policy/worker/answers.ts";
 
 export const MARKER = "JEV-MARKER-PROMPT";
 export const config: PlainConfig = {

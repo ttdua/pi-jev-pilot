@@ -45,100 +45,135 @@ flowchart LR
 
 ```text
 src/
-  extension.ts           Entry point. Wires host adapters together. No logic.
+  extension.ts              Entry point. Calls setup() from host/setup.ts. No logic.
 
-  policy/                Pure. No Pi imports, no I/O.
-    answers.ts           Validates a raw response, per question
-    effort.ts            Effort rules: risk floor, ceiling, fast-tier cap
-    launch.ts            Effective launch fields and locks
-    worker.ts            Reads worker answers
-    tier.ts              Model decision order
-    route.ts             Launch route: untouched checks, thinking-only, fallback, clamp
-    modes.ts             Mode names, target tables
-    score.ts             Difficulty score
-    cutpoints.ts         Cut points from a window
-    seed.ts              Seed cut points (data)
-    cut-window.ts        Which ledger lines are eligible; window size
-    skill.ts             Skill criteria, batches, pick, delivery text, duplicate check
-    strategy.ts          Advice gates and advice text
-    tools.ts             Candidates, the 32 cap, the flag threshold
-    tuning-window.ts     Decision counting: order, window, p90, shares
-    tuning-signals.ts    Signals per mode over the latest 200 decisions (observed only)
-    tuning.ts            Tuning rules: step, revert, undo, reset, off
+  policy/                   Pure. No Pi imports, no I/O. One folder per capability.
+    answers.ts              Validates a raw response, per question (shared by several capabilities)
+    effort.ts               Effort rules: risk floor, ceiling, fast-tier cap
+    launch.ts               Effective launch fields and locks
+    main/
+      index.ts              Entry point for other folders
+      hold.ts               Whether a main prompt keeps its effort
+      ledger-line.ts        Main and correction ledger lines, hold anchor
+      outcome.ts            Classifier outcome to record fields, effort target and advice
+      record.ts             Per-turn bookkeeping, written to ledger lines when the run settles
+      skill.ts              Skill criteria, batches, pick, delivery text, duplicate check
+      strategy.ts           Advice gates and advice text
+    review/
+      index.ts              Entry point for other folders
+      cli.ts                CLI commands, model catalogs, tier names, result text
+    tools/
+      index.ts              Entry point for other folders
+      assess.ts             Candidates, the 32 cap, the flag threshold
+    tuning/
+      index.ts              Entry point for other folders
+      rules.ts              Tuning rules: step, revert, undo, reset, off
+      signals.ts            Signals per mode over the latest 200 decisions (observed only)
+      text.ts               Change lines, session-start line, report text
+      window.ts             Decision counting: order, window, p90, shares
+    worker/
+      index.ts              Entry point for other folders
+      answers.ts            Reads worker answers
+      cut-window.ts         Which ledger lines are eligible; window size
+      cutpoints.ts          Cut points from a window
+      ledger-line.ts        Worker ledger line fields
+      modes.ts              Mode names, target tables
+      route.ts              Launch route: untouched checks, thinking-only, fallback, clamp
+      score.ts              Difficulty score
+      seed.ts               Seed cut points (data)
+      tier.ts               Model decision order
 
-  shared/                Dependency-free rules used by more than one module
-    urls.ts              The Jev URL rule
-    text.ts              Code-point cut
+  shared/                   Dependency-free rules used by more than one module
+    text.ts                 Code-point cut
+    urls.ts                 The Jev URL rule
 
-  jev/                   Talks to TypeSafe.
-    client.ts            Transport: timeout, abort, no redirects
-    rubrics.ts           Worker and main rubric text (data), RUBRIC_VERSION
-    questions.ts         Builds the questions for each request kind
-    state.ts             Builds main, worker and tool state from plain inputs
-    branch.ts            Reads Pi-shaped session entries into branch items
-    workspace.ts         Reads platform markers by file name
+  jev/                      Talks to TypeSafe.
+    branch.ts               Reads Pi-shaped session entries into branch items
+    client.ts               Transport: timeout, abort, no redirects
+    questions.ts            Builds the questions for each request kind
+    rubrics.ts              Worker and main rubric text (data), RUBRIC_VERSION
+    state.ts                Builds main, worker and tool state from plain inputs
+    workspace.ts            Reads platform markers by file name
 
-  host/                  Everything that touches Pi or the executor.
-    main.ts              Main-session handlers; wires the main-* units, owns no logic
-    main-start.ts        before_agent_start: gate, ask Jev, apply the reply
-    main-gate.ts         Pure: whether a turn is decided, what it asks, the new record
-    main-outcome.ts      Pure: classifier outcome to record fields, effort target and advice
-    main-apply.ts        Applies an outcome plan: thinking level and status
-    main-skills.ts       Skill catalog, later batches, pick and the hidden skill message
-    main-settled.ts      agent_settled: correction, main and jev-turn lines; abort undo
-    main-line.ts         Pure: correction and main ledger lines, hold anchor
-    main-session.ts      MainSession: the turn in flight, status decision, overlay
-    main-record.ts       TurnRecord and turn_end accumulation
-    main-host.ts         MainDeps, shared handler context, status drawing
-    cutpoint-window.ts   In-memory window of eligible worker lines
-    worker-line.ts       Score, rubric and expertOffered for the ledger line
-    worker.ts            message_end batch; tool_call route and mutation; warnings; ledger join
-    child.ts             Child registry
-    tools.ts             Worker-side tool assessment: record lookup, request, flag, removal
-    tool-service.ts      Captures the executor service at main session_start
-    tool-counts.ts       Hands the counts to the worker ledger line
-    tool-facts.ts        Maps Pi tool info to plain tool facts
-    tuning-step.ts       agent_settled step: skip rules, write, change lines
-    tuning-seen.ts       Session-start line for unseen changes, `seenAt`
-    tune-command.ts      /jev tune: report, undo, reset, on, off
-    tuning-text.ts       Pure texts: change lines, session-start line, report
-    review.ts            jev_review tool, runs the CLI, hides the tool in children and while off
-    review-cli.ts        Pure: CLI commands, model catalogs, tier names, result text
-    context.ts           Previous turn id and hold context from the branch; re-exports
-                         branchItems and scanPlatforms from jev/
-    rich.ts              Builds the optional rich state inputs for the shipped groups
-    agents.ts            Reads agent files and the built-in agent table
-    commands.ts          /jev
-    skills.ts            Skill catalog, explicit skill, loaded-in-context scan
-    status.ts            Status line, tally, log entries
-    readiness.ts         Key and executor checks; snapshot of config and state
-    main-cwd.ts          Cwd of the newest main session, for the directory mode
-    setup.ts             Wires the handlers and /jev; the entry point delegates to it,
-                         because lint keeps Pi imports in host/
+  host/                     Everything that touches Pi or the executor. One folder per capability.
+    setup.ts                Wires the handlers and /jev; the only file extension.ts imports
+    main/
+      index.ts              Entry point for other folders
+      apply.ts              Applies an outcome plan: thinking level and status
+      catalog.ts            Skill catalog, explicit skill, loaded-in-context scan
+      create.ts             createMain: wires the main handlers, owns no logic
+      gate.ts               Whether a turn is decided, what it asks, the new record
+      host.ts               MainDeps, shared handler context, status drawing
+      rich.ts               Builds the optional rich state inputs for the shipped groups
+      session.ts            MainSession: the turn in flight, status decision, overlay
+      settled.ts            agent_settled: correction, main and jev-turn lines; abort undo
+      skills.ts             Skill later batches, pick and the hidden skill message
+      start.ts              before_agent_start: gate, ask Jev, apply the reply
+    platform/
+      index.ts              Entry point for other folders
+      agents.ts             Reads agent files and the built-in agent table
+      child.ts              Child registry
+      context.ts            Previous turn id and hold context from the branch; re-exports
+                            branchItems and scanPlatforms from jev/
+      main-cwd.ts           Cwd of the newest main session, for the directory mode
+      models.ts             Model id helpers shared by worker routing and slot commands
+      readiness.ts          Key and executor checks; snapshot of config and state
+      stores.ts             Directory holding the package's files
+    status/
+      index.ts              Entry point for other folders
+      line.ts               Status line, tally, log entries
+      tally.ts              In-memory session observer fed by validated ledger lines
+    tools/
+      index.ts              Entry point for other folders
+      assessment.ts         Worker-side tool assessment: record lookup, request, flag, removal
+      counts.ts             Hands the counts to the worker ledger line
+      facts.ts              Maps Pi tool info to plain tool facts
+      service.ts            Captures the executor service at main session_start
+    tuning/
+      index.ts              Entry point for other folders
+      command.ts            /jev tune: report, undo, reset, on, off
+      deps.ts               Dependencies of the tuning handlers
+      seen.ts               Session-start line for unseen changes, `seenAt`
+      step.ts               agent_settled step: skip rules, write, change lines
+    worker/
+      index.ts              Entry point for other folders
+      cutpoint-window.ts    In-memory window of the latest eligible worker lines
+      routing.ts            message_end batch; tool_call route and mutation; warnings; ledger join
+    review/
+      index.ts              Entry point for other folders
+      tool.ts               jev_review tool, runs the CLI, hides the tool in children and while off
+    commands/
+      index.ts              Entry point for other folders
+      jev.ts                /jev command entry point
+      local-mode.ts         The directory mode command
+      slots.ts              The /jev custom model slot forms: add or replace, show, remove
 
-  store/                 Files under <agentDir>/jev/.
-    config.ts            config.json: reads and validates; writes only crew.slots
-    state-file.ts        state.json: switches, mode, CLI review default and on/off
-    local-mode.ts        <cwd>/.pi/jev-mode.json: reads and writes the directory mode
-    settings.ts          Effective settings: directory (mode only) > tuning > state > config > default
-    defaults.ts          Default values and feature and mode names
-    atomic.ts            Atomic write: owner-only directory and file
-    validate.ts          Small validators that collect issues with field paths
-    ledger-schema.ts     Ledger line schema and field lists
-    ledger.ts            ledger.jsonl: append, rotate, read
-    tuning-file.ts       tuning.json: changes, history
+  store/                    Files under <agentDir>/jev/. Flat.
+    atomic.ts               Atomic write: owner-only directory and file
+    config.ts               config.json: reads and validates; writes only crew.slots
+    defaults.ts             Default values and feature and mode names
+    ledger-schema.ts        Ledger line schema and field lists
+    ledger.ts               ledger.jsonl: append, rotate, read
+    local-mode.ts           <cwd>/.pi/jev-mode.json: reads and writes the directory mode
+    settings.ts             Effective settings: directory (mode only) > tuning > state > config > default
+    state-file.ts           state.json: switches, mode, CLI review default and on/off
+    tuning-file.ts          tuning.json: changes, history
+    validate.ts             Small validators that collect issues with field paths
 
 scripts/
-  replay/                Offline measurement. Output stays outside the repository.
-    cli.ts               Entry point: dry run by default, --send to call Jev
-    config.ts            Argument parsing and plain-JSON config reading
-    corpus.ts            Main-turn and worker samples, seeded stratified sampler
-    sessions.ts          Reads Pi session files and ledger lines
-    inputs.ts            Rebuilds rich state inputs from local data
-    variants.ts          Plans the variants of each pass
-    run.ts               Sends planned requests, estimates cost
-    compare.ts           Aggregates flips against rerun noise
-    outputs.ts           Owner-only aggregates.json and cases.md
+  replay/                   Offline measurement. Output stays outside the repository.
+    cli.ts                  Entry point: dry run by default, --send to call Jev
+    compare.ts              Aggregates flips against rerun noise
+    config.ts               Argument parsing and plain-JSON config reading
+    corpus.ts               Main-turn and worker samples, seeded stratified sampler
+    inputs.ts               Rebuilds rich state inputs from local data
+    outputs.ts              Owner-only output files; nothing here decides or aggregates
+    report.ts               Plans the report pass: one report and one rerun per request
+    report-compare.ts       Pure aggregation of the report pass: the run against its rerun
+    report-route.ts         Pure per-mode, per-routing worker routing for the report pass
+    run.ts                  Sends planned requests, estimates cost
+    sessions.ts             Reads Pi session files and ledger lines
+    variants.ts             Plans the variants of each pass
 ```
 
 ### Dependency rules
@@ -160,12 +195,17 @@ flowchart TD
 ```
 
 - `policy/` imports nothing outside itself and `shared/`.
+- A capability folder (a direct subfolder of `host/` or `policy/`) is used from outside only through its `index.ts`, with named re-exports.
+- Relative imports take the shortest path. A round trip such as `../main/x.ts` from inside `main/` is a violation.
+- Capability folders nest at most one level. `jev/`, `store/` and `shared/` stay flat.
+- Pure decision rules and data transforms live in `policy/`. Mutable shell state stays in `host/`.
+- `bun run test` runs `tests/import-graph.test.ts`, the authoritative check; it resolves every import path. `bun run lint` gives early feedback on the plain spellings.
 - `shared/` imports nothing outside itself; any module but `extension.ts` may import it.
 - `jev/` knows nothing about Pi. It receives plain inputs, which is what lets `scripts/replay` reuse it.
 - `store/` knows files and schemas, nothing about decisions.
 - Only `host/` imports `@earendil-works/pi-coding-agent` or reads executor events.
 
-Lint rules enforce these boundaries where possible.
+
 
 ## Host seams
 

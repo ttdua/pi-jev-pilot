@@ -1,7 +1,7 @@
 // Wording copied verbatim from docs/jev-questions.md. A change here needs a replay.
 import { EFFORT_OPTION_ORDER, type EffortLevel } from "../policy/effort.ts";
 import type { TierName } from "../policy/launch.ts";
-import type { GateKey } from "../policy/skill.ts";
+import type { GateKey } from "../policy/main/index.ts";
 
 export type WireQuestion = {
   type: "choice" | "noul";

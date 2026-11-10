@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
-import { jevDir } from "../src/host/stores.ts";
+import { jevDir } from "../src/host/platform/stores.ts";
 import { REPO_ROOT, tempDir } from "./helpers.ts";
 
 const prevAgentDir = process.env.PI_CODING_AGENT_DIR;
@@ -31,7 +31,7 @@ describe("jevDir", () => {
       [
         process.execPath,
         "-e",
-        `import { jevDir } from ${JSON.stringify(join(REPO_ROOT, "src", "host", "stores.ts"))}; process.stdout.write(jevDir());`,
+        `import { jevDir } from ${JSON.stringify(join(REPO_ROOT, "src", "host", "platform", "stores.ts"))}; process.stdout.write(jevDir());`,
       ],
       { cwd: REPO_ROOT, env: env as Record<string, string> },
     );

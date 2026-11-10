@@ -1,12 +1,12 @@
 // Pure per-mode, per-routing worker routing for the report pass. Mirrors the host's rolling window.
-import { cutPointsFor } from "../../src/policy/cutpoints.ts";
-import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/cut-window.ts";
+import { cutPointsFor } from "../../src/policy/worker/index.ts";
+import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/worker/index.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
-import type { ModeName } from "../../src/policy/modes.ts";
+import type { ModeName } from "../../src/policy/worker/index.ts";
 import { isSlot } from "../../src/policy/launch.ts";
-import { routeLaunch } from "../../src/policy/route.ts";
-import { difficultyScore } from "../../src/policy/score.ts";
-import type { WorkerAnswers } from "../../src/policy/worker.ts";
+import { routeLaunch } from "../../src/policy/worker/index.ts";
+import { difficultyScore } from "../../src/policy/worker/index.ts";
+import type { WorkerAnswers } from "../../src/policy/worker/index.ts";
 import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
 import { modelOfConfig, REPLAY_LAUNCH } from "./compare.ts";

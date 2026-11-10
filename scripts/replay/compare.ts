@@ -1,5 +1,5 @@
 // Pure aggregation of replay results against noise. File output lives in outputs.ts.
-import { cutPointsFor } from "../../src/policy/cutpoints.ts";
+import { cutPointsFor } from "../../src/policy/worker/index.ts";
 import { cutCodePoints } from "../../src/shared/text.ts";
 import type { Answer, MissKind } from "../../src/policy/answers.ts";
 import { readAnswers } from "../../src/policy/answers.ts";
@@ -10,8 +10,8 @@ import {
   type EffortLevel,
 } from "../../src/policy/effort.ts";
 import { isSlot, slotName, type EffectiveLaunch, type Target } from "../../src/policy/launch.ts";
-import { routeLaunch } from "../../src/policy/route.ts";
-import { readWorkerOutcome } from "../../src/policy/worker.ts";
+import { routeLaunch } from "../../src/policy/worker/index.ts";
+import { readWorkerOutcome } from "../../src/policy/worker/index.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
 import {
   baseOfKey,

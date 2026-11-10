@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { putToolCounts, takeToolCounts, TOOL_COUNTS_KEY } from "../../src/host/tool-counts.ts";
+import { putToolCounts, takeToolCounts, TOOL_COUNTS_KEY } from "../../src/host/tools/counts.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import { base, body, effort, harness, ok, TIERS_X } from "./worker-fakes.ts";
 

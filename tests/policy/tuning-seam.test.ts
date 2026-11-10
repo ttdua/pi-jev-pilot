@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { DecisionLine } from "../../src/policy/tuning-window.ts";
-import type { SignalLine } from "../../src/policy/tuning-signals.ts";
-import type { TuningRecord } from "../../src/policy/tuning.ts";
+import type { DecisionLine } from "../../src/policy/tuning/window.ts";
+import type { SignalLine } from "../../src/policy/tuning/signals.ts";
+import type { TuningRecord } from "../../src/policy/tuning/rules.ts";
 import type { LedgerEntry } from "../../src/store/ledger-schema.ts";
 import { resolveSettings, type Tuning } from "../../src/store/settings.ts";
 

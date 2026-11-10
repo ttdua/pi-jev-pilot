@@ -221,4 +221,4 @@ The skill criterion, batching, pick rule, delivery text and duplicate check SHAL
 
 #### Scenario: Lint boundaries
 - **WHEN** lint runs on the change
-- **THEN** it passes, and `src/policy/skill.ts` imports only from `src/policy/` and `src/shared/`
+- **THEN** it passes, and `src/policy/main/skill.ts` imports only from `src/policy/` and `src/shared/`

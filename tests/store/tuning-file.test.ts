@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import type { TuningRecord } from "../../src/policy/tuning.ts";
+import type { TuningRecord } from "../../src/policy/tuning/rules.ts";
 import { readTuning, updateTuning, type TuningDocument } from "../../src/store/tuning-file.ts";
 import { tempDir } from "../helpers.ts";
 

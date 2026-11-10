@@ -13,11 +13,18 @@ Read the [architecture](docs/architecture.md) and the [glossary](docs/glossary.m
 - **Rubrics:** data only. Changing one needs a [replay](docs/testing.md#replay-rules).
 - **Dependencies:** ask first. Keep runtime dependencies at zero where possible.
 
+## Where code goes
+
+- **Layer, then capability folder:** pick the layer (`host/`, `policy/`, `jev/`, `store/`, `shared/`), then the capability folder under it (`policy/main/`, `host/tuning/`). `jev/`, `store/` and `shared/` stay flat.
+- **Pure code in `policy/`:** decision rules and data transforms with no Pi import, no I/O, no clock and no global state. Mutable session state stays in `host/`.
+- **Cross-capability use through `index.ts`:** import another capability only from its `index.ts`, with named re-exports (no `export *`). Relative imports take the shortest path. Capability folders nest at most one level.
+- **Enforcement:** `bun run test` runs `tests/import-graph.test.ts`, which resolves every import path and is authoritative. `bun run lint` catches the plain spellings early.
+
 ## Running the checks
 
 - `bun install`: install the pinned dependencies.
 - `bun run typecheck`: type-check the whole project.
-- `bun run lint`: run oxlint, including the dependency-boundary rules and the function-size rules (50 lines, complexity 12, 4 params, 25 statements, depth 4; off for `tests/`). The size rules warn for now and `--max-warnings` caps the total at the current baseline, so a new violation fails. Lower the cap as refactors land; once it reaches zero, set the size rules to `error` and go back to `--deny-warnings`.
+- `bun run lint`: run oxlint, including the early dependency-boundary rules (the resolved-path check in `bun run test` is authoritative) and the function-size rules (50 lines, complexity 12, 4 params, 25 statements, depth 4; off for `tests/`). The size rules warn for now and `--max-warnings` caps the total at the current baseline, so a new violation fails. Lower the cap as refactors land; once it reaches zero, set the size rules to `error` and go back to `--deny-warnings`.
 - `bun run fmt`: format every file in place.
 - `bun run fmt:check`: fail if any file is unformatted.
 - `bun run test`: run all tests.

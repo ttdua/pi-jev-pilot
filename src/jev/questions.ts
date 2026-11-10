@@ -1,9 +1,9 @@
 // Question sets for main and worker requests. Wording lives in ./rubrics.ts.
 import type { QuestionSpec } from "../policy/answers.ts";
 import { EFFORT_OPTION_ORDER } from "../policy/effort.ts";
-import { STRATEGIES } from "../policy/strategy.ts";
+import { STRATEGIES } from "../policy/main/index.ts";
 import { slotTarget, TIER_LADDER, type TierName } from "../policy/launch.ts";
-import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/skill.ts";
+import { GATE_KEYS, NONE_OPTION, type SkillEntry, skillCriterion } from "../policy/main/index.ts";
 import {
   type BareNoulQuestion,
   CORRECTS_QUESTION,

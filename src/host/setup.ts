@@ -1,28 +1,29 @@
 import { readFileSync } from "node:fs";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isChild, subscribeChildren } from "./child.ts";
-import { runJev } from "./commands.ts";
+import {
+  isChild,
+  subscribeChildren,
+  scanPlatforms,
+  listAgents,
+  loadSnapshot,
+  setMainCwd,
+  jevDir,
+} from "./platform/index.ts";
+import { runJev } from "./commands/index.ts";
 import { SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
 import { updateTuning } from "../store/tuning-file.ts";
 import { askJev } from "../jev/client.ts";
 import { appendLedger, readLedger } from "../store/ledger.ts";
-import { createCutpointWindow, type CutpointWindow } from "./cutpoint-window.ts";
-import { scanPlatforms } from "./context.ts";
-import { listAgents } from "./agents.ts";
-import { createMain } from "./main.ts";
-import { loadSnapshot } from "./readiness.ts";
-import { setMainCwd } from "./main-cwd.ts";
-import { hideReviewInChild, registerReviewTool, syncReviewTool } from "./review.ts";
-import { compactTally, drawStatus, logLine } from "./status.ts";
-import { jevDir } from "./stores.ts";
-import { runTune } from "./tune-command.ts";
-import type { TuningDeps } from "./tuning-deps.ts";
-import { showUnseenTuning } from "./tuning-seen.ts";
-import { settleTuning } from "./tuning-step.ts";
-import { createSessionLog } from "./tally.ts";
-import { captureMainService, clearMainService } from "./tool-service.ts";
-import { createToolAssessment } from "./tools.ts";
-import { registerWorkerRouting } from "./worker.ts";
+import {
+  createCutpointWindow,
+  type CutpointWindow,
+  registerWorkerRouting,
+} from "./worker/index.ts";
+import { createMain } from "./main/index.ts";
+import { hideReviewInChild, registerReviewTool, syncReviewTool } from "./review/index.ts";
+import { compactTally, drawStatus, logLine, createSessionLog } from "./status/index.ts";
+import { runTune, type TuningDeps, showUnseenTuning, settleTuning } from "./tuning/index.ts";
+import { captureMainService, clearMainService, createToolAssessment } from "./tools/index.ts";
 
 /** Draw `jev-log` entries as one truncated line; older Pi without the API is skipped. */
 function registerLogRenderer(pi: ExtensionAPI): void {
