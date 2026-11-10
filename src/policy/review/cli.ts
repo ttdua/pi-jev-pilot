@@ -87,6 +87,32 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+function nonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v !== "";
+}
+
+// Only entries with a slug that Codex lists (visibility absent or `list`) are kept.
+function isListedModel(raw: unknown): raw is Record<string, unknown> & { slug: string } {
+  if (!isRecord(raw) || !nonEmptyString(raw.slug)) return false;
+  return raw.visibility === undefined || raw.visibility === "list";
+}
+
+function effortsOf(raw: Record<string, unknown>): string[] {
+  const levels = Array.isArray(raw.supported_reasoning_levels)
+    ? raw.supported_reasoning_levels
+    : [];
+  const efforts: string[] = [];
+  for (const l of levels as unknown[]) {
+    if (isRecord(l) && nonEmptyString(l.effort)) efforts.push(l.effort);
+  }
+  return efforts;
+}
+
+function codexModelOf(raw: Record<string, unknown> & { slug: string }): CodexModel {
+  const name = nonEmptyString(raw.display_name) ? raw.display_name : raw.slug;
+  return { slug: raw.slug, name, efforts: effortsOf(raw) };
+}
+
 /** Visible models from `codex debug models`; anything unreadable gives `[]`. */
 export function parseCodexCatalog(stdout: string): CodexModel[] {
   let data: unknown;
@@ -96,22 +122,7 @@ export function parseCodexCatalog(stdout: string): CodexModel[] {
     return [];
   }
   if (!isRecord(data) || !Array.isArray(data.models)) return [];
-  const out: CodexModel[] = [];
-  for (const raw of data.models as unknown[]) {
-    if (!isRecord(raw) || typeof raw.slug !== "string" || raw.slug === "") continue;
-    if (raw.visibility !== undefined && raw.visibility !== "list") continue;
-    const levels = Array.isArray(raw.supported_reasoning_levels)
-      ? raw.supported_reasoning_levels
-      : [];
-    const efforts: string[] = [];
-    for (const l of levels as unknown[]) {
-      if (isRecord(l) && typeof l.effort === "string" && l.effort !== "") efforts.push(l.effort);
-    }
-    const name =
-      typeof raw.display_name === "string" && raw.display_name !== "" ? raw.display_name : raw.slug;
-    out.push({ slug: raw.slug, name, efforts });
-  }
-  return out;
+  return (data.models as unknown[]).filter(isListedModel).map(codexModelOf);
 }
 
 /** `provider/model` lines of `opencode models`. */
@@ -160,35 +171,37 @@ function fail(message: string, suggestions: string[]): CheckResult {
   };
 }
 
+// The catalog slug a typed model names: a tier's newest slug, or a slug or display name.
+function findCodexSlug(model: string, catalog: CodexModel[]): string | undefined {
+  if (isTier(model)) return resolveTier(model, catalog);
+  const lower = model.toLowerCase();
+  return catalog.find((m) => m.slug.toLowerCase() === lower || m.name.toLowerCase() === lower)
+    ?.slug;
+}
+
+function unknownCodexModel(model: string, catalog: CodexModel[]): CheckResult {
+  const tiers: string[] = [];
+  for (const m of catalog) {
+    const t = tierOf(m.slug);
+    if (isTier(t) && !tiers.includes(t)) tiers.push(t);
+  }
+  return fail(
+    `Unknown Codex model "${model}".`,
+    tiers.map((t) => `${t} (now ${resolveTier(t, catalog)})`),
+  );
+}
+
 export function checkCodexChoice(
   model: string | undefined,
   effort: string | undefined,
   catalog: CodexModel[],
 ): CheckResult {
   if (model === undefined) return effort === undefined ? { ok: true } : { ok: true, effort };
-  let slug: string | undefined;
-  let stored = model;
-  if (isTier(model)) {
-    slug = resolveTier(model, catalog);
-  } else {
-    const lower = model.toLowerCase();
-    slug = catalog.find(
-      (m) => m.slug.toLowerCase() === lower || m.name.toLowerCase() === lower,
-    )?.slug;
-    if (slug !== undefined) stored = slug;
-  }
+  const slug = findCodexSlug(model, catalog);
   const entry = slug === undefined ? undefined : catalog.find((m) => m.slug === slug);
-  if (slug === undefined || entry === undefined) {
-    const tiers: string[] = [];
-    for (const m of catalog) {
-      const t = tierOf(m.slug);
-      if (isTier(t) && !tiers.includes(t)) tiers.push(t);
-    }
-    return fail(
-      `Unknown Codex model "${model}".`,
-      tiers.map((t) => `${t} (now ${resolveTier(t, catalog)})`),
-    );
-  }
+  if (slug === undefined || entry === undefined) return unknownCodexModel(model, catalog);
+  // A tier is stored as typed; a slug or display name is stored as its slug.
+  const stored = isTier(model) ? model : slug;
   if (effort === undefined) return { ok: true, model: stored };
   if (!entry.efforts.includes(effort)) {
     return fail(
