@@ -24,7 +24,7 @@ vi.mock("#src/lifecycle/create-subagent-session", async () => {
 });
 
 import subagentsExtension from "#src/index";
-import { getSubagentsService, unpublishSubagentsService } from "#src/service/service";
+import { getSubagentsService, publishSubagentsService, unpublishSubagentsService } from "#src/service/service";
 
 function instance() {
   const handlers = new Map<string, Array<(...args: any[]) => unknown>>();
@@ -64,53 +64,59 @@ function instance() {
 
 afterEach(() => {
   unpublishSubagentsService();
-  delete (globalThis as Record<symbol, unknown>)[Symbol.for("@ttdua/pi-subagents:children")];
 });
 
-describe("service publication through the extension's handlers", () => {
-  it("publishes the main session's service from session_start", async () => {
-    const main = instance();
-    await main.start("main-1");
+describe("service publication through the extension's wiring", () => {
+  it("Load-time consumer finds the service", () => {
+    instance();
 
-    expect(getSubagentsService()).toMatchObject({ implementation: "@ttdua/pi-subagents", sessionId: "main-1" });
+    // A companion extension loading after the executor reads the slot at once.
+    expect(getSubagentsService()).toMatchObject({ implementation: "@ttdua/pi-subagents" });
+  });
+
+  it("names the session at its first session_start, and not before", async () => {
+    const main = instance();
+    expect(getSubagentsService()?.sessionId).toBe("");
+
+    await main.start("main-1");
+    expect(getSubagentsService()?.sessionId).toBe("main-1");
+
+    await main.start("main-2");
+    expect(getSubagentsService()?.sessionId).toBe("main-1");
     await main.shutdown();
   });
 
-  it("children do not replace the main service, and their shutdown leaves it", async () => {
+  it("a later-loaded instance does not replace the main service, and its shutdown leaves it", async () => {
     const main = instance();
     await main.start("main-1");
     const mainService = getSubagentsService();
 
-    // The main instance spawns two children; each announces itself before binding.
+    // The main instance spawns two children; each loads its own instance.
     for (const type of ["Explore", "Plan"]) {
       mainService!.spawn(type, "go", { foreground: true });
       await Promise.resolve();
-    }
-    // Each child's own extension instance then starts and shuts down.
-    const childIds = [...(globalThis as any)[Symbol.for("@ttdua/pi-subagents:children")]];
-    expect(childIds).toHaveLength(2);
-    for (const childId of childIds) {
       const child = instance();
-      await child.start(childId);
+      await child.start(`child-${type}`);
       await child.shutdown();
     }
 
     expect(getSubagentsService()).toBe(mainService);
+    expect(getSubagentsService()?.sessionId).toBe("main-1");
     await main.shutdown();
     expect(getSubagentsService()).toBeUndefined();
   });
 
   it("shutdown removes only its own service", async () => {
     const first = instance();
-    const second = instance();
     await first.start("s1");
-    await second.start("s2");
-    const secondService = getSubagentsService();
+    const firstService = getSubagentsService();
+    // Another implementation's service takes the slot.
+    const foreign = { implementation: "@gotgenes/pi-subagents" } as never;
+    publishSubagentsService(foreign);
 
     await first.shutdown();
 
-    expect(getSubagentsService()).toBe(secondService);
-    await second.shutdown();
-    expect(getSubagentsService()).toBeUndefined();
+    expect(getSubagentsService()).toBe(foreign);
+    expect(firstService).not.toBe(foreign);
   });
 });

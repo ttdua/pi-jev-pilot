@@ -16,7 +16,7 @@
  */
 
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
-import type { EffectiveFacts, LaunchIdentity } from "#src/seams/identity";
+import type { EffectiveFacts, PublishedLaunchIdentity } from "#src/seams/identity";
 
 /** Emitted at the start of a child run, before the session is created. */
 export const SUBAGENT_CHILD_SPAWNING = "subagents:child:spawning";
@@ -46,13 +46,13 @@ export const SUBAGENT_CHILD_COMPLETED = "subagents:child:completed";
 export const SUBAGENT_CHILD_DISPOSED = "subagents:child:disposed";
 
 /** Payload for `subagents:child:spawning`. */
-export interface ChildSpawningEvent extends LaunchIdentity {
+export interface ChildSpawningEvent extends PublishedLaunchIdentity {
   agentName: string;
   parentSessionId?: string;
 }
 
 /** Payload for `subagents:child:session-created`. */
-export interface ChildSessionCreatedEvent extends LaunchIdentity, EffectiveFacts {
+export interface ChildSessionCreatedEvent extends PublishedLaunchIdentity, EffectiveFacts {
   /** Child session id — the registry key. Unique per child; concurrent
    * siblings of the same parent occupy distinct keys. */
   sessionId: string;
@@ -60,7 +60,7 @@ export interface ChildSessionCreatedEvent extends LaunchIdentity, EffectiveFacts
 }
 
 /** Payload for `subagents:child:bound`. */
-export interface ChildBoundEvent extends LaunchIdentity {
+export interface ChildBoundEvent extends PublishedLaunchIdentity {
   /** Child session id — the same key `session-created` carried. */
   sessionId: string;
   parentSessionId?: string;

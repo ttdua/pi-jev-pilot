@@ -21,6 +21,14 @@ export interface LaunchIdentity {
   toolCallId?: string;
 }
 
+/**
+ * The identity as event payloads publish it: `agentId` and `agentType` are
+ * optional in the public contract so other publishers of these channels stay
+ * valid. This executor always sets them (`launchIdentity` returns them required).
+ */
+export type PublishedLaunchIdentity = Partial<Pick<LaunchIdentity, "agentId" | "agentType">> &
+  Pick<LaunchIdentity, "toolCallId">;
+
 /** The identity fields an event carries; `toolCallId` is omitted, not undefined, for service launches. */
 export function launchIdentity(source: LaunchSource): LaunchIdentity {
   const identity: LaunchIdentity = { agentId: source.id, agentType: source.type };

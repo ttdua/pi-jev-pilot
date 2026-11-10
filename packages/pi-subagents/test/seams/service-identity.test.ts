@@ -1,69 +1,59 @@
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  SUBAGENT_CHILD_DISPOSED,
-  SUBAGENT_CHILD_SESSION_CREATED,
-} from "#src/lifecycle/child-lifecycle";
-import { getSubagentsService, unpublishSubagentsService } from "#src/service/service";
+import { getSubagentsService, publishSubagentsService, unpublishSubagentsService } from "#src/service/service";
 import type { SubagentsService } from "#src/service/service";
-import {
-  childSessionIds,
-  ServicePublication,
-  trackChildSessions,
-} from "#src/seams/service-identity";
+import { ServicePublication } from "#src/seams/service-identity";
 
-const CHILDREN_KEY = Symbol.for("@ttdua/pi-subagents:children");
-
-function fakeService(sessionId: string): SubagentsService {
-  return { implementation: "@ttdua/pi-subagents", sessionId } as unknown as SubagentsService;
+function fakeService(implementation = "@ttdua/pi-subagents"): SubagentsService {
+  return { implementation, sessionId: "" } as unknown as SubagentsService;
 }
 
 afterEach(() => {
   unpublishSubagentsService();
-  delete (globalThis as Record<symbol, unknown>)[CHILDREN_KEY];
 });
 
-describe("service identity", () => {
-  it("children do not replace the main service", () => {
-    const emitted: string[] = [];
-    const emit = trackChildSessions((channel) => emitted.push(channel));
-    const main = new ServicePublication();
-    main.start("main-1", fakeService);
-    const mainService = getSubagentsService();
-
-    for (const childId of ["child-1", "child-2"]) {
-      emit(SUBAGENT_CHILD_SESSION_CREATED, { sessionId: childId });
-      const child = new ServicePublication();
-      child.start(childId, fakeService);
-      child.stop();
-      emit(SUBAGENT_CHILD_DISPOSED, { sessionId: childId });
-    }
-
-    expect(getSubagentsService()).toBe(mainService);
-    expect(getSubagentsService()?.implementation).toBe("@ttdua/pi-subagents");
-    expect(getSubagentsService()?.sessionId).toBe("main-1");
-    expect(emitted).toHaveLength(4);
+describe("service ownership", () => {
+  it("publishes when the slot is empty", () => {
+    const service = fakeService();
+    new ServicePublication(service).publish();
+    expect(getSubagentsService()).toBe(service);
   });
 
-  it("records child ids until disposed, process-wide", () => {
-    const emit = trackChildSessions(() => undefined);
-    emit(SUBAGENT_CHILD_SESSION_CREATED, { sessionId: "c1" });
-    expect(childSessionIds().has("c1")).toBe(true);
-    expect(((globalThis as Record<symbol, unknown>)[CHILDREN_KEY] as Set<string>).has("c1")).toBe(true);
-    emit(SUBAGENT_CHILD_DISPOSED, { sessionId: "c1" });
-    expect(childSessionIds().has("c1")).toBe(false);
+  it("does not replace a service this implementation already published", () => {
+    const main = fakeService();
+    new ServicePublication(main).publish();
+    new ServicePublication(fakeService()).publish();
+    expect(getSubagentsService()).toBe(main);
   });
 
-  it("shutdown removes only its own service", () => {
-    const first = new ServicePublication();
-    const second = new ServicePublication();
-    first.start("s1", fakeService);
-    second.start("s2", fakeService);
-    const secondService = getSubagentsService();
+  it("replaces a service another implementation published", () => {
+    publishSubagentsService(fakeService("@gotgenes/pi-subagents"));
+    const service = fakeService();
+    new ServicePublication(service).publish();
+    expect(getSubagentsService()).toBe(service);
+  });
 
-    first.stop();
+  it("a non-publishing instance's stop leaves the slot alone", () => {
+    const main = fakeService();
+    new ServicePublication(main).publish();
+    const child = new ServicePublication(fakeService());
+    child.publish();
+    child.stop();
+    expect(getSubagentsService()).toBe(main);
+  });
 
-    expect(getSubagentsService()).toBe(secondService);
-    second.stop();
+  it("stop removes only its own service", () => {
+    const own = new ServicePublication(fakeService());
+    own.publish();
+    const foreign = fakeService("@gotgenes/pi-subagents");
+    publishSubagentsService(foreign);
+    own.stop();
+    expect(getSubagentsService()).toBe(foreign);
+  });
+
+  it("stop removes the instance's own service", () => {
+    const own = new ServicePublication(fakeService());
+    own.publish();
+    own.stop();
     expect(getSubagentsService()).toBeUndefined();
   });
 });

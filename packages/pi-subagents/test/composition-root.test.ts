@@ -60,8 +60,14 @@ vi.mock("#src/lifecycle/create-subagent-session", async () => {
 
 import subagentsExtension from "#src/index";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
-import { getSubagentsService } from "#src/service/service";
+import { getSubagentsService, unpublishSubagentsService } from "#src/service/service";
 import { createMockSession, createSubagentSessionStub, toSubagentSession } from "./helpers/mock-session";
+
+// A loaded instance no longer replaces a vendored service already published, so
+// each test starts with an empty slot instead of relying on the last load winning.
+afterEach(() => {
+  unpublishSubagentsService();
+});
 
 function makePi() {
   const tools = new Map<string, any>();

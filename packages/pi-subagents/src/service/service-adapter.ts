@@ -51,8 +51,19 @@ export class SubagentsServiceAdapter implements SubagentsService {
     private readonly manager: SubagentManagerLike,
     private readonly resolveModel: (input: string, registry: ModelRegistry) => Model<any> | string,
     private readonly runtime: ServiceRuntimeLike,
-    readonly sessionId: string = "",
   ) {}
+
+  private session = "";
+
+  /** The session this instance first started in; `""` before `session_start`. */
+  get sessionId(): string {
+    return this.session;
+  }
+
+  /** Record the instance's session at its first `session_start`; later starts keep it. */
+  bindSession(sessionId: string): void {
+    if (this.session === "") this.session = sessionId;
+  }
 
   spawn(type: string, prompt: string, options?: SpawnOptions): string {
     if (!this.runtime.currentCtx) {
