@@ -137,25 +137,29 @@ export function mainSamples(dir: string): MainSample[] {
 
 type Launch = { agent: string; brief: string; description?: string; background: boolean };
 
+/** The launch items of a subagent call: `args.tasks` when it is an array, else the call itself. */
+function launchItems(args: Rec): unknown[] {
+  const nested = isRec(args.args) && Array.isArray(args.args.tasks) ? args.args.tasks : undefined;
+  return nested ?? [args];
+}
+
+function launchOf(item: unknown): Launch | undefined {
+  if (!isRec(item)) return undefined;
+  const agent = str(item.agent) ?? str(item.subagent_type);
+  const brief = str(item.task) ?? str(item.prompt);
+  if (!agent || !brief) return undefined;
+  const description = str(item.description);
+  return {
+    agent,
+    brief,
+    ...(description ? { description } : {}),
+    background: item.async === true || item.run_in_background === true,
+  };
+}
+
 function launchesOf(args: unknown): Launch[] {
   if (!isRec(args)) return [];
-  const nested = isRec(args.args) && Array.isArray(args.args.tasks) ? args.args.tasks : undefined;
-  const items: unknown[] = nested ?? [args];
-  const out: Launch[] = [];
-  for (const item of items) {
-    if (!isRec(item)) continue;
-    const agent = str(item.agent) ?? str(item.subagent_type);
-    const brief = str(item.task) ?? str(item.prompt);
-    if (!agent || !brief) continue;
-    const description = str(item.description);
-    out.push({
-      agent,
-      brief,
-      ...(description ? { description } : {}),
-      background: item.async === true || item.run_in_background === true,
-    });
-  }
-  return out;
+  return launchItems(args).flatMap((item) => launchOf(item) ?? []);
 }
 
 function nearestUserPrompt(branch: readonly SessionEntry[]): string | undefined {
@@ -166,29 +170,47 @@ function nearestUserPrompt(branch: readonly SessionEntry[]): string | undefined 
   return undefined;
 }
 
+/** The `subagent` tool calls in an assistant message, or none when it is not one. */
+function subagentCalls(entry: SessionEntry): Rec[] {
+  const m = messageOf(entry);
+  if (m?.role !== "assistant" || !Array.isArray(m.content) || !entry.id) return [];
+  return m.content.filter(
+    (part): part is Rec => isRec(part) && part.type === "toolCall" && part.name === "subagent",
+  );
+}
+
+function workerSample(session: string, l: Launch, parentPrompt: string | undefined): WorkerSample {
+  return {
+    session,
+    agent: l.agent,
+    brief: l.brief,
+    ...(l.description ? { description: l.description } : {}),
+    ...(parentPrompt ? { parentPrompt } : {}),
+    runInBackground: l.background,
+  };
+}
+
+/** Worker samples of one assistant entry; `branchTo` is pure, so it is only walked when there are calls. */
+function entrySamples(
+  session: string,
+  entries: readonly SessionEntry[],
+  entry: SessionEntry,
+): WorkerSample[] {
+  const calls = subagentCalls(entry);
+  if (calls.length === 0) return [];
+  const parentPrompt = nearestUserPrompt(branchTo(entries, entry.id!));
+  return calls.flatMap((part) =>
+    launchesOf(part.arguments).map((l) => workerSample(session, l, parentPrompt)),
+  );
+}
+
 export function workerSamples(dir: string): WorkerSample[] {
   const out: WorkerSample[] = [];
   for (const path of sessionFiles(dir)) {
     const session = readSessionFile(path);
     if (!session) continue;
-    const { header, entries } = session;
-    for (const entry of entries) {
-      const m = messageOf(entry);
-      if (m?.role !== "assistant" || !Array.isArray(m.content) || !entry.id) continue;
-      const parentPrompt = nearestUserPrompt(branchTo(entries, entry.id));
-      for (const part of m.content) {
-        if (!isRec(part) || part.type !== "toolCall" || part.name !== "subagent") continue;
-        for (const l of launchesOf(part.arguments)) {
-          out.push({
-            session: header.id,
-            agent: l.agent,
-            brief: l.brief,
-            ...(l.description ? { description: l.description } : {}),
-            ...(parentPrompt ? { parentPrompt } : {}),
-            runInBackground: l.background,
-          });
-        }
-      }
+    for (const entry of session.entries) {
+      out.push(...entrySamples(session.header.id, session.entries, entry));
     }
   }
   return out;
