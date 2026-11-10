@@ -108,13 +108,16 @@ function toolMetadata(
 
 type Request = { req: JevRequest; scored: string[]; specs: Record<string, QuestionSpec> };
 
-function buildRequest(
-  gate: Gate,
-  agent: AgentFacts,
-  record: WorkerRecord,
-  tools: ToolFacts[],
-  scored: string[],
-): Request {
+/** What the request is built from: the gate, who is asked about, and the tools scored. */
+type RequestInput = {
+  gate: Gate;
+  agent: AgentFacts;
+  record: WorkerRecord;
+  tools: ToolFacts[];
+  scored: string[];
+};
+
+function buildRequest({ gate, agent, record, tools, scored }: RequestInput): Request {
   const { questions, specs } = buildToolQuestions(scored);
   const { settings, keyVar } = gate.snap;
   const state = buildToolState({
@@ -177,7 +180,8 @@ export function createToolAssessment(
     if (agent.declaredTools !== null) return NONE;
     const { scored } = toolCandidates(gate.selected.filter((n) => typeof n === "string"));
     if (scored.length === 0) return NONE;
-    const request = buildRequest(gate, agent, record, toolMetadata(pi, scored), scored);
+    const tools = toolMetadata(pi, scored);
+    const request = buildRequest({ gate, agent, record, tools, scored });
     const outcome = await ask(request.req);
     return decide(outcome, request, gate.snap.settings.tools.mode, record.id);
   }
