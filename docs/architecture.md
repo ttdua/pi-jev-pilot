@@ -136,6 +136,12 @@ src/
       deps.ts               Dependencies of the tuning handlers
       seen.ts               Session-start line for unseen changes, `seenAt`
       step.ts               agent_settled step: skip rules, write, change lines
+    wiring/
+      index.ts              Entry point for other folders
+      command.ts            registerJevCommand: the /jev registration and its deps
+      parts.ts              Parts and SetupDeps: what setup builds and the subscribers share
+      session.ts            session_start and session_shutdown handlers
+      turn.ts               before_agent_start, before_provider_request, turn_end, agent_settled
     worker/
       index.ts              Entry point for other folders
       cutpoint-window.ts    In-memory window of the latest eligible worker lines
