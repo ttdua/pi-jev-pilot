@@ -163,6 +163,7 @@ src/
     ledger.ts               ledger.jsonl: append, rotate, read
     local-mode.ts           <cwd>/.pi/jev-mode.json: reads and writes the directory mode
     settings.ts             Effective settings: directory (mode only) > tuning > state > config > default
+    settings-sections.ts    One pure resolver per settings section, used by settings.ts
     state-file.ts           state.json: switches, mode, CLI review default and on/off
     tuning-file.ts          tuning.json: changes, history
     validate.ts             Small validators that collect issues with field paths
