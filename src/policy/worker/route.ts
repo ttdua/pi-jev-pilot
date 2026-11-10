@@ -50,6 +50,19 @@ export type Route =
       };
     };
 
+// Launches the router never touches: resumed, forked-as-is, fully locked, or thinking locked with no model to pick.
+function leavesUntouched(
+  launch: EffectiveLaunch,
+  forkedLaunch: ForkedLaunch,
+  forkedThinking: boolean,
+  noTier: boolean,
+): boolean {
+  if (launch.resume) return true;
+  if (launch.inheritContext && forkedLaunch === "untouched") return true;
+  if (launch.modelLocked && launch.thinkingLocked) return true;
+  return launch.thinkingLocked && (forkedThinking || noTier);
+}
+
 export function launchKind(
   launch: EffectiveLaunch,
   offered: readonly TierName[],
@@ -59,29 +72,35 @@ export function launchKind(
   const locked = launch.modelLocked || launch.thinkingLocked;
   const forkedThinking = launch.inheritContext && forkedLaunch === "thinking";
   const noTier = offered.length === 0 && slotCount === 0;
-  if (launch.resume) return { kind: "untouched", locked };
-  if (launch.inheritContext && forkedLaunch === "untouched") return { kind: "untouched", locked };
-  if (launch.modelLocked && launch.thinkingLocked) return { kind: "untouched", locked };
-  if (launch.thinkingLocked && (forkedThinking || noTier)) return { kind: "untouched", locked };
+  if (leavesUntouched(launch, forkedLaunch, forkedThinking, noTier)) {
+    return { kind: "untouched", locked };
+  }
   return { kind: "ask", tierQuestion: !forkedThinking && !noTier, locked };
 }
 
 type Record_ = Extract<Route, { kind: "routed" }>["record"];
+type ReadAnswers = Extract<WorkerAnswers, { kind: "read" }>;
+type Decided = Extract<TierDecision, { kind: "decided" }>;
+type Write = { model?: string; thinking?: ThinkingLevel };
 
-function thinkingOnly(
-  input: RouteInput,
-  answers: Extract<WorkerAnswers, { kind: "read" }>,
-  record: Record_,
-): Route {
-  const write: { thinking?: ThinkingLevel } = {};
+// The effort the worker asked for, adjusted by the risk answer, tier and fallback.
+function effortFor(
+  answers: ReadAnswers,
+  extra: { tier?: Target; movedByFallback: boolean },
+): ThinkingLevel | undefined {
+  const effort = answers.answers["effort"];
+  const risky = answers.answers["risky"];
+  return workerEffort({
+    ...(effort?.type === "choice" ? { effort } : {}),
+    ...(risky?.type === "noul" ? { risky: risky.noul } : {}),
+    ...extra,
+  });
+}
+
+function thinkingOnly(input: RouteInput, answers: ReadAnswers, record: Record_): Route {
+  const write: Write = {};
   if (!input.launch.thinkingLocked) {
-    const effort = answers.answers["effort"];
-    const risky = answers.answers["risky"];
-    const level = workerEffort({
-      ...(effort?.type === "choice" ? { effort } : {}),
-      ...(risky?.type === "noul" ? { risky: risky.noul } : {}),
-      movedByFallback: false,
-    });
+    const level = effortFor(answers, { movedByFallback: false });
     if (level !== undefined) {
       write.thinking = level;
       record.effort = level;
@@ -90,59 +109,62 @@ function thinkingOnly(
   return { kind: "routed", write, record };
 }
 
+type Placed = Exclude<ReturnType<typeof chooseFallback>, { kind: "unchanged" }>;
+type Lock = { locked?: true };
+type Ctx = { input: RouteInput; answers: ReadAnswers; locked: Lock };
+
+// Writes the model, and the thinking level clamped to what the placed model supports.
+function placedRoute(ctx: Ctx, decision: Decided, placed: Placed): Route {
+  const { input, answers } = ctx;
+  const final = placed.tier;
+  const record: Record_ = { reason: decision.reason, tier: final, ...ctx.locked };
+  if (placed.kind === "moved") record.fallback = placed.from;
+  const write: Write = { model: input.modelOf(final) };
+  if (!input.launch.thinkingLocked) {
+    const level = effortFor(answers, { tier: final, movedByFallback: placed.kind === "moved" });
+    if (level !== undefined) {
+      const supported = supportedLevels(input.thinkingOf(final) ?? { reasoning: true });
+      const clamped = clampLevel(level, supported);
+      write.thinking = clamped;
+      record.effort = clamped;
+    }
+  }
+  return { kind: "routed", write, record };
+}
+
+function modelRoute(ctx: Ctx, decision: Decided): Route {
+  const { input } = ctx;
+  const fallback = chooseFallback(decision.tier, input.offered, input.canRun, input.slots);
+  if (fallback.kind === "unchanged") {
+    const record = { reason: decision.reason, tier: decision.tier, fallback: decision.tier };
+    return { kind: "routed", write: {}, record: { ...record, ...ctx.locked } };
+  }
+  return placedRoute(ctx, decision, fallback);
+}
+
+// No tier decision, or a locked model: only the thinking level may change.
+function decidedRoute(ctx: Ctx, decision: TierDecision): Route {
+  if (decision.kind === "none") {
+    return thinkingOnly(ctx.input, ctx.answers, { reason: "untouched", ...ctx.locked });
+  }
+  if (ctx.input.launch.modelLocked) {
+    const record = { reason: decision.reason, tier: decision.tier, ...ctx.locked };
+    return thinkingOnly(ctx.input, ctx.answers, record);
+  }
+  return modelRoute(ctx, decision);
+}
+
 export function routeLaunch(input: RouteInput): Route {
-  const { launch, answers } = input;
-  const kind = launchKind(launch, input.offered, input.forkedLaunch, input.slots.length);
+  const { answers } = input;
+  const kind = launchKind(input.launch, input.offered, input.forkedLaunch, input.slots.length);
   const locked = kind.locked ? ({ locked: true } as const) : {};
   if (kind.kind === "untouched") return { kind: "untouched", ...locked };
   if (answers === undefined || answers.kind === "cancelled") return { kind: "skip" };
   if (answers.kind === "miss") {
     return { kind: "routed", write: {}, record: { reason: "miss", ...locked } };
   }
-
   const decision: TierDecision = kind.tierQuestion
     ? decideTier(answers, input.offered, input.cuts, input.slots)
     : { kind: "none" };
-  if (decision.kind === "none") {
-    return thinkingOnly(input, answers, { reason: "untouched", ...locked });
-  }
-  if (launch.modelLocked) {
-    return thinkingOnly(input, answers, {
-      reason: decision.reason,
-      tier: decision.tier,
-      ...locked,
-    });
-  }
-
-  const fallback = chooseFallback(decision.tier, input.offered, input.canRun, input.slots);
-  if (fallback.kind === "unchanged") {
-    return {
-      kind: "routed",
-      write: {},
-      record: { reason: decision.reason, tier: decision.tier, fallback: decision.tier, ...locked },
-    };
-  }
-  const final = fallback.tier;
-  const record: Record_ = { reason: decision.reason, tier: final, ...locked };
-  if (fallback.kind === "moved") record.fallback = fallback.from;
-  const write: { model?: string; thinking?: ThinkingLevel } = { model: input.modelOf(final) };
-  if (!launch.thinkingLocked) {
-    const effort = answers.answers["effort"];
-    const risky = answers.answers["risky"];
-    const level = workerEffort({
-      ...(effort?.type === "choice" ? { effort } : {}),
-      ...(risky?.type === "noul" ? { risky: risky.noul } : {}),
-      tier: final,
-      movedByFallback: fallback.kind === "moved",
-    });
-    if (level !== undefined) {
-      const clamped = clampLevel(
-        level,
-        supportedLevels(input.thinkingOf(final) ?? { reasoning: true }),
-      );
-      write.thinking = clamped;
-      record.effort = clamped;
-    }
-  }
-  return { kind: "routed", write, record };
+  return decidedRoute({ input, answers, locked }, decision);
 }
