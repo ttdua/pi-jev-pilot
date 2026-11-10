@@ -21,39 +21,56 @@ function textOf(content: unknown): string {
     .join("\n");
 }
 
+type Tool = { name: string; failed?: true };
+type Message = {
+  role: string;
+  content?: unknown;
+  toolCallId?: string;
+  isError?: boolean;
+};
+
+function readUser(message: Message): BranchItem {
+  return { role: "user", text: textOf(message.content), tools: [] };
+}
+
+/** Tool calls of an assistant message, registered by id so a failed result can mark them. */
+function readAssistant(message: Message, calls: Map<string, Tool>): BranchItem {
+  const tools: Tool[] = [];
+  if (Array.isArray(message.content)) {
+    for (const part of message.content as Part[]) {
+      if (part?.type !== "toolCall" || typeof part.name !== "string") continue;
+      const tool: Tool = { name: part.name };
+      tools.push(tool);
+      if (typeof part.id === "string") calls.set(part.id, tool);
+    }
+  }
+  return { role: "assistant", text: textOf(message.content), tools };
+}
+
+function readToolResult(message: Message, calls: Map<string, Tool>): BranchItem {
+  const isError = message.isError === true;
+  if (isError && message.toolCallId) {
+    const call = calls.get(message.toolCallId);
+    if (call) call.failed = true;
+  }
+  return { role: "toolResult", text: "", tools: [], ...(isError ? { isError } : {}) };
+}
+
+function readMessage(message: Message, calls: Map<string, Tool>): BranchItem | undefined {
+  if (message.role === "user") return readUser(message);
+  if (message.role === "assistant") return readAssistant(message, calls);
+  if (message.role === "toolResult") return readToolResult(message, calls);
+  return undefined;
+}
+
 /** Text and tool names only; never arguments, results, thinking or images. */
 export function branchItems(entries: readonly SessionEntryLike[]): BranchItem[] {
   const items: BranchItem[] = [];
-  const calls = new Map<string, { name: string; failed?: true }>();
+  const calls = new Map<string, Tool>();
   for (const entry of entries) {
     if (entry.type !== "message") continue;
-    const message = entry.message as unknown as {
-      role: string;
-      content?: unknown;
-      toolCallId?: string;
-      isError?: boolean;
-    };
-    if (message.role === "user") {
-      items.push({ role: "user", text: textOf(message.content), tools: [] });
-    } else if (message.role === "assistant") {
-      const tools: { name: string; failed?: true }[] = [];
-      if (Array.isArray(message.content)) {
-        for (const part of message.content as Part[]) {
-          if (part?.type !== "toolCall" || typeof part.name !== "string") continue;
-          const tool: { name: string; failed?: true } = { name: part.name };
-          tools.push(tool);
-          if (typeof part.id === "string") calls.set(part.id, tool);
-        }
-      }
-      items.push({ role: "assistant", text: textOf(message.content), tools });
-    } else if (message.role === "toolResult") {
-      const isError = message.isError === true;
-      if (isError && message.toolCallId) {
-        const call = calls.get(message.toolCallId);
-        if (call) call.failed = true;
-      }
-      items.push({ role: "toolResult", text: "", tools: [], ...(isError ? { isError } : {}) });
-    }
+    const item = readMessage(entry.message as unknown as Message, calls);
+    if (item) items.push(item);
   }
   return items;
 }
