@@ -96,8 +96,10 @@ async function attemptLoop(exec: Exec, plan: Plan, input: Input): Promise<Review
 }
 
 /** Runs one review. Never throws; the brief and output stay out of `details`. */
-export async function runReview(exec: Exec, input: Input): Promise<ReviewRun> {
-  const { choice, signal } = input;
+export async function runReview(exec: Exec, request: Input): Promise<ReviewRun> {
+  const { choice, brief, cwd, signal } = request;
+  const input: Input =
+    signal === undefined ? { choice, brief, cwd } : { choice, brief, cwd, signal };
   let dir: string | undefined;
   try {
     if (signal?.aborted) return failed(choice, "cancelled", 1);

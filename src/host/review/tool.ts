@@ -65,8 +65,8 @@ export function registerReviewTool(
       "Use jev_review only when the user asks for a review by Codex or OpenCode, passing what changed and what to check as `brief`; omit `reviewer`, `model` and `effort` unless the user named them.",
     ],
     parameters: reviewParameters,
-    async execute(...args) {
-      const [, params, signal, , ctx] = args;
+    // oxlint-disable-next-line max-params -- signature fixed by Pi's ToolDefinition
+    async execute(_id, params, signal, _onUpdate, ctx) {
       try {
         if (isChild(ctx.sessionManager.getSessionId())) {
           return failure("jev_review is not available in a subagent session.");

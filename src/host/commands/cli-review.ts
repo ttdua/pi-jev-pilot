@@ -29,6 +29,7 @@ async function checkAgainstCli(
   try {
     r = await exec(cmd!, args!, { timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
   } catch {
+    /* a missing or failing CLI reads as an unreadable list below */
     r = undefined;
   }
   const unreadable = (): { reason: string } => ({

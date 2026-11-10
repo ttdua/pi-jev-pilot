@@ -61,13 +61,17 @@ async function readCapped(res: Response): Promise<Uint8Array | "too large" | "un
   return joined;
 }
 
-type Prepared = { headers: Headers; payload: string };
+type Prepared =
+  | { ok: true; headers: Headers; payload: string }
+  | { ok: false; outcome: JevOutcome };
+
+const fail = (outcome: JevOutcome): Prepared => ({ ok: false, outcome });
 
 // Pre-I/O step: every input check happens before the clock starts, in a fixed field read order.
-function validateRequest(req: JevRequest): Prepared | JevOutcome {
-  if (!isAllowedJevUrl(req.url)) return miss("error", "bad url", 0);
+function validateRequest(req: JevRequest): Prepared {
+  if (!isAllowedJevUrl(req.url)) return fail(miss("error", "bad url", 0));
   if (typeof req.timeoutMs !== "number" || !Number.isFinite(req.timeoutMs) || req.timeoutMs <= 0) {
-    return miss("error", "bad timeout", 0);
+    return fail(miss("error", "bad timeout", 0));
   }
   try {
     if (typeof req.apiKey !== "string") throw new TypeError("apiKey");
@@ -82,10 +86,10 @@ function validateRequest(req: JevRequest): Prepared | JevOutcome {
       "content-type": "application/json",
       accept: "application/json",
     });
-    return { headers, payload };
+    return { ok: true, headers, payload };
   } catch {
     // Getters that throw, bigint, cycles and bad header values all read as an unsendable request.
-    return miss("error", "bad request", 0);
+    return fail(miss("error", "bad request", 0));
   }
 }
 
@@ -139,7 +143,7 @@ export async function askJev(req: JevRequest): Promise<JevOutcome> {
   try {
     if (req.signal?.aborted === true) return { kind: "cancelled" };
     const prepared = validateRequest(req);
-    if (!("headers" in prepared)) return prepared;
+    if (!prepared.ok) return prepared.outcome;
 
     const started = performance.now();
     const settle = (outcome: JevOutcome): JevOutcome =>

@@ -11,11 +11,14 @@ import {
   type LocalOutcome,
 } from "./local-mode.ts";
 
-type Change = Exclude<JevArgs, { kind: "status" | "usage" | "slot" | "tune" | "mode-clear" }>;
+/** The sub-commands `applyCommand` handles; slot, tune and usage are answered by the dispatcher. */
+export type Command = Exclude<JevArgs, { kind: "slot" | "tune" | "usage" }>;
+type Change = Exclude<Command, { kind: "status" | "mode-clear" }>;
 
+/** `partialReset` is set when the state reset worked but the directory mode file stayed. */
 export type ApplyOutcome =
-  /** `partialReset` is set when the state reset worked but the directory mode file stayed. */
-  { ok: true; partialReset?: string } | { ok: false; message: string; level: "info" | "error" };
+  | { ok: true; partialReset?: string }
+  | { ok: false; message: string; level: "info" | "error" };
 
 function applyChange(
   parsed: Change,
@@ -51,7 +54,7 @@ function applyChange(
 }
 
 /** The directory-mode forms; `undefined` for every other command. */
-function runLocalForm(parsed: JevArgs, cwd: string): LocalOutcome | undefined {
+function runLocalForm(parsed: Command, cwd: string): LocalOutcome | undefined {
   if (parsed.kind === "mode-clear") return clearDirectoryMode(cwd);
   if (parsed.kind === "mode" && parsed.target === "local")
     return setDirectoryMode(cwd, parsed.mode);
@@ -89,12 +92,12 @@ function applyToState(
 
 /** Does what `parsed` asks for; the status form changes nothing. */
 export function applyCommand(
-  parsed: JevArgs,
+  parsed: Command,
   where: { cwd: string; dir: string },
   cliReview: CliReviewChoice | undefined,
 ): ApplyOutcome {
   const local = runLocalForm(parsed, where.cwd);
   if (local !== undefined) return refusedLocal(local) ?? { ok: true };
   if (parsed.kind === "status" || parsed.kind === "mode-clear") return { ok: true };
-  return applyToState(parsed as Change, where, cliReview);
+  return applyToState(parsed, where, cliReview);
 }

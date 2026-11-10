@@ -54,13 +54,15 @@ type Deps = {
   sync?: (snapshot: Snapshot) => void;
 };
 
+type Standalone = Extract<JevArgs, { kind: "slot" | "tune" | "usage" }>;
+
 /** The sub-commands that answer on their own, without touching the status. */
 function runStandalone(
   parsed: JevArgs,
   ctx: ExtensionCommandContext,
   deps: Deps,
   notify: Notify,
-): boolean {
+): parsed is Standalone {
   if (parsed.kind === "usage") {
     notify(usageText(), "warning");
   } else if (parsed.kind === "tune") {
@@ -82,11 +84,10 @@ function runStandalone(
 
 /** The CLI review choice to store, or `"refused"` once the refusal has been notified. */
 async function resolveCliReview(
-  parsed: JevArgs,
+  parsed: Extract<JevArgs, { kind: "cli-review" }>,
   deps: Deps,
   notify: Notify,
 ): Promise<CliReviewChoice | undefined | "refused"> {
-  if (parsed.kind !== "cli-review") return undefined;
   const checked = await checkCliReview(parsed, deps.exec);
   if (!checked.ok) {
     notify(checked.message, "error");
@@ -123,7 +124,8 @@ async function dispatch(
 ): Promise<void> {
   const parsed = parseJevArgs(args);
   if (runStandalone(parsed, ctx, deps, notify)) return;
-  const cliReview = await resolveCliReview(parsed, deps, notify);
+  const cliReview =
+    parsed.kind === "cli-review" ? await resolveCliReview(parsed, deps, notify) : undefined;
   if (cliReview === "refused") return;
   const applied = applyCommand(parsed, { cwd: ctx.cwd, dir: deps.dir }, cliReview);
   if (!applied.ok) {
