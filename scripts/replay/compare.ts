@@ -203,16 +203,23 @@ function emptyVariant(base: string, kind: "main" | "worker"): VariantAggregate {
   };
 }
 
+/** Fills `v.noise` from the larger rerun flip count per key and lists the keys whose flips exceed it. */
+function applyNoise(
+  v: VariantAggregate,
+  reruns: readonly (VariantAggregate | undefined)[],
+  kind: "main" | "worker",
+): void {
+  for (const key of KEYS[kind]) {
+    v.noise[key] = Math.max(...reruns.map((r) => r?.flips[key] ?? 0));
+    if ((v.flips[key] ?? 0) > (v.noise[key] ?? 0)) v.beyond.push(key);
+  }
+}
+
 function addNoise(variants: Record<string, VariantAggregate>, kind: "main" | "worker"): void {
-  const a = variants[variantKey(kind, "rerun-a")];
-  const b = variants[variantKey(kind, "rerun-b")];
+  const rerunKeys = [variantKey(kind, "rerun-a"), variantKey(kind, "rerun-b")];
+  const reruns = rerunKeys.map((key) => variants[key]);
   for (const [id, v] of Object.entries(variants)) {
-    const isRerun = id === variantKey(kind, "rerun-a") || id === variantKey(kind, "rerun-b");
-    if (v.kind !== kind || isRerun) continue;
-    for (const key of KEYS[kind]) {
-      v.noise[key] = Math.max(a?.flips[key] ?? 0, b?.flips[key] ?? 0);
-      if ((v.flips[key] ?? 0) > (v.noise[key] ?? 0)) v.beyond.push(key);
-    }
+    if (v.kind === kind && !rerunKeys.includes(id)) applyNoise(v, reruns, kind);
   }
 }
 
