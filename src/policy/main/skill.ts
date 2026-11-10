@@ -99,6 +99,29 @@ function withGate<T extends object>(base: T, gate: number | undefined): T & { ga
   return gate === undefined ? base : { ...base, gate };
 }
 
+type Leader = { name: string; p: number };
+
+// The leader with the strictly highest p across batches; the earlier batch wins ties.
+function bestLeader(
+  batches: readonly PickBatch[],
+  whichAnswers: readonly (ChoiceAnswer | undefined)[],
+): Leader | undefined {
+  let best: Leader | undefined;
+  for (const [i, batch] of batches.entries()) {
+    const answer = whichAnswers[i];
+    const leader = answer === undefined ? undefined : batchLeader(batch.options, answer);
+    if (leader !== undefined && (best === undefined || leader.p > best.p)) best = leader;
+  }
+  return best;
+}
+
+// A sure leader needs no gate; a weaker one needs the gate mean to support it.
+function supportsPick(best: Leader, gate: number | undefined): boolean {
+  const sure = best.p >= SURE_PICK;
+  const fits = best.p >= FIT_PICK && gate !== undefined && gate >= GATE_PICK;
+  return sure || fits;
+}
+
 /** Pick one skill from the batches' `which` answers; batch 0's gates support weaker leaders. */
 export function pickSkill(batches: readonly PickBatch[]): SkillPick {
   if (batches.length === 0) return { kind: "none", reason: "no-batch" };
@@ -108,16 +131,11 @@ export function pickSkill(batches: readonly PickBatch[]): SkillPick {
   }
   const first = batches[0]?.read;
   const gate = first?.kind === "read" ? gateMean(first.answers) : undefined;
-  let best: { name: string; p: number } | undefined;
-  for (const [i, batch] of batches.entries()) {
-    const answer = whichAnswers[i];
-    const leader = answer === undefined ? undefined : batchLeader(batch.options, answer);
-    if (leader !== undefined && (best === undefined || leader.p > best.p)) best = leader;
-  }
+  const best = bestLeader(batches, whichAnswers);
   if (best === undefined) return withGate({ kind: "none", reason: "none-leads" }, gate);
-  const sure = best.p >= SURE_PICK;
-  const fits = best.p >= FIT_PICK && gate !== undefined && gate >= GATE_PICK;
-  if (sure || fits) return withGate({ kind: "picked", name: best.name, p: best.p }, gate);
+  if (supportsPick(best, gate)) {
+    return withGate({ kind: "picked", name: best.name, p: best.p }, gate);
+  }
   return withGate({ kind: "none", reason: "below", p: best.p }, gate);
 }
 
