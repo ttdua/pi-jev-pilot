@@ -1,156 +1,242 @@
+/**
+ * Launch identity and effective facts, driven through the real boundaries:
+ * `AgentTool.execute` → `SubagentManager` → `createSubagentSession` →
+ * lifecycle publisher / events observer / service snapshot. Only the SDK
+ * session factory is faked, and it echoes the model and thinking level it is
+ * given, as `createAgentSession` does.
+ */
 import { describe, expect, it } from "vitest";
+import { AgentTypeRegistry } from "#src/config/agent-types";
+import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
 import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
+import { SubagentManager } from "#src/lifecycle/subagent-manager";
+import { CompositeSubagentObserver } from "#src/observation/composite-subagent-observer";
 import { SubagentEventsObserver } from "#src/observation/subagent-events-observer";
-import { effectiveFacts, launchIdentity } from "#src/seams/identity";
 import { toSubagentRecord } from "#src/service/service-adapter";
-import { createTestSubagent } from "#test/helpers/make-subagent";
+import { AgentTool } from "#src/tools/agent-tool";
+import type { AgentConfig } from "#src/types";
+import { makeAgentConfig } from "#test/helpers/make-agent-config";
+import { makeModel } from "#test/helpers/make-model";
 import { STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import {
-  createAgentLookup,
   createFactorySession,
   createSubagentSessionDeps,
   createSubagentSessionIO,
 } from "#test/helpers/subagent-session-io";
 
-const noNotifications = {
-  sendCompletion: () => undefined,
-  sendUpdate: () => undefined,
-  sendWorkspaceNotice: () => undefined,
-  dispose: () => undefined,
+const FAST = makeModel({ provider: "fixture", id: "fixture-fast" });
+const DEEP = makeModel({ provider: "fixture", id: "fixture-deep" });
+const MAIN = makeModel({ provider: "fixture", id: "fixture-main" });
+const modelRegistry = {
+  find: (provider: string, id: string) => [FAST, DEEP, MAIN].find((m) => m.provider === provider && m.id === id),
+  getAll: () => [FAST, DEEP, MAIN],
+  getAvailable: () => [FAST, DEEP, MAIN],
 };
+const snapshot = { ...STUB_SNAPSHOT, model: MAIN, modelRegistry };
 
-async function createChild(parentToolCallId: string | undefined, session = createFactorySession()) {
-  const io = createSubagentSessionIO();
-  io.createSession.mockResolvedValue({ session });
-  const events: Array<{ channel: string; data: Record<string, unknown> }> = [];
-  const lifecycle = createChildLifecyclePublisher((channel, data) =>
-    events.push({ channel, data: data as Record<string, unknown> }),
+type Event = { channel: string; data: Record<string, any> };
+
+function agents(extra: Partial<AgentConfig> = {}) {
+  return new AgentTypeRegistry(
+    () => new Map([["Explore", makeAgentConfig({ name: "Explore", toolNames: ["read"], ...extra })]]),
   );
-  await createSubagentSession(
-    {
-      agentId: "a1",
-      snapshot: STUB_SNAPSHOT,
-      type: "Explore",
-      parentSession: { parentSessionId: "p1", toolCallId: parentToolCallId },
-    },
-    createSubagentSessionDeps({ io, exec: () => undefined as never, registry: createAgentLookup(), lifecycle: lifecycle as never }),
-  );
-  return events;
 }
 
-describe("launch identity on child events", () => {
-  it("tool-call launch", async () => {
-    const events = await createChild("call_1");
-    const created = events.find((e) => e.channel === "subagents:child:session-created");
+interface Options {
+  agent?: Partial<AgentConfig>;
+  /** Background concurrency limit; 0 keeps every background launch queued. */
+  maxConcurrent?: number;
+  /** Runs inside `bindExtensions`, after `session-created` has been emitted. */
+  bind?: (session: ReturnType<typeof createFactorySession>) => void | Promise<void>;
+}
 
-    expect(created?.data).toMatchObject({
-      sessionId: "child-session-id",
-      agentId: "a1",
-      agentType: "Explore",
-      toolCallId: "call_1",
+function harness(options: Options = {}) {
+  const events: Event[] = [];
+  const recordsSeenInCreated: unknown[] = [];
+  const registry = agents(options.agent);
+  const io = createSubagentSessionIO();
+  io.createSession.mockImplementation(async (opts: { model?: unknown; thinkingLevel?: string }) => {
+    const session = createFactorySession();
+    Object.assign(session, { model: opts.model ?? MAIN, thinkingLevel: opts.thinkingLevel ?? "off" });
+    session.bindExtensions.mockImplementation(async () => options.bind?.(session));
+    return { session };
+  });
+
+  // `manager` is assigned below; the lifecycle emit only runs after that.
+  let manager!: SubagentManager;
+  const emit = (channel: string, data: unknown) => {
+    const event = { channel, data: data as Record<string, any> };
+    events.push(event);
+    if (channel === "subagents:child:session-created") {
+      const record = manager.getRecord(event.data.agentId);
+      recordsSeenInCreated.push(record ? toSubagentRecord(record) : undefined);
+    }
+  };
+  const deps = createSubagentSessionDeps({ io, registry });
+  const sessionDeps = { ...deps, lifecycle: createChildLifecyclePublisher(emit) };
+  const observer = new CompositeSubagentObserver([
+    new SubagentEventsObserver({
+      emit,
+      appendEntry: () => undefined,
+      notifications: {
+        sendCompletion: () => undefined,
+        sendUpdate: () => undefined,
+        sendWorkspaceNotice: () => undefined,
+        dispose: () => undefined,
+      },
+    }),
+  ]);
+  manager = new SubagentManager({
+    createSubagentSession: (params) => createSubagentSession(params, sessionDeps),
+    baseCwd: "/repo",
+    observer,
+    limiter: new ConcurrencyLimiter(() => options.maxConcurrent ?? 4),
+    registry,
+  });
+  const tool = new AgentTool(
+    manager,
+    {
+      buildSnapshot: () => snapshot,
+      getModelInfo: () => ({ parentModel: MAIN, modelRegistry }),
+      getSessionInfo: () => ({ parentSessionFile: "/sessions/p.jsonl", parentSessionId: "p1" }),
+    },
+    { defaultMaxTurns: undefined, maxConcurrent: 4 },
+    registry,
+    "/home/user/.pi",
+  );
+  const call = (toolCallId: string, params: Record<string, unknown>) =>
+    tool.execute(toolCallId, params, undefined, undefined, {} as never);
+  const on = (channel: string) => events.filter((e) => e.channel === channel);
+  return { call, events, on, manager, recordsSeenInCreated };
+}
+
+const explore = { prompt: "go", description: "d", subagent_type: "Explore", run_in_background: false };
+
+describe("launch identity on child events", () => {
+  it("tool-call launch names agent, type and tool call", async () => {
+    const h = harness();
+
+    await h.call("call_1", explore);
+
+    const id = h.manager.listAgents()[0]!.id;
+    for (const channel of ["subagents:child:spawning", "subagents:child:session-created", "subagents:child:bound"]) {
+      expect(h.on(channel)[0]?.data).toMatchObject({ agentId: id, agentType: "Explore", toolCallId: "call_1" });
+    }
+    expect(h.on("subagents:child:session-created")[0]?.data.sessionId).toBe("child-session-id");
+  });
+
+  it("service launch omits toolCallId", async () => {
+    const h = harness();
+
+    const id = h.manager.spawn(snapshot, "Explore", "go", {
+      description: "d",
+      background: { kind: "explicit", isBackground: false },
     });
-    for (const channel of ["subagents:child:spawning", "subagents:child:bound"]) {
-      expect(events.find((e) => e.channel === channel)?.data).toMatchObject({
-        agentId: "a1",
-        agentType: "Explore",
-        toolCallId: "call_1",
-      });
+    await h.manager.getRecord(id)!.promise;
+
+    const created = h.on("subagents:child:session-created")[0]!.data;
+    expect(created).toMatchObject({ agentId: id, agentType: "Explore" });
+    expect(created).not.toHaveProperty("toolCallId");
+    for (const channel of ["subagents:created", "subagents:started", "subagents:completed"]) {
+      for (const e of h.on(channel)) expect(e.data).not.toHaveProperty("toolCallId");
     }
   });
 
-  it("service launch", async () => {
-    const events = await createChild(undefined);
-    const created = events.find((e) => e.channel === "subagents:child:session-created");
+  it("completion carries the launching tool call", async () => {
+    const h = harness();
 
-    expect(created?.data).toMatchObject({ agentId: "a1", agentType: "Explore" });
-    expect(created?.data).not.toHaveProperty("toolCallId");
+    await h.call("call_2", explore);
+
+    expect(h.on("subagents:completed")[0]?.data).toMatchObject({ toolCallId: "call_2" });
+    expect(h.on("subagents:started")[0]?.data).toMatchObject({ toolCallId: "call_2" });
   });
 
-  it("launchIdentity omits an absent toolCallId", () => {
-    expect(launchIdentity({ id: "a1", type: "Plan" })).toEqual({ agentId: "a1", agentType: "Plan" });
-  });
-});
+  it("resume carries the resuming call, not the spawning one", async () => {
+    const h = harness();
+    await h.call("call_1", explore);
+    const id = h.manager.listAgents()[0]!.id;
 
-describe("record events carry the tool call id", () => {
-  function observe() {
-    const emitted: Array<{ channel: string; data: Record<string, unknown> }> = [];
-    const observer = new SubagentEventsObserver({
-      emit: (channel, data) => emitted.push({ channel, data: data as Record<string, unknown> }),
-      appendEntry: () => undefined,
-      notifications: noNotifications,
-    });
-    return { emitted, observer };
-  }
+    await h.call("call_3", { prompt: "more", description: "d", subagent_type: "Explore", resume: id });
 
-  it("completion of a tool-call launch carries it", () => {
-    const { emitted, observer } = observe();
-    const record = createTestSubagent({ id: "a1", toolCallId: "call_2", status: "completed" });
-
-    observer.onSubagentRunFinished(record, "initial");
-
-    expect(emitted[0]?.channel).toBe("subagents:completed");
-    expect(emitted[0]?.data).toMatchObject({ id: "a1", toolCallId: "call_2" });
-  });
-
-  it("resume from a tool call carries the resume's call id", () => {
-    const { emitted, observer } = observe();
-    const record = createTestSubagent({ id: "a1", toolCallId: "call_1", status: "running" });
-    Object.defineProperty(record, "currentToolCallId", { value: "call_3" });
-
-    observer.onSubagentRunStarted(record, "resume");
-    observer.onSubagentRunFinished(record, "resume");
-
-    expect(emitted.map((e) => e.channel)).toEqual(["subagents:resuming", "subagents:resumed"]);
-    for (const e of emitted) expect(e.data).toMatchObject({ id: "a1", toolCallId: "call_3" });
-  });
-
-  it("service launches omit it", () => {
-    const { emitted, observer } = observe();
-
-    observer.onSubagentCreated(createTestSubagent({ id: "a2" }));
-    observer.onSubagentRunStarted(createTestSubagent({ id: "a2" }), "initial");
-
-    for (const e of emitted) expect(e.data).not.toHaveProperty("toolCallId");
+    expect(h.on("subagents:resuming")[0]?.data).toMatchObject({ id, toolCallId: "call_3" });
+    expect(h.on("subagents:resumed")[0]?.data).toMatchObject({ id, toolCallId: "call_3" });
   });
 });
 
-describe("effective launch facts", () => {
-  it("records provider/id and thinking from the created session", async () => {
-    const session = createFactorySession();
-    Object.assign(session, { model: { provider: "fixture", id: "fixture-fast" }, thinkingLevel: "medium" });
+describe("effective model and thinking", () => {
+  it("locked model wins over the caller's request", async () => {
+    const h = harness({ agent: { model: "fixture/fixture-deep", locked: ["model"] } });
 
-    const events = await createChild(undefined, session);
+    await h.call("call_1", { ...explore, model: "fixture/fixture-fast" });
 
-    expect(events.find((e) => e.channel === "subagents:child:session-created")?.data).toMatchObject({
+    const id = h.manager.listAgents()[0]!.id;
+    expect(h.on("subagents:child:session-created")[0]?.data.effectiveModel).toBe("fixture/fixture-deep");
+    expect(toSubagentRecord(h.manager.getRecord(id)!).effectiveModel).toBe("fixture/fixture-deep");
+  });
+
+  it("an unlocked request wins, with its thinking level", async () => {
+    const h = harness();
+
+    await h.call("call_1", { ...explore, model: "fixture/fixture-fast", thinking: "medium" });
+
+    const created = h.on("subagents:child:session-created")[0]!.data;
+    expect(created).toMatchObject({ effectiveModel: "fixture/fixture-fast", effectiveThinking: "medium" });
+    expect(toSubagentRecord(h.manager.listAgents()[0]!)).toMatchObject({
       effectiveModel: "fixture/fixture-fast",
       effectiveThinking: "medium",
     });
   });
 
-  it("locked model wins: the session's model is what is reported", () => {
-    expect(effectiveFacts({ model: { provider: "fixture", id: "fixture-deep" }, thinkingLevel: "high" })).toEqual({
-      effectiveModel: "fixture/fixture-deep",
-      effectiveThinking: "high",
+  it("the record already carries the facts inside the session-created event", async () => {
+    const h = harness();
+
+    await h.call("call_1", { ...explore, model: "fixture/fixture-fast", thinking: "medium" });
+
+    expect(h.recordsSeenInCreated[0]).toMatchObject({
+      effectiveModel: "fixture/fixture-fast",
+      effectiveThinking: "medium",
     });
   });
 
-  it("queued record has neither effective field", () => {
-    const record = toSubagentRecord(createTestSubagent({ id: "q1", status: "queued" }));
+  it("a model change during bind leaves record and event on the creation snapshot", async () => {
+    const h = harness({
+      bind: (session) => {
+        Object.assign(session, { model: DEEP, thinkingLevel: "high" });
+      },
+    });
 
+    await h.call("call_1", { ...explore, model: "fixture/fixture-fast", thinking: "medium" });
+
+    const expected = { effectiveModel: "fixture/fixture-fast", effectiveThinking: "medium" };
+    expect(h.on("subagents:child:session-created")[0]?.data).toMatchObject(expected);
+    expect(toSubagentRecord(h.manager.listAgents()[0]!)).toMatchObject(expected);
+  });
+
+  it("a bind failure keeps the facts on the record", async () => {
+    const h = harness({
+      bind: () => {
+        throw new Error("bind failed");
+      },
+    });
+
+    await h.call("call_1", { ...explore, model: "fixture/fixture-fast" });
+
+    const record = toSubagentRecord(h.manager.listAgents()[0]!);
+    expect(record.status).toBe("error");
+    expect(record.effectiveModel).toBe("fixture/fixture-fast");
+  });
+
+  it("a queued record has neither field", () => {
+    const h = harness({ maxConcurrent: 0 });
+    const id = h.manager.spawn(snapshot, "Explore", "go", {
+      description: "d",
+      background: { kind: "explicit", isBackground: true },
+    });
+    const record = toSubagentRecord(h.manager.getRecord(id)!);
+
+    expect(record.status).toBe("queued");
     expect(record).not.toHaveProperty("effectiveModel");
     expect(record).not.toHaveProperty("effectiveThinking");
-  });
-
-  it("record snapshot carries them once the session exists", () => {
-    const agent = createTestSubagent({ id: "a1" });
-    Object.defineProperty(agent, "effective", {
-      value: { effectiveModel: "fixture/fixture-fast", effectiveThinking: "medium" },
-    });
-
-    expect(toSubagentRecord(agent)).toMatchObject({
-      effectiveModel: "fixture/fixture-fast",
-      effectiveThinking: "medium",
-    });
   });
 });

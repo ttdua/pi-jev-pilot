@@ -40,3 +40,4 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `dist/settings.d.ts` | seam | Generated alongside `public.d.ts` by `build:types`. |
 | `test/seams/identity.test.ts` | seam | Tests for launch identity and effective facts. |
 | `test/seams/service-identity.test.ts` | seam | Tests for service ownership across main and child sessions. |
+| `test/seams/service-wiring.test.ts` | seam | Service publication through the real `session_start`/`session_shutdown` wiring in `index.ts`. |

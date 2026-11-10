@@ -23,7 +23,7 @@ import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
-import { effectiveFacts, launchIdentity } from "#src/seams/identity";
+import { type EffectiveFacts, effectiveFacts, launchIdentity } from "#src/seams/identity";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
 import { resolveTurnLimits, type TurnLimitRequest } from "#src/lifecycle/turn-limits";
 import { AskParentTool, type QuestionRecorder } from "#src/session/ask-parent-tool";
@@ -192,6 +192,11 @@ export interface CreateSubagentSessionParams {
   notifyParent?: UpdateAnnouncer;
   /** The caller's turn-limit inputs, resolved with the agent's own limit into the session's. */
   turnLimits?: TurnLimitRequest;
+  /**
+   * Receives the model and thinking level the session was created with, before
+   * `session-created` is emitted, so the record and the event carry one snapshot.
+   */
+  onEffectiveFacts?: (facts: EffectiveFacts) => void;
 }
 
 /**
@@ -323,7 +328,9 @@ export async function createSubagentSession(
   // entry in place for the first permission check during child extension
   // initialization. The event bus dispatches synchronously, so a synchronous
   // subscriber completes before this returns.
-  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, ...identity, ...effectiveFacts(session) });
+  const facts = Object.freeze(effectiveFacts(session));
+  params.onEffectiveFacts?.(facts);
+  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, ...identity, ...facts });
 
   try {
     // Bind extensions so that session_start fires and extensions can initialize.

@@ -21,7 +21,7 @@ import type { LifetimeUsage } from "#src/lifecycle/usage";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import { WorkspaceBracket } from "#src/lifecycle/workspace-bracket";
 import type { RunConfig } from "#src/runtime";
-import { type EffectiveFacts, effectiveFacts } from "#src/seams/identity";
+import type { EffectiveFacts } from "#src/seams/identity";
 import type { CompactionInfo, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 
 /** Per-subagent lifecycle observer — created by SubagentManager for each spawn. */
@@ -431,6 +431,7 @@ export class Subagent {
 		try {
 			this.subagentSession = await this.execution.createSubagentSession({
 				agentId: this.id,
+				onEffectiveFacts: (facts) => { this._effective = facts; },
 				snapshot: this.execution.snapshot,
 				type: this.type,
 				cwd,
@@ -454,7 +455,6 @@ export class Subagent {
 			this.fail(run, err);
 			return;
 		}
-		this._effective = effectiveFacts(this.subagentSession);
 
 		this.flushPendingSteers();
 		this.execution.observer?.onSessionCreated?.(this);
