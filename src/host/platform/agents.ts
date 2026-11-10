@@ -89,6 +89,50 @@ function isPlainObject(val: unknown): val is Record<string, unknown> {
   return typeof val === "object" && val !== null && !Array.isArray(val);
 }
 
+function declaredToolsOf(tools: unknown): string[] | null {
+  return tools === undefined || tools === null ? null : (parseList(tools) ?? []);
+}
+
+function maxTurnsOf(val: unknown): number | null {
+  return typeof val === "number" && val >= 0 ? val : null;
+}
+
+function setsOf(fm: Record<string, unknown>): AgentFacts["sets"] {
+  return {
+    model: typeof fm.model === "string",
+    thinking: typeof fm.thinking === "string" && THINKING_LEVELS.has(fm.thinking),
+  };
+}
+
+/** Optional launch fields: a key is present only when the file declares it. */
+function launchFields(fm: Record<string, unknown>): Partial<AgentFacts> {
+  const fields: Partial<AgentFacts> = {};
+  const runInBackground = flag(fm.run_in_background);
+  if (runInBackground !== undefined) fields.runInBackground = runInBackground;
+  const inheritContext = flag(fm.inherit_context);
+  if (inheritContext !== undefined) fields.inheritContext = inheritContext;
+  const locked = lockDeclaration(fm.locked);
+  if (locked !== undefined) fields.locked = locked;
+  return fields;
+}
+
+function factsOf(
+  id: { name: string; source: "project" | "global" },
+  fm: Record<string, unknown>,
+  body: string,
+): AgentFacts {
+  return {
+    name: id.name,
+    source: id.source,
+    description: typeof fm.description === "string" ? fm.description : id.name,
+    instructionsExcerpt: cutCodePoints(body.trim(), EXCERPT_MAX),
+    declaredTools: declaredToolsOf(fm.tools),
+    maxTurns: maxTurnsOf(fm.max_turns),
+    sets: setsOf(fm),
+    ...launchFields(fm),
+  };
+}
+
 function parseFile(
   name: string,
   path: string,
@@ -98,27 +142,7 @@ function parseFile(
     const parsed = parseFrontmatter(readFileSync(path, "utf-8"));
     const fm: Record<string, unknown> = isPlainObject(parsed.frontmatter) ? parsed.frontmatter : {};
     const body = typeof parsed.body === "string" ? parsed.body : "";
-    const tools = fm.tools;
-    const declaredTools = tools === undefined || tools === null ? null : (parseList(tools) ?? []);
-    const facts: AgentFacts = {
-      name,
-      source,
-      description: typeof fm.description === "string" ? fm.description : name,
-      instructionsExcerpt: cutCodePoints(body.trim(), EXCERPT_MAX),
-      declaredTools,
-      maxTurns: typeof fm.max_turns === "number" && fm.max_turns >= 0 ? fm.max_turns : null,
-      sets: {
-        model: typeof fm.model === "string",
-        thinking: typeof fm.thinking === "string" && THINKING_LEVELS.has(fm.thinking),
-      },
-    };
-    const runInBackground = flag(fm.run_in_background);
-    if (runInBackground !== undefined) facts.runInBackground = runInBackground;
-    const inheritContext = flag(fm.inherit_context);
-    if (inheritContext !== undefined) facts.inheritContext = inheritContext;
-    const locked = lockDeclaration(fm.locked);
-    if (locked !== undefined) facts.locked = locked;
-    return facts;
+    return factsOf({ name, source }, fm, body);
   } catch {
     return undefined;
   }

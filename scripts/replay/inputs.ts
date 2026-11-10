@@ -47,23 +47,33 @@ function isLocked(v: unknown): boolean {
   return Array.isArray(v) && v.every((f) => (LOCKABLE_FIELDS as readonly unknown[]).includes(f));
 }
 
-function isAgent(v: unknown): v is AgentFacts {
-  if (!isRec(v)) return false;
-  const sets = v.sets;
+const AGENT_SOURCES: readonly unknown[] = ["project", "global", "builtin"];
+
+function hasAgentStrings(v: Rec): boolean {
   return (
     typeof v.name === "string" &&
-    (v.source === "project" || v.source === "global" || v.source === "builtin") &&
+    AGENT_SOURCES.includes(v.source) &&
     typeof v.description === "string" &&
-    typeof v.instructionsExcerpt === "string" &&
+    typeof v.instructionsExcerpt === "string"
+  );
+}
+
+function hasAgentLimits(v: Rec): boolean {
+  return (
     (v.declaredTools === null || isStrings(v.declaredTools)) &&
     (v.maxTurns === null || typeof v.maxTurns === "number") &&
     optionalBool(v.runInBackground) &&
     optionalBool(v.inheritContext) &&
-    isLocked(v.locked) &&
-    isRec(sets) &&
-    typeof sets.model === "boolean" &&
-    typeof sets.thinking === "boolean"
+    isLocked(v.locked)
   );
+}
+
+function hasSets(sets: unknown): boolean {
+  return isRec(sets) && typeof sets.model === "boolean" && typeof sets.thinking === "boolean";
+}
+
+function isAgent(v: unknown): v is AgentFacts {
+  return isRec(v) && hasAgentStrings(v) && hasAgentLimits(v) && hasSets(v.sets);
 }
 
 export function readSnapshot(path: string): Snapshot {
@@ -94,28 +104,41 @@ export function agentFacts(snapshot: Snapshot | undefined, name: string): AgentF
 
 const dataOf = (e: SessionEntry): Rec | undefined => (isRec(e.data) ? e.data : undefined);
 
+function decisionFromEffortEntry(data: Rec): NonNullable<RichInputs["lastDecision"]> {
+  const effort = str(data.requested);
+  const strategy = isRec(data.decision) ? str(data.decision.strategy) : undefined;
+  return { ...(effort ? { effort } : {}), ...(strategy ? { strategy } : {}) };
+}
+
+function decisionFromTurnEntry(
+  data: Rec,
+  ledger: ReplayContext["ledger"],
+): RichInputs["lastDecision"] {
+  const turnId = str(data.turnId);
+  const joined = turnId ? ledger.get(turnId) : undefined;
+  if (!joined) return undefined;
+  return {
+    ...(joined.effective ? { effort: joined.effective } : {}),
+    ...(joined.strategy ? { strategy: joined.strategy } : {}),
+  };
+}
+
+/** The decision one entry records, or undefined when it records none. */
+function decisionOf(e: SessionEntry, ledger: ReplayContext["ledger"]): RichInputs["lastDecision"] {
+  const data = dataOf(e);
+  if (e.type !== "custom" || !data) return undefined;
+  if (e.customType === "jev-pilot:effort") return decisionFromEffortEntry(data);
+  if (e.customType === "jev-turn") return decisionFromTurnEntry(data, ledger);
+  return undefined;
+}
+
 function lastDecision(
   before: readonly SessionEntry[],
   ledger: ReplayContext["ledger"],
 ): RichInputs["lastDecision"] {
   for (let i = before.length - 1; i >= 0; i--) {
-    const e = before[i]!;
-    const data = dataOf(e);
-    if (e.type !== "custom" || !data) continue;
-    if (e.customType === "jev-pilot:effort") {
-      const effort = str(data.requested);
-      const strategy = isRec(data.decision) ? str(data.decision.strategy) : undefined;
-      return { ...(effort ? { effort } : {}), ...(strategy ? { strategy } : {}) };
-    }
-    if (e.customType === "jev-turn") {
-      const turnId = str(data.turnId);
-      const joined = turnId ? ledger.get(turnId) : undefined;
-      if (!joined) continue;
-      return {
-        ...(joined.effective ? { effort: joined.effective } : {}),
-        ...(joined.strategy ? { strategy: joined.strategy } : {}),
-      };
-    }
+    const decision = decisionOf(before[i]!, ledger);
+    if (decision !== undefined) return decision;
   }
   return undefined;
 }

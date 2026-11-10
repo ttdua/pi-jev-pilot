@@ -24,7 +24,7 @@ Read the [architecture](docs/architecture.md) and the [glossary](docs/glossary.m
 
 - `bun install`: install the pinned dependencies.
 - `bun run typecheck`: type-check the whole project.
-- `bun run lint`: run oxlint, including the early dependency-boundary rules (the resolved-path check in `bun run test` is authoritative) and the function-size rules (50 lines, complexity 12, 4 params, 25 statements, depth 4; off for `tests/`). The size rules warn for now and `--max-warnings` caps the total at the current baseline, so a new violation fails. Lower the cap as refactors land; once it reaches zero, set the size rules to `error` and go back to `--deny-warnings`.
+- `bun run lint`: run oxlint, including the early dependency-boundary rules (the resolved-path check in `bun run test` is authoritative) and the function-size rules as errors: at most 50 lines, complexity 12, 4 params, 25 statements and depth 4 per function in `src/` and `scripts/` (off for `tests/`). Split a function that grows past them; the only disable directive is the `max-params` on `jev_review`'s `execute`, whose arity Pi fixes.
 - `bun run fmt`: format every file in place.
 - `bun run fmt:check`: fail if any file is unformatted.
 - `bun run test`: run all tests.

@@ -1,5 +1,5 @@
 // Reads workspace facts from file names only; never file contents.
-import { lstatSync, readdirSync } from "node:fs";
+import { lstatSync, readdirSync, type Dirent } from "node:fs";
 import { join } from "node:path";
 
 type Marker = { platform: string; files?: RegExp; dirs?: string[]; paths?: string[] };
@@ -66,31 +66,43 @@ function listDir(dir: string) {
   }
 }
 
+function scanRoots(cwd: string): string[] {
+  const roots = [cwd];
+  for (const entry of listDir(cwd)) {
+    if (entry.isSymbolicLink() || !entry.isDirectory() || SKIP_DIRS.has(entry.name)) continue;
+    roots.push(join(cwd, entry.name));
+  }
+  return roots;
+}
+
+function matchesByName(marker: Marker, entries: readonly Dirent[]): boolean {
+  return entries.some(
+    (e) =>
+      (marker.files !== undefined && e.isFile() && marker.files.test(e.name)) ||
+      (marker.dirs !== undefined && e.isDirectory() && marker.dirs.includes(e.name)),
+  );
+}
+
+function matchesByPath(marker: Marker, root: string): boolean {
+  return (marker.paths ?? []).some((p) => {
+    const full = join(root, p);
+    return p.endsWith(".toml") ? isFile(full) : isDir(full);
+  });
+}
+
+function scanRoot(root: string, found: Set<string>): void {
+  const entries = listDir(root).filter((e) => !e.isSymbolicLink());
+  for (const marker of MARKERS) {
+    if (found.has(marker.platform)) continue;
+    if (matchesByName(marker, entries) || matchesByPath(marker, root)) found.add(marker.platform);
+  }
+}
+
 /** Platform markers by file name at `cwd` and one level below; never file contents. */
 export function scanPlatforms(cwd: string): string[] {
   const found = new Set<string>();
   try {
-    const roots = [cwd];
-    for (const entry of listDir(cwd)) {
-      if (entry.isSymbolicLink() || !entry.isDirectory() || SKIP_DIRS.has(entry.name)) continue;
-      roots.push(join(cwd, entry.name));
-    }
-    for (const root of roots) {
-      const entries = listDir(root).filter((e) => !e.isSymbolicLink());
-      for (const marker of MARKERS) {
-        if (found.has(marker.platform)) continue;
-        const byName = entries.some(
-          (e) =>
-            (marker.files !== undefined && e.isFile() && marker.files.test(e.name)) ||
-            (marker.dirs !== undefined && e.isDirectory() && marker.dirs.includes(e.name)),
-        );
-        const byPath = (marker.paths ?? []).some((p) => {
-          const full = join(root, p);
-          return p.endsWith(".toml") ? isFile(full) : isDir(full);
-        });
-        if (byName || byPath) found.add(marker.platform);
-      }
-    }
+    for (const root of scanRoots(cwd)) scanRoot(root, found);
   } catch {
     // Scanning is best effort and never throws.
   }

@@ -2,7 +2,7 @@
   "ignorePatterns": ["tests/fixtures/**", "node_modules/**"],
   "rules": {
     "eslint/max-lines-per-function": [
-      "warn",
+      "error",
       {
         "max": 50,
         "skipBlankLines": true,
@@ -10,10 +10,10 @@
         "IIFEs": true
       }
     ],
-    "eslint/complexity": ["warn", 12],
-    "eslint/max-params": ["warn", 4],
-    "eslint/max-statements": ["warn", 25],
-    "eslint/max-depth": ["warn", 4]
+    "eslint/complexity": ["error", 12],
+    "eslint/max-params": ["error", 4],
+    "eslint/max-statements": ["error", 25],
+    "eslint/max-depth": ["error", 4]
   },
   "overrides": [
     {

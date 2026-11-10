@@ -269,26 +269,12 @@ export function compareReport(
   };
 }
 
-/** Every sample whose decision differs between the run and its rerun. */
-export function reportCases(
-  plan: Plan,
-  results: readonly Result[],
-  config: PlainConfig,
-  sampleText: (kind: "main" | "worker", sample: number) => string,
-): DiffCase[] {
-  const { sides, routed } = analyse(plan, results, config);
-  const { report, rerun } = sides;
-  const cases: DiffCase[] = [];
-  const add = (kind: "main" | "worker", sample: number, c: Omit<DiffCase, "variant" | "text">) =>
-    cases.push({
-      variant: "rerun",
-      text: cutCodePoints(sampleText(kind, sample), CASE_TEXT_POINTS),
-      ...c,
-    });
-  for (const i of differing(
-    report.main.map((m) => m?.effort),
-    rerun.main.map((m) => m?.effort),
-  )) {
+type CaseFields = Omit<DiffCase, "variant" | "text">;
+type CaseSink = (kind: "main" | "worker", sample: number, fields: CaseFields) => void;
+
+function mainCases(report: Side, rerun: Side, add: CaseSink): void {
+  const effort = (side: Side) => side.main.map((m) => m?.effort);
+  for (const i of differing(effort(report), effort(rerun))) {
     add("main", i, {
       key: "effort",
       base: report.main[i]?.effort ?? "",
@@ -297,23 +283,45 @@ export function reportCases(
       answer: rerun.main[i]?.answer,
     });
   }
+}
+
+function workerCases(analysis: Analysis, add: CaseSink): void {
+  const { sides, routed } = analysis;
   for (const mode of REPORT_MODES) {
     for (const routing of ROUTINGS) {
       const was = routed.report[mode][routing];
       const now = routed.rerun[mode][routing];
-      for (const i of differing(
-        was.map((x) => x?.target),
-        now.map((x) => x?.target),
-      )) {
+      const target = (list: typeof was) => list.map((x) => x?.target);
+      for (const i of differing(target(was), target(now))) {
         add("worker", i, {
           key: `${mode}/${routing}`,
           base: was[i]?.target ?? "",
           value: now[i]?.target ?? "",
-          baseAnswer: report.workers[i]?.answers["tier"],
-          answer: rerun.workers[i]?.answers["tier"],
+          baseAnswer: sides.report.workers[i]?.answers["tier"],
+          answer: sides.rerun.workers[i]?.answers["tier"],
         });
       }
     }
   }
+}
+
+/** Every sample whose decision differs between the run and its rerun. */
+export function reportCases(
+  plan: Plan,
+  results: readonly Result[],
+  config: PlainConfig,
+  sampleText: (kind: "main" | "worker", sample: number) => string,
+): DiffCase[] {
+  const analysis = analyse(plan, results, config);
+  const cases: DiffCase[] = [];
+  const add: CaseSink = (kind, sample, fields) => {
+    cases.push({
+      variant: "rerun",
+      text: cutCodePoints(sampleText(kind, sample), CASE_TEXT_POINTS),
+      ...fields,
+    });
+  };
+  mainCases(analysis.sides.report, analysis.sides.rerun, add);
+  workerCases(analysis, add);
   return cases;
 }

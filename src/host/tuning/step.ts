@@ -28,10 +28,9 @@ function stepOnce(
 function persist(
   deps: TuningDeps,
   ctx: UiCtx,
-  snapshot: Snapshot,
-  lines: readonly DecisionLine[],
-  now: number,
+  input: { snapshot: Snapshot; lines: readonly DecisionLine[]; now: number },
 ): TuningEvent[] | undefined {
+  const { snapshot, lines, now } = input;
   let events: TuningEvent[] = [];
   const written = deps.updateTuning(deps.dir, (stored) => {
     const stepped = stepOnce(stored, snapshot, lines, now);
@@ -59,7 +58,7 @@ export function settleTuning(deps: TuningDeps, ctx: UiCtx): void {
     const now = deps.now();
     const first = stepOnce(snapshot.tuning.record, snapshot, ledger.entries, now);
     if (first.events.length === 0) return;
-    const events = persist(deps, ctx, snapshot, ledger.entries, now);
+    const events = persist(deps, ctx, { snapshot, lines: ledger.entries, now });
     if (events !== undefined) announce(ctx, events);
   } catch {
     // Tuning never disturbs the run.
