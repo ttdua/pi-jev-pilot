@@ -290,3 +290,27 @@ export function formatFailure(
   if (tail !== "") text += `\n\n${tail}`;
   return text;
 }
+
+/** Details for one review run: no brief or output text, only what was chosen and how it ended. */
+export function reviewDetails(
+  used: ReviewChoice,
+  outcome: ReviewDetails["outcome"],
+  attempts: 1 | 2,
+): ReviewDetails {
+  const d: ReviewDetails = { cli: used.cli, attempts, outcome };
+  if (used.model !== undefined) d.model = used.model;
+  if (used.effort !== undefined) d.effort = used.effort;
+  return d;
+}
+
+/** Details for a failed run; the exit code is kept only for `exit-error`. */
+export function failureDetails(
+  used: ReviewChoice,
+  outcome: ReviewDetails["outcome"],
+  attempts: 1 | 2,
+  r?: ExecResult,
+): ReviewDetails {
+  const d = reviewDetails(used, outcome, attempts);
+  if (outcome === "exit-error" && r) d.exitCode = r.code;
+  return d;
+}

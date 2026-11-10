@@ -6,6 +6,7 @@ export {
   classifyAttempt,
   codexArgs,
   effectiveChoice,
+  failureDetails,
   type Exec,
   type ExecResult,
   formatFailure,
@@ -15,6 +16,7 @@ export {
   parseCodexCatalog,
   parseOpencodeModels,
   resolveTier,
+  reviewDetails,
   type ReviewChoice,
   type ReviewDetails,
 } from "./cli.ts";

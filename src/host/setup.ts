@@ -1,18 +1,16 @@
 import { readFileSync } from "node:fs";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
-  isChild,
   subscribeChildren,
   scanPlatforms,
   listAgents,
   loadSnapshot,
-  setMainCwd,
   jevDir,
 } from "./platform/index.ts";
-import { runJev } from "./commands/index.ts";
 import { SHIPPED_MAIN_GROUPS } from "../jev/state.ts";
 import { updateTuning } from "../store/tuning-file.ts";
 import { askJev } from "../jev/client.ts";
+import type { WriteResult } from "../store/validate.ts";
 import { appendLedger, readLedger } from "../store/ledger.ts";
 import {
   createCutpointWindow,
@@ -20,10 +18,18 @@ import {
   registerWorkerRouting,
 } from "./worker/index.ts";
 import { createMain } from "./main/index.ts";
-import { hideReviewInChild, registerReviewTool, syncReviewTool } from "./review/index.ts";
-import { compactTally, drawStatus, logLine, createSessionLog } from "./status/index.ts";
-import { runTune, type TuningDeps, showUnseenTuning, settleTuning } from "./tuning/index.ts";
-import { captureMainService, clearMainService, createToolAssessment } from "./tools/index.ts";
+import { registerReviewTool } from "./review/index.ts";
+import { compactTally, logLine, createSessionLog } from "./status/index.ts";
+import type { TuningDeps } from "./tuning/index.ts";
+import { createToolAssessment } from "./tools/index.ts";
+import {
+  registerJevCommand,
+  subscribeSessionShutdown,
+  subscribeSessionStart,
+  subscribeTurn,
+  type Parts,
+  type SetupDeps,
+} from "./wiring/index.ts";
 
 /** Draw `jev-log` entries as one truncated line; older Pi without the API is skipped. */
 function registerLogRenderer(pi: ExtensionAPI): void {
@@ -46,25 +52,14 @@ function registerLogRenderer(pi: ExtensionAPI): void {
   }
 }
 
-export type SetupDeps = {
-  /** Test seams: the window instance and the ledger reader (default `readLedger`). */
-  window?: CutpointWindow;
-  readLines?: () => readonly unknown[];
-};
+export type { SetupDeps };
 
-function ledgerLines(): readonly unknown[] {
-  const read = readLedger(jevDir());
-  return read.kind === "ok" ? read.entries : [];
-}
+type Append = (entry: unknown) => WriteResult;
+type Log = ReturnType<typeof createSessionLog>;
 
-/** Register the status line, the /jev command and the child registry on one extension instance. */
-export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
-  const off = subscribeChildren(pi.events);
-  const log = createSessionLog(pi, {
-    verbose: () => loadSnapshot(pi).settings.switches.verbose,
-  });
-  const window = deps.window ?? createCutpointWindow();
-  const append = (e: unknown) => {
+/** Appends to the ledger, then feeds the session log and the window; neither can fail the append. */
+function ledgerAppender(log: Log, window: CutpointWindow): Append {
+  return (e) => {
     try {
       return appendLedger(jevDir(), e);
     } finally {
@@ -76,19 +71,11 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       }
     }
   };
-  const routing = registerWorkerRouting(pi, {
-    append,
-    window: () => window.entries(),
-  });
-  const tools = createToolAssessment(pi);
-  const tuningDeps = (): TuningDeps => ({
-    dir: jevDir(),
-    now: Date.now,
-    load: () => loadSnapshot(pi),
-    updateTuning,
-    readLedger,
-  });
-  const main = createMain(pi, {
+}
+
+/** The main handlers, wired to the ledger, the session tally and the Pi readers. */
+function buildMain(pi: ExtensionAPI, log: Log, append: Append) {
+  return createMain(pi, {
     load: () => loadSnapshot(pi),
     ask: askJev,
     append,
@@ -108,120 +95,33 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
       agents: (cwd) => listAgents({ cwd, agentDir: getAgentDir() }),
     },
   });
+}
 
-  pi.on("session_start", async (_event, ctx) => {
-    try {
-      if (isChild(ctx.sessionManager.getSessionId())) return;
-      captureMainService();
-      main.sessionStart();
-      try {
-        window.load((deps.readLines ?? ledgerLines)());
-      } catch {
-        window.clear();
-      }
-      log.reset(ctx.sessionManager.getSessionId());
-      setMainCwd(ctx.cwd);
-      drawStatus(ctx, loadSnapshot(pi), main.decision());
-    } catch {
-      /* swallow: the line stays as it was */
-    }
-    try {
-      showUnseenTuning(tuningDeps(), ctx);
-    } catch {
-      /* swallow */
-    }
+/** Register the status line, the /jev command and the child registry on one extension instance. */
+export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
+  const off = subscribeChildren(pi.events);
+  const log = createSessionLog(pi, {
+    verbose: () => loadSnapshot(pi).settings.switches.verbose,
   });
-
+  const window = deps.window ?? createCutpointWindow();
+  const append = ledgerAppender(log, window);
+  const routing = registerWorkerRouting(pi, { append, window: () => window.entries() });
+  const tools = createToolAssessment(pi);
+  const tuningDeps = (): TuningDeps => ({
+    dir: jevDir(),
+    now: Date.now,
+    load: () => loadSnapshot(pi),
+    updateTuning,
+    readLedger,
+  });
+  const main = buildMain(pi, log, append);
+  const parts: Parts = { seams: deps, off, routing, window, log, tools, main, tuningDeps };
+  subscribeSessionStart(pi, parts);
   registerReviewTool(pi);
   registerLogRenderer(pi);
-
-  pi.on("before_agent_start", async (event, ctx) => {
-    try {
-      const sessionId = ctx.sessionManager.getSessionId();
-      if (isChild(sessionId)) {
-        hideReviewInChild(event, sessionId);
-        await tools.beforeAgentStart(event, ctx);
-        return undefined;
-      }
-      try {
-        syncReviewTool(pi, loadSnapshot(pi).settings.review.enabled);
-      } catch {
-        /* the turn proceeds with the loadout as it is */
-      }
-      return await main.beforeAgentStart(event, ctx);
-    } catch {
-      return undefined;
-    }
-  });
-
-  pi.on("before_provider_request", async (_event, ctx) => {
-    try {
-      if (isChild(ctx.sessionManager.getSessionId())) return undefined;
-      await main.beforeProviderRequest();
-    } catch {
-      /* swallow: the request goes out unchanged */
-    }
-    return undefined;
-  });
-
-  pi.on("turn_end", async (event, ctx) => {
-    try {
-      if (isChild(ctx.sessionManager.getSessionId())) return;
-      await main.turnEnd(event);
-    } catch {
-      /* swallow */
-    }
-  });
-
-  pi.on("agent_settled", async (event, ctx) => {
-    try {
-      if (isChild(ctx.sessionManager.getSessionId())) return;
-      await main.agentSettled(event);
-    } catch {
-      /* swallow */
-    }
-    try {
-      settleTuning(tuningDeps(), ctx);
-    } catch {
-      /* swallow */
-    }
-  });
-
-  pi.on("session_shutdown", async (_event, ctx) => {
-    try {
-      if (!isChild(ctx.sessionManager.getSessionId())) clearMainService();
-    } catch {
-      /* keep shutdown clean */
-    }
-    try {
-      off();
-    } catch {
-      /* keep shutdown clean */
-    }
-    try {
-      routing.off();
-    } catch {
-      /* keep shutdown clean */
-    }
-  });
-
-  pi.registerCommand("jev", {
-    description: "Show or change jev-pilot features",
-    handler: (args, ctx) => {
-      routing.clearWarnings();
-      return runJev(args, ctx, {
-        dir: jevDir(),
-        load: (cwd) => loadSnapshot(pi, cwd),
-        decision: main.decision,
-        tally: log.tally,
-        window: () => window.entries(),
-        overlay: main.overlay,
-        exec: (c, a, o) => pi.exec(c, a, o),
-        tune: (sub, c) => runTune(tuningDeps(), sub, c),
-        sync: (s) => syncReviewTool(pi, s.settings.review.enabled),
-      });
-    },
-  });
+  subscribeTurn(pi, parts);
+  subscribeSessionShutdown(pi, parts);
+  registerJevCommand(pi, parts);
 }
 
 /** Tools declared to the model: the active names joined with their descriptions. */

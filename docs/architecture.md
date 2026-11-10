@@ -61,7 +61,7 @@ src/
       strategy.ts           Advice gates and advice text
     review/
       index.ts              Entry point for other folders
-      cli.ts                CLI commands, model catalogs, tier names, result text
+      cli.ts                CLI commands, model catalogs, tier names, result text, details
     tools/
       index.ts              Entry point for other folders
       assess.ts             Candidates, the 32 cap, the flag threshold
@@ -136,6 +136,12 @@ src/
       deps.ts               Dependencies of the tuning handlers
       seen.ts               Session-start line for unseen changes, `seenAt`
       step.ts               agent_settled step: skip rules, write, change lines
+    wiring/
+      index.ts              Entry point for other folders
+      command.ts            registerJevCommand: the /jev registration and its deps
+      parts.ts              Parts and SetupDeps: what setup builds and the subscribers share
+      session.ts            session_start and session_shutdown handlers
+      turn.ts               before_agent_start, before_provider_request, turn_end, agent_settled
     worker/
       index.ts              Entry point for other folders
       cutpoint-window.ts    In-memory window of the latest eligible worker lines
@@ -148,10 +154,19 @@ src/
       entry.ts              LaunchEntry and the executor outcome fields a line needs
     review/
       index.ts              Entry point for other folders
-      tool.ts               jev_review tool, runs the CLI, hides the tool in children and while off
+      tool.ts               jev_review tool, hides the tool in children and while off
+      run.ts                runReview: prepare, attempt loop (one retry after a timeout), result
+      attempt.ts            One CLI exec with its error mapping, exec options
+      codex.ts              Codex tier-to-model resolve and the 0700 output directory
     commands/
       index.ts              Entry point for other folders
-      jev.ts                /jev command entry point
+      jev.ts                runJev: child gate, parse, dispatch, one fail-open catch; usage text
+      args.ts               /jev argument grammar: one parser per sub-command
+      jev-notify.ts         notifier: the hasUI-guarded notify
+      cli-review.ts         checkCliReview: state rules and the model/effort check against the CLI list
+      apply.ts              applyCommand: directory-mode forms, state change, reset cleanup
+      status-format.ts      formatStatus: the status report text
+      status-reply.ts       statusReply: status text plus partial-reset and shadowed-mode lines, level
       local-mode.ts         The directory mode command
       slots.ts              The /jev custom model slot forms: add or replace, show, remove
 
@@ -163,6 +178,7 @@ src/
     ledger.ts               ledger.jsonl: append, rotate, read
     local-mode.ts           <cwd>/.pi/jev-mode.json: reads and writes the directory mode
     settings.ts             Effective settings: directory (mode only) > tuning > state > config > default
+    settings-sections.ts    One pure resolver per settings section, used by settings.ts
     state-file.ts           state.json: switches, mode, CLI review default and on/off
     tuning-file.ts          tuning.json: changes, history
     validate.ts             Small validators that collect issues with field paths
