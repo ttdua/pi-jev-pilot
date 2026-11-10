@@ -15,10 +15,10 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Publish the service from `session_start` in main sessions only, using the executor's own child-session record; carry `implementation` and `sessionId`; unpublish only when the published service is its own (spec `executor-vendoring` "Service identity and ownership")
-- [ ] 2.2 Add `agentId`, `agentType` and `toolCallId` (tool-door launches only) to `subagents:child:spawning|session-created|bound`, and `toolCallId` to `subagents:created|started|completed|failed|resuming|resumed` (spec `executor-launch-identity`)
-- [ ] 2.3 Record `effectiveModel` and `effectiveThinking` at child session creation; add them to `session-created` and to `SubagentRecord` as optional fields (spec `executor-launch-identity` "Effective model and thinking")
-- [ ] 2.4 Unit tests in the vendored package for every scenario above; existing upstream tests pass unchanged; record new files and touched upstream files in `VENDORED.md`
+- [x] 2.1 Publish the service from `session_start` in main sessions only, using the executor's own child-session record; carry `implementation` and `sessionId`; unpublish only when the published service is its own (spec `executor-vendoring` "Service identity and ownership")
+- [x] 2.2 Add `agentId`, `agentType` and `toolCallId` (tool-door launches only) to `subagents:child:spawning|session-created|bound`, and `toolCallId` to `subagents:created|started|completed|failed|resuming|resumed` (spec `executor-launch-identity`)
+- [x] 2.3 Record `effectiveModel` and `effectiveThinking` at child session creation; add them to `session-created` and to `SubagentRecord` as optional fields (spec `executor-launch-identity` "Effective model and thinking")
+- [x] 2.4 Unit tests in the vendored package for every scenario above; existing upstream tests pass unchanged; record new files and touched upstream files in `VENDORED.md`
 
 ## 3. Executor: agent registry query and `disallowed_tools`
 
