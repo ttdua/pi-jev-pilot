@@ -59,11 +59,15 @@ Code under `src/` MUST NOT import `packages/pi-subagents` at runtime. It MAY imp
 - **THEN** the import-graph test passes
 
 ### Requirement: Service identity and ownership
-The vendored executor's published service SHALL carry `implementation` `"@ttdua/pi-subagents"` and the `sessionId` of the session whose extension instance published it. An instance SHALL publish its service in its `session_start` handler, only when its session is not a child session (the executor records child session ids from its own `session-created` event, which fires before the child binds its extensions), and SHALL remove the service at shutdown only when the published service is still its own.
+The vendored executor's published service SHALL carry `implementation` `"@ttdua/pi-subagents"` and the `sessionId` of the session whose extension instance published it. An instance SHALL publish its service when it loads, as upstream does, so consumers that read the service at load time (such as `@gotgenes/pi-subagents-worktrees`) keep working, but only when the slot does not already hold a service whose `implementation` is `@ttdua/pi-subagents`. The main session's instance loads before any child's, so children never replace it. Its `sessionId` SHALL be set at the instance's first `session_start`. An instance SHALL remove the service at shutdown only when the published service is still its own.
 
 #### Scenario: Children do not replace the main service
 - **WHEN** a main session starts, and two children are created and disposed
 - **THEN** the service on `globalThis` is still the main session's, with `implementation` `@ttdua/pi-subagents`
+
+#### Scenario: Load-time consumer finds the service
+- **WHEN** a companion extension reads the service while it loads, after the vendored executor loaded
+- **THEN** it finds the vendored service and can register its workspace provider
 
 #### Scenario: Published before capture
 - **WHEN** a main session starts, and again after a reload

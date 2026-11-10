@@ -38,7 +38,7 @@ Facts from the executor source that shape this design:
 
 ### D1. Vendored layout and install
 
-`packages/pi-subagents/` holds the executor, as a Bun workspace member listed in the root `package.json` `workspaces`. The root `pi.extensions` lists `./packages/pi-subagents/src/index.ts` first, then `./src/extension.ts`, so `pi install` of this repository loads both, and Pi runs the executor's `session_start` (which publishes the service, in main sessions only) before jev-pilot's (which captures it and registers the policy). Pi awaits `session_start` handlers in extension order. The vendored `package.json` keeps its `imports` map so `#src/*` resolves against it.
+`packages/pi-subagents/` holds the executor, as a Bun workspace member listed in the root `package.json` `workspaces`. The root `pi.extensions` lists `./packages/pi-subagents/src/index.ts` first, then `./src/extension.ts`, so `pi install` of this repository loads both, the executor publishes its service when it loads (unless a vendored service already holds the slot, so a child's instance never replaces the main one), and jev-pilot captures it at `session_start` and registers the policy. Publishing at load, as upstream does, keeps load-time consumers such as `@gotgenes/pi-subagents-worktrees` working (operator decision during apply). Pi awaits `session_start` handlers in extension order. The vendored `package.json` keeps its `imports` map so `#src/*` resolves against it.
 
 - *Why not a second Pi package installed separately:* one install is what the operator chose, and `pi install` of a repository subdirectory is unverified.
 - *Why not merging the executor into `src/`:* every upstream merge would become a rewrite.
@@ -133,7 +133,7 @@ The main-session instance registers the policy when the service is captured at `
 ### D10. Executor presence and duplicates
 
 - **Present:** the published service at the key has `registerLaunchPolicy`.
-- **Duplicate:** checked after bind in the main session, from the winning `subagent` tool's `sourceInfo` (original loaded first) and the published service's `implementation` (original loaded last). Pi keeps only the first registration of a name and does not expose extension paths to extensions, so a provider that loses both races is not detectable; the docs say so. The vendored service publishes only from main sessions and unpublishes only itself, so children never replace or remove it. This is reported in `/jev` as a problem naming the original package, and routing stays off until it is removed.
+- **Duplicate:** checked after bind in the main session, from the winning `subagent` tool's `sourceInfo` (original loaded first) and the published service's `implementation` (original loaded last). Pi keeps only the first registration of a name and does not expose extension paths to extensions, so a provider that loses both races is not detectable; the docs say so. The vendored service is published at load only when the slot holds no vendored service, and unpublishes only itself, so children never replace or remove it. This is reported in `/jev` as a problem naming the original package, and routing stays off until it is removed.
 - **No executor:** behaves as today: worker features off with a note in `/jev`.
 
 ### D11. Tool question and thresholds

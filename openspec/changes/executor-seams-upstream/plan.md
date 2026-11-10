@@ -37,6 +37,8 @@
 
 ## Contracts
 
+> Apply-time changes (operator decisions, 2026-11-11): service publication moved back to load time (guarded by `implementation`); child event identity fields optional in public types.
+
 | Name | new / modified | Shape | public |
 |---|---|---|---|
 | `SubagentsService.registerLaunchPolicy` | new | `(policy: LaunchPolicy, options: { timeoutMs: number }) => () => void`; throws `Error("launch policy slot is taken")` when a policy is registered | yes |
@@ -46,9 +48,9 @@
 | `SubagentsService.listAgentTypes` | new | `() => readonly AgentTypeSnapshot[]` | yes |
 | `SubagentsService.getAgentType` | new | `(name: string) => AgentTypeSnapshot \| undefined` | yes |
 | `AgentTypeSnapshot` | new | frozen `{ name: string; source: "builtin" \| "global" \| "project"; description: string; instructions: string; tools: readonly string[] \| null; defaultTools: readonly string[]; disallowedTools: readonly string[]; model?: string; thinking?: string; locked?: true \| readonly LockableField[]; maxTurns?: number; runInBackground?: boolean; inheritContext?: boolean }` | yes |
-| `SubagentsService.implementation` / `.sessionId` | new | `readonly implementation: "@ttdua/pi-subagents"; readonly sessionId: string` | yes |
+| `SubagentsService.implementation` / `.sessionId` | new | `readonly implementation: "@ttdua/pi-subagents"; readonly sessionId: string` (set at first `session_start`; `""` before) | yes |
 | `SubagentRecord` | modified | adds optional `effectiveModel?: string` (`provider/id`), `effectiveThinking?: ThinkingLevel` | yes |
-| `ChildSpawningEvent`, `ChildSessionCreatedEvent`, `ChildBoundEvent` | modified | add `agentId: string; agentType: string; toolCallId?: string`; `session-created` adds `effectiveModel?`, `effectiveThinking?`; `bound` adds `grantedTools?: readonly string[]` | yes |
+| `ChildSpawningEvent`, `ChildSessionCreatedEvent`, `ChildBoundEvent` | modified | add `agentId?: string; agentType?: string; toolCallId?: string` (optional in `dist/public.d.ts` per spec; the executor always sets `agentId` and `agentType` — operator decision during apply); `session-created` adds `effectiveModel?`, `effectiveThinking?`; `bound` adds `grantedTools?: readonly string[]` | yes |
 | `subagents:created\|started\|completed\|failed\|resuming\|resumed` payloads | modified | add `toolCallId?: string` | yes |
 | Agent frontmatter `disallowed_tools` | new | YAML list or comma-separated string of tool names | yes |
 | `packages/pi-subagents/VENDORED.md` | new | sections `Upstream` (repo, path, tag, commit) and `Local changes` (table: file, kind `seam`/`edit`, reason) | no |
