@@ -76,7 +76,8 @@ src/
       answers.ts            Reads worker answers
       cut-window.ts         Which ledger lines are eligible; window size
       cutpoints.ts          Cut points from a window
-      ledger-line.ts        Worker ledger line fields
+      ledger-line.ts        Worker ledger line decision fields: rubric, expertOffered, score
+      worker-line.ts        The whole `worker` ledger line for a settled launch
       modes.ts              Mode names, target tables
       route.ts              Launch route: untouched checks, thinking-only, fallback, clamp
       score.ts              Difficulty score
@@ -138,7 +139,13 @@ src/
     worker/
       index.ts              Entry point for other folders
       cutpoint-window.ts    In-memory window of the latest eligible worker lines
-      routing.ts            message_end batch; tool_call route and mutation; warnings; ledger join
+      routing.ts            registerWorkerRouting: wires the handlers, owns no logic
+      handlers.ts           message_end, tool_call, tool_result and executor-event handlers
+      classify.ts           Reads the agent and launch, builds the questions, starts the Jev ask
+      route.ts              Reads the answer, routes the launch, writes model and thinking
+      launches.ts           LaunchBook: launches, parked launches and buffered outcomes
+      warnings.ts           "Cannot run" warning text, shown once per target and model
+      entry.ts              LaunchEntry and the executor outcome fields a line needs
     review/
       index.ts              Entry point for other folders
       tool.ts               jev_review tool, runs the CLI, hides the tool in children and while off
