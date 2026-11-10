@@ -199,8 +199,7 @@ export function checkImport(
   const malformed = malformedReason(specifier);
   if (malformed !== undefined) return malformed;
   const executor = executorReason(root, file, specifier);
-  if (executor !== undefined)
-    return typeOnly && specifier === EXECUTOR_PACKAGE ? undefined : executor;
+  if (executor !== undefined) return typeOnly ? undefined : executor;
   if (specifier.startsWith("@earendil-works/")) return piReason(locate(file));
   if (!specifier.startsWith(".")) return undefined;
   return shortestReason(root, file, specifier) ?? relativeReason(root, file, specifier);

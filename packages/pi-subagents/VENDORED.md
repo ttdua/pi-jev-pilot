@@ -8,10 +8,11 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 - Path: `packages/pi-subagents`
 - Tag: `pi-subagents-v25.0.5`
 - Commit: `a4dd5f7611a2d7687a50899e99be7bd727ddc2b0`
-- Upstream tree commit: `e6b408e8c5a1036c00a8b5f233549cedcb83f77c`
+- Upstream tree commit: `dbaae7983b000d9916645856b524465a4d953153`
+- Upstream split commit: `e6b408e8c5a1036c00a8b5f233549cedcb83f77c`
 - License: MIT, see `LICENSE` (unchanged)
 
-"Upstream tree commit" is the `git subtree split --prefix packages/pi-subagents` commit of the tag. `.upstream-manifest` lists the blob id of every file at that commit (`bun scripts/vendor-manifest.ts <commit>`); `tests/vendoring.test.ts` fails when a file differs from it without a row below.
+"Upstream tree commit" is the squash commit `git subtree add --squash` created for the vendored tree (archive it for the pristine upstream tree). "Upstream split commit" is the `git subtree split --prefix packages/pi-subagents` commit of the tag; it is not in this repository's history. `.upstream-manifest` lists the blob id of every file at that tree (`bun scripts/vendor-manifest.ts <commit>`); `tests/vendoring.test.ts` fails when a file differs from it without a row below.
 
 ## Local changes
 

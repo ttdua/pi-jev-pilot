@@ -64,7 +64,7 @@ async function start(
   const session = await startHostSession({
     fixture,
     probes: ["main"],
-    executor: false,
+    install: "none",
     env,
     timeoutMs: 90_000,
     ...opts,

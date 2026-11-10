@@ -220,3 +220,22 @@ test("Type import allowed", async () => {
     typeOnlySpecifiers('import type { A } from "@ttdua/pi-subagents"; import { b } from "x";'),
   ).toEqual(["@ttdua/pi-subagents"]);
 });
+
+test("Runtime import rejected for the package subpath and a relative path", async () => {
+  for (const file of ["bad-executor-subpath-runtime.ts", "bad-executor-relative-runtime.ts"]) {
+    const found = await fixtureViolations(`src/host/${file}`);
+    expect(found, file).toHaveLength(1);
+  }
+});
+
+test("Type import allowed for the package subpath and a relative path", async () => {
+  for (const file of ["ok-executor-subpath-type.ts", "ok-executor-relative-type.ts"]) {
+    expect(await fixtureViolations(`src/host/${file}`), file).toEqual([]);
+  }
+  const root = "/repo";
+  const file = "src/host/main/gate.ts";
+  const relative = "../../../packages/pi-subagents/src/index.ts";
+  expect(checkImport(root, file, "@ttdua/pi-subagents/settings", true)).toBeUndefined();
+  expect(checkImport(root, file, relative, true)).toBeUndefined();
+  expect(checkImport(root, file, relative, false)).toBeString();
+});

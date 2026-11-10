@@ -72,7 +72,7 @@ async function run(callRead: boolean, removeTool: string | undefined) {
   const session = await startHostSession({
     fixture,
     probes: ["child"],
-    executor: true,
+    install: "executor-only",
     agents: {
       "probe-worker":
         "---\ndescription: Probe worker\ntools: read, grep\n---\nYou are a probe worker.\n",

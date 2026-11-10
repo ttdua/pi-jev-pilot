@@ -117,6 +117,32 @@ describe("host session harness", () => {
     expect(fixture.requests[0]?.toolNames).toContain("subagent");
   }, 60_000);
 
+  test("installs the checkout by default", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture);
+    const state = (await s.send({ type: "get_state" })) as { success: boolean };
+    expect(state.success).toBe(true);
+    const settings = JSON.parse(readFileSync(join(s.agentDir, "settings.json"), "utf8")) as {
+      packages: string[];
+    };
+    expect(settings.packages.map((p) => realpathSync(join(s.agentDir, p)))).toEqual([
+      realpathSync(join(import.meta.dir, "..", "..")),
+    ]);
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).toContain("subagent");
+  }, 60_000);
+
+  test("install none installs nothing", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { install: "none" });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).not.toContain("subagent");
+  }, 60_000);
+
   test("probe records are readable", async () => {
     const fixture = await fixtureWith([]);
     const s = await sessionWith(fixture, { probes: ["noop"] });

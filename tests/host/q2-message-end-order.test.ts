@@ -58,7 +58,7 @@ describe("WG-02 Q2 message_end ordering", () => {
     const session = await startHostSession({
       fixture,
       probes: ["ordering"],
-      executor: true,
+      install: "executor-only",
       agents: {
         "probe-worker":
           "---\ndescription: Probe worker\ntools: read, grep\n---\nYou are a probe worker.\n",

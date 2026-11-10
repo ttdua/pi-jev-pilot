@@ -51,7 +51,14 @@ test("VENDORED.md records the upstream", () => {
   expect(doc).toContain("packages/pi-subagents");
   expect(doc).toMatch(/^- Tag: `pi-subagents-v25\.0\.5`/m);
   expect(doc).toMatch(/^- Commit: `[0-9a-f]{40}`/m);
-  expect(doc).toMatch(/^- Upstream tree commit: `[0-9a-f]{40}`/m);
+  const tree = /^- Upstream tree commit: `([0-9a-f]{40})`/m.exec(doc)?.[1];
+  const split = /^- Upstream split commit: `([0-9a-f]{40})`/m.exec(doc)?.[1];
+  expect(tree).toBeString();
+  expect(split).toBeString();
+  expect(tree).not.toBe(split);
+  // The squash commit exists in this repository and holds the vendored tree.
+  const archive = Bun.spawnSync(["git", "cat-file", "-t", `${tree}`], { cwd: REPO_ROOT });
+  expect(archive.stdout.toString().trim()).toBe("commit");
 });
 
 test("NOTICE.md has an entry for the vendored package", () => {

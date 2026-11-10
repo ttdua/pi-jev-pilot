@@ -76,9 +76,9 @@ type Prepared = {
 };
 
 /** `jev-only` installs jev-pilot alone, to layer it over an already installed executor or to test its absence. */
-export type InstallMode = "checkout" | "executor-only" | "jev-only";
+export type InstallMode = "checkout" | "executor-only" | "jev-only" | "none";
 
-const INSTALL_SOURCES: Record<InstallMode, string> = {
+const INSTALL_SOURCES: Record<Exclude<InstallMode, "none">, string> = {
   checkout: REPO_ROOT,
   "executor-only": EXECUTOR_ONLY_DIR,
   "jev-only": JEV_ONLY_DIR,
@@ -134,11 +134,18 @@ function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): 
   );
 }
 
-/** Installs the checkout or the executor-only fixture, unless the agent directory already lists it. */
+/** Maps the older `self` / `executor` flags onto an install mode; undefined when neither is set. */
+function legacyMode(opts: PrepareOpts): InstallMode | undefined {
+  if (opts.self === true) return "checkout";
+  if (opts.self === false) return opts.executor ? "executor-only" : "none";
+  if (opts.executor === true) return "executor-only";
+  return opts.executor === false ? "none" : undefined;
+}
+
+/** Installs the checkout (the default) or the executor-only fixture, unless the agent directory already lists it. */
 function installMode(opts: PrepareOpts, dirs: Dirs): void {
-  const mode =
-    opts.install ?? (opts.self ? "checkout" : opts.executor ? "executor-only" : undefined);
-  if (mode === undefined) return;
+  const mode = opts.install ?? legacyMode(opts) ?? "checkout";
+  if (mode === "none") return;
   const source = INSTALL_SOURCES[mode];
   if (isInstalled(dirs, (p) => p === source)) return;
   const r = install(source, dirs);

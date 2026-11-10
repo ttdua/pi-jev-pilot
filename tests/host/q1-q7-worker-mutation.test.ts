@@ -70,7 +70,7 @@ async function run(
   const session = await startHostSession({
     fixture,
     probes: ["rewrite"],
-    executor: true,
+    install: "executor-only",
     agents: { [agentName]: agentText },
     env: { JEV_REWRITE_MODEL: "fixture/fixture-fast", JEV_REWRITE_THINKING: "high" },
     timeoutMs: 60_000,

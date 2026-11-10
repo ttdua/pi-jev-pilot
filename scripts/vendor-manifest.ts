@@ -1,12 +1,12 @@
 /**
  * Writes packages/pi-subagents/.upstream-manifest: one `path sha` line per blob in the given
- * upstream split commit. Usage: bun scripts/vendor-manifest.ts <upstream-split-commit>
+ * upstream split commit. Usage: bun scripts/vendor-manifest.ts <upstream-tree-commit>
  */
 import { join } from "node:path";
 
 const commit = process.argv[2];
 if (commit === undefined) {
-  console.error("usage: bun scripts/vendor-manifest.ts <upstream-split-commit>");
+  console.error("usage: bun scripts/vendor-manifest.ts <upstream-tree-commit>");
   process.exit(2);
 }
 
