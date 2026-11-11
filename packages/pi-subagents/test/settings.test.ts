@@ -1070,6 +1070,22 @@ describe("SettingsManager", () => {
       const written = JSON.parse(readFileSync(join(projectDir, ".pi", "subagents.json"), "utf-8"));
       expect(written.fleetView).toBe(false);
     });
+
+    it("loads fleetView false from the project file", () => {
+      mkdirSync(join(projectDir, ".pi"), { recursive: true });
+      writeFileSync(join(projectDir, ".pi", "subagents.json"), JSON.stringify({ fleetView: false }));
+      const sm = new SettingsManager({ emit: vi.fn(), cwd: projectDir, agentDir: "/nonexistent" });
+      sm.load();
+      expect(sm.fleetView).toBe(false);
+    });
+
+    it("keeps fleetView true when the file holds a non-boolean", () => {
+      mkdirSync(join(projectDir, ".pi"), { recursive: true });
+      writeFileSync(join(projectDir, ".pi", "subagents.json"), JSON.stringify({ fleetView: "no" }));
+      const sm = new SettingsManager({ emit: vi.fn(), cwd: projectDir, agentDir: "/nonexistent" });
+      sm.load();
+      expect(sm.fleetView).toBe(true);
+    });
   });
 
   describe("toggleAbortAllOnInterrupt()", () => {

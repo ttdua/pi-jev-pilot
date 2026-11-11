@@ -107,6 +107,16 @@ describe("SubagentsSettingsHandler", () => {
     expect(flipUI.notify).toHaveBeenCalledWith("Fleet view: off", "info");
   });
 
+  it("renders the Fleet view row as off when the setting is disabled", async () => {
+    const settings = makeSettings();
+    settings.fleetView = false;
+    const { handler } = makeHandler(settings);
+    const ui = makeMenuUI([undefined]);
+    await handler.handle({ ui });
+    const options = ui.select.mock.calls[0][1] as string[];
+    expect(options).toContain("Fleet view (current: off)");
+  });
+
   it("renders the abort-on-ESC option as off when the policy is disabled", async () => {
     const settings = makeSettings();
     settings.abortAllOnInterrupt = false;
