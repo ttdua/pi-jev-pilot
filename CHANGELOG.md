@@ -4,6 +4,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
+Tag: v0.2.0
+
 ### Breaking
 
 - **Uninstall `@gotgenes/pi-subagents` before installing this version.** The executor is now vendored in `packages/pi-subagents/` and one `pi install` loads both extensions. Pi refuses to start when two extensions register the `subagent` tool.
@@ -28,6 +32,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 ### Removed
 
 - The `message_end` pre-classification and `tool_call` input rewriting. ADR 0006 is superseded; Q1, Q2 and Q7 of the host seams report are superseded.
+
+### Internal
+
+- Routing, main session, settings, the Jev client, the CLI review, `/jev` and setup are split into single-responsibility units in capability folders, with a resolved-path import check and function-size lint rules enforced as errors. No behavior change.
 
 ## [0.1.0] - 2026-11-08
 
