@@ -72,10 +72,23 @@ export function onBound(host: WorkerHost, data: unknown): void {
   );
 }
 
-/** `completed`/`failed`: write the decided launch's line; any other agent id is ignored. */
+/**
+ * A launch cancelled after its policy call but before its session existed: the executor ends it
+ * `stopped` without a `session-created` event, and the ledger keeps no line for a cancelled launch.
+ */
+function isCancelledBeforeSession(held: Held<Decided>, outcome: ExecutorOutcome): boolean {
+  return outcome.status === "stopped" && held.effective === undefined;
+}
+
+/**
+ * `completed`/`failed`: write the decided launch's line; any other agent id is ignored. The held
+ * launch is settled either way, so a launch cancelled before its session leaves nothing behind.
+ */
 export function onOutcome(host: WorkerHost, data: unknown): void {
   if (!host.book.isOpen() || !isRecord(data)) return;
   const id = text(data["id"]);
   const held = id === undefined ? undefined : host.book.settle(id);
-  if (held !== undefined) writeLine(host, held, slim(data));
+  if (held === undefined) return;
+  const outcome = slim(data);
+  if (!isCancelledBeforeSession(held, outcome)) writeLine(host, held, outcome);
 }

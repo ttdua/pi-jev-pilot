@@ -50,6 +50,25 @@ describe("One line per launch", () => {
     expect(h.lines).toHaveLength(0);
   });
 
+  test("a launch stopped after the policy but before its session writes no line", async () => {
+    const h = harness();
+    const first = await h.launch();
+    h.completed(first.request.agentId, { status: "stopped", toolUses: 0 });
+    const second = await h.launch();
+    h.failed(second.request.agentId, { status: "stopped", toolUses: 0 });
+    expect(h.lines).toHaveLength(0);
+    expect(h.routing.pending()).toBe(0);
+  });
+
+  test("a stopped launch whose session was created keeps its line", async () => {
+    const h = harness();
+    const { request } = await h.launch();
+    h.created(request.agentId);
+    h.completed(request.agentId, { status: "stopped" });
+    expect(h.lines).toHaveLength(1);
+    expect(h.lines[0]).toMatchObject({ status: "stopped" });
+  });
+
   test("Resume writes no line", async () => {
     const h = harness();
     const { request } = await foreground(h);
