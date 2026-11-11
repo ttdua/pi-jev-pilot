@@ -23,6 +23,7 @@ type Opts = {
   tools?: boolean;
   valid?: boolean;
   keySet?: boolean;
+  executor?: Snapshot["executor"];
 };
 
 function snap(o: Opts = {}): Snapshot {
@@ -39,7 +40,7 @@ function snap(o: Opts = {}): Snapshot {
     keySet: o.keySet ?? true,
     tuning: { kind: "missing", issues: [], record: {} },
     untunedTimeoutMs: settings.classifier.timeoutMs,
-    executor: { kind: "present" },
+    executor: o.executor ?? { kind: "present" },
   };
 }
 
@@ -178,6 +179,12 @@ describe("When assessment runs", () => {
     const t = setup({ child: false });
     await t.run();
     expect(t.requests).toHaveLength(0);
+  });
+  test("Duplicate executor with a valid captured service", async () => {
+    const t = setup({ opts: { mode: "enforce", executor: { kind: "duplicate", path: "/x" } } });
+    await t.run();
+    expect(t.requests).toHaveLength(0);
+    expect(t.selected).toEqual(["read", "edit", "bash"]);
   });
   test("Executor absent", async () => {
     const u = setup({ noService: true });

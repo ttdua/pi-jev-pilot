@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT, tempDir } from "../helpers";
-const JEV_ONLY = join(REPO_ROOT, "tests", "fixtures", "jev-only");
-import { startFixture, type Fixture } from "./fixture";
+import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
 import { startHostSession, type HostSession } from "./harness";
 import { command, notifies } from "./rpc-helpers";
 
+const JEV_ONLY = join(REPO_ROOT, "tests", "fixtures", "jev-only");
 const TIMEOUT = 120_000;
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -37,10 +37,47 @@ function originalExecutor(): string {
   return dir;
 }
 
-async function start(installs: string[]): Promise<HostSession> {
-  const fixture = await startFixture([
-    { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
-  ]);
+/**
+ * A stand-in executor placed under `packages/pi-subagents/`: its `subagent` tool wins from inside
+ * the vendored directory, but the service it publishes has no `implementation`, as an original
+ * `@gotgenes/pi-subagents` loaded last would leave it. Only the published-service path decides.
+ */
+function standInInsideVendoredPath(): string {
+  const dir = join(tempDir("jev-stand-in-"), "packages", "pi-subagents");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({
+      name: "stand-in-executor",
+      private: true,
+      type: "module",
+      keywords: ["pi-package"],
+      pi: { extensions: ["./index.ts"] },
+    }),
+  );
+  writeFileSync(
+    join(dir, "index.ts"),
+    `export default function (pi) {
+  globalThis[Symbol.for("@gotgenes/pi-subagents:service")] = { listAgents: () => [] };
+  pi.registerTool({
+    name: "subagent",
+    label: "subagent",
+    description: "stand-in",
+    parameters: { type: "object", properties: {} },
+    execute: async () => ({ content: [{ type: "text", text: "no" }], details: {} }),
+  });
+}
+`,
+  );
+  return dir;
+}
+
+const MAIN_ONLY: ScriptEntry[] = [
+  { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+];
+
+async function start(installs: string[], script: ScriptEntry[] = MAIN_ONLY): Promise<HostSession> {
+  const fixture = await startFixture(script);
   fixtures.push(fixture);
   const agentDir = tempDir("jev-dup-agent-");
   mkdirSync(join(agentDir, "jev"), { recursive: true });
@@ -88,10 +125,71 @@ describe("duplicate executor through the real CLI", () => {
   );
 
   test(
-    "the checkout alone is present",
+    "a published non-vendored service is reported when the winning tool is inside the vendored path",
     async () => {
-      const text = await status(await start([REPO_ROOT]));
-      expect(text).toContain("executor: present");
+      const text = await status(await start([JEV_ONLY, standInInsideVendoredPath()]));
+      expect(text).toContain("duplicate executor");
+      expect(text).toContain("worker routing and tool assessment are off");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "the executor is not a duplicate after two workers were spawned and disposed",
+    async () => {
+      const calls = ["first", "second"].map((description) => ({
+        name: "subagent",
+        arguments: {
+          prompt: `CHILD-TASK ${description}`,
+          description,
+          subagent_type: "general-purpose",
+          run_in_background: true,
+        },
+      }));
+      const isChild = (r: { body: unknown }): boolean =>
+        JSON.stringify(r.body).includes("CHILD-TASK");
+      const hasToolResult = (r: { body: unknown }): boolean =>
+        JSON.stringify(r.body).includes('"role":"tool"');
+      const fixture = await startFixture([
+        { name: "child", match: isChild, reply: { text: "child done" } },
+        {
+          name: "main-call",
+          match: (r) => r.model === "fixture-main" && !hasToolResult(r),
+          reply: { toolCalls: calls },
+          times: 1,
+        },
+        { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+      ]);
+      fixtures.push(fixture);
+      const agentDir = tempDir("jev-dup-agent-");
+      mkdirSync(join(agentDir, "jev"), { recursive: true });
+      const session = await startHostSession({
+        fixture,
+        agentDir,
+        env: { TYPESAFE_API_KEY: "test-key" },
+        timeoutMs: 90_000,
+      });
+      sessions.push(session);
+      await session.prompt("START-MAIN");
+      await session.waitFor(
+        () => fixture.requests.filter(isChild).length >= 2,
+        "two child requests",
+      );
+      const text = await status(session);
+      expect(text).not.toContain("duplicate executor");
+      // TODO(Task 4): the vendored service gains `registerLaunchPolicy` there; until then the
+      // captured service is not usable for launch seams and readiness reports it absent.
+      const seam = readdirSync(join(REPO_ROOT, "packages", "pi-subagents", "src"), {
+        recursive: true,
+      }).some(
+        (f) =>
+          String(f).endsWith(".ts") &&
+          readFileSync(
+            join(REPO_ROOT, "packages", "pi-subagents", "src", String(f)),
+            "utf8",
+          ).includes("registerLaunchPolicy"),
+      );
+      expect(text).toContain(seam ? "executor: present" : "executor: no executor");
     },
     TIMEOUT,
   );

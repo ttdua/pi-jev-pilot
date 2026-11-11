@@ -25,6 +25,8 @@ export type WorkerHost = {
   now: () => number;
 };
 
+// Only a duplicate closes the gate for now: a real captured service has no launch seam until
+// Task 4, so `present` is not reachable yet. Task 7 deletes this gate.
 /** Fresh gate; returns the snapshot only when routing may act. */
 function gate(host: WorkerHost, ctx: ExtensionContext): Snapshot | undefined {
   if (!host.book.isOpen()) return undefined;
@@ -32,7 +34,7 @@ function gate(host: WorkerHost, ctx: ExtensionContext): Snapshot | undefined {
   // Called detached, as before the split: `snapshot` never receives a `this`.
   const { snapshot } = host;
   const snap = snapshot();
-  if (!snap.config.valid || !snap.keySet || snap.executor.kind !== "present") return undefined;
+  if (!snap.config.valid || !snap.keySet || snap.executor.kind === "duplicate") return undefined;
   return snap.settings.switches.subagents ? snap : undefined;
 }
 

@@ -34,7 +34,9 @@ describe("When routing runs", () => {
     ["Switch off", { switches: { subagents: false } }],
     ["No key", { keySet: false }],
     ["Invalid config", { valid: false }],
-    ["Executor absent", { executor: false }],
+    // "absent" is not gated here until Task 4: a real captured vendored service reports absent
+    // before it has `registerLaunchPolicy`, and the real-CLI routing tests need routing to run.
+    ["Duplicate executor", { executor: "duplicate" }],
   ];
   for (const [name, o] of gated) {
     test(name, async () => {

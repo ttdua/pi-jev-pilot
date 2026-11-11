@@ -45,6 +45,16 @@ type Gate = {
   file: string;
 };
 
+/**
+ * Config, key, switch and executor state. A duplicate executor counts as absent. `present` is not
+ * required yet: a real captured service has no launch seam until Task 4, so the service check in
+ * `openGate` is what covers a missing executor.
+ */
+function settingsAllow(snap: Snapshot): boolean {
+  if (!snap.config.valid || !snap.keySet || !snap.settings.switches.tools) return false;
+  return snap.executor.kind !== "duplicate";
+}
+
 /** Gate on conditions read fresh at the first call; undefined means "do nothing". */
 function openGate(
   event: BeforeAgentStartEvent,
@@ -52,8 +62,7 @@ function openGate(
   snap: Snapshot,
   service: ServiceLike | undefined,
 ): Gate | undefined {
-  if (!snap.config.valid || !snap.keySet || !snap.settings.switches.tools) return undefined;
-  if (service === undefined) return undefined;
+  if (!settingsAllow(snap) || service === undefined) return undefined;
   if (event.messageType !== "user" || typeof event.prompt !== "string" || event.prompt === "") {
     return undefined;
   }

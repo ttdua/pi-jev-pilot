@@ -13,8 +13,6 @@ const EXECUTOR_KEY: unique symbol = Symbol.for("@gotgenes/pi-subagents:service")
 /** Process-wide slot for the captured main-session service. */
 export const MAIN_SERVICE_KEY: unique symbol = Symbol.for("pi-jev-pilot.mainService") as never;
 
-const SEEN_KEY: unique symbol = Symbol.for("pi-jev-pilot.seenService") as never;
-
 type Slots = Record<symbol, unknown>;
 
 function isVendoredService(value: unknown): value is VendoredService {
@@ -29,14 +27,12 @@ function isVendoredService(value: unknown): value is VendoredService {
 export function captureMainService(): void {
   const g = globalThis as Slots;
   const found = g[EXECUTOR_KEY];
-  g[SEEN_KEY] = found;
   if (isVendoredService(found)) g[MAIN_SERVICE_KEY] = found;
   else delete g[MAIN_SERVICE_KEY];
 }
 
 export function clearMainService(): void {
   delete (globalThis as Slots)[MAIN_SERVICE_KEY];
-  delete (globalThis as Slots)[SEEN_KEY];
 }
 
 export function mainService(): VendoredService | undefined {
@@ -44,9 +40,13 @@ export function mainService(): VendoredService | undefined {
   return isVendoredService(value) ? value : undefined;
 }
 
-/** The service slot as it stood at the last capture, whichever implementation put it there. */
+/** The executor's slot as it is now, whichever implementation published into it. */
 export function publishedService(): unknown {
-  return (globalThis as Slots)[SEEN_KEY];
+  try {
+    return (globalThis as Slots)[EXECUTOR_KEY];
+  } catch {
+    return undefined;
+  }
 }
 
 /** The slot this package copied at the last capture. */

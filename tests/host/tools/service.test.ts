@@ -4,6 +4,7 @@ import {
   captureMainService,
   clearMainService,
   mainService,
+  publishedService,
 } from "../../../src/host/tools/service.ts";
 
 const EXECUTOR = Symbol.for("@gotgenes/pi-subagents:service");
@@ -63,5 +64,17 @@ describe("tool service", () => {
   test("a slot holding another implementation is not returned", () => {
     g[MAIN_SERVICE_KEY] = { listAgents: () => [], listAgentTypes: () => [] };
     expect(mainService()).toBeUndefined();
+  });
+});
+
+describe("publishedService", () => {
+  test("reads the executor slot now, not the value at capture", () => {
+    const a = vendored();
+    g[EXECUTOR] = a;
+    captureMainService();
+    const b = { listAgents: () => [] };
+    g[EXECUTOR] = b;
+    expect(publishedService()).toBe(b);
+    expect(mainService()).toBe(a as never);
   });
 });

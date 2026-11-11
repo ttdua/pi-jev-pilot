@@ -24,7 +24,7 @@ export type Opts = {
   switches?: Record<string, boolean>;
   valid?: boolean;
   keySet?: boolean;
-  executor?: boolean;
+  executor?: boolean | "duplicate";
   parentRequest?: boolean;
   forkedLaunch?: "untouched" | "thinking";
   slots?: Slot[];
@@ -53,7 +53,7 @@ export function snap(o: Opts = {}): Snapshot {
     keySet: o.keySet ?? true,
     tuning: { kind: "missing", issues: [], record: {} },
     untunedTimeoutMs: settings.classifier.timeoutMs,
-    executor: { kind: o.executor === false ? "absent" : "present" },
+    executor: executorOf(o.executor),
   };
 }
 
@@ -259,3 +259,8 @@ export const base = () => ({
   description: "d",
   subagent_type: "general-purpose",
 });
+
+function executorOf(v: boolean | "duplicate" | undefined): Snapshot["executor"] {
+  if (v === "duplicate") return { kind: "duplicate", path: "/other/executor" };
+  return { kind: v === false ? "absent" : "present" };
+}

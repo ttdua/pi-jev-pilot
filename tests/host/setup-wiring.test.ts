@@ -207,7 +207,9 @@ describe("setup session_start", () => {
       "window.load",
       "getSessionId", // log.reset(sessionId)
       "setMainCwd",
+      "capture", // readiness reads the executor slot for the status line
       "draw",
+      "capture", // and again for the tuning report
       "tuning",
     ]);
   });
@@ -226,7 +228,9 @@ describe("setup session_start", () => {
       "window.clear",
       "getSessionId",
       "setMainCwd",
+      "capture", // readiness reads the executor slot for the status line
       "draw",
+      "capture", // and again for the tuning report
       "tuning",
     ]);
   });
@@ -258,7 +262,7 @@ describe("setup session_start", () => {
     const f = fakePi();
     setup(f.pi, { window: fakeWindow(log), readLines: () => [] });
     await f.fire("session_start", {}, loggingCtx("main", log));
-    expect(log).toEqual(["getSessionId", "capture", "tuning"]);
+    expect(log).toEqual(["getSessionId", "capture", "capture", "tuning"]);
   });
 
   test("a throw in setMainCwd skips the draw but not the tuning, after the log reset", async () => {
@@ -281,6 +285,7 @@ describe("setup session_start", () => {
       "window.load",
       "getSessionId",
       "setMainCwd",
+      "capture", // the tuning report reads the executor slot
       "tuning",
     ]);
   });

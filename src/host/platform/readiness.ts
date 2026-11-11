@@ -46,19 +46,31 @@ function isOtherService(value: unknown): boolean {
   return (value as { implementation?: unknown }).implementation !== "@ttdua/pi-subagents";
 }
 
-/** Pure. `captured` is the slot this package copied at load; only `published` decides a duplicate. */
+/** A captured service the launch seams can be driven through. */
+function isUsableCapture(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const service = value as { implementation?: unknown; registerLaunchPolicy?: unknown };
+  return (
+    service.implementation === "@ttdua/pi-subagents" &&
+    typeof service.registerLaunchPolicy === "function"
+  );
+}
+
+/**
+ * Pure. `published` is the executor slot now, `captured` this package's copy of the main
+ * service. Order: duplicate, then present (a usable captured service), else absent.
+ */
 export function executorState(
   tools: readonly ToolInfo[],
   published: unknown,
   captured: unknown,
 ): ExecutorState {
-  void captured;
   const tool = tools.find((t) => t.name === "subagent");
   if (tool === undefined) return { kind: "absent" };
   const path = tool.sourceInfo?.path;
   if (path !== undefined && !insideVendored(path)) return { kind: "duplicate", path };
   if (isOtherService(published)) return { kind: "duplicate", ...(path ? { path } : {}) };
-  return { kind: "present" };
+  return isUsableCapture(captured) ? { kind: "present" } : { kind: "absent" };
 }
 
 function toolNamesState(toolNames: readonly string[], given?: ExecutorState): ExecutorState {

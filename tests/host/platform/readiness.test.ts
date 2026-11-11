@@ -9,6 +9,7 @@ import {
   loadSnapshot,
 } from "../../../src/host/platform/readiness.ts";
 import { MAIN_CWD_KEY, setMainCwd } from "../../../src/host/platform/main-cwd.ts";
+import { captureMainService, clearMainService } from "../../../src/host/tools/index.ts";
 import { writeLocalMode } from "../../../src/store/local-mode.ts";
 import type { Config, ConfigRead } from "../../../src/store/config.ts";
 import type { StateRead } from "../../../src/store/state-file.ts";
@@ -191,7 +192,7 @@ describe("loadSnapshot", () => {
     const pi = { getAllTools: () => [{ name: "subagent" }] } as never;
     const s = loadSnapshot(pi);
     expect(s.settings.mode).toBe("budget");
-    expect(s.executor).toEqual({ kind: "present" });
+    expect(s.executor).toEqual({ kind: "absent" });
     expect(s.tuning.kind).toBe("ok");
     expect(s.settings.classifier.timeoutMs).toBe(1700);
   });
@@ -240,17 +241,27 @@ describe("executorState", () => {
   const VENDORED = {
     implementation: "@ttdua/pi-subagents",
     listAgents: () => [],
+    registerLaunchPolicy: () => () => {},
   };
   const tool = (path: string) => [{ name: "subagent", sourceInfo: { path } }] as never;
   const inside = "/repo/packages/pi-subagents/src/index.ts";
 
-  test("installed executor is present", () => {
-    expect(executorState(tool(inside), VENDORED, VENDORED)).toEqual({
-      kind: "present",
-    });
-    expect(executorState(tool(inside), undefined, undefined)).toEqual({
-      kind: "present",
-    });
+  test("installed executor with a usable captured service is present", () => {
+    expect(executorState(tool(inside), VENDORED, VENDORED)).toEqual({ kind: "present" });
+  });
+
+  test("no captured service is absent", () => {
+    expect(executorState(tool(inside), undefined, undefined)).toEqual({ kind: "absent" });
+  });
+
+  test("a captured service from another implementation is absent", () => {
+    const other = { ...VENDORED, implementation: "@gotgenes/pi-subagents" };
+    expect(executorState(tool(inside), undefined, other)).toEqual({ kind: "absent" });
+  });
+
+  test("a captured service without registerLaunchPolicy is absent", () => {
+    const { registerLaunchPolicy: _drop, ...bare } = VENDORED;
+    expect(executorState(tool(inside), VENDORED, bare)).toEqual({ kind: "absent" });
   });
 
   test("no subagent tool is absent", () => {
@@ -265,12 +276,13 @@ describe("executorState", () => {
 
   test("a winning tool outside the vendored executor is a duplicate with its path", () => {
     const path = "/x/node_modules/@gotgenes/pi-subagents/src/index.ts";
-    expect(executorState(tool(path), VENDORED, VENDORED)).toEqual({
-      kind: "duplicate",
-      path,
-    });
+    expect(executorState(tool(path), VENDORED, VENDORED)).toEqual({ kind: "duplicate", path });
+    expect(executorState(tool(path), undefined, undefined)).toEqual({ kind: "duplicate", path });
+  });
+
+  test("a Windows-separator path inside the vendored directory is not a duplicate", () => {
     expect(
-      executorState(tool("C:\\r\\packages\\pi-subagents\\src\\index.ts"), undefined, undefined),
+      executorState(tool("C:\\r\\packages\\pi-subagents\\src\\index.ts"), VENDORED, VENDORED),
     ).toEqual({ kind: "present" });
   });
 
@@ -279,5 +291,39 @@ describe("executorState", () => {
       kind: "duplicate",
       path: inside,
     });
+  });
+});
+
+describe("loadSnapshot reads the executor slot at check time", () => {
+  const EXECUTOR = Symbol.for("@gotgenes/pi-subagents:service");
+  const g = globalThis as Record<symbol, unknown>;
+  const vendored = {
+    implementation: "@ttdua/pi-subagents",
+    listAgents: () => [],
+    registerLaunchPolicy: () => () => {},
+  };
+  const inside = "/repo/packages/pi-subagents/src/index.ts";
+  const pi = { getAllTools: () => [{ name: "subagent", sourceInfo: { path: inside } }] } as never;
+
+  afterEach(() => {
+    delete g[EXECUTOR];
+    clearMainService();
+  });
+
+  test("a slot replaced after capture turns present into duplicate", () => {
+    g[EXECUTOR] = vendored;
+    captureMainService();
+    expect(loadSnapshot(pi).executor).toEqual({ kind: "present" });
+    g[EXECUTOR] = { listAgents: () => [] };
+    expect(loadSnapshot(pi).executor).toEqual({ kind: "duplicate", path: inside });
+  });
+
+  test("after a reload the new slot value decides, not the old capture", () => {
+    g[EXECUTOR] = { listAgents: () => [] };
+    captureMainService();
+    g[EXECUTOR] = vendored;
+    expect(loadSnapshot(pi).executor).toEqual({ kind: "absent" });
+    captureMainService();
+    expect(loadSnapshot(pi).executor).toEqual({ kind: "present" });
   });
 });
