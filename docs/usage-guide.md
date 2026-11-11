@@ -86,7 +86,7 @@ If you press Esc before any provider request, the status line also returns to it
 | **Skills** | At most one attached per prompt, on top of Pi's normal catalog |
 | **Advice** | Occasionally attached; the model may ignore it |
 | **Wait** | About half a second per prompt, 1.5 s at most |
-| **Subagent list** | While subagents run, a list appears below the editor. With an empty prompt, `↓` or `←` opens it on the first agent, and `Enter` opens that agent's transcript. Turn it off with `/subagents:settings` → `Fleet view` |
+| **Subagent list** | While subagents run, a list appears below the editor, even while you type. With an empty prompt, `↓` or `←` enters it on the first agent, and `Enter` opens that agent's transcript. `↑` still goes to history until the list is active. Turn it off with `/subagents:settings` → `Fleet view` |
 
 ## Modes
 

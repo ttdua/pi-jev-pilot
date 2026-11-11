@@ -17,7 +17,7 @@ Run them in foreground or background, steer them mid-run, resume completed sessi
 - **Parallel background agents** — spawn multiple agents that run concurrently with automatic queuing (configurable concurrency limit, default 4) and individual completion notifications
 - **Live widget UI** — persistent above-editor widget with animated spinners, live tool activity, token counts, and colored status icons
 - **Session transcripts** — open any subagent's full session transcript (running or with its session released) in pi's native read-only viewer via `/subagents:sessions`
-- **Fleet list** — a below-editor list of `main` and the subagents with a transcript; `↓` on an empty prompt enters it, `Enter` opens an agent's transcript
+- **Fleet list** — a below-editor list of `main` and the subagents with a transcript; `↓` or `←` on an empty prompt enters it, `Enter` opens an agent's transcript
 - **Custom agent types** — define agents in `.pi/agents/<name>.md` with YAML frontmatter: custom system prompts, model selection, thinking levels, tool restrictions
 - **Mid-run steering** — inject messages into running agents to redirect their work without restarting
 - **Session resume** — pick up where an agent left off, preserving full conversation context.
@@ -201,9 +201,11 @@ On a narrow terminal the footer drops the key hints, and the header drops the ta
 
 ### Fleet list
 
-While no prompt is typed, a list below the editor shows `main` and every subagent that has a transcript to open: running, queued, or settled within the last 4 seconds, plus any agent whose session is still held.
+A list below the editor shows `main` and every subagent that has a transcript to open.
+A subagent gets a row while it is running or queued, for 4 seconds after it finishes, and for as long as its transcript pane is open; after that it drops out unless you are viewing it.
+The list shows whenever at least one such row exists, including while you type; only entering it needs an empty, focused prompt.
 Each row shows the agent's name, its task, elapsed time and tokens; foreground and background agents both appear.
-The list appears when at least one subagent row exists and redraws about once a second while an agent runs.
+It redraws about once a second while an agent runs.
 
 | Key | Action |
 | --- | --- |
@@ -212,7 +214,7 @@ The list appears when at least one subagent row exists and redraws about once a 
 | `Enter` | Open the selected agent's transcript in the `/subagents:sessions` pane; on `main` it leaves the list |
 | `Esc` | Leave the list |
 
-While an agent runs, `↓`, `←` and `↑` at an empty prompt reach the list instead of the editor's history until you leave it.
+While an agent runs, `↓` and `←` at an empty prompt enter the list instead of reaching the editor. `↑` is not an entry key: it keeps reaching the editor's history until the list is active. Once active, `↑` and `↓` move between rows.
 The list has no steer or stop control; use `steer_subagent` for that.
 Turn it off with `/subagents:settings` → `Fleet view`, which persists the `fleetView` setting (see [Persistent Settings](./docs/configuration.md#persistent-settings)).
 
