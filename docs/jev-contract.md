@@ -230,7 +230,7 @@ One noul per candidate. A block candidate gets `tool::<name>`, asking whether th
 
 The request is built from the launch policy's request: the brief is the launch prompt (its last 4000 code points) and the agent comes from the executor's registry. Neither the brief nor any tool text is stored (see [Privacy](privacy.md)). The request is sent concurrently with the worker request and shares its `classifier.timeoutMs` deadline, so with the `tools` switch on each launch with candidates costs one extra request.
 
-It is a separate request because tool descriptions are irrelevant to the tier question, and TypeSafe documents that unrelated state lowers accuracy.
+It is a separate request because tool descriptions are irrelevant to the tier question, and TypeSafe documents that unrelated state lowers accuracy. A [replay of one merged request](evidence/2026-11-11-merged-request.md) kept the tier mix in range but saved about 6% of the bytes and no latency, so the requests stay separate.
 
 ## Skill pick
 

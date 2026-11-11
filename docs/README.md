@@ -28,7 +28,7 @@
 
 - [Project brief](project-brief.md): intent, goals, non-goals, scope, approaches considered
 - [Decision records](decisions/README.md): one decision per file
-- [Evidence](evidence/2026-11-05-replay.md): measurements behind the decisions; [routing by mode, 2026-11-07](evidence/2026-11-07-replay.md); [0.1 release report, 2026-11-08](evidence/2026-11-08-release.md)
+- [Evidence](evidence/2026-11-05-replay.md): measurements behind the decisions; [routing by mode, 2026-11-07](evidence/2026-11-07-replay.md); [0.1 release report, 2026-11-08](evidence/2026-11-08-release.md); [one merged request per launch, 2026-11-11](evidence/2026-11-11-merged-request.md)
 
 ## Which document wins
 
