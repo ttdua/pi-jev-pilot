@@ -264,12 +264,16 @@ export async function createSubagentSession(
   for (const pattern of unmatchedPatterns) {
     debugNote(`agent ${type}: tools pattern ${pattern} matched no tool the parent has`);
   }
-  // `disallowed_tools` applies last, before the recursion denylist. No policy grants yet.
+  // `disallowed_tools` applies last to the complete allowlist, child protocol
+  // tools included, before the recursion denylist. No policy grants yet.
+  const protocolTools = buildChildTools(params);
   const toolNames = finalToolNames(
-    expandedToolNames,
+    [...expandedToolNames, ...protocolTools.map((tool) => tool.name)],
     [],
     deps.registry.resolveAgentConfig(type).disallowedTools,
   );
+  // The SDK drops a custom tool missing from `tools`; keep the two consistent.
+  const childTools = protocolTools.filter((tool) => toolNames.includes(tool.name));
 
   const agentDir = deps.io.getAgentDir();
   const sessionSettings = deps.io.createSettingsManager(cfg.effectiveCwd, agentDir);
@@ -305,7 +309,6 @@ export async function createSubagentSession(
   sessionManager.newSession({ parentSession: params.parentSession?.parentSessionId });
   const sessionId = sessionManager.getSessionId();
 
-  const childTools = buildChildTools(params);
   const { session } = await deps.io.createSession({
     cwd: cfg.effectiveCwd,
     agentDir,
@@ -313,7 +316,7 @@ export async function createSubagentSession(
     settingsManager: sessionSettings,
     modelRegistry: snapshot.modelRegistry,
     model: cfg.model,
-    tools: [...toolNames, ...childTools.map((tool) => tool.name)],
+    tools: toolNames,
     customTools: childTools,
     excludeTools: EXCLUDED_TOOL_NAMES,
     resourceLoader: loader,

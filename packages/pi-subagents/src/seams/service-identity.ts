@@ -10,28 +10,30 @@
  */
 
 import {
-  getSubagentsService,
-  publishSubagentsService,
-  unpublishSubagentsService,
-  type SubagentsService,
+	getSubagentsService,
+	publishSubagentsService,
+	type SubagentsService,
+	unpublishSubagentsService,
 } from "#src/service/service";
 
 /** One instance's claim on the published service, from load to shutdown. */
 export class ServicePublication {
-  private published = false;
+	private published = false;
 
-  constructor(private readonly service: SubagentsService) {}
+	constructor(private readonly service: SubagentsService) {}
 
-  /** Publish the service unless this implementation's service already holds the slot. */
-  publish(): void {
-    if (getSubagentsService()?.implementation === this.service.implementation) return;
-    publishSubagentsService(this.service);
-    this.published = true;
-  }
+	/** Publish the service unless this implementation's service already holds the slot. */
+	publish(): void {
+		if (getSubagentsService()?.implementation === this.service.implementation)
+			return;
+		publishSubagentsService(this.service);
+		this.published = true;
+	}
 
-  /** Remove the service this instance published, leaving any other in place. */
-  stop(): void {
-    if (this.published && getSubagentsService() === this.service) unpublishSubagentsService();
-    this.published = false;
-  }
+	/** Remove the service this instance published, leaving any other in place. */
+	stop(): void {
+		if (this.published && getSubagentsService() === this.service)
+			unpublishSubagentsService();
+		this.published = false;
+	}
 }
