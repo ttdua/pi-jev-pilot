@@ -7,7 +7,7 @@
 
 **Change**: `executor-seams-upstream`
 **Finalized at**: `2026-11-11 18:40`
-**Outcome**: `pr-updated` (local closeout done; push pending operator approval, see deviations)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `spec/executor-seams-upstream`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` once pushed; currently local only (no remote branch, no PR)
-- **PR URL**: `N/A` (no PR exists yet; `spec/executor-seams-upstream` is not on the remote)
+- **Final state**: `pr-open`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/59`
 
 ---
 
@@ -31,7 +31,7 @@ The feature branch is checked out in the Worktrunk worktree `/Users/naicoi/Proje
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)` (pending: post after the operator approves the push and a PR is opened)
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/59#issuecomment-6793954981)
 
 ---
 
@@ -53,7 +53,7 @@ The feature branch is checked out in the Worktrunk worktree `/Users/naicoi/Proje
 
 ## Deviations from the canonical closeout
 
-- **Push and PR held** (steps 10–12): the project `AGENTS.md` requires explicit operator permission in chat before any push, merge or PR. The receipt is committed locally; the push of `spec/executor-seams-upstream` and the PR wait for that permission.
+- **Push and PR after approval** (steps 10–12): the project `AGENTS.md` requires explicit operator permission before any push, merge or PR. The operator approved push and PR in the Inbox (answer `msg_01M753ZB59FE4AB0NX74GZHGX9`); the branch was pushed as `ttdua` and PR #59 opened against `main`. No spec pre-review PR existed, so the outcome is `pr-created`.
 - **Merge location**: steps 3–5 ran in the feature branch's Worktrunk worktree, not the main checkout (see Workspace). No `git pull` because the branch has no remote yet.
 - **Worktree removal** used `wt remove` (project rule) instead of `git worktree remove`.
 
@@ -61,4 +61,4 @@ The feature branch is checked out in the Worktrunk worktree `/Users/naicoi/Proje
 
 ## Next step
 
-After the operator approves: push `spec/executor-seams-upstream`, open a PR against `main` (suggested title `feat(executor): vendor pi-subagents with launch policy seams`), and post the code-reviewer orientation comment. Then wait for PR code review; after approval run `/opsx-archive` on this feature branch (commits land here; the archive also syncs the delta specs, which `docs/evidence/2026-11-05-host-seams.md` links depend on), push the archive commits, and merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI). Before announcing the release, bump the version and tag so the README install command points at a release that contains the vendored executor. Follow-up: ttdua/pi-jev-pilot#58.
+Wait for PR code review on https://github.com/ttdua/pi-jev-pilot/pull/59. After approval, run `/opsx-archive` on `spec/executor-seams-upstream` (commits land here; it syncs the delta specs that `docs/evidence/2026-11-05-host-seams.md` links depend on), push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI), which lands implementation and archive into `main`. Before announcing the release, bump the version and tag so the README install command points at a release with the vendored executor. Follow-up: ttdua/pi-jev-pilot#58.
