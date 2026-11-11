@@ -33,12 +33,12 @@ Blocked by: 1
 
 Blocked by: 2, 3
 
-- [ ] 4.1 Add `registerLaunchPolicy(policy, { timeoutMs })` with one slot, a throwing second registration and an unregister function (spec `executor-launch-policy` "One launch policy slot")
-- [ ] 4.2 Call the policy in the record start path after dequeue and before `createSubagentSession`, for tool and service launches, never for resume; build the `LaunchRequest` (origin, requested values after `locked`, `toolSet` with parent tools minus excluded packages and orchestration tools) (D8)
-- [ ] 4.3 Apply the adjustment with precedence rules (locked fields, declared tools, `disallowed_tools`, parent-only grants), dropping violating entries with debug notes; load built-in extensions for granted built-ins
-- [ ] 4.4 Fail open on throw, reject, malformed value or watchdog timeout; abort the policy signal; honour launch cancellation
-- [ ] 4.5 After child bind and before the first provider request, keep only grants the child registered with a model-callable exposure, and report `grantedTools` on `subagents:child:bound` (spec "Grants are checked in the child")
-- [ ] 4.6 Unit tests for every scenario of `executor-launch-policy`; update `VENDORED.md`
+- [x] 4.1 Add `registerLaunchPolicy(policy, { timeoutMs })` with one slot, a throwing second registration and an unregister function (spec `executor-launch-policy` "One launch policy slot")
+- [x] 4.2 Call the policy in the record start path after dequeue and before `createSubagentSession`, for tool and service launches, never for resume; build the `LaunchRequest` (origin, requested values after `locked`, `toolSet` with parent tools minus excluded packages and orchestration tools) (D8)
+- [x] 4.3 Apply the adjustment with precedence rules (locked fields, declared tools, `disallowed_tools`, parent-only grants), dropping violating entries with debug notes; load built-in extensions for granted built-ins
+- [x] 4.4 Fail open on throw, reject, malformed value or watchdog timeout; abort the policy signal; honour launch cancellation
+- [x] 4.5 After child bind and before the first provider request, keep only grants the child registered with a model-callable exposure, and report `grantedTools` on `subagents:child:bound` (spec "Grants are checked in the child")
+- [x] 4.6 Unit tests for every scenario of `executor-launch-policy`; update `VENDORED.md`
 
 ## 5. jev-pilot: configuration, ledger schema and agent facts
 
