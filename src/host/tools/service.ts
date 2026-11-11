@@ -5,9 +5,6 @@ export type VendoredService = SubagentsService & {
   readonly implementation: "@ttdua/pi-subagents";
 };
 
-/** The executor's service, as far as the tool assessment needs it; records are read defensively. */
-export type ServiceLike = { listAgents(): unknown[] };
-
 const VENDORED_IMPLEMENTATION = "@ttdua/pi-subagents";
 const EXECUTOR_KEY: unique symbol = Symbol.for("@gotgenes/pi-subagents:service") as never;
 /** Process-wide slot for the captured main-session service. */

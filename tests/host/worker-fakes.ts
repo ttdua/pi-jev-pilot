@@ -1,12 +1,18 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  AgentTypeSnapshot,
+  LaunchAdjustment,
+  LaunchPolicy,
+  LaunchRequest,
+} from "@ttdua/pi-subagents";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { Snapshot } from "../../src/host/platform/readiness.ts";
+import type { VendoredService } from "../../src/host/tools/service.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker/routing.ts";
 import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
 import type { Mode } from "../../src/store/defaults.ts";
 import type { Slot } from "../../src/store/config.ts";
 import { resolveSettings } from "../../src/store/settings.ts";
-import { tempDir } from "../helpers.ts";
 
 export type Handler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown;
 
@@ -17,6 +23,9 @@ export const TIERS = {
 };
 
 export const TIERS_X = { ...TIERS, expert: "fx/expert" };
+
+/** The tools the executor gives an agent that declares none. */
+export const DEFAULT_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"];
 
 export type Opts = {
   mode?: Mode;
@@ -29,18 +38,24 @@ export type Opts = {
   forkedLaunch?: "untouched" | "thinking";
   slots?: Slot[];
   window?: () => readonly WindowEntry[];
+  toolsMode?: "observe" | "enforce";
+  grantAt?: number;
+  timeoutMs?: number;
 };
 
+/** A snapshot; the `tools` switch is off unless asked for, so routing tests send one request. */
 export function snap(o: Opts = {}): Snapshot {
   const settings = resolveSettings({
     config: {
       tiers: o.tiers ?? TIERS,
       state: { parentRequest: o.parentRequest ?? false },
       subagents: { forkedLaunch: o.forkedLaunch ?? "untouched" },
+      tools: { mode: o.toolsMode ?? "observe", grantAt: o.grantAt ?? 0.8 },
+      ...(o.timeoutMs === undefined ? {} : { classifier: { timeoutMs: o.timeoutMs } }),
       ...(o.slots === undefined ? {} : { crew: { slots: o.slots } }),
     } as never,
     state: {
-      switches: { subagents: true, ...o.switches },
+      switches: { subagents: true, tools: false, ...o.switches },
       ...(o.mode === undefined ? {} : { mode: o.mode }),
     } as never,
   });
@@ -108,42 +123,104 @@ export function bodyWith(tier: string, probabilities: Record<string, number>, ef
     },
   };
 }
+/** A tool answer body: one noul per key, e.g. `{ "tool::edit": 0.9, "grant::web": 0.85 }`. */
+export function toolBody(nouls: Record<string, number>) {
+  const answers: Record<string, unknown> = {};
+  for (const [key, noul] of Object.entries(nouls)) answers[key] = { type: "noul", noul };
+  return { answers };
+}
 export const ok = (b: unknown): JevOutcome => ({ kind: "ok", body: b, ms: 1 });
 
-export function harness(
-  opts: Opts & { reg?: Record<string, { name?: string; auth?: boolean }> } = {},
-) {
-  const handlers = new Map<string, Handler[]>();
-  const bus = new Map<string, Handler[]>();
-  const pi = {
-    on: (name: string, h: Handler) => {
-      handlers.set(name, [...(handlers.get(name) ?? []), h]);
-      return () => {};
-    },
-    events: {
-      on: (name: string, h: Handler) => {
-        bus.set(name, [...(bus.get(name) ?? []), h]);
-        return () => {
-          bus.set(
-            name,
-            (bus.get(name) ?? []).filter((x) => x !== h),
-          );
-        };
-      },
-    },
-    getAllTools: () => [],
-  } as unknown as ExtensionAPI;
-  const reg = opts.reg ?? {
-    "fx/fast": { name: "Fixture Fast" },
-    "fx/balanced": {},
-    "fx/deep": {},
-    "fx/expert": {},
+/** Whether a Jev request is a tool assessment (its questions are `tool::`/`grant::` nouls). */
+export function isToolRequest(req: JevRequest): boolean {
+  const keys = Object.keys(req.questions as object);
+  return keys.length > 0 && keys.every((k) => k.startsWith("tool::") || k.startsWith("grant::"));
+}
+
+/** An agent snapshot as the executor's registry returns it; `general-purpose` by default. */
+export function agentSnapshot(over: Partial<AgentTypeSnapshot> = {}): AgentTypeSnapshot {
+  return {
+    name: "general-purpose",
+    source: "builtin",
+    description: "General-purpose agent",
+    instructions: "",
+    tools: null,
+    defaultTools: DEFAULT_TOOLS,
+    disallowedTools: [],
+    ...over,
   };
-  const finds: string[] = [];
-  const notes: { text: string; type: string }[] = [];
-  const ctx = {
-    cwd: tempDir("jev-worker-cwd-"),
-    signal: undefined,
+}
+
+/** What a test overrides in a launch request; `agent` is merged into the default snapshot. */
+export type LaunchOver = Omit<Partial<LaunchRequest>, "agent" | "toolSet"> & {
+  agent?: Partial<AgentTypeSnapshot>;
+  toolSet?: Partial<LaunchRequest["toolSet"]>;
+};
+
+let nextAgent = 0;
+
+/** A launch request as the executor builds it for a `subagent` tool call by default. */
+export function launchRequest(over: LaunchOver = {}): LaunchRequest {
+  const agent = agentSnapshot(over.agent);
+  const declared = agent.tools === null ? null : [...agent.tools];
+  return {
+    agentId: over.agentId ?? `ag-${++nextAgent}`,
+    agentType: over.agentType ?? agent.name,
+    agent,
+    origin: over.origin ?? { kind: "tool", toolCallId: "call_1" },
+    ...(over.parentSessionId === undefined ? {} : { parentSessionId: over.parentSessionId }),
+    prompt: over.prompt ?? "do a thing",
+    description: over.description ?? "d",
+    requested: over.requested ?? {},
+    locked: over.locked ?? [],
+    inheritContext: over.inheritContext ?? false,
+    isBackground: over.isBackground ?? false,
+    toolSet: {
+      declared,
+      disallowed: agent.disallowedTools,
+      defaults: declared ?? DEFAULT_TOOLS,
+      parentTools: DEFAULT_TOOLS,
+      ...over.toolSet,
+    },
+  };
+}
+
+/** A fake vendored executor service that keeps the one registered launch policy. */
+export function fakeService(opts: { taken?: boolean } = {}) {
+  let current: LaunchPolicy | undefined;
+  const registrations: { timeoutMs: number }[] = [];
+  let unregisters = 0;
+  const service = {
+    implementation: "@ttdua/pi-subagents",
+    registerLaunchPolicy(policy: LaunchPolicy, options: { timeoutMs: number }) {
+      if (opts.taken === true || current !== undefined) {
+        throw new Error("launch policy slot is taken");
+      }
+      current = policy;
+      registrations.push(options);
+      return () => {
+        unregisters++;
+        if (current === policy) current = undefined;
+      };
+    },
+  };
+  return {
+    service: service as unknown as VendoredService,
+    policy: () => current,
+    registrations,
+    unregisters: () => unregisters,
+  };
+}
+
+type Script = (req: JevRequest) => JevOutcome | Promise<JevOutcome>;
+
+/** The main session context the policy reads: registry, UI and session id. */
+function mainCtx(
+  reg: Record<string, { name?: string; auth?: boolean }>,
+  notes: { text: string; type: string }[],
+  finds: string[],
+) {
+  return {
     hasUI: true,
     ui: { notify: (text: string, type: string) => notes.push({ text, type }) },
     sessionManager: {
@@ -163,27 +240,65 @@ export function harness(
         const r = reg[`${p}/${id}`];
         return r === undefined
           ? undefined
-          : {
-              id,
-              provider: p,
-              name: r.name ?? id,
-              reasoning: true,
-              auth: r.auth !== false,
-            };
+          : { id, provider: p, name: r.name ?? id, reasoning: true, auth: r.auth !== false };
       },
       hasConfiguredAuth: (m: { auth: boolean }) => m.auth,
-      getAvailable: () =>
-        Object.entries(reg)
-          .filter(([, r]) => r.auth !== false)
-          .map(([key]) => ({
-            provider: key.split("/")[0],
-            id: key.slice(key.indexOf("/") + 1),
-          })),
     },
   };
+}
+
+/** A Pi fake with only an event bus; routing registers no Pi handler. */
+function fakeBus(tools: () => unknown[]) {
+  const bus = new Map<string, ((d: unknown) => void)[]>();
+  const handlers: string[] = [];
+  const pi = {
+    on: (name: string) => {
+      handlers.push(name);
+      return () => {};
+    },
+    events: {
+      on: (name: string, h: (d: unknown) => void) => {
+        bus.set(name, [...(bus.get(name) ?? []), h]);
+        return () =>
+          bus.set(
+            name,
+            (bus.get(name) ?? []).filter((x) => x !== h),
+          );
+      },
+    },
+    getAllTools: () => tools(),
+  } as unknown as ExtensionAPI;
+  const emit = (name: string, payload: unknown) => {
+    for (const h of bus.get(name) ?? []) h(payload);
+  };
+  return { pi, emit, handlers, bus };
+}
+
+export function harness(
+  opts: Opts & {
+    reg?: Record<string, { name?: string; auth?: boolean }>;
+    taken?: boolean;
+    tools?: unknown[];
+  } = {},
+) {
+  let allTools: unknown[] = opts.tools ?? [];
+  const { pi, emit, handlers, bus } = fakeBus(() => allTools);
+  const reg = opts.reg ?? {
+    "fx/fast": { name: "Fixture Fast" },
+    "fx/balanced": {},
+    "fx/deep": {},
+    "fx/expert": {},
+  };
+  const finds: string[] = [];
+  const notes: { text: string; type: string }[] = [];
+  const ctx = mainCtx(reg, notes, finds);
   const asks: JevRequest[] = [];
-  let script: (req: JevRequest) => JevOutcome | Promise<JevOutcome> = () => ok(body("fast"));
+  const lines: Record<string, unknown>[] = [];
+  let appendFails = false;
+  let script: Script = (req) => (isToolRequest(req) ? ok(toolBody({})) : ok(body("fast")));
   let current = snap(opts);
+  let clock = 1_700_000_000_000;
+  const executor = fakeService({ taken: opts.taken });
   const deps: WorkerDeps = {
     ask: (req) => {
       asks.push(req);
@@ -194,71 +309,76 @@ export function harness(
       if (appendFails) throw new Error("disk full");
       lines.push(entry as Record<string, unknown>);
     },
-    now: () => 1_700_000_000_000,
-    agentDir: tempDir("jev-worker-agents-"),
+    now: () => clock,
+    service: () => (opts.executor === false ? undefined : executor.service),
     ...(opts.window === undefined ? {} : { window: opts.window }),
   };
-  const lines: Record<string, unknown>[] = [];
-  let appendFails = false;
   const routing = registerWorkerRouting(pi, deps);
-  const fire = async (name: string, event: unknown, c: unknown = ctx) => {
-    for (const h of handlers.get(name) ?? []) await h(event, c);
+  routing.start(ctx as never);
+
+  /** Calls the registered policy for one launch, as the executor does at the launch's start. */
+  const launch = async (
+    over: LaunchOver = {},
+    signal: AbortSignal = new AbortController().signal,
+  ): Promise<{ request: LaunchRequest; adjustment: LaunchAdjustment | undefined }> => {
+    const request = launchRequest(over);
+    const policy = executor.policy();
+    const adjustment = policy === undefined ? undefined : await policy(request, signal);
+    return { request, adjustment };
   };
-  const emit = async (name: string, payload: unknown) => {
-    for (const h of bus.get(name) ?? []) await h(payload, undefined);
-  };
-  const result = (id: string, agentId?: string, extra: object = {}) => ({
-    type: "tool_result",
-    toolName: "subagent",
-    toolCallId: id,
-    input: {},
-    content: [],
-    isError: false,
-    details: agentId === undefined ? undefined : { agentId },
-    ...extra,
-  });
-  const msg = (...calls: [string, Record<string, unknown>][]) => ({
-    type: "message_end",
-    message: {
-      role: "assistant",
-      content: calls.map(([id, args]) => ({
-        type: "toolCall",
-        id,
-        name: "subagent",
-        arguments: args,
-      })),
-    },
-  });
-  const call = (id: string, input: Record<string, unknown>, extra: object = {}) => ({
-    type: "tool_call",
-    toolName: "subagent",
-    toolCallId: id,
-    input,
+  const outcome = (agentId: string, extra: object = {}) => ({
+    id: agentId,
+    type: "general-purpose",
+    description: "SECRET-DESC",
+    status: "completed",
+    toolUses: 3,
+    durationMs: 1200,
+    tokens: { input: 5, output: 6, total: 11 },
     ...extra,
   });
   return {
+    pi,
     routing,
     ctx,
     asks,
     notes,
     finds,
     lines,
+    handlers,
+    bus,
+    executor,
+    launch,
     emit,
-    result,
-    fire,
+    /** The executor's `session-created` event for a launch. */
+    created: (agentId: string, extra: object = {}) =>
+      emit("subagents:child:session-created", { sessionId: `s-${agentId}`, agentId, ...extra }),
+    /** The executor's `bound` event, with the grants that took effect in the child. */
+    bound: (agentId: string, grantedTools: string[]) =>
+      emit("subagents:child:bound", { sessionId: `s-${agentId}`, agentId, grantedTools }),
+    completed: (agentId: string, extra: object = {}) =>
+      emit("subagents:completed", outcome(agentId, extra)),
+    failed: (agentId: string, extra: object = {}) =>
+      emit("subagents:failed", outcome(agentId, { status: "error", ...extra })),
+    resumed: (agentId: string) => emit("subagents:resumed", outcome(agentId)),
     failAppend: () => (appendFails = true),
-    msg,
-    call,
-    setScript: (s: typeof script) => (script = s),
+    setScript: (s: Script) => (script = s),
     setSnap: (o: Opts) => (current = snap(o)),
+    setTools: (t: unknown[]) => (allTools = t),
+    tick: (ms: number) => (clock += ms),
   };
 }
 
-export const base = () => ({
-  prompt: "do a thing",
-  description: "d",
-  subagent_type: "general-purpose",
-});
+/** Launches through the policy, then completes it: session created, then completed. */
+export async function runToCompletion(
+  h: ReturnType<typeof harness>,
+  over: LaunchOver = {},
+  effective: object = {},
+) {
+  const result = await h.launch(over);
+  h.created(result.request.agentId, effective);
+  h.completed(result.request.agentId);
+  return result;
+}
 
 function executorOf(v: boolean | "duplicate" | undefined): Snapshot["executor"] {
   if (v === "duplicate") return { kind: "duplicate", path: "/other/executor" };

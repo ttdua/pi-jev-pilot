@@ -21,7 +21,7 @@ import { createMain } from "./main/index.ts";
 import { registerReviewTool } from "./review/index.ts";
 import { compactTally, logLine, createSessionLog } from "./status/index.ts";
 import type { TuningDeps } from "./tuning/index.ts";
-import { createToolAssessment, mainService } from "./tools/index.ts";
+import { mainService } from "./tools/index.ts";
 import {
   registerJevCommand,
   subscribeSessionShutdown,
@@ -106,7 +106,6 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
   const window = deps.window ?? createCutpointWindow();
   const append = ledgerAppender(log, window);
   const routing = registerWorkerRouting(pi, { append, window: () => window.entries() });
-  const tools = createToolAssessment(pi);
   const tuningDeps = (): TuningDeps => ({
     dir: jevDir(),
     now: Date.now,
@@ -115,7 +114,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
     readLedger,
   });
   const main = buildMain(pi, log, append);
-  const parts: Parts = { seams: deps, off, routing, window, log, tools, main, tuningDeps };
+  const parts: Parts = { seams: deps, off, routing, window, log, main, tuningDeps };
   subscribeSessionStart(pi, parts);
   registerReviewTool(pi);
   registerLogRenderer(pi);

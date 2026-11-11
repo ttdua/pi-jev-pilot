@@ -18,6 +18,7 @@ export function registerJevCommand(pi: ExtensionAPI, parts: Parts): void {
         decision: main.decision,
         tally: log.tally,
         window: () => window.entries(),
+        problems: () => routing.problems(),
         overlay: main.overlay,
         exec: (c, a, o) => pi.exec(c, a, o),
         tune: (sub, c) => runTune(parts.tuningDeps(), sub, c),

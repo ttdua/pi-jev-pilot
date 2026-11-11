@@ -145,12 +145,14 @@ type ToolBody = {
   questions?: Record<string, unknown>;
 };
 const bodyOf = (j: JevFixture["requests"][number]): ToolBody => JSON.parse(j.body) as ToolBody;
+const isToolKey = (k: string): boolean => k.startsWith("tool::") || k.startsWith("grant::");
 const toolRequests = (j: JevFixture): JevFixture["requests"] =>
-  j.requests.filter((r) =>
-    Object.keys(bodyOf(r).questions ?? {}).some((k) => k.startsWith("tool::")),
-  );
+  j.requests.filter((r) => Object.keys(bodyOf(r).questions ?? {}).some(isToolKey));
+/** Every scored candidate: `tool::` (block) and `grant::` keys. */
 const toolKeys = (r: JevFixture["requests"][number]): string[] =>
-  Object.keys(bodyOf(r).questions ?? {}).filter((k) => k.startsWith("tool::"));
+  Object.keys(bodyOf(r).questions ?? {}).filter(isToolKey);
+const blockKeys = (r: JevFixture["requests"][number]): string[] =>
+  toolKeys(r).filter((k) => k.startsWith("tool::"));
 
 const ledger = (s: HostSession): Record<string, unknown>[] => {
   const r = readLedger(join(s.agentDir, "jev"));
@@ -194,7 +196,7 @@ describe("tool assessment through the real CLI", () => {
         toolsScored: keys.length,
         toolsFlagged: 1,
       });
-      expect(workerLines(session)[0]?.["toolsScored"]).toBe(7);
+      expect(blockKeys(requests[0]!)).toHaveLength(7);
       expect(fixture.unmatched).toEqual([]);
     },
     TIMEOUT,
@@ -235,10 +237,10 @@ describe("tool assessment through the real CLI", () => {
   );
 
   test(
-    "Explore sends no tool request",
+    "Explore declares its tools: no block question",
     async () => {
       const { jev } = await runOne({ type: "Explore" });
-      expect(toolRequests(jev).length).toBe(0);
+      for (const r of toolRequests(jev)) expect(blockKeys(r)).toEqual([]);
     },
     TIMEOUT,
   );
@@ -261,9 +263,9 @@ describe("tool assessment through the real CLI", () => {
   );
 
   test(
-    "record found at first before_agent_start",
+    "the policy call names the launch's agent",
     async () => {
-      // A tool request reaching Jev proves listAgents() held the record by outputFile at that moment.
+      // The launch policy receives the agent snapshot; no record lookup is needed.
       const { jev } = await runOne({});
       expect(toolRequests(jev).length).toBe(1);
       expect(bodyOf(toolRequests(jev)[0]!).state?.agent?.name).toBe(OPEN);

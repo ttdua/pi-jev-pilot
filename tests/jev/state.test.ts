@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 
-import { readAgent } from "../../src/host/platform/agents.ts";
+import { agentFacts } from "../../src/host/platform/agents.ts";
 import {
   buildToolState,
   buildWorkerState,
@@ -17,7 +15,6 @@ import {
   type BranchItem,
 } from "../../src/jev/state.ts";
 import type { AgentFacts } from "../../src/policy/launch.ts";
-import { tempDir } from "../helpers.ts";
 
 const user = (text: string): BranchItem => ({ role: "user", text, tools: [] });
 const asst = (text: string, tools: BranchItem["tools"] = []): BranchItem => ({
@@ -250,14 +247,17 @@ describe("Worker state shape", () => {
     expect(state.task.description).toBe("");
   });
   test("No model in state", () => {
-    const cwd = tempDir("state-cwd-");
-    const agentDir = tempDir("state-global-");
-    mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
-    writeFileSync(
-      join(cwd, ".pi", "agents", "worker.md"),
-      "---\ndescription: d\nmodel: anthropic/claude-opus\nthinking: high\n---\nbody",
-    );
-    const agent = readAgent("worker", { cwd, agentDir });
+    const agent = agentFacts({
+      name: "worker",
+      source: "project",
+      description: "d",
+      instructions: "body",
+      tools: null,
+      defaultTools: [],
+      disallowedTools: [],
+      model: "anthropic/claude-opus",
+      thinking: "high",
+    });
     expect(agent.sets).toEqual({ model: true, thinking: true });
     const json = JSON.stringify(build({ agent }));
     expect(json).not.toContain("claude-opus");

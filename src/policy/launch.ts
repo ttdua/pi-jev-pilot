@@ -51,7 +51,6 @@ export type AgentFacts = {
 };
 
 export type EffectiveLaunch = {
-  resume: boolean;
   inheritContext: boolean;
   runInBackground: boolean;
   modelLocked: boolean;
@@ -80,32 +79,31 @@ export function isFieldLocked(facts: AgentFacts, field: LockableField): boolean 
   return lock.includes(field);
 }
 
-function effectiveBoolean(
-  inputValue: unknown,
-  agentValue: boolean | undefined,
-  locked: boolean,
-): boolean {
-  if (!locked && typeof inputValue === "boolean") return inputValue;
-  return agentValue ?? false;
+/**
+ * The launch request fields the route reads, structurally the executor's `LaunchRequest` slice;
+ * `requested` is after the agent's locks were applied.
+ */
+export type LaunchRequestFacts = {
+  origin: { kind: "tool"; toolCallId: string } | { kind: "service" };
+  requested: { model?: string; thinking?: string };
+  inheritContext: boolean;
+  isBackground: boolean;
+  locked: readonly LockableField[];
+};
+
+/** A service launch that names a model keeps it, as if the agent locked `model`. */
+function serviceModel(request: LaunchRequestFacts): boolean {
+  return request.origin.kind === "service" && request.requested.model !== undefined;
 }
 
-export function effectiveLaunch(
-  input: Record<string, unknown>,
-  facts: AgentFacts,
-): EffectiveLaunch {
+/** The launch as routing sees it; a resume never reaches the policy, so it has no field here. */
+export function effectiveLaunch(request: LaunchRequestFacts, facts: AgentFacts): EffectiveLaunch {
+  const locks = (field: LockableField): boolean =>
+    request.locked.includes(field) || isFieldLocked(facts, field);
   return {
-    resume: typeof input.resume === "string" && input.resume.length > 0,
-    inheritContext: effectiveBoolean(
-      input.inherit_context,
-      facts.inheritContext,
-      isFieldLocked(facts, "inherit_context"),
-    ),
-    runInBackground: effectiveBoolean(
-      input.run_in_background,
-      facts.runInBackground,
-      isFieldLocked(facts, "run_in_background"),
-    ),
-    modelLocked: isFieldLocked(facts, "model"),
-    thinkingLocked: isFieldLocked(facts, "thinking"),
+    inheritContext: request.inheritContext,
+    runInBackground: request.isBackground,
+    modelLocked: locks("model") || serviceModel(request),
+    thinkingLocked: locks("thinking"),
   };
 }

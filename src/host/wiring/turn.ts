@@ -4,14 +4,13 @@ import { hideReviewInChild, syncReviewTool } from "../review/index.ts";
 import { settleTuning } from "../tuning/index.ts";
 import type { Parts } from "./parts.ts";
 
-/** `before_agent_start`: a child hides the review tool and is assessed; main syncs it, then decides. */
+/** `before_agent_start`: a child hides the review tool; main syncs it, then decides. */
 function subscribeBeforeAgentStart(pi: ExtensionAPI, parts: Parts): void {
   pi.on("before_agent_start", async (event, ctx) => {
     try {
       const sessionId = ctx.sessionManager.getSessionId();
       if (isChild(sessionId)) {
         hideReviewInChild(event, sessionId);
-        await parts.tools.beforeAgentStart(event, ctx);
         return undefined;
       }
       try {

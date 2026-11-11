@@ -1,8 +1,16 @@
-import { mkdirSync, writeFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { putToolCounts, takeToolCounts, TOOL_COUNTS_KEY } from "../../src/host/tools/counts.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
-import { base, body, effort, harness, ok, TIERS_X } from "./worker-fakes.ts";
+import {
+  body,
+  effort,
+  harness,
+  isToolRequest,
+  ok,
+  runToCompletion,
+  TIERS_X,
+  toolBody,
+  type LaunchOver,
+} from "./worker-fakes.ts";
 
 const saved = process.env.TYPESAFE_API_KEY;
 beforeEach(() => {
@@ -14,28 +22,10 @@ afterEach(() => {
 });
 
 type H = ReturnType<typeof harness>;
-const done = (id: string, extra: object = {}) => ({
-  id,
-  type: "general-purpose",
-  description: "SECRET-DESC",
-  status: "completed",
-  toolUses: 3,
-  durationMs: 1200,
-  tokens: { input: 5, output: 6, total: 11 },
-  ...extra,
-});
 
-/** message_end + tool_call for one launch; returns the (mutated) input. */
-async function launch(h: H, id: string, input: Record<string, unknown> = base()) {
-  await h.fire("message_end", h.msg([id, input]));
-  await h.fire("tool_call", h.call(id, input));
-  return input;
-}
-
-async function foreground(h: H, id = "t1", input: Record<string, unknown> = base()) {
-  await launch(h, id, input);
-  await h.emit("subagents:completed", done(`ag-${id}`));
-  await h.fire("tool_result", h.result(id, `ag-${id}`));
+/** One launch through the policy, its session created and its run completed. */
+async function foreground(h: H, over: LaunchOver = {}) {
+  return runToCompletion(h, over);
 }
 
 describe("One line per launch", () => {
@@ -60,63 +50,47 @@ describe("One line per launch", () => {
     expect(h.lines).toHaveLength(0);
   });
 
-  test("Unknown agent id ignored", async () => {
+  test("Resume writes no line", async () => {
     const h = harness();
-    await h.emit("subagents:completed", done("never-seen"));
-    await h.emit("subagents:failed", done("never-seen-2", { status: "error" }));
-    expect(h.lines).toHaveLength(0);
+    const { request } = await foreground(h);
+    expect(h.lines).toHaveLength(1);
+    // A resume never reaches the policy; its run ends on `subagents:resumed`.
+    h.resumed(request.agentId);
+    h.completed(request.agentId);
+    expect(h.lines).toHaveLength(1);
   });
 
-  test("Two launches, two lines", async () => {
+  test("Unknown agent id ignored", async () => {
     const h = harness();
-    h.setScript((req) => ok(body((req.state as { task: { brief: string } }).task.brief)));
-    const a = { ...base(), prompt: "fast" };
-    const b = { ...base(), prompt: "deep" };
-    await h.fire("message_end", h.msg(["a", a], ["b", b]));
-    await h.fire("tool_call", h.call("a", a));
-    await h.fire("tool_call", h.call("b", b));
-    await h.fire("tool_result", h.result("a", "ag-a"));
-    await h.fire("tool_result", h.result("b", "ag-b"));
-    await h.emit("subagents:completed", done("ag-b"));
-    await h.emit("subagents:completed", done("ag-a"));
-    expect(h.lines).toHaveLength(2);
-    expect(h.lines.map((l) => l["tier"]).sort()).toEqual(["deep", "fast"]);
+    h.completed("never-seen");
+    h.failed("never-seen-2");
+    expect(h.lines).toHaveLength(0);
   });
 
   test("Line written once", async () => {
     const h = harness();
-    await foreground(h);
-    await h.emit("subagents:completed", done("ag-t1"));
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
+    const { request } = await foreground(h);
+    h.completed(request.agentId);
+    h.failed(request.agentId);
     expect(h.lines).toHaveLength(1);
   });
 
-  test("Drafts are bounded", async () => {
+  test("Launches awaiting an outcome are bounded", async () => {
     const h = harness();
-    h.setScript(() => ok(body("fast")));
-    for (let i = 0; i < 300; i++) await h.fire("tool_call", h.call(`c${i}`, base()));
-    expect(h.routing.pending()).toBe(256); // cache only
-    for (let i = 0; i < 300; i++) await h.emit("subagents:completed", done(`x${i}`));
-    expect(h.routing.pending()).toBe(256 + 256); // cache + outcomes
-  });
-
-  test("Launch drafts awaiting an outcome are bounded", async () => {
-    const h = harness();
-    h.setScript(() => ok(body("fast")));
-    for (let i = 0; i < 300; i++) {
-      await h.fire("tool_call", h.call(`c${i}`, base()));
-      await h.fire("tool_result", h.result(`c${i}`, `ag-${i}`));
-    }
-    expect(h.routing.pending()).toBe(256); // byAgent only; cache emptied by each result
+    for (let i = 0; i < 300; i++) await h.launch({ agentId: `ag-${i}` });
+    expect(h.routing.pending()).toBe(256);
+    h.completed("ag-0");
+    expect(h.lines).toHaveLength(0);
+    h.completed("ag-299");
+    expect(h.lines).toHaveLength(1);
   });
 
   test("off() clears everything", async () => {
     const h = harness();
-    await launch(h, "t1");
-    await h.emit("subagents:completed", done("other"));
+    const { request } = await h.launch();
     h.routing.off();
     expect(h.routing.pending()).toBe(0);
-    await h.emit("subagents:completed", done("ag-t1"));
+    h.completed(request.agentId);
     expect(h.lines).toHaveLength(0);
   });
 });
@@ -124,11 +98,7 @@ describe("One line per launch", () => {
 describe("Outcome joined from the executor", () => {
   test("Foreground completion", async () => {
     const h = harness();
-    await launch(h, "t1");
-    await h.emit("subagents:completed", done("ag-t1"));
-    expect(h.lines).toHaveLength(0);
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
-    expect(h.lines).toHaveLength(1);
+    await foreground(h);
     expect(h.lines[0]).toMatchObject({
       status: "completed",
       toolUses: 3,
@@ -139,67 +109,71 @@ describe("Outcome joined from the executor", () => {
 
   test("Background completion", async () => {
     const h = harness();
-    await launch(h, "t1");
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
+    const { request } = await h.launch({ isBackground: true });
+    h.created(request.agentId);
     expect(h.lines).toHaveLength(0);
-    await h.emit("subagents:completed", done("ag-t1"));
-    expect(h.lines).toHaveLength(1);
+    h.completed(request.agentId);
     expect(h.lines[0]).toMatchObject({ status: "completed" });
   });
 
   test("Failed worker", async () => {
     const h = harness();
-    await launch(h, "t1");
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
-    await h.emit("subagents:failed", done("ag-t1", { status: "error" }));
+    const { request } = await h.launch();
+    h.created(request.agentId);
+    h.failed(request.agentId);
     expect(h.lines[0]).toMatchObject({ status: "error" });
-  });
-
-  test("Stale outcome not joined to a resume", async () => {
-    const h = harness();
-    await launch(h, "t1"); // routed launch A
-    await h.fire("tool_result", h.result("t1", "ag"));
-    await h.emit("subagents:completed", done("ag", { durationMs: 111, toolUses: 1 }));
-    expect(h.lines).toHaveLength(1);
-    // Jev outage / cancel: the launch is skipped; its event arrives after its tool_result.
-    h.setScript(() => ({ kind: "cancelled" }));
-    await launch(h, "t2");
-    await h.fire("tool_result", h.result("t2", "ag"));
-    await h.emit("subagents:completed", done("ag", { durationMs: 222, toolUses: 2 }));
-    expect(h.lines).toHaveLength(1);
-    // A resume of the same id gets its own event, not the stale one.
-    await h.fire("tool_call", h.call("t3", { ...base(), resume: "ag" }));
-    await h.fire("tool_result", h.result("t3", "ag"));
-    expect(h.lines).toHaveLength(1);
-    const resumed = done("ag", { durationMs: 333, toolUses: 3, tokens: { total: 99 } });
-    await h.emit("subagents:resumed", resumed);
-    expect(h.lines).toHaveLength(2);
-    expect(h.lines[1]).toMatchObject({
-      reason: "untouched",
-      durationMs: 333,
-      toolUses: 3,
-      tokens: 99,
-    });
-  });
-
-  test("Unrouted launch outcome dropped", async () => {
-    const h = harness({ switches: { subagents: false } });
-    await h.fire("tool_call", h.call("t1", base()));
-    await h.emit("subagents:completed", done("ag-t1")); // buffered: nothing waits for it
-    expect(h.routing.pending()).toBeGreaterThan(0);
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
-    expect(h.routing.pending()).toBe(0);
-    expect(h.lines).toHaveLength(0);
   });
 
   test("Refused launch", async () => {
     const h = harness();
-    await launch(h, "t1");
-    await h.fire("tool_result", h.result("t1"));
+    // Session creation failed after the policy ran: no session-created, then failed.
+    const { request } = await h.launch();
+    h.failed(request.agentId, { toolUses: 0, durationMs: 5 });
     expect(h.lines).toHaveLength(1);
     expect(h.lines[0]).toMatchObject({ status: "error" });
-    expect(h.lines[0]).not.toHaveProperty("toolUses");
-    expect(h.lines[0]).not.toHaveProperty("durationMs");
+    expect(h.lines[0]).not.toHaveProperty("effectiveModel");
+    // A launch refused before its policy call never reached routing: no line.
+    h.failed("ag-refused-early");
+    expect(h.lines).toHaveLength(1);
+  });
+
+  test("Effective values joined", async () => {
+    const h = harness();
+    const { request } = await h.launch();
+    h.created(request.agentId, {
+      effectiveModel: "fixture/fixture-deep",
+      effectiveThinking: "high",
+    });
+    h.completed(request.agentId);
+    expect(h.lines[0]).toMatchObject({
+      effectiveModel: "fixture/fixture-deep",
+      effectiveThinking: "high",
+    });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+  });
+
+  test("Concurrent workers joined correctly", async () => {
+    const h = harness();
+    h.setScript((req) => ok(body((req.state as { task: { brief: string } }).task.brief)));
+    const a = await h.launch({ prompt: "fast", agent: { name: "alpha", source: "project" } });
+    const b = await h.launch({ prompt: "deep", agent: { name: "beta", source: "project" } });
+    h.created(a.request.agentId, { effectiveModel: "fx/fast" });
+    h.created(b.request.agentId, { effectiveModel: "fx/deep" });
+    h.completed(b.request.agentId, { toolUses: 9 });
+    h.completed(a.request.agentId, { toolUses: 1 });
+    expect(h.lines.map((l) => [l["agent"], l["tier"], l["toolUses"], l["effectiveModel"]])).toEqual(
+      [
+        ["beta", "deep", 9, "fx/deep"],
+        ["alpha", "fast", 1, "fx/fast"],
+      ],
+    );
+  });
+
+  test("Service launch recorded", async () => {
+    const h = harness();
+    await foreground(h, { origin: { kind: "service" } });
+    expect(h.lines).toHaveLength(1);
+    expect(h.lines[0]).toMatchObject({ status: "completed", tier: "fast" });
   });
 });
 
@@ -207,7 +181,7 @@ describe("Decision fields", () => {
   test("Routed fields", async () => {
     const h = harness();
     h.setScript(() => ok(body("balanced", "high")));
-    await foreground(h, "t1", { ...base(), model: "fixture/fixture-main" });
+    await foreground(h, { requested: { model: "fixture/fixture-main" } });
     expect(h.lines[0]).toMatchObject({
       v: 1,
       at: 1_700_000_000_000,
@@ -288,7 +262,7 @@ describe("Decision fields", () => {
   test("Thinking-only recorded", async () => {
     const h = harness({ forkedLaunch: "thinking" });
     h.setScript(() => ok(body("fast", "high")));
-    await foreground(h, "t1", { ...base(), inherit_context: true });
+    await foreground(h, { inheritContext: true });
     expect(h.lines[0]).toMatchObject({ answered: true, reason: "untouched", effort: "high" });
     expect(h.lines[0]).not.toHaveProperty("tier");
     expect(h.lines[0]).not.toHaveProperty("model");
@@ -312,24 +286,29 @@ describe("Decision fields", () => {
 
   test("Untouched recorded", async () => {
     const h = harness();
-    const input = { ...base(), resume: "agent-1" };
-    await h.fire("tool_call", h.call("t1", input));
-    await h.fire("tool_result", h.result("t1", "agent-1"));
-    await h.emit("subagents:resumed", done("agent-1"));
+    await foreground(h, {
+      agent: { model: "fx/x", thinking: "high", locked: ["model", "thinking"] },
+      locked: ["model", "thinking"],
+    });
     expect(h.asks).toHaveLength(0);
     expect(h.lines).toHaveLength(1);
-    expect(h.lines[0]).toMatchObject({ reason: "untouched", answered: false, status: "completed" });
+    expect(h.lines[0]).toMatchObject({
+      reason: "untouched",
+      answered: false,
+      status: "completed",
+      locked: true,
+    });
     for (const k of ["tier", "model", "ms", "miss", "score", "rubric"])
       expect(h.lines[0]).not.toHaveProperty(k);
   });
 
   test("Locked recorded", async () => {
     const h = harness();
-    const { cwd } = h.ctx;
-    mkdirSync(`${cwd}/.pi/agents`, { recursive: true });
-    writeFileSync(`${cwd}/.pi/agents/locker.md`, "---\nmodel: fx/x\nlocked: model\n---\nbody\n");
     h.setScript(() => ok(body("deep")));
-    await foreground(h, "t1", { ...base(), subagent_type: "locker" });
+    await foreground(h, {
+      agent: { name: "locker", source: "project", model: "fx/x", locked: ["model"] },
+      locked: ["model"],
+    });
     expect(h.lines[0]).toMatchObject({ locked: true, agent: "locker" });
     expect(h.lines[0]).not.toHaveProperty("model");
   });
@@ -343,7 +322,7 @@ describe("Decision fields", () => {
   test("No prompt text", async () => {
     const h = harness();
     const marker = "UNIQUE-MARKER-42";
-    await foreground(h, "t1", { ...base(), prompt: `go ${marker}`, description: marker });
+    await foreground(h, { prompt: `go ${marker}`, description: marker });
     expect(h.lines).toHaveLength(1);
     expect(JSON.stringify(h.lines)).not.toContain(marker);
     expect(JSON.stringify(h.lines)).not.toContain("SECRET-DESC");
@@ -352,7 +331,7 @@ describe("Decision fields", () => {
 
   test("Brief length counts code points", async () => {
     const h = harness();
-    await foreground(h, "t1", { ...base(), prompt: "a😀b" });
+    await foreground(h, { prompt: "a😀b" });
     expect(h.lines[0]).toMatchObject({ briefChars: 3 });
   });
 });
@@ -360,7 +339,7 @@ describe("Decision fields", () => {
 describe("Caller model field", () => {
   test("Caller model outside the rule", async () => {
     const h = harness();
-    await foreground(h, "t1", { ...base(), model: "a b" });
+    await foreground(h, { requested: { model: "a b" } });
     expect(h.lines).toHaveLength(1);
     expect(h.lines[0]).not.toHaveProperty("callerModel");
   });
@@ -375,13 +354,8 @@ describe("Caller model field", () => {
 describe("Ledger failures do not affect the launch", () => {
   test("Agent name outside the ledger rule", async () => {
     const h = harness();
-    const { cwd } = h.ctx;
-    mkdirSync(`${cwd}/.pi/agents`, { recursive: true });
-    writeFileSync(`${cwd}/.pi/agents/my agent!.md`, "---\ndescription: x\n---\nbody\n");
-    const input = await launch(h, "t1", { ...base(), subagent_type: "my agent!" });
-    expect(input).toMatchObject({ model: "fx/fast" });
-    await h.emit("subagents:completed", done("ag-t1"));
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
+    const { adjustment } = await foreground(h, { agent: { name: "my agent!", source: "project" } });
+    expect(adjustment).toMatchObject({ model: "fx/fast" });
     // The real writer drops the invalid line; the fake validates as appendLedger does.
     expect(h.lines).toHaveLength(1);
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(false);
@@ -390,10 +364,8 @@ describe("Ledger failures do not affect the launch", () => {
   test("Append throws", async () => {
     const h = harness();
     h.failAppend();
-    const input = await launch(h, "t1");
-    expect(input).toMatchObject({ model: "fx/fast" });
-    await h.emit("subagents:completed", done("ag-t1"));
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
+    const { adjustment } = await foreground(h);
+    expect(adjustment).toMatchObject({ model: "fx/fast" });
     expect(h.lines).toHaveLength(0);
   });
 });
@@ -407,55 +379,46 @@ describe("Mode recorded", () => {
 });
 
 describe("Tool counts on the worker line", () => {
-  const reset = () => {
-    (globalThis as Record<symbol, unknown>)[TOOL_COUNTS_KEY] = undefined;
+  const assessed = { switches: { tools: true } };
+  const answer = (req: Parameters<Parameters<H["setScript"]>[0]>[0]) =>
+    isToolRequest(req)
+      ? ok(toolBody({ "tool::edit": 0.9, "grant::web": 0.9, "grant::codemode": 0.9 }))
+      : ok(body("fast"));
+  const six = {
+    toolSet: { defaults: ["read", "bash", "edit", "write"], parentTools: ["web", "codemode"] },
   };
-  beforeEach(reset);
-  afterEach(reset);
 
   test("Tool counts recorded", async () => {
-    const h = harness();
-    putToolCounts("ag-t1", { toolsScored: 4, toolsFlagged: 1 });
-    await foreground(h);
-    expect(h.lines[0]).toMatchObject({ toolsScored: 4, toolsFlagged: 1 });
+    const h = harness(assessed);
+    h.setScript(answer);
+    await foreground(h, six);
+    expect(h.lines[0]).toMatchObject({ toolsScored: 6, toolsFlagged: 1, toolsGranted: 2 });
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
-    expect(takeToolCounts("ag-t1")).toBeUndefined();
-  });
-
-  test("Counts recorded when the tool result comes first", async () => {
-    const h = harness();
-    putToolCounts("ag-t1", { toolsScored: 2, toolsFlagged: 0 });
-    await launch(h, "t1");
-    await h.fire("tool_result", h.result("t1", "ag-t1"));
-    await h.emit("subagents:completed", done("ag-t1"));
-    expect(h.lines[0]).toMatchObject({ toolsScored: 2, toolsFlagged: 0 });
   });
 
   test("No assessment, no counts", async () => {
-    const h = harness();
-    await foreground(h);
-    expect(h.lines[0]).not.toHaveProperty("toolsScored");
-    expect(h.lines[0]).not.toHaveProperty("toolsFlagged");
+    for (const o of [{}, assessed]) {
+      const h = harness(o);
+      if (o === assessed) {
+        h.setScript((req) =>
+          isToolRequest(req)
+            ? { kind: "miss", miss: "error", reason: "x", ms: 1 }
+            : ok(body("fast")),
+        );
+      }
+      await foreground(h, o === assessed ? six : { toolSet: { defaults: [], parentTools: [] } });
+      for (const k of ["toolsScored", "toolsFlagged", "toolsGranted"]) {
+        expect(h.lines[0]).not.toHaveProperty(k);
+      }
+    }
   });
 
   test("Resumed launch carries no counts", async () => {
-    const h = harness();
-    putToolCounts("ag-t1", { toolsScored: 4, toolsFlagged: 1 });
-    await foreground(h, "t1", { ...base(), resume: "ag-t1" });
+    const h = harness(assessed);
+    h.setScript(answer);
+    const { request } = await foreground(h, six);
+    h.resumed(request.agentId);
     expect(h.lines).toHaveLength(1);
-    expect(h.lines[0]).not.toHaveProperty("toolsScored");
-    expect(h.lines[0]).not.toHaveProperty("toolsFlagged");
-    expect(takeToolCounts("ag-t1")).toEqual({ toolsScored: 4, toolsFlagged: 1 });
-  });
-
-  test("Refused launch reads no counts", async () => {
-    const h = harness();
-    putToolCounts("ag-t1", { toolsScored: 4, toolsFlagged: 1 });
-    await launch(h, "t1");
-    await h.fire("tool_result", h.result("t1", ""));
-    expect(h.lines).toHaveLength(1);
-    expect(h.lines[0]).not.toHaveProperty("toolsScored");
-    expect(takeToolCounts("ag-t1")).toEqual({ toolsScored: 4, toolsFlagged: 1 });
   });
 });
 

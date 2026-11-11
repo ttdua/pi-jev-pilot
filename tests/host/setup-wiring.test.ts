@@ -165,12 +165,10 @@ describe("setup registration", () => {
     expect(f.log).toEqual([
       `events:${CREATED}`,
       "events:subagents:child:disposed",
-      "on:message_end",
-      "on:tool_call",
-      "on:tool_result",
+      `events:${CREATED}`,
+      "events:subagents:child:bound",
       "events:subagents:completed",
       "events:subagents:failed",
-      "events:subagents:resumed",
       "on:session_start",
       "tool:jev_review",
       "renderer:jev-log",
@@ -187,7 +185,7 @@ describe("setup registration", () => {
     const f = fakePi();
     setup(f.pi);
     for (const [name, list] of f.handlers) expect([name, list.length]).toEqual([name, 1]);
-    expect(f.handlers.size).toBe(9);
+    expect(f.handlers.size).toBe(6);
     expect(f.commands.size).toBe(1);
     expect(f.commands.get("jev")?.description).toBe("Show or change jev-pilot features");
   });
@@ -476,8 +474,12 @@ describe("setup turn handlers", () => {
 });
 
 describe("setup session_shutdown", () => {
-  test("clears the service, then drops the child and routing subscriptions in order", async () => {
-    const service = { implementation: "@ttdua/pi-subagents", listAgents: () => [] as unknown[] };
+  test("unregisters the policy and clears the service, then drops the subscriptions in order", async () => {
+    const service = {
+      implementation: "@ttdua/pi-subagents",
+      listAgents: () => [] as unknown[],
+      registerLaunchPolicy: () => () => log.push("unregister"),
+    };
     g[EXECUTOR_KEY] = service;
     const log: string[] = [];
     const f = fakePi(log);
@@ -489,11 +491,13 @@ describe("setup session_shutdown", () => {
     expect(mainService()).toBeUndefined();
     expect(log).toEqual([
       "getSessionId",
+      "unregister",
       `off:${CREATED}`,
       "off:subagents:child:disposed",
+      `off:${CREATED}`,
+      "off:subagents:child:bound",
       "off:subagents:completed",
       "off:subagents:failed",
-      "off:subagents:resumed",
     ]);
   });
 
@@ -508,7 +512,7 @@ describe("setup session_shutdown", () => {
     log.length = 0;
     await f.fire("session_shutdown", {}, loggingCtx("kid", log));
     expect(mainService()).toBe(service as never);
-    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(5);
+    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(6);
   });
 
   test("a throwing session id read does not skip any unsubscribe", async () => {
@@ -517,7 +521,7 @@ describe("setup session_shutdown", () => {
     setup(f.pi);
     log.length = 0;
     await f.fire("session_shutdown", {}, {}); // ctx.sessionManager is undefined: the read throws
-    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(5);
+    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(6);
   });
 });
 
@@ -559,5 +563,67 @@ describe("setup /jev command", () => {
       sessionManager: { getSessionId: () => "main", getBranch: () => [] },
     });
     expect(notes[0]).toContain("  prompts 0");
+  });
+});
+
+describe("setup launch policy registration", () => {
+  type Policy = (r: unknown, s: AbortSignal) => unknown;
+  function vendored(log: string[], taken = false) {
+    return {
+      implementation: "@ttdua/pi-subagents",
+      listAgents: () => [] as unknown[],
+      registerLaunchPolicy: (_p: Policy, o: { timeoutMs: number }) => {
+        log.push(`register:${o.timeoutMs}`);
+        if (taken) throw new Error("launch policy slot is taken");
+        return () => log.push("unregister");
+      },
+    };
+  }
+
+  test("main session_start registers after the capture; a restart unregisters first", async () => {
+    const log: string[] = [];
+    const service = vendored(log);
+    Object.defineProperty(g, EXECUTOR_KEY, {
+      configurable: true,
+      get() {
+        log.push("capture");
+        return service;
+      },
+    });
+    const f = fakePi();
+    setup(f.pi, { readLines: () => [] });
+    await f.fire("session_start", {}, loggingCtx("main", []));
+    expect(log.slice(0, 2)).toEqual(["capture", "register:10000"]);
+    log.length = 0;
+    await f.fire("session_start", {}, loggingCtx("main", []));
+    expect(log.filter((l) => l !== "capture")).toEqual(["unregister", "register:10000"]);
+  });
+
+  test("a child session_start registers nothing", async () => {
+    const log: string[] = [];
+    g[EXECUTOR_KEY] = vendored(log);
+    const f = fakePi();
+    setup(f.pi);
+    f.markChild("kid");
+    await f.fire("session_start", {}, loggingCtx("kid", []));
+    expect(log).toEqual([]);
+  });
+
+  test("/jev reports a launch policy slot held by another extension", async () => {
+    const log: string[] = [];
+    g[EXECUTOR_KEY] = vendored(log, true);
+    const f = fakePi();
+    setup(f.pi, { readLines: () => [] });
+    await f.fire("session_start", {}, loggingCtx("main", []));
+    const notes: string[] = [];
+    await f.commands.get("jev")!.handler("", {
+      cwd: agentDir,
+      hasUI: true,
+      mode: "rpc",
+      ui: { setWidget: () => {}, notify: (t: string) => notes.push(t) },
+      sessionManager: { getSessionId: () => "main", getBranch: () => [] },
+    });
+    expect(notes[0]).toContain("problems:");
+    expect(notes[0]).toContain("  launch policy held by another extension");
   });
 });

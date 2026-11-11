@@ -74,6 +74,12 @@
 | `VendoredService` (`src/host/tools/service.ts`) | new | `import type { SubagentsService } from "@ttdua/pi-subagents"`, narrowed to `implementation === "@ttdua/pi-subagents"` | no |
 | `effectiveLaunch` (`src/policy/launch.ts`) | modified | `(request: { origin: LaunchRequest["origin"]; requested: LaunchRequest["requested"]; inheritContext: boolean; isBackground: boolean; locked: readonly LockableField[] }, facts: AgentFacts) => EffectiveLaunch`; `modelLocked` true when locked or `origin.kind === "service"` with `requested.model`; `resume` removed | no |
 | `LaunchEntry.origin` | new | `LaunchRequest["origin"]` | no |
+| `effectiveLaunch` input type (Task 7 apply) | modified | typed as the structural `LaunchRequestFacts` in `src/policy/launch.ts` (`requested.thinking` is `string`) instead of a `LaunchRequest` slice, so `src/policy/` stays free of executor types; a `LaunchRequest` satisfies it | no |
+| `LaunchBook<E>` (`src/host/worker/launches.ts`, Task 7 apply) | modified | one map keyed by `agentId`: `remember`, `sessionCreated(agentId, effective)`, `bound(agentId, grantedTools)`, `settle(agentId)`, `pending`, `stop`, `clear`; tool-call keyed paths, buffering and order stamps removed | no |
+| `WorkerRouting` (`src/host/worker/routing.ts`, Task 7 apply) | modified | adds `start(ctx)` (unregister, then register the policy), `stop()` (unregister) and `problems()` (`["launch policy held by another extension"]` when the slot was taken); `WorkerDeps` drops `agentDir`, adds `service` | no |
+| `formatStatus` (`src/host/commands/status-format.ts`, Task 7 apply) | modified | optional 4th argument `extra: readonly string[]`, listed under `problems:`; `/jev` passes `routing.problems()` | no |
+| `buildToolQuestions` (`src/jev/questions.ts`, Task 7 apply) | modified | `(block, grant)`: `tool::<name>` per block candidate, then `grant::<name>` per grant candidate | no |
+| `ToolDecision`, `launchToolCounts` (`src/host/tools/counts.ts`, Task 7 apply) | new | replaces the process-wide counts map: the decision lives on the launch entry; `toolsGranted` counts `bound.grantedTools` in `enforce`, would-grant in `observe` | no |
 
 ---
 ## Task 1: Vendor the executor unchanged — implements 1

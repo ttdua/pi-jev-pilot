@@ -23,6 +23,7 @@ function loadWindow(parts: Parts): void {
 /** The main-session steps of `session_start`, in order; a throw skips the rest of them. */
 function startMain(pi: ExtensionAPI, parts: Parts, ctx: ExtensionContext): void {
   captureMainService();
+  parts.routing.start(ctx);
   parts.main.sessionStart();
   loadWindow(parts);
   parts.log.reset(ctx.sessionManager.getSessionId());
@@ -56,11 +57,16 @@ function quietly(step: () => void): void {
   }
 }
 
-/** `session_shutdown`: clear the service (main only), then drop the child and routing subscriptions. */
+/**
+ * `session_shutdown`: unregister the launch policy and clear the service (main only), then drop
+ * the child and routing subscriptions.
+ */
 export function subscribeSessionShutdown(pi: ExtensionAPI, parts: Parts): void {
   pi.on("session_shutdown", async (_event, ctx) => {
     quietly(() => {
-      if (!isChild(ctx.sessionManager.getSessionId())) clearMainService();
+      if (isChild(ctx.sessionManager.getSessionId())) return;
+      quietly(() => parts.routing.stop());
+      clearMainService();
     });
     quietly(parts.off);
     quietly(() => parts.routing.off());

@@ -46,11 +46,19 @@ const isMainFirst = (r: RecordedRequest): boolean =>
   !hasTool(r) &&
   JSON.stringify(r.body.messages).includes("START-MAIN");
 
-// Main-session effort (WG-07) also asks Jev on every prompt; count worker requests only.
+/** A tool assessment request: every question is a `tool::` or `grant::` noul. */
+function isToolAssessment(questions: unknown): boolean {
+  const keys = Object.keys((questions ?? {}) as object);
+  return keys.length > 0 && keys.every((k) => k.startsWith("tool::") || k.startsWith("grant::"));
+}
+
+// Main-session effort (WG-07) asks Jev on every prompt, and tool assessment once per launch;
+// count worker requests only.
 const workerRequests = (j: JevFixture): JevFixture["requests"] =>
   j.requests.filter((r) => {
     try {
-      return (JSON.parse(r.body) as { state?: { task?: unknown } }).state?.task !== undefined;
+      const parsed = JSON.parse(r.body) as { state?: { task?: unknown }; questions?: unknown };
+      return parsed.state?.task !== undefined && !isToolAssessment(parsed.questions);
     } catch {
       // Counted, so a malformed body can never make a "no request" assertion pass.
       return true;
@@ -287,15 +295,22 @@ describe("worker routing through the real CLI", () => {
       const { fixture, session } = await setup(entries);
       writeJev(session.agentDir, { config: config(jev) });
       await session.prompt("START-MAIN");
-      await session.waitFor(() => workerLines(session).length >= 2, "two ledger lines");
       await session.waitFor(() => fixture.requests.some(isResumeChild), "resumed child request");
+      await session.waitFor(
+        () =>
+          fixture.requests.some(
+            (r) => r.model === "fixture-main" && JSON.stringify(r.body).includes("resumed done"),
+          ),
+        "main turn after the resume",
+      );
       const first = childOf(fixture);
       const resumed = fixture.requests.find(isResumeChild);
       expect(first?.model).toBe("fixture-fast");
       expect(resumed?.model).toBe(first?.model as string);
+      // A resume never reaches the launch policy: the first launch has a line, the resume none.
       const lines = workerLines(session);
+      expect(lines).toHaveLength(1);
       expect(lines[0]).toMatchObject({ tier: "fast", status: "completed" });
-      expect(lines[1]).toMatchObject({ reason: "untouched", status: "completed" });
       expect(workerRequests(jev).length).toBe(1);
       expect(fixture.unmatched).toEqual([]);
     },

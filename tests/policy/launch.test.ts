@@ -56,49 +56,57 @@ describe("Locked fields", () => {
 });
 
 describe("Effective launch fields", () => {
-  test("Inherit from frontmatter", () => {
-    expect(effectiveLaunch({}, facts({ inheritContext: true })).inheritContext).toBe(true);
+  type Req = Parameters<typeof effectiveLaunch>[0];
+  const request = (over: Partial<Req> = {}): Req => ({
+    origin: { kind: "tool", toolCallId: "call_1" },
+    requested: {},
+    inheritContext: false,
+    isBackground: false,
+    locked: [],
+    ...over,
   });
 
-  test("Input wins without a lock", () => {
-    const r = effectiveLaunch({ inherit_context: false }, facts({ inheritContext: true }));
-    expect(r.inheritContext).toBe(false);
-  });
-
-  test("Lock keeps the agent value", () => {
-    const r = effectiveLaunch(
-      { inherit_context: false },
-      facts({ inheritContext: true, locked: ["inherit_context"] }),
-    );
+  test("inheritContext and runInBackground come from the request", () => {
+    const r = effectiveLaunch(request({ inheritContext: true, isBackground: true }), facts());
     expect(r.inheritContext).toBe(true);
+    expect(r.runInBackground).toBe(true);
+    const plain = effectiveLaunch(request(), facts({ inheritContext: true }));
+    expect(plain.inheritContext).toBe(false);
+    expect(plain.runInBackground).toBe(false);
   });
 
-  test("Resume", () => {
-    expect(effectiveLaunch({ resume: "agent-12" }, facts()).resume).toBe(true);
-    expect(effectiveLaunch({ resume: "" }, facts()).resume).toBe(false);
-    expect(effectiveLaunch({ resume: 5 }, facts()).resume).toBe(false);
+  test("locked fields come from the request", () => {
+    const r = effectiveLaunch(request({ locked: ["thinking"] }), facts());
+    expect(r).toMatchObject({ modelLocked: false, thinkingLocked: true });
   });
 
-  test("Defaults to false and runInBackground follows the same rule", () => {
-    const r = effectiveLaunch({}, facts());
-    expect(r.inheritContext).toBe(false);
-    expect(r.runInBackground).toBe(false);
-    expect(effectiveLaunch({ run_in_background: true }, facts()).runInBackground).toBe(true);
-    expect(
-      effectiveLaunch(
-        { run_in_background: true },
-        facts({ runInBackground: false, locked: ["run_in_background"] }),
-      ).runInBackground,
-    ).toBe(false);
-  });
-
-  test("modelLocked and thinkingLocked mirror isFieldLocked", () => {
+  test("an agent lock also counts", () => {
     const f = facts({ locked: true, sets: { model: true, thinking: false } });
-    const r = effectiveLaunch({}, f);
+    const r = effectiveLaunch(request(), f);
     expect(r.modelLocked).toBe(isFieldLocked(f, "model"));
-    expect(r.thinkingLocked).toBe(isFieldLocked(f, "thinking"));
     expect(r.modelLocked).toBe(true);
     expect(r.thinkingLocked).toBe(false);
+  });
+
+  test("Service launch naming a model locks the model", () => {
+    const r = effectiveLaunch(
+      request({ origin: { kind: "service" }, requested: { model: "fixture/fixture-deep" } }),
+      facts(),
+    );
+    expect(r).toMatchObject({ modelLocked: true, thinkingLocked: false });
+  });
+
+  test("a service launch without a model, or a tool launch with one, is not locked", () => {
+    const service = effectiveLaunch(request({ origin: { kind: "service" } }), facts());
+    expect(service.modelLocked).toBe(false);
+    const tool = effectiveLaunch(request({ requested: { model: "fx/main" } }), facts());
+    expect(tool.modelLocked).toBe(false);
+  });
+
+  test("Resume is not a launch field", () => {
+    expect(Object.keys(effectiveLaunch(request(), facts())).sort()).toEqual(
+      ["inheritContext", "modelLocked", "runInBackground", "thinkingLocked"].sort(),
+    );
   });
 });
 

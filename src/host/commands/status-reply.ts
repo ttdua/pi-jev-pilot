@@ -8,8 +8,12 @@ import { formatStatus } from "./status-format.ts";
 
 export type StatusReply = { text: string; level: "info" | "warning" };
 
-/** `tally` and `window` are called as methods of this object, only when the reply is built. */
-type Readers = { tally?: () => Tally; window?: () => readonly WindowEntry[] };
+/** `tally`, `window` and `problems` are called as methods of this object, only when the reply is built. */
+type Readers = {
+  tally?: () => Tally;
+  window?: () => readonly WindowEntry[];
+  problems?: () => readonly string[];
+};
 
 /** A partial reset leads the text and turns the level into a warning. */
 export function statusReply(
@@ -18,7 +22,14 @@ export function statusReply(
   readers: Readers,
   partialReset: string | undefined,
 ): StatusReply {
-  const lines = [formatStatus(snapshot, readers.tally?.() ?? EMPTY_TALLY, readers.window?.())];
+  const lines = [
+    formatStatus(
+      snapshot,
+      readers.tally?.() ?? EMPTY_TALLY,
+      readers.window?.(),
+      readers.problems?.() ?? [],
+    ),
+  ];
   if (partialReset !== undefined) lines.unshift(partialReset);
   const { mode, modeSource } = snapshot.settings;
   if (parsed.kind === "mode" && parsed.target === "global" && modeSource === "local") {

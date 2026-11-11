@@ -49,6 +49,8 @@ type Deps = {
   exec: Exec;
   tally?: () => Tally;
   window?: () => readonly WindowEntry[];
+  /** Problems routing reports, such as a launch policy slot held by another extension. */
+  problems?: () => readonly string[];
   overlay?: () => string | undefined;
   tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
   sync?: (snapshot: Snapshot) => void;

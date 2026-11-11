@@ -10,7 +10,7 @@ import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tools/service.ts";
 import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
 import { firing } from "./tuning-fakes.ts";
-import { body, TIERS } from "./worker-fakes.ts";
+import { body, launchRequest, TIERS } from "./worker-fakes.ts";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<void> | void;
 
@@ -137,7 +137,7 @@ describe("setup", () => {
   test("session_shutdown removes routing subscriptions", async () => {
     const f = fakePi();
     setup(f.pi);
-    expect(f.subs.filter((s) => s.live)).toHaveLength(5);
+    expect(f.subs.filter((s) => s.live)).toHaveLength(6);
     await f.handlers.get("session_shutdown")![0]!({}, {});
     expect(f.subs.filter((s) => s.live)).toHaveLength(0);
   });
@@ -162,8 +162,9 @@ describe("setup", () => {
     expect(
       f.subs.filter(
         (s) =>
-          ["subagents:completed", "subagents:failed", "subagents:resumed"].includes(s.channel) &&
-          s.live,
+          ["subagents:completed", "subagents:failed", "subagents:child:bound"].includes(
+            s.channel,
+          ) && s.live,
       ),
     ).toHaveLength(0);
     throwing = false;
@@ -177,6 +178,12 @@ describe("setup", () => {
         join(agentDir, "jev", "config.json"),
         JSON.stringify({ classifier: { url: fx.url("/ask") }, tiers: TIERS }),
       );
+      let policy: ((r: unknown, s: AbortSignal) => Promise<unknown>) | undefined;
+      (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
+        implementation: "@ttdua/pi-subagents",
+        listAgents: () => [],
+        registerLaunchPolicy: (p: typeof policy) => ((policy = p), () => {}),
+      };
       const f = fakePi({ executor: true });
       setup(f.pi);
       const notes: string[] = [];
@@ -192,14 +199,9 @@ describe("setup", () => {
           hasConfiguredAuth: () => true,
         },
       };
+      await f.handlers.get("session_start")![0]!({}, ctx);
       const launch = async (id: string) => {
-        const event = {
-          type: "tool_call",
-          toolName: "subagent",
-          toolCallId: id,
-          input: { prompt: "do a thing", description: "d", subagent_type: "general-purpose" },
-        };
-        for (const h of f.handlers.get("tool_call") ?? []) await h(event, ctx);
+        await policy?.(launchRequest({ agentId: id }), new AbortController().signal);
       };
       await launch("c1");
       expect(notes).toHaveLength(1);
@@ -369,17 +371,15 @@ describe("setup", () => {
       "agent_settled",
       "before_agent_start",
       "before_provider_request",
-      "message_end",
       "session_shutdown",
       "session_start",
-      "tool_call",
-      "tool_result",
       "turn_end",
     ]);
     expect(f.subs.map((s) => s.channel).slice(2)).toEqual([
+      CREATED,
+      "subagents:child:bound",
       "subagents:completed",
       "subagents:failed",
-      "subagents:resumed",
     ]);
   });
 
@@ -490,7 +490,7 @@ describe("setup", () => {
 
     const b = fakePi();
     setup(b.pi);
-    expect(b.subs.filter((s) => s.live)).toHaveLength(5);
+    expect(b.subs.filter((s) => s.live)).toHaveLength(6);
     let calls = 0;
     await b.handlers.get("session_start")![0]!(
       {},
@@ -501,7 +501,7 @@ describe("setup", () => {
     expect(isChild("kid")).toBe(false);
   });
 
-  describe("tool assessment wiring", () => {
+  describe("executor service and child guard wiring", () => {
     const service = { implementation: "@ttdua/pi-subagents", listAgents: () => [] as unknown[] };
     const put = () => ((globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = service);
     const start = (f: ReturnType<typeof fakePi>, id: string) =>
@@ -545,31 +545,19 @@ describe("setup", () => {
       expect(mainService()).toBeUndefined();
     });
 
-    test("child before_agent_start hides the review tool, then assesses", async () => {
-      const fx = await startJevFixture({
-        "/ask": { json: { answers: { "tool::read": { type: "noul", noul: 0.1 } } } },
-      });
+    test("child before_agent_start hides the review tool and asks nothing", async () => {
+      const fx = await startJevFixture({ "/ask": { json: { answers: {} } } });
       try {
         mkdirSync(join(agentDir, "jev"), { recursive: true });
         writeFileSync(
           join(agentDir, "jev", "config.json"),
           JSON.stringify({ classifier: { url: fx.url("/ask") } }),
         );
-        (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
-          implementation: "@ttdua/pi-subagents",
-          listAgents: () => [
-            { id: "a1", type: "general-purpose", description: "d", outputFile: "/kid.jsonl" },
-          ],
-        };
         const f = fakePi();
         setup(f.pi);
-        await start(f, "main");
         f.emit(CREATED, { sessionId: "kid" });
         const selectedTools = ["read", "jev_review"];
-        const ctx = {
-          cwd: agentDir,
-          sessionManager: { getSessionId: () => "kid", getSessionFile: () => "/kid.jsonl" },
-        };
+        const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "kid" } };
         const event = {
           messageType: "user",
           prompt: "do it",
@@ -578,9 +566,7 @@ describe("setup", () => {
         const out = await f.handlers.get("before_agent_start")![0]!(event, ctx);
         expect(out).toBeUndefined();
         expect(selectedTools).toEqual(["read"]);
-        expect(fx.requests).toHaveLength(1);
-        const questions = Object.keys(JSON.parse(fx.requests[0]!.body).questions);
-        expect(questions).toEqual(["tool::read"]);
+        expect(fx.requests).toHaveLength(0);
       } finally {
         await fx.stop();
       }
@@ -632,39 +618,6 @@ describe("setup", () => {
         sessionManager: { getSessionId: () => "main" },
       });
       expect(f.active()).toEqual(["read", "jev_review"]);
-    });
-
-    test("an assessment failure still leaves the review tool hidden", async () => {
-      mkdirSync(join(agentDir, "jev"), { recursive: true });
-      writeFileSync(join(agentDir, "jev", "config.json"), JSON.stringify({}));
-      (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
-        implementation: "@ttdua/pi-subagents",
-        listAgents: () => [],
-      };
-      const f = fakePi();
-      setup(f.pi);
-      await start(f, "main");
-      f.emit(CREATED, { sessionId: "kid" });
-      const selectedTools = ["read", "jev_review"];
-      let fileCalls = 0;
-      const ctx = {
-        cwd: agentDir,
-        sessionManager: {
-          getSessionId: () => "kid",
-          getSessionFile: (): never => {
-            fileCalls++;
-            throw new Error("no session file");
-          },
-        },
-      };
-      const event = {
-        messageType: "user",
-        prompt: "do it",
-        systemPromptOptions: { selectedTools },
-      };
-      expect(await f.handlers.get("before_agent_start")![0]!(event, ctx)).toBeUndefined();
-      expect(selectedTools).toEqual(["read"]);
-      expect(fileCalls).toBe(1);
     });
 
     test("a throwing event leaves before_agent_start returning undefined", async () => {

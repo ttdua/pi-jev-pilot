@@ -17,7 +17,6 @@ const ALL: readonly TierName[] = ["fast", "balanced", "deep"];
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
-    resume: false,
     inheritContext: false,
     runInBackground: false,
     modelLocked: false,
@@ -80,7 +79,6 @@ function build(
 
 // Reference table for launchKind written from the rules, not from the code.
 function expectedKind(f: {
-  resume: boolean;
   inherit: boolean;
   mLock: boolean;
   tLock: boolean;
@@ -89,7 +87,6 @@ function expectedKind(f: {
 }): Record<string, unknown> {
   const locked = f.mLock || f.tLock;
   const forkedThinking = f.inherit && f.forked === "thinking";
-  if (f.resume) return { kind: "untouched", locked };
   if (f.inherit && f.forked === "untouched") return { kind: "untouched", locked };
   if (f.mLock && f.tLock) return { kind: "untouched", locked };
   if (f.tLock && (forkedThinking || f.noTier)) return { kind: "untouched", locked };
@@ -99,18 +96,16 @@ function expectedKind(f: {
 describe("launchKind (exhaustive pin)", () => {
   const bools = [false, true];
   const cases: Parameters<typeof expectedKind>[0][] = [];
-  for (const resume of bools)
-    for (const inherit of bools)
-      for (const mLock of bools)
-        for (const tLock of bools)
-          for (const noTier of bools)
-            for (const forked of ["untouched", "thinking"] as const)
-              cases.push({ resume, inherit, mLock, tLock, noTier, forked });
+  for (const inherit of bools)
+    for (const mLock of bools)
+      for (const tLock of bools)
+        for (const noTier of bools)
+          for (const forked of ["untouched", "thinking"] as const)
+            cases.push({ inherit, mLock, tLock, noTier, forked });
 
-  test("all 64 launch combinations match the rule table", () => {
+  test("all 32 launch combinations match the rule table", () => {
     for (const c of cases) {
       const l = launch({
-        resume: c.resume,
         inheritContext: c.inherit,
         modelLocked: c.mLock,
         thinkingLocked: c.tLock,
@@ -118,7 +113,7 @@ describe("launchKind (exhaustive pin)", () => {
       const got = launchKind(l, c.noTier ? [] : ALL, c.forked, 0);
       expect<unknown>(got).toEqual(expectedKind(c));
     }
-    expect(cases).toHaveLength(64);
+    expect(cases).toHaveLength(32);
   });
 
   test("a slot alone counts as a tier for the question", () => {
@@ -143,7 +138,7 @@ describe("launchKind (exhaustive pin)", () => {
       "tierQuestion",
       "locked",
     ]);
-    expect(Object.keys(launchKind(launch({ resume: true }), ALL, "untouched"))).toEqual([
+    expect(Object.keys(launchKind(launch({ inheritContext: true }), ALL, "untouched"))).toEqual([
       "kind",
       "locked",
     ]);
@@ -154,7 +149,7 @@ describe("routeLaunch (pin)", () => {
   const good = read({ tier: ["balanced", 0.9], effort: "high" });
 
   test("untouched launch skips answers and deps", () => {
-    const { input, spy } = build({ launch: launch({ resume: true }), answers: good });
+    const { input, spy } = build({ launch: launch({ inheritContext: true }), answers: good });
     const r = routeLaunch(input);
     expect(r).toEqual({ kind: "untouched" });
     expect(Object.keys(r)).toEqual(["kind"]);
@@ -449,7 +444,7 @@ describe("routeLaunch (pin)", () => {
         throw new Error("answers read");
       },
     } as unknown as WorkerAnswers;
-    const { input } = build({ answers, launch: launch({ resume: true }) });
+    const { input } = build({ answers, launch: launch({ inheritContext: true }) });
     expect(routeLaunch(input)).toEqual({ kind: "untouched" });
     expect(reads).toBe(0);
   });

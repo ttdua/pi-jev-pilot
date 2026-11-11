@@ -139,5 +139,18 @@ export function TOOL_QUESTION(name: string): WireQuestion {
   };
 }
 
+/** The grant question for a tool the child would not have; wording in docs/jev-questions.md. */
+export function GRANT_QUESTION(name: string): WireQuestion {
+  return {
+    type: "noul",
+    instructions: `Does the agent in \`agent\` need \`tools.${name}\` in the state to do the work in \`task\` well?`,
+    criteria: {
+      true: "The task cannot be done well without this tool, and nothing the agent already has would do instead.",
+      false:
+        "The agent can do the task well without this tool, or the tool is not related to the task.",
+    },
+  };
+}
+
 /** Between a slot's model name and its `when` text; also in docs/jev-questions.md. */
 export const SLOT_CRITERION_INFIX = " (a custom model). ";

@@ -46,7 +46,7 @@ Blocked by: 1
 
 - [x] 5.1 Add `tools.grantAt` (0.5–1, default 0.8) to config validation and settings resolution (specs `config-file`, `settings-resolution`)
 - [x] 5.2 Add `effectiveModel`, `effectiveThinking` and `toolsGranted` to the worker line schema and exported field sets (spec `decision-ledger`)
-- [ ] 5.3 Replace `src/host/platform/agents.ts` with a pure mapper from the executor's agent snapshot to `AgentFacts` (including `disallowedTools`), never copying `model`/`thinking` values (spec `agent-metadata`); delete the built-in table and file reader
+- [x] 5.3 Replace `src/host/platform/agents.ts` with a pure mapper from the executor's agent snapshot to `AgentFacts` (including `disallowedTools`), never copying `model`/`thinking` values (spec `agent-metadata`); delete the built-in table and file reader
 - [x] 5.4 Feed `capabilities.subagents` from `listAgentTypes()`, empty without the executor or on error (spec `main-state`)
 - [x] 5.5 Unit tests for each changed requirement
 
@@ -62,12 +62,12 @@ Blocked by: 2, 5
 
 Blocked by: 4, 5, 6
 
-- [ ] 7.1 Register the policy at main `session_start` with a 10 s watchdog, unregister at shutdown and before re-registering; report a held slot in `/jev` (spec `worker-routing` "Routing is the executor's launch policy", "Launch policy slot taken")
-- [ ] 7.2 In the policy, skip child-originated launches; treat a service launch naming a model as model-locked through request, route and ledger; run the existing worker decision unchanged and return `model`/`thinking` (specs `worker-routing`, `worker-decision`)
-- [ ] 7.3 Rebuild tool assessment as a policy step: block and grant candidates from `toolSet` with exclusions and a 32 total cap, `tool::` and `grant::` questions, `tools.grantAt`, observe and enforce, concurrent with routing under one fresh `classifier.timeoutMs` deadline, fail open (spec `tool-assessment`); add the `grant::` wording to `src/jev/questions.ts` and `docs/jev-questions.md`, leaving `RUBRIC_VERSION` at 2
-- [ ] 7.4 Join outcomes by `agentId` from executor events; take `effectiveModel`/`effectiveThinking` from `session-created` and `toolsGranted` from `bound`; write no line for resumes or pre-policy refusals (spec `worker-ledger`)
-- [ ] 7.5 Remove the `message_end`, `tool_call` and `tool_result` handlers, the launch book's tool-call keyed paths, the `outputFile` lookup and the child-side assessment; keep the child guard that hides `jev_review`; update the registration-bound test (spec `package-loading`)
-- [ ] 7.6 Unit tests for every changed scenario in `worker-routing`, `worker-decision`, `worker-ledger` and `tool-assessment`
+- [x] 7.1 Register the policy at main `session_start` with a 10 s watchdog, unregister at shutdown and before re-registering; report a held slot in `/jev` (spec `worker-routing` "Routing is the executor's launch policy", "Launch policy slot taken")
+- [x] 7.2 In the policy, skip child-originated launches; treat a service launch naming a model as model-locked through request, route and ledger; run the existing worker decision unchanged and return `model`/`thinking` (specs `worker-routing`, `worker-decision`)
+- [x] 7.3 Rebuild tool assessment as a policy step: block and grant candidates from `toolSet` with exclusions and a 32 total cap, `tool::` and `grant::` questions, `tools.grantAt`, observe and enforce, concurrent with routing under one fresh `classifier.timeoutMs` deadline, fail open (spec `tool-assessment`); add the `grant::` wording to `src/jev/questions.ts` and `docs/jev-questions.md`, leaving `RUBRIC_VERSION` at 2
+- [x] 7.4 Join outcomes by `agentId` from executor events; take `effectiveModel`/`effectiveThinking` from `session-created` and `toolsGranted` from `bound`; write no line for resumes or pre-policy refusals (spec `worker-ledger`)
+- [x] 7.5 Remove the `message_end`, `tool_call` and `tool_result` handlers, the launch book's tool-call keyed paths, the `outputFile` lookup and the child-side assessment; keep the child guard that hides `jev_review`; update the registration-bound test (spec `package-loading`)
+- [x] 7.6 Unit tests for every changed scenario in `worker-routing`, `worker-decision`, `worker-ledger` and `tool-assessment`
 
 ## 8. Host evidence and end-to-end checks
 
