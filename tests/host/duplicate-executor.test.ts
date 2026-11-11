@@ -8,6 +8,7 @@ import { command, notifies } from "./rpc-helpers";
 
 const JEV_ONLY = join(REPO_ROOT, "tests", "fixtures", "jev-only");
 const TIMEOUT = 120_000;
+const DISPOSE_WAIT_MS = 200_000;
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
 
@@ -143,7 +144,6 @@ describe("duplicate executor through the real CLI", () => {
           prompt: `CHILD-TASK ${description}`,
           description,
           subagent_type: "general-purpose",
-          run_in_background: true,
         },
       }));
       const isChild = (r: { body: unknown }): boolean =>
@@ -161,11 +161,26 @@ describe("duplicate executor through the real CLI", () => {
         { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
       ]);
       fixtures.push(fixture);
+      // The shortest retention window the executor accepts is one minute, and its sweep runs once
+      // a minute: a collected (foreground) child is disposed within about two minutes, in the
+      // same main session.
+      // Project layer (`<cwd>/.pi/subagents.json`): the harness installs probes only into an agent
+      // directory it creates itself, so the settings go in the working directory.
+      const cwd = tempDir("jev-dup-cwd-");
+      mkdirSync(join(cwd, ".pi"), { recursive: true });
+      writeFileSync(
+        join(cwd, ".pi", "subagents.json"),
+        JSON.stringify({
+          consumedSessionRetentionMinutes: 1,
+          unconsumedSessionRetentionMinutes: 1,
+        }),
+      );
       const session = await startHostSession({
         fixture,
+        cwd,
         probes: ["child"],
         env: { TYPESAFE_API_KEY: "test-key" },
-        timeoutMs: 90_000,
+        timeoutMs: DISPOSE_WAIT_MS,
       });
       sessions.push(session);
       await session.prompt("START-MAIN");
@@ -177,15 +192,6 @@ describe("duplicate executor through the real CLI", () => {
             .filter((r) => r.event === "child:disposed")
             .map((r) => r.sessionId),
         ).size;
-      // The executor disposes finished children when a session starts: wait for both children to
-      // answer, then start a new session (retrying until neither is still active) until both are
-      // disposed.
-      await session.waitFor(() => fixture.requests.filter(isChild).length >= 2, "two children ran");
-      const deadline = Date.now() + 60_000;
-      while (disposed() < 2 && Date.now() < deadline) {
-        await session.send({ type: "new_session" });
-        await Bun.sleep(500);
-      }
       await session.waitFor(() => disposed() >= 2, "two children disposed");
       const text = await status(session);
       expect(text).not.toContain("duplicate executor");
@@ -203,6 +209,6 @@ describe("duplicate executor through the real CLI", () => {
       );
       expect(text).toContain(seam ? "executor: present" : "executor: no executor");
     },
-    TIMEOUT,
+    DISPOSE_WAIT_MS + 30_000,
   );
 });
