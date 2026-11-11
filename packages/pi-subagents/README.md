@@ -206,6 +206,7 @@ A subagent gets a row while it is running or queued, for 4 seconds after it fini
 The list shows whenever at least one such row exists, including while you type; only entering it needs an empty, focused prompt.
 Each row shows the agent's name, its task, elapsed time and tokens; foreground and background agents both appear.
 It redraws about once a second while an agent runs.
+A running background agent also appears in the above-editor agents widget; the fleet list is for navigating to its transcript.
 
 | Key | Action |
 | --- | --- |

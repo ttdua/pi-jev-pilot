@@ -209,4 +209,3 @@ function buildLabel(fields: LabelFields, registry: AgentConfigLookup, released =
   const marker = released ? " · session released (snapshot)" : "";
   return `${name} (${fields.description}) · ${fields.toolUses} tools · ${fields.status} · ${duration}${marker}`;
 }
-

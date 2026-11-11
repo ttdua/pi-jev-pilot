@@ -439,4 +439,3 @@ function describeRuntime(model: ModelIdentity | undefined, thinkingLevel: string
   const level = thinkingLevel === "off" ? "thinking off" : thinkingLevel;
   return `${formatModel(model)} • ${level}`;
 }
-

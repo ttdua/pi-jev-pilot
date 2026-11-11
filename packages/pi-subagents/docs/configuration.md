@@ -295,7 +295,7 @@ An agent that asked a question and has not been answered holds the safety cap ra
 Set `midRunUpdates` to `false` to withhold `notify_parent` from every agent, leaving them no way to tell you anything before they finish.
 `ask_parent` is unaffected: a blocked agent can still end its turn with a question.
 
-Set `fleetView` to `false` to hide the below-editor fleet list and its `↓` entry key (see the [Fleet list](../README.md#fleet-list) section).
+Set `fleetView` to `false` to hide the below-editor fleet list and its `↓` and `←` entry keys (see the [Fleet list](../README.md#fleet-list) section).
 The default is `true`; the `Fleet view` row in `/subagents:settings` writes the same value.
 Two files, merged on load:
 

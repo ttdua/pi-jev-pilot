@@ -54,6 +54,7 @@ Where the fork's conventions differ (no agent colors, no cost, no viewer), the p
 - The list shows only rows the pane can open, so `Enter` never reaches a dead end.
 - The list redraws once a second while it is shown or any agent is running or queued.
   Rows show whole seconds and have no spinner, so the cost is frames only.
+- A running background agent also appears in the above-editor agents widget; the fleet list is for navigation, so the two overlap by design.
 - The fork's vendored diff grows by two new UI modules, the `openTranscript` and `navigationEntryFor` extractions, the `fleetView` setting and the wiring in `index.ts`.
   Each is listed in `VENDORED.md`, and upstream sync must carry them.
 
