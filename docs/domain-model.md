@@ -182,7 +182,7 @@ Runs at launch, inside the launch policy call, for every agent. The candidates a
 
 In `observe` mode (default) nothing changes and the counts are recorded. In `enforce` mode the policy returns `removeTools` and `addTools`; the executor drops grants it cannot honour. A tool is only ever one kind of candidate. A resumed worker keeps the tools it started with.
 
-Any failure keeps the default tools and records nothing. The mode is read once, at the policy call. The counts go on the launch's `worker` ledger line only when that line exists; a resumed launch writes no line. Counts for a launch that gets no line are kept in a process-wide map of at most 256 entries and dropped oldest first.
+Any failure keeps the default tools and records nothing. The mode is read once, at the policy call. The tool decision is kept with the decided launch in the routing instance's `LaunchBook`, keyed by `agentId`, until the launch's outcome arrives. The counts go on the launch's `worker` ledger line only when that line is written; a resumed launch writes no line, and when routing does not run nothing is kept. The book holds at most 256 pending launches and drops the oldest first.
 
 ## Invariants
 
@@ -271,7 +271,7 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
 | | `effectiveModel`, `effectiveThinking` | What the executor applied to the child, joined by `agentId`; absent when the executor reported none |
-| | `toolsScored`, `toolsFlagged`, `toolsGranted` | Tool assessment counts: scored, blocked (or would-block), granted (or would-grant). Only when the worker got an answer |
+| | `toolsScored`, `toolsFlagged`, `toolsGranted` | Tool assessment counts: scored, blocked (or would-block), granted (or would-grant). Only when the tool assessment answered and a `worker` line is written |
 | | `status`, `durationMs`, `tokens`, `toolUses` | Filled on completion. `status` is `completed`, `aborted`, `stopped` or `error` |
 | Correction | `turnId`, `corrects` | The turn being marked, and the probability that marked it (≥ .7) |
 

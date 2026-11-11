@@ -4,7 +4,7 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 
 ## Install
 
-One install loads Jev and the executor it ships. If you installed `@gotgenes/pi-subagents`, uninstall it first: Pi refuses to start with two `subagent` tools.
+One install loads Jev and the executor it ships. If you installed `@gotgenes/pi-subagents`, uninstall it first: Pi refuses to start with two `subagent` tools. The vendored executor is not in the `v0.1.0` tag: until a newer release tag exists, install the repository's default branch instead of that tag.
 
 ```bash
 pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0
