@@ -15,6 +15,7 @@ export interface SubagentsSettingsManager {
   readonly unconsumedSessionRetentionMinutes: number;
   readonly abortAllOnInterrupt: boolean;
   readonly midRunUpdates: boolean;
+  readonly fleetView: boolean;
   applyMaxConcurrent(n: number): SettingsToast;
   applyDefaultMaxTurns(n: number): SettingsToast;
   applyWrapUpTurns(n: number): SettingsToast;
@@ -22,6 +23,7 @@ export interface SubagentsSettingsManager {
   applyUnconsumedSessionRetentionMinutes(n: number): SettingsToast;
   toggleAbortAllOnInterrupt(): SettingsToast;
   toggleMidRunUpdates(): SettingsToast;
+  toggleFleetView(): SettingsToast;
 }
 
 /** Narrow UI interface — only the ctx.ui methods the settings handler calls. */
@@ -127,6 +129,12 @@ const SETTINGS: readonly SettingDescriptor[] = [
     label: "Mid-run updates from background subagents",
     currentDisplay: (settings) => (settings.midRunUpdates ? "on" : "off"),
     toggle: (settings) => settings.toggleMidRunUpdates(),
+  },
+  {
+    kind: "toggle",
+    label: "Fleet view",
+    currentDisplay: (settings) => (settings.fleetView ? "on" : "off"),
+    toggle: (settings) => settings.toggleFleetView(),
   },
 ];
 

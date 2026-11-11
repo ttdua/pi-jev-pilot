@@ -224,6 +224,18 @@ describe("settings persistence", () => {
       expect(loadSettings(globalDir, projectDir)).toEqual({ wrapUpTurns: 5 });
     });
 
+    it("keeps fleetView when it is a boolean", () => {
+      writeProject({ fleetView: false });
+      expect(loadSettings(globalDir, projectDir)).toEqual({ fleetView: false });
+      writeProject({ fleetView: true });
+      expect(loadSettings(globalDir, projectDir)).toEqual({ fleetView: true });
+    });
+
+    it("drops a non-boolean fleetView", () => {
+      writeProject({ fleetView: "no", wrapUpTurns: 5 });
+      expect(loadSettings(globalDir, projectDir)).toEqual({ wrapUpTurns: 5 });
+    });
+
     it("drops a non-boolean abortAllOnInterrupt", () => {
       writeProject({ abortAllOnInterrupt: "false", wrapUpTurns: 5 });
       expect(loadSettings(globalDir, projectDir)).toEqual({ wrapUpTurns: 5 });
@@ -674,7 +686,7 @@ describe("SettingsManager", () => {
   describe("snapshot()", () => {
     it("returns default values before any changes", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
 
     it("reflects mutations: defaultMaxTurns undefined maps to 0 in snapshot", () => {
@@ -682,36 +694,36 @@ describe("SettingsManager", () => {
       sm.defaultMaxTurns = undefined;
       sm.wrapUpTurns = 3;
       sm.maxConcurrent = 8;
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 8, defaultMaxTurns: 0, wrapUpTurns: 3, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 8, defaultMaxTurns: 0, wrapUpTurns: 3, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
 
     it("reflects a concrete defaultMaxTurns value", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
       sm.defaultMaxTurns = 20;
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 20, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 20, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
 
     it("reflects mutated retention windows", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
       sm.consumedSessionRetentionMinutes = 30;
       sm.unconsumedSessionRetentionMinutes = 1440;
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 30, unconsumedSessionRetentionMinutes: 1440, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 30, unconsumedSessionRetentionMinutes: 1440, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
 
     it("reflects a flipped abortAllOnInterrupt", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
       sm.toggleAbortAllOnInterrupt();
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: false, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: false, midRunUpdates: true, fleetView: true });
     });
 
     it("omits excludedExtensionPackages when none are configured", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
 
     it("omits promptInheritance when no rules are configured", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
-      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(sm.snapshot()).toEqual({ maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
   });
 
@@ -748,7 +760,7 @@ describe("SettingsManager", () => {
         consumedSessionRetentionMinutes: 10,
         unconsumedSessionRetentionMinutes: 720,
         abortAllOnInterrupt: true,
-        midRunUpdates: true,
+        midRunUpdates: true, fleetView: true,
         excludedExtensionPackages: ["npm:@cortexkit/pi-magic-context"],
       });
     });
@@ -776,7 +788,7 @@ describe("SettingsManager", () => {
         consumedSessionRetentionMinutes: 10,
         unconsumedSessionRetentionMinutes: 720,
         abortAllOnInterrupt: true,
-        midRunUpdates: true,
+        midRunUpdates: true, fleetView: true,
         promptInheritance: { "claude-bridge": "portable" },
       });
     });
@@ -788,7 +800,7 @@ describe("SettingsManager", () => {
       const toast = sm.saveAndNotify("Max concurrency set to 5");
       expect(toast).toEqual({ message: "Max concurrency set to 5", level: "info" });
       const written = JSON.parse(readFileSync(join(projectDir, ".pi", "subagents.json"), "utf-8"));
-      expect(written).toEqual({ maxConcurrent: 5, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true });
+      expect(written).toEqual({ maxConcurrent: 5, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true });
     });
 
     it("emits subagents:settings_changed with persisted:true on success", () => {
@@ -797,7 +809,7 @@ describe("SettingsManager", () => {
       sm.wrapUpTurns = 3;
       sm.saveAndNotify("Wrap-up turns set to 3");
       expect(emit).toHaveBeenCalledWith("subagents:settings_changed", {
-        settings: { maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 3, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true },
+        settings: { maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 3, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true },
         persisted: true,
       });
     });
@@ -825,7 +837,7 @@ describe("SettingsManager", () => {
         const sm = new SettingsManager({ emit, cwd: filePosingAsCwd, agentDir: "/nonexistent" });
         sm.saveAndNotify("something");
         expect(emit).toHaveBeenCalledWith("subagents:settings_changed", {
-          settings: { maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true },
+          settings: { maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: true, midRunUpdates: true, fleetView: true },
           persisted: false,
         });
       } finally {
@@ -1027,6 +1039,39 @@ describe("SettingsManager", () => {
     });
   });
 
+  describe("fleetView", () => {
+    let projectDir: string;
+
+    beforeEach(() => {
+      projectDir = mkdtempSync(join(tmpdir(), "pi-sm-fleet-"));
+    });
+
+    afterEach(() => {
+      rmSync(projectDir, { recursive: true, force: true });
+    });
+
+    it("defaults fleetView to true", () => {
+      const sm = new SettingsManager({ emit: vi.fn(), cwd: projectDir, agentDir: "/nonexistent" });
+      expect(sm.fleetView).toBe(true);
+    });
+
+    it("snapshot always writes fleetView", () => {
+      const sm = new SettingsManager({ emit: vi.fn(), cwd: projectDir, agentDir: "/nonexistent" });
+      expect(sm.snapshot().fleetView).toBe(true);
+      sm.toggleFleetView();
+      expect(sm.snapshot().fleetView).toBe(false);
+    });
+
+    it("toggleFleetView() flips, persists and returns \"Fleet view: off\"", () => {
+      const sm = new SettingsManager({ emit: vi.fn(), cwd: projectDir, agentDir: "/nonexistent" });
+      const toast = sm.toggleFleetView();
+      expect(sm.fleetView).toBe(false);
+      expect(toast).toEqual({ message: "Fleet view: off", level: "info" });
+      const written = JSON.parse(readFileSync(join(projectDir, ".pi", "subagents.json"), "utf-8"));
+      expect(written.fleetView).toBe(false);
+    });
+  });
+
   describe("toggleAbortAllOnInterrupt()", () => {
     let projectDir: string;
 
@@ -1066,7 +1111,7 @@ describe("SettingsManager", () => {
       const sm = new SettingsManager({ emit, cwd: projectDir, agentDir: "/nonexistent" });
       sm.toggleAbortAllOnInterrupt();
       expect(emit).toHaveBeenCalledWith("subagents:settings_changed", {
-        settings: { maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: false, midRunUpdates: true },
+        settings: { maxConcurrent: 4, defaultMaxTurns: 0, wrapUpTurns: 2, consumedSessionRetentionMinutes: 10, unconsumedSessionRetentionMinutes: 720, abortAllOnInterrupt: false, midRunUpdates: true, fleetView: true },
         persisted: true,
       });
     });

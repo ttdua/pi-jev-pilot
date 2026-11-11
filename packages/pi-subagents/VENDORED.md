@@ -22,6 +22,8 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `tsconfig.json` | edit | Inline upstream's `tsconfig.base.json` compiler options, since the base file lives outside the subtree. |
 | `test/ui/widget-viewport.test.ts` | edit | `fakeTerminal` gains `setProgramStatus`, required by the `Terminal` type in pi-tui 1.5.0. |
 | `test/ui/session-navigator.test.ts` | edit | Bind top/bottom to `home`/`end` in the test keybindings; pi-tui 1.5.0 defaults them to `ctrl+home`/`ctrl+end`. |
+| `src/settings.ts` | edit | Add the `fleetView` setting (default on, boolean-only load, always in the snapshot, `toggleFleetView`) for the below-editor fleet list. |
+| `src/ui/subagents-settings.ts` | edit | Add the `Fleet view` toggle row after the mid-run updates row. |
 | `src/seams/identity.ts` | seam | Launch identity (`agentId`, `agentType`, `toolCallId`) and effective model/thinking facts. |
 | `src/seams/service-identity.ts` | seam | Publish the service at load unless this implementation's service already holds the slot; remove only one's own. |
 | `src/index.ts` | edit | Publish the service at load through `ServicePublication` (not over an existing vendored service); bind the session id at `session_start`; unpublish only the instance's own service. Hand the service an `AgentTypeCatalog` over the registry. Give the manager the launch context (parent `getAllTools()`, `excludedExtensionPackages`). |
@@ -48,6 +50,8 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/config/agent-types.ts` | edit | Absolute fallback config sets `toolsDeclared`/`disallowedTools`. |
 | `src/config/default-agents.ts` | edit | Built-ins set `toolsDeclared`/`disallowedTools`. |
 | `test/seams/registry.test.ts` | seam | Tests for the registry query, snapshot fields, `disallowed_tools` parsing and the child allowlist. |
+| `test/settings.test.ts` | edit | Tests for the `fleetView` setting; existing snapshot and written-file expectations include `fleetView: true`. |
+| `test/ui/subagents-settings.test.ts` | edit | Tests for the `Fleet view` toggle row; the settings fixture carries `fleetView` and `toggleFleetView`. |
 | `test/display.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
 | `test/helpers/make-agent-config.ts` | edit | Fixture builder sets `toolsDeclared`/`disallowedTools`. |
 | `test/helpers/make-agent-config.test.ts` | edit | Expected default fixture includes the new fields. |

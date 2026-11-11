@@ -39,6 +39,11 @@ function makeSettings() {
       message: "Mid-run updates from background subagents: off",
       level: "info",
     })),
+    fleetView: true,
+    toggleFleetView: vi.fn((): { message: string; level: "info" | "warning" } => ({
+      message: "Fleet view: off",
+      level: "info",
+    })),
   };
 }
 
@@ -57,7 +62,7 @@ describe("SubagentsSettingsHandler", () => {
     expect(handler).toBeInstanceOf(SubagentsSettingsHandler);
   });
 
-  it("shows the seven settings options with current values", async () => {
+  it("shows the eight settings options with current values", async () => {
     const { handler } = makeHandler();
     const ui = makeMenuUI([undefined]); // cancel immediately
     await handler.handle({ ui });
@@ -70,6 +75,7 @@ describe("SubagentsSettingsHandler", () => {
       "Unconsumed-session retention (current: 720 min)",
       "Abort all subagents on ESC (current: on)",
       "Mid-run updates from background subagents (current: on)",
+      "Fleet view (current: on)",
     ]);
   });
 
@@ -85,6 +91,20 @@ describe("SubagentsSettingsHandler", () => {
       "Mid-run updates from background subagents: off",
       "info",
     );
+  });
+
+  it("lists Fleet view with on/off and flips it", async () => {
+    const settings = makeSettings();
+    const { handler } = makeHandler(settings);
+    const ui = makeMenuUI([undefined]);
+    await handler.handle({ ui });
+    const options = ui.select.mock.calls[0][1] as string[];
+    expect(options).toContain("Fleet view (current: on)");
+
+    const flipUI = makeMenuUI(["Fleet view (current: on)"]);
+    await handler.handle({ ui: flipUI });
+    expect(settings.toggleFleetView).toHaveBeenCalledOnce();
+    expect(flipUI.notify).toHaveBeenCalledWith("Fleet view: off", "info");
   });
 
   it("renders the abort-on-ESC option as off when the policy is disabled", async () => {
