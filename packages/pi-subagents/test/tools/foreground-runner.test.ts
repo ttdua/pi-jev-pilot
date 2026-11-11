@@ -13,6 +13,7 @@ function makeParams(overrides: Partial<ForegroundParams> = {}): ForegroundParams
 		config: createResolvedSpawnConfig({ description: "fg task" }),
 		snapshot: STUB_SNAPSHOT,
 		parentSession: { parentSessionFile: "/sessions/parent.jsonl", parentSessionId: "session-1" },
+		origin: { kind: "tool", toolCallId: "tc-1" },
 		...overrides,
 	};
 }

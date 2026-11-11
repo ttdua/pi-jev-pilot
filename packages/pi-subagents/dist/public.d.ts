@@ -48,6 +48,67 @@ interface TurnBudget {
     phase: TurnBudgetPhase;
 }
 
+/**
+ * identity.ts — Launch identity and effective launch facts.
+ *
+ * Every child event and record snapshot names the launch it belongs to, and a
+ * created session reports the model and thinking level it really runs with.
+ */
+
+interface LaunchIdentity {
+    agentId: string;
+    agentType: string;
+    toolCallId?: string;
+}
+/**
+ * The identity as event payloads publish it: `agentId` and `agentType` are
+ * optional in the public contract so other publishers of these channels stay
+ * valid. This executor always sets them (`launchIdentity` returns them required).
+ */
+type PublishedLaunchIdentity = Partial<Pick<LaunchIdentity, "agentId" | "agentType">> & Pick<LaunchIdentity, "toolCallId">;
+interface EffectiveFacts {
+    effectiveModel?: string;
+    effectiveThinking?: ThinkingLevel;
+}
+
+/**
+ * child-lifecycle.ts — Child-execution lifecycle event contract and publisher.
+ *
+ * The core publishes its child-execution lifecycle as ordered events on the Pi
+ * event bus; reactive consumers (permissions, telemetry, UI) subscribe rather
+ * than the core reaching out to them (ADR 0002). This module owns the channel
+ * names, payload shapes, and the publisher that emits them.
+ *
+ * The publisher takes an injected `emit` callback so this module stays free of
+ * Pi SDK imports — `index.ts` wires it to `pi.events.emit`.
+ *
+ * `spawning`, `session-created`, `completed`, and `disposed` are the announcement
+ * a consumer may rely on. `bound` is additional: it reports that a child finished
+ * binding its extensions, which is the only moment a parent can observe what those
+ * extensions did or did not install.
+ */
+
+/** Payload for `subagents:child:spawning`. */
+interface ChildSpawningEvent extends PublishedLaunchIdentity {
+    agentName: string;
+    parentSessionId?: string;
+}
+/** Payload for `subagents:child:session-created`. */
+interface ChildSessionCreatedEvent extends PublishedLaunchIdentity, EffectiveFacts {
+    /** Child session id — the registry key. Unique per child; concurrent
+     * siblings of the same parent occupy distinct keys. */
+    sessionId: string;
+    parentSessionId?: string;
+}
+/** Payload for `subagents:child:bound`. */
+interface ChildBoundEvent extends PublishedLaunchIdentity {
+    /** Child session id — the same key `session-created` carried. */
+    sessionId: string;
+    parentSessionId?: string;
+    /** Launch-policy grants that took effect in the child: registered and model-callable. */
+    grantedTools?: readonly string[];
+}
+
 /** usage.ts — Token usage: shapes, accumulator operators, session-stats readers. */
 /**
  * Lifetime usage components, accumulated via `message_end` events. Survives
@@ -152,6 +213,13 @@ type ResumeRefusal = "still-running" | "resume-queued" | "no-session" | "session
  * types.ts — Type definitions for the subagent system.
  */
 
+/**
+ * The thinking levels this package accepts.
+ *
+ * Wider than pi-ai's `ThinkingLevel`, which omits `off` — Pi honors it, and agent
+ * frontmatter has always documented it.
+ */
+type ThinkingLevel = SubagentThinkingLevel;
 /** Agent type: any string name (built-in defaults or user-defined). */
 type SubagentType = string;
 
@@ -263,6 +331,67 @@ interface AgentTypeSnapshot {
     inheritContext?: boolean;
 }
 
+/** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
+type LaunchOrigin = {
+    kind: "tool";
+    toolCallId: string;
+} | {
+    kind: "service";
+};
+/**
+ * Frozen description of a new launch, handed to the registered launch policy
+ * after the launch leaves the concurrency queue and before its child session
+ * is created.
+ */
+interface LaunchRequest {
+    agentId: string;
+    /** The agent type as resolved (canonical name, or `general-purpose`). */
+    agentType: string;
+    agent: AgentTypeSnapshot;
+    origin: LaunchOrigin;
+    parentSessionId?: string;
+    prompt: string;
+    description: string;
+    /** The caller's model (`provider/id`) and thinking level, after `locked` fields were applied. */
+    requested: {
+        model?: string;
+        thinking?: SubagentThinkingLevel;
+    };
+    /** The lockable fields the agent locks; the policy cannot change them. */
+    locked: readonly LockableField[];
+    inheritContext: boolean;
+    isBackground: boolean;
+    toolSet: {
+        /** The agent's declared tools, or `null` when it declares none. */
+        declared: readonly string[] | null;
+        disallowed: readonly string[];
+        /** The tools the child would get with no policy. */
+        defaults: readonly string[];
+        /**
+         * The parent session's tools, minus excluded packages' tools and the
+         * executor's orchestration tools. Listing does not guarantee the child
+         * will have the tool; grants are checked in the child.
+         */
+        parentTools: readonly string[];
+    };
+}
+/** A launch policy's answer; omitted fields leave the launch unchanged. */
+interface LaunchAdjustment {
+    /** A model as `provider/id` (or a fuzzy name); ignored when the agent locks `model`. */
+    model?: string;
+    /** Ignored when the agent locks `thinking`. */
+    thinking?: SubagentThinkingLevel;
+    /** Tools to grant; each must be in `toolSet.parentTools` and not in `toolSet.disallowed`. */
+    addTools?: readonly string[];
+    /** Tools to remove; a declared tool cannot be removed. */
+    removeTools?: readonly string[];
+}
+/**
+ * Decides a launch's model, thinking level and tool adjustments. Fails open:
+ * a throw, a rejection, a malformed value or a timeout leaves the launch
+ * unchanged, and the signal is aborted.
+ */
+type LaunchPolicy = (request: LaunchRequest, signal: AbortSignal) => Promise<LaunchAdjustment | undefined> | LaunchAdjustment | undefined;
 /** Options for resuming an agent via the service. */
 interface ResumeOptions {
     /**
@@ -354,6 +483,15 @@ interface SubagentsService {
      * registered. Returns a disposer that unregisters the provider.
      */
     registerWorkspaceProvider(provider: WorkspaceProvider): () => void;
+    /**
+     * Register the single launch policy, consulted once for every new launch
+     * (never for a resume). `timeoutMs` bounds each call. Throws
+     * `launch policy slot is taken` while another policy is registered. Returns
+     * a function that unregisters this policy.
+     */
+    registerLaunchPolicy(policy: LaunchPolicy, options: {
+        timeoutMs: number;
+    }): () => void;
 }
 /** Event channel constants for pi.events subscriptions. */
 declare const SUBAGENT_EVENTS: {
@@ -374,4 +512,4 @@ declare function getSubagentsService(): SubagentsService | undefined;
 declare function unpublishSubagentsService(): void;
 
 export { SUBAGENT_EVENTS, getSubagentsService, publishSubagentsService, unpublishSubagentsService };
-export type { AgentTypeSnapshot, LifetimeUsage, LockableField, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };
+export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSpawningEvent, LaunchAdjustment, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };

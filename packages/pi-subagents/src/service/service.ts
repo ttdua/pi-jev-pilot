@@ -27,6 +27,12 @@ import type {
 // SubagentStatus is defined in the lifecycle layer (single home) and re-exported
 // here for the public API surface — mirrors the LifetimeUsage / workspace pattern.
 export type { SubagentStatus } from "#src/lifecycle/subagent";
+// Child lifecycle payloads, so consumers type what they receive on `subagents:child:*`.
+export type {
+  ChildBoundEvent,
+  ChildSessionCreatedEvent,
+  ChildSpawningEvent,
+} from "#src/lifecycle/child-lifecycle";
 export type { TurnBudget, TurnBudgetPhase } from "#src/lifecycle/turn-limits";
 // The resume vocabulary is re-exported for the same reason: the record owns the
 // reasons a resume is refused, and the manager adds the one that is not a fact
@@ -120,6 +126,66 @@ export interface AgentTypeSnapshot {
 }
 
 export type { LockableField };
+
+/** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
+export type LaunchOrigin = { kind: "tool"; toolCallId: string } | { kind: "service" };
+
+/**
+ * Frozen description of a new launch, handed to the registered launch policy
+ * after the launch leaves the concurrency queue and before its child session
+ * is created.
+ */
+export interface LaunchRequest {
+  agentId: string;
+  /** The agent type as resolved (canonical name, or `general-purpose`). */
+  agentType: string;
+  agent: AgentTypeSnapshot;
+  origin: LaunchOrigin;
+  parentSessionId?: string;
+  prompt: string;
+  description: string;
+  /** The caller's model (`provider/id`) and thinking level, after `locked` fields were applied. */
+  requested: { model?: string; thinking?: SubagentThinkingLevel };
+  /** The lockable fields the agent locks; the policy cannot change them. */
+  locked: readonly LockableField[];
+  inheritContext: boolean;
+  isBackground: boolean;
+  toolSet: {
+    /** The agent's declared tools, or `null` when it declares none. */
+    declared: readonly string[] | null;
+    disallowed: readonly string[];
+    /** The tools the child would get with no policy. */
+    defaults: readonly string[];
+    /**
+     * The parent session's tools, minus excluded packages' tools and the
+     * executor's orchestration tools. Listing does not guarantee the child
+     * will have the tool; grants are checked in the child.
+     */
+    parentTools: readonly string[];
+  };
+}
+
+/** A launch policy's answer; omitted fields leave the launch unchanged. */
+export interface LaunchAdjustment {
+  /** A model as `provider/id` (or a fuzzy name); ignored when the agent locks `model`. */
+  model?: string;
+  /** Ignored when the agent locks `thinking`. */
+  thinking?: SubagentThinkingLevel;
+  /** Tools to grant; each must be in `toolSet.parentTools` and not in `toolSet.disallowed`. */
+  addTools?: readonly string[];
+  /** Tools to remove; a declared tool cannot be removed. */
+  removeTools?: readonly string[];
+}
+
+/**
+ * Decides a launch's model, thinking level and tool adjustments. Fails open:
+ * a throw, a rejection, a malformed value or a timeout leaves the launch
+ * unchanged, and the signal is aborted.
+ */
+export type LaunchPolicy = (
+  request: LaunchRequest,
+  signal: AbortSignal,
+) => Promise<LaunchAdjustment | undefined> | LaunchAdjustment | undefined;
 
 /** Options for resuming an agent via the service. */
 export interface ResumeOptions {
@@ -223,6 +289,14 @@ export interface SubagentsService {
    * registered. Returns a disposer that unregisters the provider.
    */
   registerWorkspaceProvider(provider: WorkspaceProvider): () => void;
+
+  /**
+   * Register the single launch policy, consulted once for every new launch
+   * (never for a resume). `timeoutMs` bounds each call. Throws
+   * `launch policy slot is taken` while another policy is registered. Returns
+   * a function that unregisters this policy.
+   */
+  registerLaunchPolicy(policy: LaunchPolicy, options: { timeoutMs: number }): () => void;
 }
 
 /** Event channel constants for pi.events subscriptions. */

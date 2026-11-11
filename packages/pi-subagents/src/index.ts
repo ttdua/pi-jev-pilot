@@ -197,6 +197,12 @@ export default function (pi: ExtensionAPI) {
     getRunConfig: () => settings,
     getRetentionPolicy: () => settings,
     registry,
+    // What a launch policy may grant: the parent's tools, read per launch, and
+    // the packages whose extensions children do not load.
+    launchContext: {
+      listParentTools: () => pi.getAllTools(),
+      excludedPackages: () => settings.excludedExtensionPackages,
+    },
   });
 
   // Typed service published via Symbol.for() for cross-extension access.

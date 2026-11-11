@@ -22,6 +22,7 @@ function makeParams(overrides: Partial<BackgroundParams> = {}): BackgroundParams
     config: makeConfig(),
     snapshot: STUB_SNAPSHOT,
     parentSession: { parentSessionFile: "/sessions/parent.jsonl", parentSessionId: "session-1", toolCallId: "tc-1" },
+    origin: { kind: "tool", toolCallId: "tc-1" },
     settings: { maxConcurrent: 4 },
     ...overrides,
   };

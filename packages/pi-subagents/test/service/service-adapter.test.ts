@@ -237,6 +237,7 @@ function createManagerStub() {
     waitForAll: vi.fn<SubagentManagerLike["waitForAll"]>(async () => {}),
     hasRunning: vi.fn<SubagentManagerLike["hasRunning"]>(() => false),
     registerWorkspaceProvider: vi.fn<SubagentManagerLike["registerWorkspaceProvider"]>(() => () => {}),
+    registerLaunchPolicy: vi.fn<SubagentManagerLike["registerLaunchPolicy"]>(() => () => {}),
     resume: vi.fn<SubagentManagerLike["resume"]>(async () => ({
       kind: "resumed",
       record: createTestSubagent(),

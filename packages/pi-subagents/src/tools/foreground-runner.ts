@@ -1,6 +1,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig } from "#src/lifecycle/subagent-manager";
+import type { LaunchOrigin } from "#src/service/service";
 import {
   renderOutcomeAddenda,
   renderOutcomeBody,
@@ -34,6 +35,8 @@ export interface ForegroundParams {
   config: ResolvedSpawnConfig;
   snapshot: ParentSnapshot;
   parentSession: ParentSessionInfo;
+  /** The `subagent` tool call that launches the agent. */
+  origin: LaunchOrigin;
 }
 
 /**
@@ -68,6 +71,7 @@ export async function runForeground(
         thinkingLevel: execution.thinking,
         signal,
         parentSession: params.parentSession,
+        origin: params.origin,
         observer: {
           onSessionCreated: (agent) => {
             recordRef = agent;

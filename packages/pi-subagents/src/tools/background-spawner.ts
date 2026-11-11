@@ -1,5 +1,6 @@
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig } from "#src/lifecycle/subagent-manager";
+import type { LaunchOrigin } from "#src/service/service";
 import { renderSpawnNotes, textResult } from "#src/tools/helpers";
 import type { ResolvedSpawnConfig, SpawnPresentation } from "#src/tools/spawn-config";
 import type { ParentSessionInfo, Subagent } from "#src/types";
@@ -16,6 +17,8 @@ export interface BackgroundParams {
   config: ResolvedSpawnConfig;
   snapshot: ParentSnapshot;
   parentSession: ParentSessionInfo;
+  /** The `subagent` tool call that launches the agent. */
+  origin: LaunchOrigin;
   settings: { readonly maxConcurrent: number };
 }
 
@@ -48,6 +51,7 @@ export function spawnBackground(
   try {
     id = manager.spawn(params.snapshot, identity.subagentType, execution.prompt, {
       parentSession: params.parentSession,
+      origin: params.origin,
       description: execution.description,
       model: execution.model,
       maxTurns: execution.effectiveMaxTurns,

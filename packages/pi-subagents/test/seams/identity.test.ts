@@ -168,6 +168,7 @@ describe("launch identity on child events", () => {
 		const h = harness();
 
 		const id = h.manager.spawn(snapshot, "Explore", "go", {
+			origin: { kind: "service" },
 			description: "d",
 			background: { kind: "explicit", isBackground: false },
 		});
@@ -316,6 +317,7 @@ describe("effective model and thinking", () => {
 	it("a queued record has neither field", () => {
 		const h = harness({ maxConcurrent: 0 });
 		const id = h.manager.spawn(snapshot, "Explore", "go", {
+			origin: { kind: "service" },
 			description: "d",
 			background: { kind: "explicit", isBackground: true },
 		});

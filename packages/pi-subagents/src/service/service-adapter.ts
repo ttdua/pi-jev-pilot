@@ -13,6 +13,7 @@ import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { AgentTypeCatalog } from "#src/seams/registry";
 import type {
   AgentTypeSnapshot,
+  LaunchPolicy,
   ResumeOptions,
   ResumeResult,
   SpawnOptions,
@@ -31,6 +32,7 @@ export interface SubagentManagerLike {
   waitForAll(): Promise<void>;
   hasRunning(): boolean;
   registerWorkspaceProvider(provider: WorkspaceProvider): () => void;
+  registerLaunchPolicy(policy: LaunchPolicy, options: { timeoutMs: number }): () => void;
   resume(id: string, prompt: string, options: ResumeCallOptions): Promise<ResumeOutcome>;
 }
 
@@ -84,6 +86,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
       // No toolCallId — an SDK spawn has no originating tool call, and
       // Subagent.toolCallId reporting undefined there is the truth.
       parentSession: { parentSessionFile, parentSessionId },
+      origin: { kind: "service" },
       maxTurns: options?.maxTurns,
       thinkingLevel: this.resolveThinkingLevel(options?.thinkingLevel),
       inheritContext: options?.inheritContext,
@@ -153,6 +156,10 @@ export class SubagentsServiceAdapter implements SubagentsService {
 
   registerWorkspaceProvider(provider: WorkspaceProvider): () => void {
     return this.manager.registerWorkspaceProvider(provider);
+  }
+
+  registerLaunchPolicy(policy: LaunchPolicy, options: { timeoutMs: number }): () => void {
+    return this.manager.registerLaunchPolicy(policy, options);
   }
 
   /**

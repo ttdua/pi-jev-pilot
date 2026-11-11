@@ -23,6 +23,7 @@ import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import { enforceGrants } from "#src/seams/grant-check";
 import { type EffectiveFacts, effectiveFacts, launchIdentity } from "#src/seams/identity";
 import { finalToolNames } from "#src/seams/registry";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
@@ -198,6 +199,12 @@ export interface CreateSubagentSessionParams {
    * `session-created` is emitted, so the record and the event carry one snapshot.
    */
   onEffectiveFacts?: (facts: EffectiveFacts) => void;
+  /**
+   * The launch policy's tool plan: base tool names replacing the agent's, and
+   * the grants added to them, checked in the child after bind. Absent when no
+   * policy adjusted the launch.
+   */
+  tools?: { toolNames: readonly string[]; grants: readonly string[] };
 }
 
 /**
@@ -258,20 +265,22 @@ export async function createSubagentSession(
   );
 
   const { toolNames: expandedToolNames, unmatchedPatterns } = expandMcpToolPatterns(
-    cfg.toolNames,
+    params.tools?.toolNames ?? cfg.toolNames,
     deps.listParentToolNames(),
   );
   for (const pattern of unmatchedPatterns) {
     debugNote(`agent ${type}: tools pattern ${pattern} matched no tool the parent has`);
   }
   // `disallowed_tools` applies last to the complete allowlist, child protocol
-  // tools included, before the recursion denylist. No policy grants yet.
+  // tools and policy grants included, before the recursion denylist.
   const protocolTools = buildChildTools(params);
+  const disallowed = deps.registry.resolveAgentConfig(type).disallowedTools;
   const toolNames = finalToolNames(
     [...expandedToolNames, ...protocolTools.map((tool) => tool.name)],
-    [],
-    deps.registry.resolveAgentConfig(type).disallowedTools,
+    params.tools?.grants ?? [],
+    disallowed,
   );
+  const grants = (params.tools?.grants ?? []).filter((name) => toolNames.includes(name));
   // The SDK drops a custom tool missing from `tools`; keep the two consistent.
   const childTools = protocolTools.filter((tool) => toolNames.includes(tool.name));
 
@@ -356,7 +365,8 @@ export async function createSubagentSession(
   // Every child session_start handler has now run, so this is the first — and
   // only — moment a parent can observe what the child's extensions installed.
   // Deliberately outside the try above: a child whose binding threw never ran.
-  deps.lifecycle.bound({ sessionId, parentSessionId, ...identity });
+  const grantedTools = enforceGrants(session, grants);
+  deps.lifecycle.bound({ sessionId, parentSessionId, ...identity, grantedTools });
 
   return subagentSession;
 }

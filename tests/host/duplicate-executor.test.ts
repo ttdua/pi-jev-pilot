@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT, tempDir } from "../helpers";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
@@ -195,19 +195,7 @@ describe("duplicate executor through the real CLI", () => {
       await session.waitFor(() => disposed() >= 2, "two children disposed");
       const text = await status(session);
       expect(text).not.toContain("duplicate executor");
-      // TODO(Task 4): the vendored service gains `registerLaunchPolicy` there; until then the
-      // captured service is not usable for launch seams and readiness reports it absent.
-      const seam = readdirSync(join(REPO_ROOT, "packages", "pi-subagents", "src"), {
-        recursive: true,
-      }).some(
-        (f) =>
-          String(f).endsWith(".ts") &&
-          readFileSync(
-            join(REPO_ROOT, "packages", "pi-subagents", "src", String(f)),
-            "utf8",
-          ).includes("registerLaunchPolicy"),
-      );
-      expect(text).toContain(seam ? "executor: present" : "executor: no executor");
+      expect(text).toContain("executor: present");
     },
     DISPOSE_WAIT_MS + 30_000,
   );

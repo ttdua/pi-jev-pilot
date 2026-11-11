@@ -64,6 +64,8 @@ export interface ChildBoundEvent extends PublishedLaunchIdentity {
   /** Child session id — the same key `session-created` carried. */
   sessionId: string;
   parentSessionId?: string;
+  /** Launch-policy grants that took effect in the child: registered and model-callable. */
+  grantedTools?: readonly string[];
 }
 
 /** Payload for `subagents:child:completed`. */

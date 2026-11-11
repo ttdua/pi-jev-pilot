@@ -95,6 +95,7 @@ export class AgentTool {
 		const snapshot = this.runtime.buildSnapshot(config.execution.inheritContext);
 		const { parentSessionFile, parentSessionId } = this.runtime.getSessionInfo();
 		const parentSession: ParentSessionInfo = { parentSessionFile, parentSessionId, toolCallId };
+		const origin = { kind: "tool", toolCallId } as const;
 
 		// ---- Resume existing agent ----
 		if (params.resume) {
@@ -112,14 +113,14 @@ export class AgentTool {
 		if (config.execution.runInBackground) {
 			return spawnBackground(
 				this.manager,
-				{ config, snapshot, parentSession, settings: this.settings },
+				{ config, snapshot, parentSession, origin, settings: this.settings },
 			);
 		}
 
 		// ---- Foreground execution — stream progress via onUpdate ----
 		return runForeground(
 			this.manager,
-			{ config, snapshot, parentSession },
+			{ config, snapshot, parentSession, origin },
 			signal,
 			onUpdate,
 		);

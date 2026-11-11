@@ -26,6 +26,9 @@ import type { SubagentSession } from "#src/lifecycle/subagent-session";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 
 import type { RunConfig } from "#src/runtime";
+import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
+import { LaunchPolicySlot } from "#src/seams/launch-policy";
+import type { LaunchOrigin, LaunchPolicy } from "#src/service/service";
 import type { AgentConfig, CompactionInfo, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
 /**
@@ -179,7 +182,15 @@ export interface SubagentManagerOptions {
   observer?: SubagentManagerObserver;
   /** Agent registry, consulted to canonicalize a spawn's type and resolve its config. */
   registry: SpawnTypeResolver;
+  /** The parent's tools and package exclusions a launch policy is offered; none when absent. */
+  launchContext?: LaunchContext;
 }
+
+/** A launch context offering no parent tools. */
+const NO_LAUNCH_CONTEXT: LaunchContext = {
+  listParentTools: () => [],
+  excludedPackages: () => [],
+};
 
 export interface AgentSpawnConfig {
   description: string;
@@ -205,6 +216,8 @@ export interface AgentSpawnConfig {
   observer?: SubagentLifecycleObserver;
   /** Parent session identity - grouped fields that travel together from the tool boundary. */
   parentSession?: ParentSessionInfo;
+  /** What started the launch: the `subagent` tool call, or the service. */
+  origin: LaunchOrigin;
 }
 
 export class SubagentManager {
@@ -220,6 +233,8 @@ export class SubagentManager {
   private getRetentionPolicy?: () => RetentionPolicy;
   private readonly registry: SpawnTypeResolver;
   private _workspaceProvider?: WorkspaceProvider;
+  private readonly launchPolicy = new LaunchPolicySlot();
+  private readonly launchGate: LaunchPolicyGate;
 
   /** The registered workspace provider, or undefined when none is registered. */
   get workspaceProvider(): WorkspaceProvider | undefined {
@@ -234,6 +249,11 @@ export class SubagentManager {
     this.getRunConfig = options.getRunConfig;
     this.getRetentionPolicy = options.getRetentionPolicy;
     this.registry = options.registry;
+    this.launchGate = new LaunchPolicyGate(
+      this.launchPolicy,
+      options.launchContext ?? NO_LAUNCH_CONTEXT,
+      (type) => this.registry.resolveAgentConfig(type),
+    );
     // Periodically release the heavy session of terminal agents past their
     // retention window. The lightweight record (with its result) is kept for the
     // session lifetime, so get_subagent_result never misses in-session.
@@ -256,6 +276,14 @@ export class SubagentManager {
     return () => {
       if (this._workspaceProvider === provider) this._workspaceProvider = undefined;
     };
+  }
+
+  /**
+   * Register the single launch policy, consulted for every new launch after it
+   * leaves the queue. Throws while another is registered; returns its unregister.
+   */
+  registerLaunchPolicy(policy: LaunchPolicy, options: { timeoutMs: number }): () => void {
+    return this.launchPolicy.register(policy, options);
   }
 
   /** Compose a per-agent lifecycle observer from manager and spawn-config concerns. */
@@ -371,6 +399,9 @@ export class SubagentManager {
         thinkingLevel: options.thinkingLevel,
         parentSession: options.parentSession,
         signal: options.signal,
+        origin: options.origin,
+        inheritContext: options.inheritContext,
+        launchGate: this.launchGate,
       },
     });
     this.agents.set(id, record);
