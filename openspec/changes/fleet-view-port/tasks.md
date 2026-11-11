@@ -16,8 +16,8 @@ Blocked by: none
 
 Blocked by: none
 
-- [ ] 3.1 Create `packages/pi-subagents/src/ui/fleet-roster.ts` with `fleetRows`, `formatFleetElapsed`, `formatFleetTokens`, `rightAlign`, `renderFleetLines` per design D1-D3
-- [ ] 3.2 Unit tests `packages/pi-subagents/test/ui/fleet-roster.test.ts` for row inclusion, order, linger, layout, row text, overflow windowing and width clamping
+- [x] 3.1 Create `packages/pi-subagents/src/ui/fleet-roster.ts` with `fleetRows`, `formatFleetElapsed`, `formatFleetTokens`, `rightAlign`, `renderFleetLines` per design D1-D3
+- [x] 3.2 Unit tests `packages/pi-subagents/test/ui/fleet-roster.test.ts` for row inclusion, order, linger, layout, row text, overflow windowing and width clamping
 
 ## 4. Fleet list adapter and keys
 
