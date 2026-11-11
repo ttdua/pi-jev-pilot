@@ -9,8 +9,8 @@ Blocked by: none
 
 Blocked by: none
 
-- [ ] 2.1 Export `navigationEntryFor(record, registry)` from `packages/pi-subagents/src/ui/session-navigation.ts` (one record's live or snapshot entry, or undefined) and use it inside `listNavigableAgents`; extend `test/ui/session-navigation.test.ts`
-- [ ] 2.2 Extract `openTranscript(ui, entry, deps)` from `SessionNavigatorHandler.handle` in `packages/pi-subagents/src/ui/session-navigator.ts` (source choice, read-error notify, mode probe, mount) and make `handle` call it; existing `test/ui/session-navigator.test.ts` stays green and gains direct tests for `openTranscript`
+- [x] 2.1 Export `navigationEntryFor(record, registry)` from `packages/pi-subagents/src/ui/session-navigation.ts` (one record's live or snapshot entry, or undefined) and use it inside `listNavigableAgents`; extend `test/ui/session-navigation.test.ts`
+- [x] 2.2 Extract `openTranscript(ui, entry, deps)` from `SessionNavigatorHandler.handle` in `packages/pi-subagents/src/ui/session-navigator.ts` (source choice, read-error notify, mode probe, mount) and make `handle` call it; existing `test/ui/session-navigator.test.ts` stays green and gains direct tests for `openTranscript`
 
 ## 3. Pure fleet roster and renderer
 
