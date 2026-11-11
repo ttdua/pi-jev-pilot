@@ -7,7 +7,7 @@
 
 **Change**: `fleet-view-port`
 **Finalized at**: `2026-11-12 02:35`
-**Outcome**: `kept-as-is`. Merged locally into the feature branch; push and PR wait for the operator.
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,10 +15,10 @@
 
 - **Branch**: `feat/fleet-view-port` (the implementation branch `fleet-view-port` was fast-forwarded into it at `fc94e052` and then deleted)
 - **Base branch**: `main`
-- **Final state**: `kept-open`. The feature branch is local only.
-- **PR URL**: N/A. No PR exists yet. The issue is ttdua/pi-jev-pilot#62.
+- **Final state**: `pr-open`
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/64 (closes ttdua/pi-jev-pilot#62)
 
-Deviation from the canonical closeout, required by the project policy: `AGENTS.md` forbids pushing or opening a PR without the user's explicit permission in chat. Steps 10 to 12 (push, PR offer, PR comment) are therefore deferred to the operator. Step 3 ran in the feature-branch worktree (`wt`), not in the main checkout: the main checkout stays on `main`, and worktree operations go through Worktrunk.
+Deviation from the canonical closeout, required by the project policy: `AGENTS.md` forbids pushing or opening a PR without the user's explicit permission. Steps 10 to 12 (push, PR, comment) therefore ran only after the operator approved them in the Inbox. The push went over HTTPS as the `ttdua` account. Step 3 ran in the feature-branch worktree (`wt`), not in the main checkout: the main checkout stays on `main`, and worktree operations go through Worktrunk.
 
 ---
 
@@ -31,7 +31,7 @@ Deviation from the canonical closeout, required by the project policy: `AGENTS.m
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/64#issuecomment-6809893836)
 
 ---
 
@@ -54,5 +54,4 @@ Deviation from the canonical closeout, required by the project policy: `AGENTS.m
 
 ## Next step
 
-1. With the operator's go-ahead, push `feat/fleet-view-port` and open a PR to `main` that closes ttdua/pi-jev-pilot#62.
-2. Run `/opsx-archive fleet-view-port` on this feature branch, push the archive commits, then merge the PR.
+Wait for the code review on PR #64. After approval, run `/opsx-archive fleet-view-port` on this feature branch and push the archive commits to update the PR. Then merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI), which lands the implementation and the archive in `main` together.
