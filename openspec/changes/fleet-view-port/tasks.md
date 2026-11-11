@@ -40,10 +40,10 @@ Blocked by: 1, 4
 
 Blocked by: 5
 
-- [ ] 6.1 Add `VENDORED.md` rows for every new and edited file in `packages/pi-subagents/`; `tests/vendoring.test.ts` passes
-- [ ] 6.2 Add the `tintinweb/pi-subagents` 0.23.2 MIT entry to `NOTICE.md`; extend `tests/vendoring.test.ts` (or the notice test) for the new scenario
-- [ ] 6.3 Write `packages/pi-subagents/docs/decisions/0013-fleet-list-opens-the-session-pane.md`
-- [ ] 6.4 Update `packages/pi-subagents/README.md`, `packages/pi-subagents/docs/configuration.md` (`fleetView`), `docs/usage-guide.md` and `CHANGELOG.md`
+- [x] 6.1 Add `VENDORED.md` rows for every new and edited file in `packages/pi-subagents/`; `tests/vendoring.test.ts` passes
+- [x] 6.2 Add the `tintinweb/pi-subagents` 0.23.2 MIT entry to `NOTICE.md`; extend `tests/vendoring.test.ts` (or the notice test) for the new scenario
+- [x] 6.3 Write `packages/pi-subagents/docs/decisions/0013-fleet-list-opens-the-session-pane.md`
+- [x] 6.4 Update `packages/pi-subagents/README.md`, `packages/pi-subagents/docs/configuration.md` (`fleetView`), `docs/usage-guide.md` and `CHANGELOG.md`
 
 ## 7. End-to-end check
 
