@@ -288,12 +288,15 @@ The pattern expands when the agent spawns, to the matching tools **your session*
 
 ## Persistent Settings
 
-Runtime tuning values set via `/subagents:settings` (max concurrency, default max turns, wrap-up turns, the two session-retention windows, the abort-on-interrupt policy, and the mid-run update channel) persist across pi restarts.
+Runtime tuning values set via `/subagents:settings` (max concurrency, default max turns, wrap-up turns, the two session-retention windows, the abort-on-interrupt policy, the mid-run update channel, and the fleet list) persist across pi restarts.
 A completed subagent's record is kept for the whole parent session (so `get_subagent_result` never misses); only its heavy in-memory session is released — after `consumedSessionRetentionMinutes` once the result has been collected, or after the `unconsumedSessionRetentionMinutes` safety cap if it never was.
 An agent that asked a question and has not been answered holds the safety cap rather than the consumed window, because reading a question is not finishing with the agent — the answer is delivered by resuming the very session the short window would release.
 
 Set `midRunUpdates` to `false` to withhold `notify_parent` from every agent, leaving them no way to tell you anything before they finish.
 `ask_parent` is unaffected: a blocked agent can still end its turn with a question.
+
+Set `fleetView` to `false` to hide the below-editor fleet list and its `↓` entry key (see the [Fleet list](../README.md#fleet-list) section).
+The default is `true`; the `Fleet view` row in `/subagents:settings` writes the same value.
 Two files, merged on load:
 
 - **Global:** `~/.pi/agent/subagents.json` — your machine-wide defaults.
@@ -302,7 +305,7 @@ Two files, merged on load:
   Written by `/subagents:settings`.
 
 **Precedence:** project overrides global on any field present in both.
-Missing fields fall back to the hardcoded defaults (max concurrency `4`, default max turns unlimited, wrap-up turns `2`, consumed-session retention `10` minutes, unconsumed-session retention `720` minutes, abort-all-on-interrupt `true`, mid-run updates `true`).
+Missing fields fall back to the hardcoded defaults (max concurrency `4`, default max turns unlimited, wrap-up turns `2`, consumed-session retention `10` minutes, unconsumed-session retention `720` minutes, abort-all-on-interrupt `true`, mid-run updates `true`, fleet view `true`).
 
 **Example — global defaults for a beefy machine:**
 
@@ -314,7 +317,8 @@ cat > ~/.pi/agent/subagents.json <<'EOF'
   "wrapUpTurns": 3,
   "unconsumedSessionRetentionMinutes": 1440,
   "abortAllOnInterrupt": false,
-  "midRunUpdates": true
+  "midRunUpdates": true,
+  "fleetView": true
 }
 EOF
 ```

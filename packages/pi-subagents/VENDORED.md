@@ -83,3 +83,6 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/ui/fleet-roster.test.ts` | seam | Tests for the fleet roster filter, ordering, formats, layout, overflow windowing and width clamping. |
 | `src/ui/fleet-list.ts` | seam | Pi adapter for the below-editor fleet list: active and selection state, 1 s refresh timer, `fleet` widget, terminal-input listener with focus guard, and Enter opening the session pane. Key mechanics ported from tintinweb/pi-subagents 0.23.2. |
 | `test/ui/fleet-list.test.ts` | seam | Tests for the fleet list's visibility, activation, navigation, focus guard, open and reselect, observer hooks, and lifecycle with a fake UI and TUI. |
+| `docs/decisions/0013-fleet-list-opens-the-session-pane.md` | seam | ADR for the fleet list: it opens the read-only session pane and lists foreground runs; the ported behavior is credited to tintinweb/pi-subagents 0.23.2. |
+| `README.md` | edit | Fleet list feature bullet, the `Fleet view` row in the settings description, and a `Fleet list` section with its keys. |
+| `docs/configuration.md` | edit | `fleetView` in persistent settings, its default, and the example JSON. |

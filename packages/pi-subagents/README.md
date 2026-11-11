@@ -17,6 +17,7 @@ Run them in foreground or background, steer them mid-run, resume completed sessi
 - **Parallel background agents** — spawn multiple agents that run concurrently with automatic queuing (configurable concurrency limit, default 4) and individual completion notifications
 - **Live widget UI** — persistent above-editor widget with animated spinners, live tool activity, token counts, and colored status icons
 - **Session transcripts** — open any subagent's full session transcript (running or with its session released) in pi's native read-only viewer via `/subagents:sessions`
+- **Fleet list** — a below-editor list of `main` and the subagents with a transcript; `↓` on an empty prompt enters it, `Enter` opens an agent's transcript
 - **Custom agent types** — define agents in `.pi/agents/<name>.md` with YAML frontmatter: custom system prompts, model selection, thinking levels, tool restrictions
 - **Mid-run steering** — inject messages into running agents to redirect their work without restarting
 - **Session resume** — pick up where an agent left off, preserving full conversation context.
@@ -175,8 +176,8 @@ The message interrupts after the current tool execution.
 
 ### `/subagents:settings`
 
-Interactive list to tune runtime settings — max concurrency, default max turns, wrap-up turns, the two session-retention windows, and whether ESC aborts every subagent.
-The numeric settings open an input prompt; the abort-on-ESC entry is a direct flip.
+Interactive list to tune runtime settings — max concurrency, default max turns, wrap-up turns, the two session-retention windows, whether ESC aborts every subagent, and whether the fleet list is shown (`Fleet view`).
+The numeric settings open an input prompt; the abort-on-ESC and fleet-view entries are direct flips.
 Changes persist across pi restarts (see [Persistent Settings](./docs/configuration.md#persistent-settings)).
 
 ### `/subagents:sessions`
@@ -197,6 +198,23 @@ The top rule names the agent, its task, model, and thinking level; the bottom ca
 Paging and jumping to the top or bottom follow Pi's viewport keybindings (`tui.altScreen.pageUp`, `pageDown`, `top`, `bottom`), so a remap applies here too, and the footer names the keys you bound; the mouse wheel scrolls the transcript as well.
 In fullscreen mode the viewer floats over the bottom of the screen, above Pi's footer, so those keys reach it instead of scrolling the conversation behind it.
 On a narrow terminal the footer drops the key hints, and the header drops the task and then the model before it shortens the agent's name.
+
+### Fleet list
+
+While no prompt is typed, a list below the editor shows `main` and every subagent that has a transcript to open: running, queued, or settled within the last 4 seconds, plus any agent whose session is still held.
+Each row shows the agent's name, its task, elapsed time and tokens; foreground and background agents both appear.
+The list appears when at least one subagent row exists and redraws about once a second while an agent runs.
+
+| Key | Action |
+| --- | --- |
+| `↓` or `←` | Enter the list on the first agent (empty prompt only) |
+| `↑` / `↓` | Move between rows; `↑` from the first agent selects `main` and `↑` again leaves |
+| `Enter` | Open the selected agent's transcript in the `/subagents:sessions` pane; on `main` it leaves the list |
+| `Esc` | Leave the list |
+
+While an agent runs, `↓`, `←` and `↑` at an empty prompt reach the list instead of the editor's history until you leave it.
+The list has no steer or stop control; use `steer_subagent` for that.
+Turn it off with `/subagents:settings` → `Fleet view`, which persists the `fleetView` setting (see [Persistent Settings](./docs/configuration.md#persistent-settings)).
 
 Creating and editing agent definitions is not a command — write an agent `.md` file in your editor, or ask a pi session to generate one (see [Custom Agents](./docs/configuration.md#custom-agents)).
 
