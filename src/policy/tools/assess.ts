@@ -48,10 +48,14 @@ function pickNew(names: readonly string[], skip: Set<string>): string[] {
  * Block candidates are the defaults, grant candidates the parent tools not among them; declared,
  * disallowed and never-candidate names are skipped, each name scored once. At most TOOL_CAP in
  * total: block candidates first, so a block candidate past the cap stays and a grant one is lost.
+ * When the agent declares `tools`, its defaults are those declared tools (wildcards already
+ * expanded), so it has no block candidate and every default is skipped for grants too.
  */
 export function toolPlan(toolSet: ToolSet, never: readonly string[] = NEVER_CANDIDATES): ToolPlan {
+  const isDeclared = toolSet.declared !== null;
   const skip = new Set([...(toolSet.declared ?? []), ...toolSet.disallowed, ...never]);
-  const block = pickNew(toolSet.defaults, skip).slice(0, TOOL_CAP);
+  if (isDeclared) for (const name of toolSet.defaults) skip.add(name);
+  const block = isDeclared ? [] : pickNew(toolSet.defaults, skip).slice(0, TOOL_CAP);
   const grant = pickNew(toolSet.parentTools, skip).slice(0, TOOL_CAP - block.length);
   return { block, grant };
 }

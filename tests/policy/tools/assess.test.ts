@@ -31,6 +31,17 @@ describe("toolPlan", () => {
     expect(plan).toEqual({ block: [], grant: ["web_search"] });
   });
 
+  test("a declared wildcard's expanded defaults are neither block nor grant candidates", () => {
+    const plan = toolPlan(
+      toolSet({
+        declared: ["mcp__srv__*"],
+        defaults: ["mcp__srv__a"],
+        parentTools: ["mcp__srv__a", "web_search"],
+      }),
+    );
+    expect(plan).toEqual({ block: [], grant: ["web_search"] });
+  });
+
   test("Declared tools kept", () => {
     const plan = toolPlan(
       toolSet({
