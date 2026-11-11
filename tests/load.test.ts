@@ -41,15 +41,20 @@ function resolvesTo(path: string, target: string): boolean {
 
 describe("package loading", () => {
   const entry = join(REPO_ROOT, "src", "extension.ts");
+  const executorEntry = join(REPO_ROOT, "packages", "pi-subagents", "src", "index.ts");
 
-  test("installed checkout is loaded", async () => {
+  test("Installed checkout is loaded; Both extensions loaded from one install", async () => {
     const result = await installAndLoad(REPO_ROOT);
     expect(result.errors).toEqual([]);
     const matches = result.extensions.filter((e) => resolvesTo(e.resolvedPath, entry));
     expect(matches.length).toBe(1);
+    const executors = result.extensions.filter((e) => resolvesTo(e.resolvedPath, executorEntry));
+    expect(executors.length).toBe(1);
+    const tools = [...(executors[0]?.tools.keys() ?? [])];
+    expect(tools).toContain("subagent");
   }, 60_000);
 
-  test("loaded extension registers only /jev and handlers", async () => {
+  test("Loaded extension registers only /jev and handlers", async () => {
     const result = await installAndLoad(REPO_ROOT);
     const ext = result.extensions.find((e) => resolvesTo(e.resolvedPath, entry));
     expect(ext).toBeDefined();
@@ -57,11 +62,8 @@ describe("package loading", () => {
       "agent_settled",
       "before_agent_start",
       "before_provider_request",
-      "message_end",
       "session_shutdown",
       "session_start",
-      "tool_call",
-      "tool_result",
       "turn_end",
     ]);
     expect([...(ext?.tools.keys() ?? [])]).toEqual(["jev_review"]);
@@ -70,7 +72,7 @@ describe("package loading", () => {
     expect(ext?.shortcuts.size).toBe(0);
   }, 60_000);
 
-  test("failing entry point is not reported as loaded", async () => {
+  test("A failing entry point is not reported as loaded", async () => {
     const fixture = join(REPO_ROOT, "tests", "fixtures", "throwing-extension");
     const target = join(fixture, "index.ts");
     const result = await installAndLoad(fixture);

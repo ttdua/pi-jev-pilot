@@ -44,9 +44,13 @@ const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
 });
 
 describe("workerLine", () => {
-  test("writes every key of a routed, answered launch in ledger order", () => {
+  test("Routed fields: writes every key of a routed, answered launch in ledger order", () => {
     const line = workerLine(
-      input({ callerModel: "caller/m", toolCounts: () => ({ toolsScored: 4, toolsFlagged: 1 }) }),
+      input({
+        callerModel: "caller/m",
+        toolCounts: () => ({ toolsScored: 4, toolsFlagged: 1, toolsGranted: 2 }),
+        effective: { model: "fx/fast", thinking: "medium" },
+      }),
     );
     expect(Object.keys(line ?? {})).toEqual([
       "v",
@@ -71,10 +75,13 @@ describe("workerLine", () => {
       "callerModel",
       "toolsScored",
       "toolsFlagged",
+      "toolsGranted",
       "status",
       "durationMs",
       "toolUses",
       "tokens",
+      "effectiveModel",
+      "effectiveThinking",
     ]);
   });
 
@@ -143,5 +150,30 @@ describe("workerLine", () => {
     );
     expect(line).not.toHaveProperty("durationMs");
     expect(line).not.toHaveProperty("toolUses");
+  });
+
+  test("Effective values written with tool counts", () => {
+    const line = workerLine(
+      input({
+        effective: { model: "fixture/fixture-deep", thinking: "high" },
+        toolCounts: () => ({ toolsScored: 6, toolsFlagged: 1, toolsGranted: 2 }),
+      }),
+    );
+    expect(line).toMatchObject({
+      effectiveModel: "fixture/fixture-deep",
+      effectiveThinking: "high",
+      toolsScored: 6,
+      toolsFlagged: 1,
+      toolsGranted: 2,
+    });
+  });
+
+  test("no effective fields without a session", () => {
+    const line = workerLine(input({ effective: undefined }));
+    expect(line).not.toHaveProperty("effectiveModel");
+    expect(line).not.toHaveProperty("effectiveThinking");
+    const partial = workerLine(input({ effective: { model: "fx/fast" } }));
+    expect(partial).toMatchObject({ effectiveModel: "fx/fast" });
+    expect(partial).not.toHaveProperty("effectiveThinking");
   });
 });

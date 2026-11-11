@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 
-import { readAgent } from "../../src/host/platform/agents.ts";
+import { agentFacts } from "../../src/host/platform/agents.ts";
 import {
   buildToolState,
   buildWorkerState,
@@ -17,7 +15,6 @@ import {
   type BranchItem,
 } from "../../src/jev/state.ts";
 import type { AgentFacts } from "../../src/policy/launch.ts";
-import { tempDir } from "../helpers.ts";
 
 const user = (text: string): BranchItem => ({ role: "user", text, tools: [] });
 const asst = (text: string, tools: BranchItem["tools"] = []): BranchItem => ({
@@ -215,6 +212,7 @@ const FACTS: AgentFacts = {
   description: "does work",
   instructionsExcerpt: "be careful",
   declaredTools: ["read", "edit"],
+  disallowedTools: [],
   maxTurns: null,
   sets: { model: false, thinking: false },
 };
@@ -249,14 +247,17 @@ describe("Worker state shape", () => {
     expect(state.task.description).toBe("");
   });
   test("No model in state", () => {
-    const cwd = tempDir("state-cwd-");
-    const agentDir = tempDir("state-global-");
-    mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
-    writeFileSync(
-      join(cwd, ".pi", "agents", "worker.md"),
-      "---\ndescription: d\nmodel: anthropic/claude-opus\nthinking: high\n---\nbody",
-    );
-    const agent = readAgent("worker", { cwd, agentDir });
+    const agent = agentFacts({
+      name: "worker",
+      source: "project",
+      description: "d",
+      instructions: "body",
+      tools: null,
+      defaultTools: [],
+      disallowedTools: [],
+      model: "anthropic/claude-opus",
+      thinking: "high",
+    });
     expect(agent.sets).toEqual({ model: true, thinking: true });
     const json = JSON.stringify(build({ agent }));
     expect(json).not.toContain("claude-opus");
@@ -393,7 +394,7 @@ describe("mainState rich shaping", () => {
   test("last decision empty omitted", () => {
     expect("last_decision" in shaped({ lastDecision: {} }).conversation).toBe(false);
   });
-  test("first sentence", () => {
+  test("First sentence", () => {
     const s = shaped({
       capabilities: {
         tools: [
@@ -410,7 +411,7 @@ describe("mainState rich shaping", () => {
       "Fetch v1.2 now!",
     ]);
   });
-  test("tool cap 40 by name", () => {
+  test("Caps: tool cap 40 by name", () => {
     const tools = Array.from({ length: 45 }, (_, i) => ({
       name: `t${String(44 - i).padStart(2, "0")}`,
       description: "d",
@@ -420,7 +421,7 @@ describe("mainState rich shaping", () => {
     expect(out[0]!.name).toBe("t00");
     expect(out[39]!.name).toBe("t39");
   });
-  test("agent cap 30 by name, description 200 code points", () => {
+  test("Agent caps: agent cap 30 by name, description 200 code points", () => {
     const agents = Array.from({ length: 35 }, (_, i) => ({
       name: `a${String(34 - i).padStart(2, "0")}`,
       description: "😀".repeat(250),
@@ -430,6 +431,13 @@ describe("mainState rich shaping", () => {
     expect(out).toHaveLength(30);
     expect(out[0]!.name).toBe("a00");
     expect(Array.from(out[0]!.description)).toHaveLength(200);
+  });
+  test("No executor", () => {
+    const s = shaped({
+      capabilities: { tools: [{ name: "read", description: "Read." }], agents: [] },
+    });
+    expect(s.capabilities!.subagents).toEqual([]);
+    expect(s.capabilities!.tools).toHaveLength(1);
   });
   test("no model or thinking in subagents", () => {
     const agent = { name: "a", description: "d", tools: ["read"], model: "m", thinking: "high" };

@@ -175,9 +175,14 @@ Strategy gates compare probabilities, where upstream compared `confidence`. That
 
 ### ToolAssessment
 
-Runs once per worker, at its first `before_agent_start`, and only for agents that declare no `tools` (an empty `tools: []` counts as declared). A score ≥ .5 flags the tool. In `observe` mode (default) nothing is removed. In `enforce` mode flagged tools are removed from `selectedTools` on every turn of that worker, including resumed runs, with no new request. `ask_parent` and `notify_parent` are never candidates, and at most 32 candidates are scored. Assessment can only remove.
+Runs at launch, inside the launch policy call, for every agent. The candidates are `(default set ∪ parent session tools) − declared tools − disallowed tools − never-candidates`. Declared `tools` are a contract and stay; `disallowed_tools` are never added. Never-candidates are `jev_review` and the executor's own tools (`subagent`, `get_subagent_result`, `steer_subagent`, `ask_parent`, `notify_parent`). At most 32 are scored, block candidates first.
 
-The mode is read once, at that first call; a first call that failed or was skipped is not retried. Any failure keeps every tool and records nothing. The counts go on the launch's `worker` ledger line only when that line exists; a resumed launch's line carries none. Counts for a launch that gets no line are kept in a process-wide map of at most 256 entries and dropped oldest first.
+- **Block candidate:** a tool the child would have by default. Question `tool::<name>`; blocked at ≥ .5.
+- **Grant candidate:** a tool in the parent session the child would not have. Question `grant::<name>`; granted at ≥ `tools.grantAt` (default .8).
+
+In `observe` mode (default) nothing changes and the counts are recorded. In `enforce` mode the policy returns `removeTools` and `addTools`; the executor drops grants it cannot honour. A tool is only ever one kind of candidate. A resumed worker keeps the tools it started with.
+
+Any failure keeps the default tools and records nothing. The mode is read once, at the policy call. The tool decision is kept with the decided launch in the routing instance's `LaunchBook`, keyed by `agentId`, until the launch's outcome arrives. The counts go on the launch's `worker` ledger line only when that line is written; a resumed launch writes no line, and when routing does not run nothing is kept. The book holds at most 256 pending launches and drops the oldest first.
 
 ## Invariants
 
@@ -265,7 +270,8 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | | `reason` | Which rule decided the model: `expert`, `risky`, `slot`, `cut`, `untouched` or `miss`; older lines may hold `expert-admitted`, `expert-denied`, `fast-unsure` or `choice`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
-| | `toolsScored`, `toolsFlagged` | Tool assessment counts; only when the worker got an answer, never on a resumed launch's line |
+| | `effectiveModel`, `effectiveThinking` | What the executor applied to the child, joined by `agentId`; absent when the executor reported none |
+| | `toolsScored`, `toolsFlagged`, `toolsGranted` | Tool assessment counts: scored, blocked (or would-block), granted (or would-grant). Only when the tool assessment answered and a `worker` line is written |
 | | `status`, `durationMs`, `tokens`, `toolUses` | Filled on completion. `status` is `completed`, `aborted`, `stopped` or `error` |
 | Correction | `turnId`, `corrects` | The turn being marked, and the probability that marked it (≥ .7) |
 
@@ -287,14 +293,14 @@ Stored in `tuning.json`, never in `config.json`.
 | Cooldown | At least 40 decisions between changes |
 | Revert | Automatic, if the 40 decisions after a change are worse than the 40 before, by the signal that caused it |
 | Display | One line on every change, such as `Jev tune: timeoutMs 1500→1800 · /jev tune undo` |
-| Never tuned automatically | Risk floor, effort ceiling, expert rules, tool threshold |
+| Never tuned automatically | Risk floor, effort ceiling, expert rules, tool and grant thresholds |
 
 **Phase 1 automatically changes `timeoutMs` only:**
 
 - Fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count).
 - New value: `max(current + 200, p90 × 1.25 rounded up to 100)`.
 - Range 300–5000.
-- **Blind spot:** tool assessment requests also use `timeoutMs`, but a tool assessment miss writes no ledger line, so the rule cannot see it. Phase 1 accepts this; the ledger schema is unchanged.
+- **Blind spot:** tool assessment shares the launch deadline `timeoutMs`, but a tool assessment miss writes no ledger line, so the rule cannot see it. Phase 1 accepts this; the ledger schema is unchanged.
 - **Skipped** when the config is invalid (the untuned value would then be the code default, not yours), when `tuning.json` or the ledger is unreadable, and in child sessions.
 - **Block:** after a revert or an undo, the same raise is held back for 200 decisions. A raise to the blocked value or above is lowered to `blocked − 100`.
 - **Base value:** a tuned value records the `base` it was tuned from. It applies only while the config value (or the default) equals that base. If you edit `timeoutMs` in config, the tuned value, the pending change and the block are dropped, and that counts as a change for the cooldown.

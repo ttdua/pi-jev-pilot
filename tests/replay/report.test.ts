@@ -29,6 +29,7 @@ const agent: AgentFacts = {
   description: "finds things",
   instructionsExcerpt: "look around",
   declaredTools: null,
+  disallowedTools: [],
   maxTurns: null,
   sets: { model: false, thinking: false },
 };

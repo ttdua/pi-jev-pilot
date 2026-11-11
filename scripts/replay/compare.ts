@@ -100,7 +100,6 @@ function mainKeys(answers: Record<string, Answer>): Decided {
 }
 
 export const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
-  resume: false,
   inheritContext: false,
   runInBackground,
   modelLocked: false,

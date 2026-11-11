@@ -172,9 +172,39 @@ describe("ledger schema", () => {
         "toolUses",
         "toolsFlagged",
         "toolsScored",
+        "toolsGranted",
+        "effectiveModel",
+        "effectiveThinking",
       ].sort(),
     );
     expect([...LEDGER_FIELDS.correction].sort()).toEqual([...common, "corrects", "turnId"].sort());
+  });
+
+  test("Worker line with effective launch fields accepted", () => {
+    const entry = {
+      ...base("worker"),
+      effectiveModel: "fixture/fixture-fast",
+      effectiveThinking: "medium",
+      toolsScored: 6,
+      toolsFlagged: 1,
+      toolsGranted: 2,
+    };
+    expect(issues(entry)).toEqual([]);
+  });
+
+  test("Bad effective thinking rejected", () => {
+    expect(paths({ ...base("worker"), effectiveThinking: "huge" })).toEqual(["effectiveThinking"]);
+  });
+
+  test("Bad effective model and granted count rejected", () => {
+    expect(paths({ ...base("worker"), effectiveModel: "no-provider" })).toEqual(["effectiveModel"]);
+    expect(paths({ ...base("worker"), toolsGranted: -1 })).toEqual(["toolsGranted"]);
+  });
+
+  test("Effective fields rejected on a main line", () => {
+    expect(paths({ ...base("main"), effectiveModel: "fixture/fixture-fast" })).toEqual([
+      "effectiveModel",
+    ]);
   });
 
   test("unknown agent value is still an identifier", () => {
@@ -300,6 +330,9 @@ describe("ledger schema", () => {
       locked: false,
       toolsScored: count,
       toolsFlagged: count,
+      toolsGranted: count,
+      effectiveModel: `a/${"e".repeat(126)}`,
+      effectiveThinking: "minimal",
       tokens: count,
       toolUses: count,
       status: "completed",

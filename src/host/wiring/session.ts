@@ -1,9 +1,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { isChild, jevDir, loadSnapshot, setMainCwd } from "../platform/index.ts";
+import {
+  captureMainService,
+  clearMainService,
+  isChild,
+  jevDir,
+  loadSnapshot,
+  setMainCwd,
+} from "../platform/index.ts";
 import { readLedger } from "../../store/ledger.ts";
 import { drawStatus } from "../status/index.ts";
 import { showUnseenTuning } from "../tuning/index.ts";
-import { captureMainService, clearMainService } from "../tools/index.ts";
 import type { Parts } from "./parts.ts";
 
 function ledgerLines(): readonly unknown[] {
@@ -23,6 +29,7 @@ function loadWindow(parts: Parts): void {
 /** The main-session steps of `session_start`, in order; a throw skips the rest of them. */
 function startMain(pi: ExtensionAPI, parts: Parts, ctx: ExtensionContext): void {
   captureMainService();
+  parts.routing.start(ctx);
   parts.main.sessionStart();
   loadWindow(parts);
   parts.log.reset(ctx.sessionManager.getSessionId());
@@ -56,11 +63,16 @@ function quietly(step: () => void): void {
   }
 }
 
-/** `session_shutdown`: clear the service (main only), then drop the child and routing subscriptions. */
+/**
+ * `session_shutdown`: unregister the launch policy and clear the service (main only), then drop
+ * the child and routing subscriptions.
+ */
 export function subscribeSessionShutdown(pi: ExtensionAPI, parts: Parts): void {
   pi.on("session_shutdown", async (_event, ctx) => {
     quietly(() => {
-      if (!isChild(ctx.sessionManager.getSessionId())) clearMainService();
+      if (isChild(ctx.sessionManager.getSessionId())) return;
+      quietly(() => parts.routing.stop());
+      clearMainService();
     });
     quietly(parts.off);
     quietly(() => parts.routing.off());

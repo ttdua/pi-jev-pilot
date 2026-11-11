@@ -44,6 +44,14 @@ export function integer(opts: { min: number; max: number }): V<number> {
   };
 }
 
+/** A finite number from `min` to `max`, both inclusive. */
+export function finiteNumber(opts: { min: number; max: number }): V<number> {
+  return (value, path, issues) =>
+    typeof value === "number" && Number.isFinite(value) && value >= opts.min && value <= opts.max
+      ? value
+      : fail(issues, path, `expected a number from ${opts.min} to ${opts.max}`);
+}
+
 export function oneOf<T extends string>(values: readonly T[]): V<T> {
   return (value, path, issues) => {
     if (typeof value === "string" && (values as readonly string[]).includes(value))

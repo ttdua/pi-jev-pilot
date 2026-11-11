@@ -1,86 +1,32 @@
-import {
-  getAgentDir,
-  type BeforeAgentStartEvent,
-  type ExtensionAPI,
-  type ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
-import { askJev, type JevOutcome, type JevRequest } from "../../jev/client.ts";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { LaunchRequest } from "@ttdua/pi-subagents";
+import type { askJev, JevOutcome, JevRequest } from "../../jev/client.ts";
 import { buildToolQuestions } from "../../jev/questions.ts";
 import { buildToolState } from "../../jev/state.ts";
 import type { QuestionSpec } from "../../policy/answers.ts";
-import type { AgentFacts } from "../../policy/launch.ts";
-import { flaggedTools, toolCandidates, toolCounts } from "../../policy/tools/index.ts";
+import { flaggedTools, grantedTools, type ToolPlan } from "../../policy/tools/index.ts";
 import { readWorkerOutcome } from "../../policy/worker/index.ts";
-import { readAgent } from "../platform/index.ts";
-import { isChild } from "../platform/index.ts";
-import { loadSnapshot, type Snapshot } from "../platform/index.ts";
-import { putToolCounts } from "./counts.ts";
+import { agentFacts, type Snapshot } from "../platform/index.ts";
+import type { ToolDecision } from "./counts.ts";
 import { toolFacts, type ToolFacts } from "./facts.ts";
-import { mainService, type ServiceLike } from "./service.ts";
 
-export type ToolAssessmentDeps = {
-  ask?: typeof askJev;
-  snapshot?: () => Snapshot;
-  agentDir?: string;
-  service?: () => ServiceLike | undefined;
-};
-
-export type ToolAssessment = {
-  beforeAgentStart(event: BeforeAgentStartEvent, ctx: ExtensionContext): Promise<void>;
-};
-
-type ToolMode = "observe" | "enforce";
-/** What a session's first call decided; later calls only replay it. */
-type Outcome = { kind: "none" } | { kind: "done"; mode: ToolMode; flagged: Set<string> };
-const NONE: Outcome = { kind: "none" };
-
-type WorkerRecord = { id: string; type: unknown; description: string };
-
-/** Everything the gate lets through: a user-started first run with tools to look at. */
-type Gate = {
+/** What a launch's tool assessment needs from the policy call. */
+export type AssessCall = {
+  request: LaunchRequest;
   snap: Snapshot;
-  service: ServiceLike;
-  brief: string;
-  selected: string[];
-  file: string;
+  plan: ToolPlan;
+  signal: AbortSignal;
+  /** Milliseconds left of the classifier deadline shared with the worker request. */
+  remainingMs: () => number;
 };
 
-/** Gate on conditions read fresh at the first call; undefined means "do nothing". */
-function openGate(
-  event: BeforeAgentStartEvent,
-  ctx: ExtensionContext,
-  snap: Snapshot,
-  service: ServiceLike | undefined,
-): Gate | undefined {
-  if (!snap.config.valid || !snap.keySet || !snap.settings.switches.tools) return undefined;
-  if (service === undefined) return undefined;
-  if (event.messageType !== "user" || typeof event.prompt !== "string" || event.prompt === "") {
-    return undefined;
-  }
-  const selected = event.systemPromptOptions?.selectedTools;
-  if (!Array.isArray(selected)) return undefined;
-  const file = ctx.sessionManager.getSessionFile();
-  if (typeof file !== "string" || file === "") return undefined;
-  return { snap, service, brief: event.prompt, selected, file };
-}
-
-/** The one executor record whose `outputFile` is this session's file. */
-function findRecord(service: ServiceLike, file: string): WorkerRecord | undefined {
-  const matches = service
-    .listAgents()
-    .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
-    .filter((r) => r["outputFile"] === file);
-  const [only] = matches;
-  if (matches.length !== 1 || only === undefined || typeof only["id"] !== "string") {
-    return undefined;
-  }
-  const description = only["description"];
-  return {
-    id: only["id"],
-    type: only["type"],
-    description: typeof description === "string" ? description : "",
-  };
-}
+/** What asking about tools needs besides the call. */
+export type AssessDeps = {
+  ask: typeof askJev;
+  pi: Pick<ExtensionAPI, "getAllTools">;
+  /** The API key value for the snapshot's key variable. */
+  apiKey: (keyVar: string) => string;
+};
 
 const MISSING = (name: string): ToolFacts => ({
   name,
@@ -106,102 +52,59 @@ function toolMetadata(
   return names.map((name) => byName.get(name) ?? MISSING(name));
 }
 
-type Request = { req: JevRequest; scored: string[]; specs: Record<string, QuestionSpec> };
+type Request = { req: JevRequest; specs: Record<string, QuestionSpec> };
 
-/** What the request is built from: the gate, who is asked about, and the tools scored. */
-type RequestInput = {
-  gate: Gate;
-  agent: AgentFacts;
-  record: WorkerRecord;
-  tools: ToolFacts[];
-  scored: string[];
-};
-
-function buildRequest({ gate, agent, record, tools, scored }: RequestInput): Request {
-  const { questions, specs } = buildToolQuestions(scored);
-  const { settings, keyVar } = gate.snap;
+function buildRequest(call: AssessCall, deps: AssessDeps): Request {
+  const { request, snap, plan } = call;
+  const { questions, specs } = buildToolQuestions(plan.block, plan.grant);
   const state = buildToolState({
-    brief: gate.brief,
-    description: record.description,
-    agent,
-    tools,
+    brief: request.prompt,
+    description: request.description,
+    agent: agentFacts(request.agent),
+    tools: toolMetadata(deps.pi, [...plan.block, ...plan.grant]),
   });
+  const { settings, keyVar } = snap;
   return {
     req: {
       url: settings.classifier.url,
-      apiKey: process.env[keyVar] ?? "",
+      apiKey: deps.apiKey(keyVar),
       model: settings.classifier.model,
-      timeoutMs: settings.classifier.timeoutMs,
+      timeoutMs: call.remainingMs(),
       state,
       questions,
+      signal: call.signal,
     },
-    scored,
     specs,
   };
 }
 
-/** Turn Jev's outcome into a stored decision; counts are handed over only for a read answer. */
-function decide(outcome: JevOutcome, request: Request, mode: ToolMode, agentId: string): Outcome {
-  const read = readWorkerOutcome(outcome, request.specs);
-  if (read.kind !== "read") return NONE;
-  const flagged = flaggedTools(read.answers, request.scored);
-  putToolCounts(agentId, toolCounts(request.scored, flagged));
-  return { kind: "done", mode, flagged };
-}
-
-/** Remove flagged names in place, as `hideReviewInChild` does. */
-function spliceFlagged(selected: unknown, flagged: ReadonlySet<string>): void {
-  if (!Array.isArray(selected)) return;
-  for (let i = selected.length - 1; i >= 0; i--) {
-    if (flagged.has(selected[i] as string)) selected.splice(i, 1);
-  }
-}
-
-export function createToolAssessment(
-  pi: Pick<ExtensionAPI, "getAllTools">,
-  deps: ToolAssessmentDeps = {},
-): ToolAssessment {
-  const ask = deps.ask ?? askJev;
-  const snapshot = deps.snapshot ?? (() => loadSnapshot(pi));
-  const service = deps.service ?? mainService;
-  // One map per extension instance; a worker session's instance and its map end with that session.
-  const outcomes = new Map<string, Outcome>();
-
-  /** First call of a session: everything up to and including the request. */
-  async function assess(event: BeforeAgentStartEvent, ctx: ExtensionContext): Promise<Outcome> {
-    const gate = openGate(event, ctx, snapshot(), service());
-    if (gate === undefined) return NONE;
-    const record = findRecord(gate.service, gate.file);
-    if (record === undefined) return NONE;
-    const agent = readAgent(record.type, {
-      cwd: ctx.cwd,
-      agentDir: deps.agentDir ?? getAgentDir(),
-    });
-    if (agent.declaredTools !== null) return NONE;
-    const { scored } = toolCandidates(gate.selected.filter((n) => typeof n === "string"));
-    if (scored.length === 0) return NONE;
-    const tools = toolMetadata(pi, scored);
-    const request = buildRequest({ gate, agent, record, tools, scored });
-    const outcome = await ask(request.req);
-    return decide(outcome, request, gate.snap.settings.tools.mode, record.id);
-  }
-
+/** Jev's outcome as a decision; anything but a read answer decides nothing. */
+function decide(outcome: JevOutcome, specs: Record<string, QuestionSpec>, call: AssessCall) {
+  const read = readWorkerOutcome(outcome, specs);
+  if (read.kind !== "read") return undefined;
+  const { plan, snap } = call;
   return {
-    async beforeAgentStart(event, ctx): Promise<void> {
-      try {
-        const sessionId = ctx.sessionManager.getSessionId();
-        if (!isChild(sessionId)) return;
-        let outcome = outcomes.get(sessionId);
-        if (outcome === undefined) {
-          outcome = await assess(event, ctx).catch((): Outcome => NONE);
-          outcomes.set(sessionId, outcome);
-        }
-        if (outcome.kind === "done" && outcome.mode === "enforce") {
-          spliceFlagged(event.systemPromptOptions?.selectedTools, outcome.flagged);
-        }
-      } catch {
-        /* fail open: every tool stays */
-      }
-    },
-  };
+    mode: snap.settings.tools.mode,
+    scored: [...plan.block, ...plan.grant],
+    flagged: flaggedTools(read.answers, plan.block),
+    granted: grantedTools(read.answers, plan.grant, snap.settings.tools.grantAt),
+  } satisfies ToolDecision;
+}
+
+/**
+ * Asks Jev about a launch's candidate tools and decides which are flagged and granted, under the
+ * mode read now. Undefined for a miss, a cancel, an unreadable answer or any error: tools stay.
+ */
+export async function assessTools(
+  call: AssessCall,
+  deps: AssessDeps,
+): Promise<ToolDecision | undefined> {
+  try {
+    const { req, specs } = buildRequest(call, deps);
+    // Called detached: `ask` never receives a `this`.
+    const { ask } = deps;
+    return decide(await ask(req), specs, call);
+  } catch {
+    return undefined;
+  }
 }

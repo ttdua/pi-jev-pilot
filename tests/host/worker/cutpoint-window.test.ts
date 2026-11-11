@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createCutpointWindow } from "../../../src/host/worker/cutpoint-window.ts";
 import { setup } from "../../../src/host/setup.ts";
-import { MAIN_SERVICE_KEY } from "../../../src/host/tools/service.ts";
+import { MAIN_SERVICE_KEY } from "../../../src/host/platform/service.ts";
 import { CHILDREN_KEY } from "../../../src/host/platform/child.ts";
 import { RUBRIC_VERSION } from "../../../src/jev/rubrics.ts";
 import { readLedger } from "../../../src/store/ledger.ts";

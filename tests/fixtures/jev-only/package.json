@@ -1,0 +1,7 @@
+{
+  "name": "jev-only",
+  "private": true,
+  "type": "module",
+  "keywords": ["pi-package"],
+  "pi": { "extensions": ["../../../src/extension.ts"] }
+}

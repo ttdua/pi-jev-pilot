@@ -10,7 +10,9 @@ export type FixtureRoute =
   // Streams the given chunks as-is, one per read, so a test can split a multi-byte character.
   | { chunks: Uint8Array[] }
   // The request is recorded at once; the response waits for the promise, then answers with the route it resolves to.
-  | { held: Promise<FixtureRoute> };
+  | { held: Promise<FixtureRoute> }
+  // A route chosen per request from its body, so each request can be held or answered on its own.
+  | { each: (body: string) => FixtureRoute };
 
 export type RecordedJevRequest = {
   method: string;
@@ -27,8 +29,9 @@ export type JevFixture = {
 
 const CHUNK_BYTES = 16 * 1024;
 
-function respond(route: FixtureRoute): Response | Promise<Response> {
-  if ("held" in route) return route.held.then(respond);
+function respond(route: FixtureRoute, body = ""): Response | Promise<Response> {
+  if ("held" in route) return route.held.then((r) => respond(r, body));
+  if ("each" in route) return respond(route.each(body), body);
   if ("hang" in route) return new Promise<Response>(() => {});
   if ("stallAfterHeaders" in route) {
     const encoder = new TextEncoder();
@@ -89,10 +92,11 @@ export async function startJevFixture(routes: Record<string, FixtureRoute>): Pro
       req.headers.forEach((value, key) => {
         headers[key] = value;
       });
-      requests.push({ method: req.method, path, headers, body: await req.text() });
+      const body = await req.text();
+      requests.push({ method: req.method, path, headers, body });
       const route = Object.hasOwn(routes, path) ? routes[path] : undefined;
       if (route === undefined) return new Response("not found", { status: 404 });
-      return respond(route);
+      return respond(route, body);
     },
   });
 

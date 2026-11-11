@@ -64,8 +64,11 @@ const WORKER: Obj = {
   locked: false,
   toolsScored: 1,
   toolsFlagged: 2,
+  toolsGranted: 1,
   tokens: 3,
   toolUses: 4,
+  effectiveModel: "fixture/fixture-fast",
+  effectiveThinking: "medium",
   status: "stopped",
 };
 const CORRECTION: Obj = { ...COMMON, kind: "correction", turnId: "t-1", corrects: 0.82 };
@@ -199,8 +202,11 @@ const WORKER_BAD: Record<string, [unknown, string]> = {
   locked: [1, BOOL],
   toolsScored: [-1, COUNT],
   toolsFlagged: [-1, COUNT],
+  toolsGranted: [-1, COUNT],
   tokens: [-1, COUNT],
   toolUses: [-1, COUNT],
+  effectiveModel: ["nomodel", "expected a string matching ^[A-Za-z0-9._-]+\\/[^\\s]+$"],
+  effectiveThinking: ["huge", LEVELS],
   status: ["done", "expected one of: completed, aborted, stopped, error"],
 };
 const CORRECTION_BAD: Record<string, [unknown, string]> = {

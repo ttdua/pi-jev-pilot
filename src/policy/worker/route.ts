@@ -50,14 +50,13 @@ export type Route =
       };
     };
 
-// Launches the router never touches: resumed, forked-as-is, fully locked, or thinking locked with no model to pick.
+// Launches the router never touches: forked-as-is, fully locked, or thinking locked with no model to pick.
 function leavesUntouched(
   launch: EffectiveLaunch,
   forkedLaunch: ForkedLaunch,
   forkedThinking: boolean,
   noTier: boolean,
 ): boolean {
-  if (launch.resume) return true;
   if (launch.inheritContext && forkedLaunch === "untouched") return true;
   if (launch.modelLocked && launch.thinkingLocked) return true;
   return launch.thinkingLocked && (forkedThinking || noTier);

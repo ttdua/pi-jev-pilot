@@ -68,7 +68,11 @@ describe("settings sections", () => {
 
   test("scalar sections fall back to defaults", () => {
     expect(resolveSkills({})).toEqual({ inject: "content" });
-    expect(resolveTools({ tools: { mode: "enforce" } })).toEqual({ mode: "enforce" });
+    expect(resolveTools({ tools: { mode: "enforce" } })).toEqual({
+      mode: "enforce",
+      grantAt: 0.8,
+    });
+    expect(resolveTools({ tools: { grantAt: 0.6 } })).toEqual({ mode: "observe", grantAt: 0.6 });
     expect(resolveStateSection({})).toEqual({ parentRequest: false });
     expect(resolveSubagents({})).toEqual({ forkedLaunch: "untouched" });
   });

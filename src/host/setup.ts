@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   subscribeChildren,
   scanPlatforms,
-  listAgents,
+  executorAgents,
   loadSnapshot,
   jevDir,
 } from "./platform/index.ts";
@@ -21,7 +21,7 @@ import { createMain } from "./main/index.ts";
 import { registerReviewTool } from "./review/index.ts";
 import { compactTally, logLine, createSessionLog } from "./status/index.ts";
 import type { TuningDeps } from "./tuning/index.ts";
-import { createToolAssessment } from "./tools/index.ts";
+import { mainService } from "./platform/index.ts";
 import {
   registerJevCommand,
   subscribeSessionShutdown,
@@ -92,7 +92,7 @@ function buildMain(pi: ExtensionAPI, log: Log, append: Append) {
     rich: {
       groups: SHIPPED_MAIN_GROUPS,
       tools: () => activeTools(pi),
-      agents: (cwd) => listAgents({ cwd, agentDir: getAgentDir() }),
+      agents: () => executorAgents(mainService()),
     },
   });
 }
@@ -106,7 +106,6 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
   const window = deps.window ?? createCutpointWindow();
   const append = ledgerAppender(log, window);
   const routing = registerWorkerRouting(pi, { append, window: () => window.entries() });
-  const tools = createToolAssessment(pi);
   const tuningDeps = (): TuningDeps => ({
     dir: jevDir(),
     now: Date.now,
@@ -115,7 +114,7 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
     readLedger,
   });
   const main = buildMain(pi, log, append);
-  const parts: Parts = { seams: deps, off, routing, window, log, tools, main, tuningDeps };
+  const parts: Parts = { seams: deps, off, routing, window, log, main, tuningDeps };
   subscribeSessionStart(pi, parts);
   registerReviewTool(pi);
   registerLogRenderer(pi);

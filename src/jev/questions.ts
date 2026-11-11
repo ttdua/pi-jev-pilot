@@ -14,6 +14,7 @@ import {
   RISKY_QUESTION,
   SLOT_CRITERION_INFIX,
   STRATEGY_QUESTION,
+  GRANT_QUESTION,
   TIER_INSTRUCTION,
   TOOL_QUESTION,
   WHICH_INSTRUCTION,
@@ -166,17 +167,24 @@ export function buildWorkerQuestions(
   return { questions, specs };
 }
 
-/** One noul per candidate tool, keyed `tool::<name>`. */
-export function buildToolQuestions(names: readonly string[]): {
+/** One noul per candidate: `tool::<name>` for each block candidate, then `grant::<name>` for each grant one. */
+export function buildToolQuestions(
+  block: readonly string[],
+  grant: readonly string[],
+): {
   questions: Record<string, WireQuestion>;
   specs: Record<string, QuestionSpec>;
 } {
   const questions: Record<string, WireQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
-  for (const name of names) {
-    // TOOL_QUESTION builds a fresh object per call, so no copy() is needed.
+  // Both builders return a fresh object per call, so no copy() is needed.
+  for (const name of block) {
     questions[`tool::${name}`] = TOOL_QUESTION(name);
     specs[`tool::${name}`] = { type: "noul" };
+  }
+  for (const name of grant) {
+    questions[`grant::${name}`] = GRANT_QUESTION(name);
+    specs[`grant::${name}`] = { type: "noul" };
   }
   return { questions, specs };
 }

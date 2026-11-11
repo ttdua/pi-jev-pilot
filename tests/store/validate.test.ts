@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   array,
   boolean,
+  finiteNumber,
   integer,
   joinPath,
   object,
@@ -67,6 +68,20 @@ describe("validate", () => {
     expect(string({ trim: true, min: 1 })("  hi ", "s", issues)).toBe("hi");
     expect(string({ trim: true, min: 1 })("   ", "s", issues)).toBeUndefined();
     expect(issues.length).toBe(1);
+  });
+
+  test("finite number accepts bounds and fractions, rejects the rest", () => {
+    const v = finiteNumber({ min: 0.5, max: 1 });
+    const issues: Issue[] = [];
+    expect(v(0.5, "g", issues)).toBe(0.5);
+    expect(v(0.85, "g", issues)).toBe(0.85);
+    expect(v(1, "g", issues)).toBe(1);
+    expect(issues).toEqual([]);
+    for (const bad of [0.49, 1.01, "0.8", Number.NaN, Number.POSITIVE_INFINITY, null]) {
+      const is: Issue[] = [];
+      expect(v(bad, "g", is)).toBeUndefined();
+      expect(is).toEqual([{ path: "g", message: "expected a number from 0.5 to 1" }]);
+    }
   });
 
   test("integer rejects 1500.5 and bounds", () => {

@@ -394,9 +394,10 @@ describe("skill questions", () => {
 
 describe("buildToolQuestions", () => {
   test("One noul per candidate", () => {
-    const { questions, specs } = buildToolQuestions(["read", "edit", "bash"]);
-    expect(Object.keys(questions)).toEqual(["tool::read", "tool::edit", "tool::bash"]);
-    expect(Object.keys(specs)).toEqual(["tool::read", "tool::edit", "tool::bash"]);
+    const { questions, specs } = buildToolQuestions(["read", "edit", "bash"], ["web_search"]);
+    const keys = ["tool::read", "tool::edit", "tool::bash", "grant::web_search"];
+    expect(Object.keys(questions)).toEqual(keys);
+    expect(Object.keys(specs)).toEqual(keys);
     for (const key of Object.keys(questions)) {
       expect(questions[key]!.type).toBe("noul");
       expect(specs[key]).toEqual({ type: "noul" });
@@ -409,12 +410,29 @@ describe("buildToolQuestions", () => {
     const quote = section.match(/^> (.*)$/m)![1]!;
     expect(edit.instructions).toBe(quote.replace("`tools.<name>`", "`tools.edit`"));
   });
+  test("grant::web_search uses the documented wording", () => {
+    const { questions, specs } = buildToolQuestions([], ["web_search"]);
+    expect(Object.keys(questions)).toEqual(["grant::web_search"]);
+    expect(specs["grant::web_search"]).toEqual({ type: "noul" });
+    const grant = questions["grant::web_search"]!;
+    expect(grant.type).toBe("noul");
+    const section = docs.split("### Grant question")[1]!.split("\n## ")[0]!;
+    expect(section).toContain("`grant::<name>`");
+    expect(grant.criteria["true"]).toBe(section.match(/^- `true`: (.*)$/m)![1]!);
+    expect(grant.criteria["false"]).toBe(section.match(/^- `false`: (.*)$/m)![1]!);
+    const quote = section.match(/^> (.*)$/m)![1]!;
+    expect(grant.instructions).toBe(quote.replace("`tools.<name>`", "`tools.web_search`"));
+    expect(grant.instructions).not.toBe(questions["tool::web_search"]?.instructions);
+  });
+  test("Rubric version unchanged", () => {
+    expect(RUBRIC_VERSION).toBe(2);
+  });
   test("Fresh objects per call", () => {
-    const first = buildToolQuestions(["read"]);
+    const first = buildToolQuestions(["read"], []);
     first.questions["tool::read"]!.criteria["true"] = "x";
     first.questions["tool::read"]!.instructions = "x";
     first.specs["tool::read"] = { type: "choice", options: [] };
-    const next = buildToolQuestions(["read"]);
+    const next = buildToolQuestions(["read"], []);
     expect(next.questions["tool::read"]!.criteria["true"]).not.toBe("x");
     expect(next.questions["tool::read"]!.instructions).not.toBe("x");
     expect(next.specs["tool::read"]).toEqual({ type: "noul" });

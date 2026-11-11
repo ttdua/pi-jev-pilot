@@ -6,6 +6,8 @@ import {
   importViolations,
   moduleSpecifiers,
   nestingViolations,
+  runtimeCycles,
+  typeOnlySpecifiers,
   type ImportViolation,
 } from "./support/import-graph.ts";
 import { REPO_ROOT } from "./helpers.ts";
@@ -43,6 +45,17 @@ async function fixtureViolations(file: string): Promise<ImportViolation[]> {
 test("source and scripts have no import violation", async () => {
   const files = tsFiles(REPO_ROOT, "src", "scripts");
   expect(await importViolations(REPO_ROOT, files)).toEqual([]);
+});
+
+test("source has no runtime import cycle", async () => {
+  expect(await runtimeCycles(REPO_ROOT, tsFiles(REPO_ROOT, "src"))).toEqual([]);
+});
+
+test("the cycle finder reports a runtime cycle and ignores type-only edges", async () => {
+  const root = join(FIXTURES, "import-cycles");
+  expect(await runtimeCycles(root, tsFiles(root, "src"))).toEqual([
+    ["src/host/a/index.ts", "src/host/b/index.ts"],
+  ]);
 });
 
 test("the canonical fixtures violate exactly where named bad-", async () => {
@@ -201,4 +214,40 @@ test("layers and the entry point must not import scripts, while scripts may impo
     expect(checkImport(root, file, specifier), `${file} -> ${specifier}`).toBeString();
   }
   expect(checkImport(root, "scripts/replay/a.ts", "./run.ts")).toBeUndefined();
+});
+
+test("Runtime import rejected", async () => {
+  const bad = await fixtureViolations("src/host/bad-executor-runtime.ts");
+  expect(bad).toHaveLength(1);
+  expect(bad[0]?.specifier).toBe("@ttdua/pi-subagents");
+  const root = "/repo";
+  const file = "src/host/main/gate.ts";
+  expect(checkImport(root, file, "../../../packages/pi-subagents/src/index.ts")).toBeString();
+  expect(checkImport(root, file, "@ttdua/pi-subagents/settings")).toBeString();
+});
+
+test("Type import allowed", async () => {
+  expect(await fixtureViolations("src/host/ok-executor-type.ts")).toEqual([]);
+  expect(
+    typeOnlySpecifiers('import type { A } from "@ttdua/pi-subagents"; import { b } from "x";'),
+  ).toEqual(["@ttdua/pi-subagents"]);
+});
+
+test("Runtime import rejected for the package subpath and a relative path", async () => {
+  for (const file of ["bad-executor-subpath-runtime.ts", "bad-executor-relative-runtime.ts"]) {
+    const found = await fixtureViolations(`src/host/${file}`);
+    expect(found, file).toHaveLength(1);
+  }
+});
+
+test("Type import allowed for the package subpath and a relative path", async () => {
+  for (const file of ["ok-executor-subpath-type.ts", "ok-executor-relative-type.ts"]) {
+    expect(await fixtureViolations(`src/host/${file}`), file).toEqual([]);
+  }
+  const root = "/repo";
+  const file = "src/host/main/gate.ts";
+  const relative = "../../../packages/pi-subagents/src/index.ts";
+  expect(checkImport(root, file, "@ttdua/pi-subagents/settings", true)).toBeUndefined();
+  expect(checkImport(root, file, relative, true)).toBeUndefined();
+  expect(checkImport(root, file, relative, false)).toBeString();
 });

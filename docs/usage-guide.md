@@ -6,26 +6,25 @@ You need:
 
 - [Pi](https://pi.dev) 1.5.0 or newer.
 - A [TypeSafe API key](https://console.typesafe.ai). Jev costs about $0.042 per million input tokens, with free output.
-- `@gotgenes/pi-subagents` for worker routing. The rest works without it.
 - Optionally the `codex` or `opencode` CLI, for CLI reviews.
 
 ### If you use the older port
 
-`naicoi92/pi-jev-pilot` must be removed first: both register `/jev` and act on the same prompts. `naicoi92/pi-subagents` must also go, because it registers the same `subagent` tool as `@gotgenes/pi-subagents`.
+`naicoi92/pi-jev-pilot` must be removed first: both register `/jev` and act on the same prompts. `naicoi92/pi-subagents` must also go, because it registers the same `subagent` tool as the executor this package ships.
 
-Review your agent files as well. `@gotgenes/pi-subagents` uses `prompt_mode` rather than `systemPromptMode`, ignores fork fields such as `acceptanceRole`, and fork-only tools such as `contact_supervisor` do not exist there.
+Review your agent files as well. The executor uses `prompt_mode` rather than `systemPromptMode`, ignores fork fields such as `acceptanceRole`, and fork-only tools such as `contact_supervisor` do not exist there.
 
 The package never edits your `settings.json` or agent files, and nothing is imported from the port's `jev-pilot.json` or `jev-pilot/` ledger. Its files are in `jev/`, so they do not collide.
 
 ## Install
 
-```bash
-pi install npm:@gotgenes/pi-subagents
-```
+This package ships its own executor (vendored from `@gotgenes/pi-subagents`), so one install is enough.
 
 ```bash
 pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0
 ```
+
+If you installed `@gotgenes/pi-subagents`, uninstall it first. Pi refuses to start when two extensions register the `subagent` tool, so the session fails at startup and names the conflict. The vendored executor is not in the `v0.1.0` tag: until a newer release tag exists, install the repository's default branch instead of that tag. `@gotgenes/pi-subagents-worktrees` keeps working. `/jev` reports `duplicate executor` only in the narrower case where this package's Jev extension runs with the original executor but without the vendored one; worker routing and tool assessment stay off until the original is removed.
 
 ```bash
 export TYPESAFE_API_KEY="…"
@@ -58,6 +57,7 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 | `Jev · off` | All six decision features are switched off |
 | `Jev · premium (local)` | A directory mode is set for this directory. It overrides the global mode in every session started here |
 | `no executor` in `/jev` | Worker routing and tool assessment are off |
+| `duplicate executor` in `/jev` | Jev's extension runs with the original `@gotgenes/pi-subagents` but without the vendored one. Routing and assessment are off. Uninstall the original |
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
 
@@ -211,15 +211,27 @@ Any other form prints the usage text.
 
 ## Tool assessment
 
-For workers whose agent declares no `tools`, Jev can flag tools the task does not need. By default this only records: the launch's `worker` ledger line carries `toolsScored` and `toolsFlagged`, so you can see what it would have removed before enabling it. `/jev tools off` stops it. In both modes the worker waits for Jev before its first turn, at most `classifier.timeoutMs`; if Jev fails, the worker keeps every tool and nothing is recorded.
+For every worker launch, Jev can block tools the task does not need and grant tools it does. It never touches an agent's declared `tools`, and never adds a tool the agent lists in `disallowed_tools`. Candidates are the tools the worker would have by default (blocked when Jev scores `tool::` at 0.5 or more) and the tools in your main session it would not have (granted when `grant::` reaches `tools.grantAt`, default 0.8, at most 32 candidates, blocks first). By default this only records: the launch's `worker` ledger line carries `toolsScored`, `toolsFlagged` and `toolsGranted`, so you can see what it would have done before enabling it. `/jev tools off` stops it.
 
-To remove flagged tools:
+Assessment runs at launch, in the main session. With the switch on, each launch with candidates costs one extra Jev request, sent at the same time as the worker request, under one `classifier.timeoutMs` deadline. If Jev fails, the worker keeps its default tools and nothing is recorded.
+
+To apply blocks and grants:
 
 ```json
 { "tools": { "mode": "enforce" } }
 ```
 
-It can remove tools, never add them. A removed tool stays removed on every turn of that worker, including a resumed run. A wrongly removed tool can leave a worker stuck, so try it on low-stakes work first.
+The executor drops a grant outside your session's tools, and a tool the child cannot load; `toolsGranted` counts only what took effect. Blocked and granted tools stay that way on every turn of that worker, including a resumed run. A wrongly blocked tool can leave a worker stuck, and a grant widens what a worker can do, so try it on low-stakes work first.
+
+To keep a tool away from an agent for good, list it in the agent file:
+
+```markdown
+---
+disallowed_tools: bash, write
+---
+```
+
+It takes the same forms as `tools` (a list or a comma string), wins over `tools` and over any grant, and is applied by the executor itself.
 
 ## Tuning
 
@@ -277,7 +289,8 @@ No command calls Jev. An unknown model in a slot command gets the three closest 
 | Symptom | Likely cause | Try |
 |---|---|---|
 | Nothing happens | No key, or malformed config | `/jev` shows which |
-| Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a forked launch has `subagents.forkedLaunch` at its default `untouched`, or there is no executor | `/jev verbose on` |
+| Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a service `spawn()` names its own model, a forked launch has `subagents.forkedLaunch` at its default `untouched`, the launch came from another worker, or there is no executor | `/jev verbose on` |
+| A worker has no ledger line | It was still running at a reload or session switch, or it was a `resume` | None; by design |
 | Almost nothing uses the fast tier | Few bounded tasks reach subagents, since the main session does its own lookups | Try `/jev mode budget`, or delegate lookups to a read-only agent |
 | Worker effort is nearly always `high` | That is how the effort rubric currently reads delegated work | Known; a rubric revision is on the [roadmap](roadmap.md) |
 | Expert rarely runs | It needs a top difficulty score and `xhigh` or `max` effort, and is capped at 2% in `standard`, 5% in `premium`, 0% in `budget` | `/jev mode premium` |

@@ -1,32 +1,19 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { ModelThinking } from "../../policy/effort.ts";
+import type { ModelThinking, ThinkingLevel } from "../../policy/effort.ts";
 import type { Target } from "../../policy/launch.ts";
 import { readWorkerOutcome, routeLaunch, type Route } from "../../policy/worker/index.ts";
 import { checkModel, resolveModel, type Snapshot } from "../platform/index.ts";
 import type { LaunchEntry } from "./entry.ts";
 import type { CannotRun } from "./warnings.ts";
 
-type Ctx = Pick<ExtensionContext, "sessionManager" | "modelRegistry">;
-type Input = Record<string, unknown>;
+type Ctx = Pick<ExtensionContext, "modelRegistry">;
 type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
 
-/** A caller-chosen model id the ledger may record. */
-const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
+/** What a route writes into the launch: the adjustment's `model` and `thinking`, nothing else. */
+export type RouteWrite = { model?: string; thinking?: ThinkingLevel };
 
-/** Where a tool call's stamps come from, read in this order when the launch is stamped. */
-export type StampSource = { nextSeq: () => number; sessionId: () => string };
-
-/**
- * Stamps what the ledger line needs from this `tool_call`, before the answer is awaited: the
- * caller's model, then the order stamp, then the session, then the brief length.
- */
-export function stampToolCall(entry: LaunchEntry, input: Input, source: StampSource): void {
-  const caller = input["model"];
-  if (typeof caller === "string" && CALLER_MODEL.test(caller)) entry.callerModel = caller;
-  entry.seq = source.nextSeq();
-  entry.session = source.sessionId();
-  entry.briefChars = typeof input["prompt"] === "string" ? Array.from(input["prompt"]).length : 0;
-}
+/** The route's write, and the target that could not run so the caller can warn about it. */
+export type Routed = { write: RouteWrite; problem: CannotRun | undefined };
 
 /** Model and registry checks for one routing decision, each target checked at most once. */
 class TargetChecks {
@@ -66,15 +53,14 @@ function fallbackProblem(
 }
 
 /**
- * Reads the classifier answer, decides the route and writes the model and thinking into the
- * tool input. Returns the target that could not run, so the caller can warn about it.
+ * Reads the classifier answer and decides the route. Returns what to write into the launch and
+ * the target that could not run; the entry keeps the route and answers for the ledger line.
  */
-export async function routeToolCall(
+export async function routeLaunchEntry(
   entry: LaunchEntry,
-  input: Input,
   ctx: Ctx,
   snap: Snapshot,
-): Promise<CannotRun | undefined> {
+): Promise<Routed> {
   const outcome = entry.outcome === undefined ? undefined : await entry.outcome;
   const answers = outcome === undefined ? undefined : readWorkerOutcome(outcome, entry.specs);
   entry.jev = outcome;
@@ -98,9 +84,9 @@ export async function routeToolCall(
   });
   entry.answers = answers;
   entry.route = result;
-  if (result.kind !== "routed") return undefined;
-  const { model, thinking } = result.write;
-  if (model !== undefined) input["model"] = model;
-  if (thinking !== undefined) input["thinking"] = thinking;
-  return writes ? fallbackProblem(result, checks) : undefined;
+  if (result.kind !== "routed") return { write: {}, problem: undefined };
+  return {
+    write: { ...result.write },
+    problem: writes ? fallbackProblem(result, checks) : undefined,
+  };
 }

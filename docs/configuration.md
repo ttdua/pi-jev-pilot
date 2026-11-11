@@ -75,7 +75,7 @@ Error messages name the field and what was expected, never the value found, so a
   "effort": { "holdProviders": ["9router"] },
   "skills": { "inject": "content" },
   "subagents": { "forkedLaunch": "untouched" },
-  "tools": { "mode": "observe" },
+  "tools": { "mode": "observe", "grantAt": 0.8 },
   "state": { "parentRequest": false },
   "review": { "cli": "codex" }
 }
@@ -139,7 +139,10 @@ Check for yourself by watching for cache misses after thinking-level changes on 
 
 | Key | Default | Values |
 |---|---|---|
-| `mode` | `observe` | `observe` records; `enforce` removes |
+| `mode` | `observe` | `observe` records what would be blocked or granted; `enforce` applies it |
+| `grantAt` | `0.8` | Range 0.5–1. A tool the worker would not have is granted at this `grant::` probability or more. Blocks use a fixed cut of 0.5 on `tool::` |
+
+Assessment runs at launch for every agent and shares the launch deadline `classifier.timeoutMs`. Declared `tools` are always kept, and `disallowed_tools` in an agent file are never added back. Each launch with candidates costs one extra Jev request while `/jev tools` is on.
 
 ### `state`
 

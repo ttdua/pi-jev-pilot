@@ -33,77 +33,52 @@ export const LOCKABLE_FIELDS = [
 
 export type LockableField = (typeof LOCKABLE_FIELDS)[number];
 
-export type LockDeclaration = true | readonly LockableField[];
-
 export type AgentFacts = {
   name: string;
   source: "project" | "global" | "builtin";
   description: string;
   instructionsExcerpt: string;
   declaredTools: string[] | null;
+  /** Tools the executor removes from the child after every other source. */
+  disallowedTools: readonly string[];
   maxTurns: number | null;
   runInBackground?: boolean;
   inheritContext?: boolean;
-  locked?: LockDeclaration;
   sets: { model: boolean; thinking: boolean };
 };
 
 export type EffectiveLaunch = {
-  resume: boolean;
   inheritContext: boolean;
   runInBackground: boolean;
   modelLocked: boolean;
   thinkingLocked: boolean;
 };
 
-function agentSets(facts: AgentFacts, field: LockableField): boolean {
-  switch (field) {
-    case "model":
-      return facts.sets.model;
-    case "thinking":
-      return facts.sets.thinking;
-    case "max_turns":
-      return facts.maxTurns !== null && facts.maxTurns !== undefined;
-    case "inherit_context":
-      return facts.inheritContext !== undefined && facts.inheritContext !== null;
-    case "run_in_background":
-      return facts.runInBackground !== undefined && facts.runInBackground !== null;
-  }
+/**
+ * The launch request fields the route reads, structurally a slice of the executor's
+ * `LaunchRequest` plus `callerNamedModel`, which the host derives from it.
+ */
+export type LaunchRequestFacts = {
+  origin: { kind: "tool"; toolCallId: string } | { kind: "service" };
+  /** The caller named a model, rather than the agent's own `model` filling `requested.model`. */
+  callerNamedModel: boolean;
+  inheritContext: boolean;
+  isBackground: boolean;
+  locked: readonly LockableField[];
+};
+
+/** A service launch whose caller names a model keeps it, as if the agent locked `model`. */
+function serviceModel(request: LaunchRequestFacts): boolean {
+  return request.origin.kind === "service" && request.callerNamedModel;
 }
 
-export function isFieldLocked(facts: AgentFacts, field: LockableField): boolean {
-  const lock = facts.locked;
-  if (lock === undefined) return false;
-  if (lock === true) return agentSets(facts, field);
-  return lock.includes(field);
-}
-
-function effectiveBoolean(
-  inputValue: unknown,
-  agentValue: boolean | undefined,
-  locked: boolean,
-): boolean {
-  if (!locked && typeof inputValue === "boolean") return inputValue;
-  return agentValue ?? false;
-}
-
-export function effectiveLaunch(
-  input: Record<string, unknown>,
-  facts: AgentFacts,
-): EffectiveLaunch {
+/** The launch as routing sees it; a resume never reaches the policy, so it has no field here. */
+export function effectiveLaunch(request: LaunchRequestFacts): EffectiveLaunch {
+  const locks = (field: LockableField): boolean => request.locked.includes(field);
   return {
-    resume: typeof input.resume === "string" && input.resume.length > 0,
-    inheritContext: effectiveBoolean(
-      input.inherit_context,
-      facts.inheritContext,
-      isFieldLocked(facts, "inherit_context"),
-    ),
-    runInBackground: effectiveBoolean(
-      input.run_in_background,
-      facts.runInBackground,
-      isFieldLocked(facts, "run_in_background"),
-    ),
-    modelLocked: isFieldLocked(facts, "model"),
-    thinkingLocked: isFieldLocked(facts, "thinking"),
+    inheritContext: request.inheritContext,
+    runInBackground: request.isBackground,
+    modelLocked: locks("model") || serviceModel(request),
+    thinkingLocked: locks("thinking"),
   };
 }

@@ -99,14 +99,48 @@ describe("host session harness", () => {
     });
   }, 60_000);
 
-  test("installs executor offline", async () => {
+  test("installs the vendored executor offline", async () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
     ]);
-    const s = await sessionWith(fixture, { executor: true });
-    expect(s.installPath === "node_modules" || s.installPath === "tarball").toBe(true);
+    const s = await sessionWith(fixture, { install: "executor-only" });
     await s.prompt("hi");
     expect(fixture.requests[0]?.toolNames).toContain("subagent");
+  }, 60_000);
+
+  test("installs the checkout, which brings the executor", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { install: "checkout" });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).toContain("subagent");
+  }, 60_000);
+
+  test("installs the checkout by default", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture);
+    const state = (await s.send({ type: "get_state" })) as { success: boolean };
+    expect(state.success).toBe(true);
+    const settings = JSON.parse(readFileSync(join(s.agentDir, "settings.json"), "utf8")) as {
+      packages: string[];
+    };
+    expect(settings.packages.map((p) => realpathSync(join(s.agentDir, p)))).toEqual([
+      realpathSync(join(import.meta.dir, "..", "..")),
+    ]);
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).toContain("subagent");
+  }, 60_000);
+
+  test("install none installs nothing", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { install: "none" });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).not.toContain("subagent");
   }, 60_000);
 
   test("probe records are readable", async () => {

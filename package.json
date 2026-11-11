@@ -6,24 +6,29 @@
     "pi-package"
   ],
   "license": "MIT",
+  "workspaces": [
+    "packages/pi-subagents"
+  ],
   "type": "module",
   "scripts": {
     "typecheck": "bun check",
     "lint": "oxlint --deny-warnings .",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
-    "test": "bun test"
+    "test": "bun test",
+    "test:executor": "bun run --cwd packages/pi-subagents check && bun run --cwd packages/pi-subagents test"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "1.5.0",
-    "@gotgenes/pi-subagents": "25.0.5",
     "@types/bun": "1.4.4",
     "oxfmt": "0.76.0",
     "oxlint": "1.91.0",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
   "engines": {
@@ -31,6 +36,7 @@
   },
   "pi": {
     "extensions": [
+      "./packages/pi-subagents/src/index.ts",
       "./src/extension.ts"
     ]
   }

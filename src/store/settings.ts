@@ -25,7 +25,7 @@ export type Settings = {
   crew: { slots: Slot[] };
   effort: { holdProviders: string[] };
   skills: { inject: "content" | "suggest" };
-  tools: { mode: "observe" | "enforce" };
+  tools: { mode: "observe" | "enforce"; grantAt: number };
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };

@@ -54,14 +54,18 @@ Use these words consistently in code, docs and the user interface.
 | **Main session** | The session the operator talks to. |
 | **Worker** | A subagent. Runs in a child session. |
 | **Child session** | A full Pi session in the same process, created by the executor. |
-| **Executor** | The package that runs workers: `@gotgenes/pi-subagents`. |
+| **Executor** | The package that runs workers: the vendored `@ttdua/pi-subagents` in `packages/pi-subagents/`, derived from `@gotgenes/pi-subagents` ([ADR 0009](decisions/0009-vendored-executor.md)). |
+| **Launch policy** | The one provider the executor consults for every new launch. jev-pilot registers it and answers with model, thinking, and tools to add or remove. |
 | **Agent** | A worker's definition: built-in, or a Markdown file with frontmatter. |
 | **Brief** | The prompt a worker is launched with. |
-| **Launch** | One `subagent` tool call that starts a worker. |
+| **Launch** | A new worker start, through a `subagent` tool call or a service `spawn()`. A `resume` is not a launch. |
 | **Locked** | An agent file field a caller cannot override. |
 | **Declared tools** | The `tools` list in an agent file. Treated as a contract. |
-| **Tool assessment** | Jev scoring a worker's undeclared tools. |
-| **Observe / enforce** | Record what assessment would remove, or actually remove it. |
+| **Disallowed tools** | The `disallowed_tools` list in an agent file. Never added, and wins over a grant. |
+| **Tool assessment** | Jev scoring a launch's undecided tools, at launch. |
+| **Block candidate** | A tool the worker would have by default, asked as `tool::<name>`. |
+| **Grant** | A tool the worker would not have, added because Jev scored `grant::<name>` at `tools.grantAt` or more. |
+| **Observe / enforce** | Record what assessment would block or grant, or actually apply it. |
 
 ## Records and control
 

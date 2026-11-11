@@ -1,6 +1,6 @@
 # 0006: Use `@gotgenes/pi-subagents` as the executor
 
-**Status:** Accepted, 2026-11-05
+**Status:** Superseded by [0009](0009-vendored-executor.md), 2026-11-11. Originally accepted 2026-11-05.
 
 ## Context
 

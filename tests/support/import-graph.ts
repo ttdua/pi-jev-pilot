@@ -43,8 +43,16 @@ function isModuleLoad(node: ts.CallExpression): boolean {
   );
 }
 
+/** True for `import type ...`, `export type ...` and `import("x").T` forms. */
+function isTypeOnlyForm(node: ts.Node): boolean {
+  if (ts.isImportDeclaration(node)) return node.importClause?.isTypeOnly === true;
+  if (ts.isExportDeclaration(node)) return node.isTypeOnly;
+  return ts.isImportTypeNode(node);
+}
+
 /** The module specifier a node names, if it is an import form. */
-function specifierOf(node: ts.Node): string | undefined {
+function specifierOf(node: ts.Node, valueOnly: boolean): string | undefined {
+  if (valueOnly && isTypeOnlyForm(node)) return undefined;
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
     return literalText(node.moduleSpecifier);
   }
@@ -61,16 +69,22 @@ function specifierOf(node: ts.Node): string | undefined {
 }
 
 /** Every module specifier a TypeScript source imports or re-exports. */
-export function moduleSpecifiers(source: string): string[] {
+export function moduleSpecifiers(source: string, valueOnly = false): string[] {
   const file = ts.createSourceFile("x.ts", source, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
   const found: string[] = [];
   const visit = (node: ts.Node): void => {
-    const specifier = specifierOf(node);
+    const specifier = specifierOf(node, valueOnly);
     if (specifier !== undefined) found.push(specifier);
     ts.forEachChild(node, visit);
   };
   visit(file);
   return found;
+}
+
+/** Specifiers that appear in the source only in type positions (`import type`, `export type`). */
+export function typeOnlySpecifiers(source: string): string[] {
+  const values = new Set(moduleSpecifiers(source, true));
+  return [...new Set(moduleSpecifiers(source).filter((s) => !values.has(s)))];
 }
 
 /** Places a repository-relative path (forward slashes). */
@@ -165,10 +179,27 @@ function relativeReason(root: string, file: string, specifier: string): string |
   return edgeReason(from, to) ?? capabilityReason(from, to);
 }
 
+const EXECUTOR_PACKAGE = "@ttdua/pi-subagents";
+
+/** The vendored executor may only be reached by `import type` from `src/`. */
+function executorReason(root: string, file: string, specifier: string): string | undefined {
+  const named = specifier === EXECUTOR_PACKAGE || specifier.startsWith(`${EXECUTOR_PACKAGE}/`);
+  const path = specifier.startsWith(".") ? targetPath(root, file, specifier) : undefined;
+  const vendored = path !== undefined && path.startsWith("packages/");
+  return named || vendored ? "Import the vendored executor with import type only." : undefined;
+}
+
 /** The violation of one import, or undefined when it is allowed. */
-export function checkImport(root: string, file: string, specifier: string): string | undefined {
+export function checkImport(
+  root: string,
+  file: string,
+  specifier: string,
+  typeOnly = false,
+): string | undefined {
   const malformed = malformedReason(specifier);
   if (malformed !== undefined) return malformed;
+  const executor = executorReason(root, file, specifier);
+  if (executor !== undefined) return typeOnly ? undefined : executor;
   if (specifier.startsWith("@earendil-works/")) return piReason(locate(file));
   if (!specifier.startsWith(".")) return undefined;
   return shortestReason(root, file, specifier) ?? relativeReason(root, file, specifier);
@@ -192,10 +223,61 @@ export async function importViolations(
   const found: ImportViolation[] = [];
   for (const file of files) {
     const text = await Bun.file(join(root, file)).text();
+    const values = new Set(moduleSpecifiers(text, true));
     for (const specifier of moduleSpecifiers(text)) {
-      const reason = checkImport(root, file, specifier);
+      const reason = checkImport(root, file, specifier, !values.has(specifier));
       if (reason !== undefined) found.push({ file, specifier, reason });
     }
   }
   return found;
+}
+
+/** Repository-relative files each file loads at runtime through a relative import. */
+async function runtimeEdges(
+  root: string,
+  files: readonly string[],
+): Promise<Map<string, string[]>> {
+  const known = new Set(files);
+  const edges = new Map<string, string[]>();
+  for (const file of files) {
+    const text = await Bun.file(join(root, file)).text();
+    const targets = moduleSpecifiers(text, true)
+      .filter((specifier) => specifier.startsWith("."))
+      .map((specifier) => targetPath(root, file, specifier))
+      .filter((path): path is string => path !== undefined && known.has(path));
+    edges.set(file, [...new Set(targets)]);
+  }
+  return edges;
+}
+
+/** One cycle per strongly connected group of runtime imports, each as its sorted files. */
+export async function runtimeCycles(root: string, files: readonly string[]): Promise<string[][]> {
+  const edges = await runtimeEdges(root, files);
+  const index = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const cycles: string[][] = [];
+  const visit = (file: string): void => {
+    index.set(file, index.size);
+    low.set(file, index.get(file) ?? 0);
+    stack.push(file);
+    onStack.add(file);
+    for (const next of edges.get(file) ?? []) {
+      if (!index.has(next)) visit(next);
+      if (onStack.has(next)) {
+        low.set(file, Math.min(low.get(file) ?? 0, low.get(next) ?? 0, index.get(next) ?? 0));
+      }
+    }
+    if (low.get(file) !== index.get(file)) return;
+    const group: string[] = [];
+    for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
+      onStack.delete(top);
+      group.push(top);
+      if (top === file) break;
+    }
+    if (group.length > 1 || (edges.get(file) ?? []).includes(file)) cycles.push(group.sort());
+  };
+  for (const file of files) if (!index.has(file)) visit(file);
+  return cycles;
 }

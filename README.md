@@ -4,9 +4,7 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 
 ## Install
 
-```bash
-pi install npm:@gotgenes/pi-subagents
-```
+One install loads Jev and the executor it ships. If you installed `@gotgenes/pi-subagents`, uninstall it first: Pi refuses to start with two `subagent` tools. The vendored executor is not in the `v0.1.0` tag: until a newer release tag exists, install the repository's default branch instead of that tag.
 
 ```bash
 pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0
@@ -49,7 +47,7 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 
 | Feature | When it is on | Turn it off |
 |---|---|---|
-| Tool assessment | For workers whose agent omits the `tools` field, Jev scores which tools the task needs. By default this only records; no tool is removed. | `/jev tools off` |
+| Tool assessment | At each launch, Jev scores which tools the task needs, and can block default tools or grant tools from your session. Declared `tools` are kept and `disallowed_tools` are never added. Costs one extra request per launch. By default this only records. | `/jev tools off` |
 | CLI review | The `jev_review` tool runs Codex or OpenCode, read-only, when you ask for it in words. Off by default. | `/jev cli-review off` |
 
 ### Visibility and tuning
@@ -103,6 +101,6 @@ One command shifts the whole tier mix, for this directory or for all of them:
 
 - Adapted from [jev-pilot](https://github.com/Akramovic1/jev-pilot) 0.12.1, a Claude Code plugin. This is a rewrite for Pi, not a fork.
 - Replaces, and cannot run beside, [naicoi92/pi-jev-pilot](https://github.com/naicoi92/pi-jev-pilot).
-- Runs workers through [`@gotgenes/pi-subagents`](https://www.npmjs.com/package/@gotgenes/pi-subagents).
+- Ships a vendored copy of [`@gotgenes/pi-subagents`](https://www.npmjs.com/package/@gotgenes/pi-subagents) as its executor, with added seams ([ADR 0009](docs/decisions/0009-vendored-executor.md)). Uninstall the original before installing this package.
 
 Not affiliated with TypeSafe, Anthropic or the Pi project. See [NOTICE.md](NOTICE.md).

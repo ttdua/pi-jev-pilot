@@ -1,29 +1,24 @@
-import type { ToolCounts } from "../../policy/tools/index.ts";
+import { toolCounts, type ToolCounts } from "../../policy/tools/index.ts";
 
-/** Process-wide counts keyed by worker agent id, shared by every extension instance. */
-export const TOOL_COUNTS_KEY: unique symbol = Symbol.for("pi-jev-pilot.toolCounts") as never;
+/** What one launch's answered tool assessment decided, under the mode read at its policy call. */
+export type ToolDecision = {
+  mode: "observe" | "enforce";
+  scored: readonly string[];
+  flagged: ReadonlySet<string>;
+  granted: ReadonlySet<string>;
+};
 
-const COUNTS_MAX = 256;
-
-function counts(): Map<string, ToolCounts> {
-  const g = globalThis as Record<symbol, Map<string, ToolCounts> | undefined>;
-  return (g[TOOL_COUNTS_KEY] ??= new Map<string, ToolCounts>());
-}
-
-export function putToolCounts(agentId: string, c: ToolCounts): void {
-  const map = counts();
-  map.delete(agentId);
-  map.set(agentId, { toolsScored: c.toolsScored, toolsFlagged: c.toolsFlagged });
-  while (map.size > COUNTS_MAX) {
-    const oldest = map.keys().next().value;
-    if (oldest === undefined) break;
-    map.delete(oldest);
-  }
-}
-
-export function takeToolCounts(agentId: string): ToolCounts | undefined {
-  const map = counts();
-  const found = map.get(agentId);
-  map.delete(agentId);
-  return found;
+/**
+ * The counts for a launch's worker line. In `enforce`, granted counts only the grants the
+ * executor reported as taken effect in the child; in `observe`, the grants Jev would have made.
+ */
+export function launchToolCounts(
+  decision: ToolDecision,
+  grantedInChild: readonly string[] | undefined,
+): ToolCounts {
+  const granted =
+    decision.mode === "enforce"
+      ? new Set((grantedInChild ?? []).filter((name) => decision.granted.has(name)))
+      : decision.granted;
+  return toolCounts(decision.scored, decision.flagged, granted);
 }

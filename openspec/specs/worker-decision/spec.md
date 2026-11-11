@@ -231,7 +231,7 @@ A pure function SHALL clamp a requested level to a model's supported levels with
 - **THEN** each result equals Pi's clamp for the same model and level
 
 ### Requirement: Route result
-A pure launch route SHALL return one of: `untouched` (nothing to write, nothing asked), `skip` (nothing to write or record), or `routed`, which carries an optional `model` and `thinking` to write, and what to record: `reason`, and optionally `tier`, `fallback`, `effort` (the thinking written) and `locked`. For `routed` and `untouched` results alike, `locked` MUST be true when the agent locks `model` or `thinking`, and absent otherwise.
+A pure launch route SHALL return one of: `untouched` (nothing to write, nothing asked), `skip` (nothing to write or record), or `routed`, which carries an optional `model` and `thinking` to write, and what to record: `reason`, and optionally `tier`, `fallback`, `effort` (the thinking written) and `locked`. For `routed` and `untouched` results alike, `locked` MUST be true when the agent locks `model` or `thinking`, or when the launch is a service launch naming a model (see `worker-routing`), and absent otherwise.
 
 #### Scenario: Locked flag
 - **WHEN** the agent locks `thinking` only and the launch is routed
@@ -242,15 +242,19 @@ A pure launch route SHALL return one of: `untouched` (nothing to write, nothing 
 - **THEN** the result is `untouched` and marks `locked` true
 
 #### Scenario: No lock
-- **WHEN** the agent locks nothing and the launch is routed
+- **WHEN** the agent locks nothing, the launch is not a service launch naming a model, and it is routed
 - **THEN** the result has no `locked`
 
+#### Scenario: Service launch naming a model
+- **WHEN** an extension's `spawn()` names a model for an agent that locks nothing, and the launch is routed
+- **THEN** the result marks `locked` true
+
 ### Requirement: Launches left untouched
-The route SHALL return `untouched` in each of these cases: (a) the effective launch resumes an agent; (b) it inherits context and the forked launch setting is `untouched`; (c) the agent locks both `model` and `thinking`; (d) the agent locks `thinking`, and either the launch inherits context with the setting `thinking`, or neither a tier nor a slot is offered. These checks MUST be decidable before Jev is asked, so an untouched launch sends no worker request.
+The route SHALL return `untouched` in each of these cases: (a) it inherits context and the forked launch setting is `untouched`; (b) the agent locks both `model` and `thinking`; (c) the agent locks `thinking`, and either the launch inherits context with the setting `thinking`, or neither a tier nor a slot is offered. Here "locks" includes `model` treated as locked for a service launch with an explicit model (see `worker-routing`). These checks MUST be decidable before Jev is asked, so an untouched launch sends no worker request. A resumed launch never reaches the route, because the executor does not consult the launch policy for it.
 
 #### Scenario: Resume
-- **WHEN** the effective launch has `resume`
-- **THEN** the route is `untouched`
+- **WHEN** the launch resumes an agent
+- **THEN** no route is computed and no worker request is sent
 
 #### Scenario: Forked launch left alone
 - **WHEN** the effective launch inherits context and the setting is `untouched`
@@ -258,6 +262,10 @@ The route SHALL return `untouched` in each of these cases: (a) the effective lau
 
 #### Scenario: Both fields locked
 - **WHEN** the agent locks both `model` and `thinking`
+- **THEN** the route is `untouched`
+
+#### Scenario: Service launch with a model and locked thinking
+- **WHEN** a service launch names a model and the agent locks `thinking`
 - **THEN** the route is `untouched`
 
 #### Scenario: Forked thinking with thinking locked
@@ -345,7 +353,7 @@ When no target the fallback may use can run, the route SHALL write nothing and r
 - **THEN** the route writes nothing, recording tier `slot::reviewer`, reason `slot` and fallback `slot::reviewer`
 
 ### Requirement: Locks in the route
-When the agent locks `model` but not `thinking`, the route SHALL still decide and record the target and reason, and MUST NOT write a model or apply fallback; it MUST write thinking as the thinking-only route does. When the agent locks `thinking` but not `model`, the route MUST write the model and no thinking, and record no effort; if no tier is decided it writes nothing.
+When the agent locks `model` but not `thinking`, the route SHALL still decide and record the target and reason, and MUST NOT write a model or apply fallback; it MUST write thinking as the thinking-only route does. When the agent locks `thinking` but not `model`, the route MUST write the model and no thinking, and record no effort; if no tier is decided it writes nothing. A service launch that names a model (see `worker-routing`) SHALL count as locking `model` for this rule, for the questions asked, and for the ledger's `locked` field.
 
 #### Scenario: Model locked
 - **WHEN** the agent locks `model`, the score cuts to `fast` and `effort.choice` is `high`
@@ -362,6 +370,10 @@ When the agent locks `model` but not `thinking`, the route SHALL still decide an
 #### Scenario: Model locked with a slot decided
 - **WHEN** the agent locks `model`, `tier.choice` is `slot::reviewer` at .9 and `effort.choice` is `high`
 - **THEN** the route writes thinking `high` and no model, recording tier `slot::reviewer`, reason `slot` and locked, with no fallback
+
+#### Scenario: Service launch with a model
+- **WHEN** an extension's `spawn()` names `fixture/fixture-deep` for an agent that locks nothing, the score cuts to `fast` and `effort.choice` is `high`
+- **THEN** the route writes thinking `high` and no model, recording tier `fast`, reason `cut` and locked
 
 ### Requirement: Slot rule
 Rule `slot` SHALL match when `tier.choice` is an offered `slot::<name>` whose probability is at least .6, and MUST decide that slot. Rules `expert` and `risky` MUST win over rule `slot`.

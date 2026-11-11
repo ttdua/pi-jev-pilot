@@ -52,7 +52,10 @@ export function resolveSkills(config: Config): Settings["skills"] {
 }
 
 export function resolveTools(config: Config): Settings["tools"] {
-  return { mode: config.tools?.mode ?? (DEFAULTS.tools.mode as "observe" | "enforce") };
+  return {
+    mode: config.tools?.mode ?? (DEFAULTS.tools.mode as "observe" | "enforce"),
+    grantAt: config.tools?.grantAt ?? DEFAULTS.tools.grantAt,
+  };
 }
 
 export function resolveStateSection(config: Config): Settings["state"] {

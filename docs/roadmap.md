@@ -21,7 +21,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-11 | Worker routing core | L | WG-02, 04, 05, 06 | Done |
 | WG-12 | Modes and expert tier | M | WG-11 | Done |
 | WG-13 | Slots and fallback | M | WG-11 | Done |
-| WG-14 | Tool assessment, observe only | M | WG-11 | Done |
+| WG-14 | Tool assessment, observe only | M | WG-11 | Done; reworked at launch by [ADR 0009](decisions/0009-vendored-executor.md) |
 | WG-15 | CLI review | M | WG-06 | Done |
 | WG-16 | Rich state replay | M | WG-09, 13 | Done |
 | WG-17 | Tally and log | S | WG-11 | Done |
@@ -187,7 +187,7 @@ The pre-launch tier cascade moved here from WG-13.
 
 ### WG-14: Tool assessment, observe only
 
-**H2.** Child handler, tool state from `getAllTools`, scoring, would-remove counts in the ledger, `ask_parent` and `notify_parent` excluded, `enforce` behind a setting. Landed as `wg-14-tool-assessment`; evidence in [host seams](evidence/2026-11-05-host-seams.md#tool-assessment-service-lookup-wg-14).
+**H2.** Child handler, tool state from `getAllTools`, scoring, would-remove counts in the ledger, `ask_parent` and `notify_parent` excluded, `enforce` behind a setting. Landed as `wg-14-tool-assessment`; evidence in [host seams](evidence/2026-11-05-host-seams.md#tool-assessment-service-lookup-wg-14). Since reworked: assessment runs at launch in the main session through the vendored executor's launch policy, for every agent, and can grant tools as well as block them ([ADR 0009](decisions/0009-vendored-executor.md)).
 
 - **Done when:** in `observe` a worker's tools are unchanged and counts are recorded; in `enforce` a host test proves a removed tool is unavailable; a Jev failure keeps all tools.
 
@@ -237,7 +237,9 @@ Not committed. Each needs evidence or a decision first.
 | Quality check of `budget` | Unknown whether Haiku does this work well | Ledger comparison after real use, or a fixture benchmark |
 | Quality check of the reviewer slot | Routing is proven, review quality is not | Real findings compared |
 | Decision on threshold tuning | Upstream's rules never fired on real data | About 200 decisions per signal, then keep or drop |
-| `enforce` by default for tool assessment | Unknown whether removals are right | Would-remove counts reviewed |
+| `enforce` by default for tool assessment | Unknown whether blocks and grants are right | Would-block and would-grant counts reviewed |
+| Calibrating `tools.grantAt` | The 0.8 default is a guess | Would-grant counts reviewed against what workers needed |
+| Syncing the vendored executor with upstream | Manual `git subtree` pull | A wanted upstream release; see `packages/pi-subagents/VENDORED.md` |
 | Calibrating the expert cut | Two cases in replay | More data |
 | More work reaching the fast tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
 | OpenRouter or Vercel backends | Excluded for now | Demand |

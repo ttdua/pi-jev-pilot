@@ -6,7 +6,7 @@ The one worker ledger line per launch, joined to the executor's outcome, with no
 ## Requirements
 
 ### Requirement: One line per launch
-Routing SHALL append at most one `worker` ledger line for each launch it routed, recorded as a miss, or left untouched, and none for a cancelled turn or when routing did not run. The line MUST be written once the launch's outcome is known, and never rewritten; a launch whose outcome never arrives, for example because Pi exits first, has no line.
+Routing SHALL append at most one `worker` ledger line for each launch its policy routed, recorded as a miss, or left untouched, and none for a cancelled launch, for a resumed launch (which never reaches the policy), or when routing did not run. The line MUST be written once the launch's outcome is known, and never rewritten; a launch whose outcome never arrives, for example because Pi exits first, has no line.
 
 #### Scenario: Routed launch recorded
 - **WHEN** a routed worker completes
@@ -20,15 +20,20 @@ Routing SHALL append at most one `worker` ledger line for each launch it routed,
 - **WHEN** the turn is cancelled while the worker request is outstanding
 - **THEN** the ledger gains no `worker` line
 
+
+#### Scenario: Resume writes no line
+- **WHEN** the main model resumes a routed worker and it completes
+- **THEN** the ledger gains no `worker` line for the resume
+
 ### Requirement: Outcome joined from the executor
-The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the executor's `subagents:completed` or `subagents:failed` event, or `subagents:resumed` for a resumed launch, matched to the launch through the agent id in the `subagent` tool result. The match MUST work whichever of the tool result and the event arrives first. A launch whose tool result carries no agent id SHALL be written with `status` `error` when its tool result arrives.
+The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the executor's `subagents:completed` or `subagents:failed` event, matched to the launch by the `agentId` in its launch request. Its `effectiveModel` and `effectiveThinking` SHALL come from the `subagents:child:session-created` event with the same `agentId`, when that event carries them. A launch whose policy call ran but whose session was never created SHALL be written with `status` `error` when its `subagents:failed` event arrives, without `effectiveModel` or `effectiveThinking`. A launch the executor refuses before the policy runs (a disabled agent, an unknown model named by the caller) never reached routing and SHALL have no line.
 
 #### Scenario: Foreground completion
 - **WHEN** a foreground worker completes with 3 tool uses
 - **THEN** its line has `status` `completed` and `toolUses` 3
 
 #### Scenario: Background completion
-- **WHEN** a background worker completes after its tool result was returned
+- **WHEN** a background worker completes
 - **THEN** its line is written on completion with `status` `completed`
 
 #### Scenario: Failed worker
@@ -36,8 +41,20 @@ The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the e
 - **THEN** its line has `status` `error`
 
 #### Scenario: Refused launch
-- **WHEN** the executor rejects a launch and the tool result has no agent id
-- **THEN** a line with `status` `error` is written
+- **WHEN** a launch's policy call ran and its session creation then fails
+- **THEN** a line with `status` `error` and no `effectiveModel` is written; a launch refused before its policy call has no line
+
+#### Scenario: Effective values joined
+- **WHEN** a worker's `session-created` event carries `effectiveModel` `fixture/fixture-deep` and `effectiveThinking` `high`, and the worker completes
+- **THEN** its line has `effectiveModel` `fixture/fixture-deep` and `effectiveThinking` `high`
+
+#### Scenario: Concurrent workers joined correctly
+- **WHEN** two background workers of different agents complete in the reverse order of their launch
+- **THEN** each line carries its own agent and its own outcome
+
+#### Scenario: Service launch recorded
+- **WHEN** an extension's `spawn()` launch is routed and completes
+- **THEN** one `worker` line is written for it with its outcome
 
 ### Requirement: Decision fields
 The line SHALL carry:
@@ -47,7 +64,8 @@ The line SHALL carry:
 - the raw `tierP`, `effortP` and `risky`;
 - `score`, when the launch has a difficulty score; `rubric`, the rubric version, whenever the `tier` question was asked; and `expertOffered`, whether `expert` was among the offered tiers, whenever the `tier` question was asked;
 - the route's recorded fields, where `tier` and `fallback` hold a tier or a `slot::<name>` target and `tierP` holds a key for every offered tier and slot that Jev returned;
-- `toolsScored` and `toolsFlagged`, when that launch started a worker session whose tool assessment got an answer, omitted otherwise. A resumed launch starts no new session.
+- `toolsScored`, `toolsFlagged` and `toolsGranted`, when that launch's tool assessment got an answer, omitted otherwise;
+- `effectiveModel` and `effectiveThinking`, as joined from the executor.
 
 New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, the description, tool names or tool arguments.
 
@@ -80,7 +98,7 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 - **THEN** the line has `answered` false, `miss` `timeout`, `reason` `miss`, `rubric` 2, `expertOffered` as offered, and no `tier` or `score`
 
 #### Scenario: Untouched recorded
-- **WHEN** a resumed launch completes
+- **WHEN** a launch whose agent locks both `model` and `thinking` completes
 - **THEN** the line has `reason` `untouched`, `answered` false, and no `tier`, `model`, `score` or `rubric`
 
 #### Scenario: Tier asked, nothing decided
@@ -96,7 +114,7 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 - **THEN** the line has `locked` true and no `model`
 
 #### Scenario: Not locked
-- **WHEN** a launch's agent locks nothing
+- **WHEN** a launch's agent locks nothing and the launch is not a service launch naming a model
 - **THEN** the line has no `locked` field
 
 #### Scenario: No prompt text
@@ -108,16 +126,16 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 - **THEN** its line has `mode` `budget`
 
 #### Scenario: Tool counts recorded
-- **WHEN** a launch's worker was assessed with 4 tools scored and 1 flagged
-- **THEN** the line has `toolsScored` 4 and `toolsFlagged` 1
+- **WHEN** a launch was assessed with 6 tools scored, 1 flagged and 2 granted
+- **THEN** the line has `toolsScored` 6, `toolsFlagged` 1 and `toolsGranted` 2
 
 #### Scenario: No assessment, no counts
-- **WHEN** a launch's worker got no tool assessment answer, because its agent declares `tools`, the `tools` switch is off, or the request failed
-- **THEN** the line has no `toolsScored` and no `toolsFlagged`
+- **WHEN** a launch got no tool assessment answer, because it had no undecided tool, the `tools` switch is off, or the request failed
+- **THEN** the line has no `toolsScored`, `toolsFlagged` or `toolsGranted`
 
 #### Scenario: Resumed launch carries no counts
 - **WHEN** a launch resumes a worker that was assessed earlier and completes
-- **THEN** its line has no `toolsScored` and no `toolsFlagged`
+- **THEN** no line is written for the resume, so no counts are recorded for it
 
 #### Scenario: Slot decision recorded
 - **WHEN** a launch is routed to slot `reviewer` with thinking `high`

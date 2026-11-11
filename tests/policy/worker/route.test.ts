@@ -5,6 +5,7 @@ import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
 import type { ModelThinking } from "../../../src/policy/effort.ts";
 import {
   TIER_LADDER,
+  effectiveLaunch,
   type EffectiveLaunch,
   type Target,
   type TierName,
@@ -27,12 +28,25 @@ const NO_EXPERT: readonly TierName[] = ["fast", "balanced", "deep"];
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
-    resume: false,
     inheritContext: false,
     runInBackground: false,
     modelLocked: false,
     thinkingLocked: false,
     ...overrides,
+  };
+}
+
+type LaunchReq = Parameters<typeof effectiveLaunch>[0];
+
+/** A service launch request as the policy sees it; override any field. */
+function serviceRequest(over: Partial<LaunchReq> = {}): LaunchReq {
+  return {
+    origin: { kind: "service" },
+    callerNamedModel: false,
+    inheritContext: false,
+    isBackground: false,
+    locked: [],
+    ...over,
   };
 }
 
@@ -93,17 +107,11 @@ function routed(r: Route): Extract<Route, { kind: "routed" }> {
 describe("launchKind", () => {
   const kind = (l: Partial<EffectiveLaunch>, offered = NO_EXPERT, f: ForkedLaunch = "untouched") =>
     launchKind(launch(l), offered, f);
-  test("slot alone with thinking locked asks", () => {
+  test("Slot alone with thinking locked", () => {
     expect(launchKind(launch({ thinkingLocked: true }), [], "untouched", 1)).toEqual({
       kind: "ask",
       tierQuestion: true,
       locked: true,
-    });
-  });
-  test("resume is untouched", () => {
-    expect(kind({ resume: true })).toEqual({
-      kind: "untouched",
-      locked: false,
     });
   });
   test("forked untouched is untouched", () => {
@@ -154,6 +162,13 @@ describe("launchKind", () => {
 });
 
 describe("Route result", () => {
+  test("Service launch naming a model", () => {
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }));
+    const r = routed(
+      routeLaunch(input({ launch: l, answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
+    );
+    expect(r.record.locked).toBe(true);
+  });
   test("Locked flag", () => {
     const r = routed(
       routeLaunch(
@@ -182,13 +197,21 @@ describe("Route result", () => {
 
 describe("Launches left untouched", () => {
   test("Resume", () => {
-    expect(routeLaunch(input({ answers: undefined, launch: launch({ resume: true }) }))).toEqual({
-      kind: "untouched",
-    });
+    // A resume never reaches the launch policy, so the effective launch has no resume field and
+    // nothing here can compute a route for one.
+    const l = effectiveLaunch(serviceRequest({ origin: { kind: "tool", toolCallId: "c" } }));
+    expect("resume" in l).toBe(false);
   });
   test("Forked launch left alone", () => {
     const r = routeLaunch(input({ answers: undefined, launch: launch({ inheritContext: true }) }));
     expect(r).toEqual({ kind: "untouched" });
+  });
+  test("Service launch with a model and locked thinking", () => {
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true, locked: ["thinking"] }));
+    expect(routeLaunch(input({ answers: undefined, launch: l }))).toEqual({
+      kind: "untouched",
+      locked: true,
+    });
   });
   test("Both fields locked", () => {
     const l = launch({ modelLocked: true, thinkingLocked: true });
@@ -374,6 +397,17 @@ describe("Nothing can run", () => {
 });
 
 describe("Locks in the route", () => {
+  test("Service launch with a model", () => {
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }));
+    const r = routeLaunch(
+      input({ launch: l, answers: read({ tier: ["fast", { fast: 0.9 }], effort: "high" }) }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { thinking: "high" },
+      record: { reason: "cut", tier: "fast", effort: "high", locked: true },
+    });
+  });
   test("Model locked", () => {
     const r = routeLaunch(
       input({
