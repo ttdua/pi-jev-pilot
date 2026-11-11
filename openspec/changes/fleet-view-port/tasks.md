@@ -23,10 +23,10 @@ Blocked by: none
 
 Blocked by: 2, 3
 
-- [ ] 4.1 Create `packages/pi-subagents/src/ui/fleet-list.ts` (`FleetList`): UI capture with listener replacement, widget registration below the editor, 1 s timer rule, the four required observer hooks, `enabled()` read live, dispose
-- [ ] 4.2 Key handling: press-only, activation on the first agent row, navigation, focus guard via `tui.getFocusedComponent()`, no consumption before the TUI is captured, pass-through while a pane is open
-- [ ] 4.3 `Enter` calls `openTranscript` with `navigationEntryFor`; reselect the viewed agent by id when the pane closes
-- [ ] 4.4 Tests `packages/pi-subagents/test/ui/fleet-list.test.ts` covering the key, focus, open, selection, timer and lifecycle scenarios
+- [x] 4.1 Create `packages/pi-subagents/src/ui/fleet-list.ts` (`FleetList`): UI capture with listener replacement, widget registration below the editor, 1 s timer rule, the four required observer hooks, `enabled()` read live, dispose
+- [x] 4.2 Key handling: press-only, activation on the first agent row, navigation, focus guard via `tui.getFocusedComponent()`, no consumption before the TUI is captured, pass-through while a pane is open
+- [x] 4.3 `Enter` calls `openTranscript` with `navigationEntryFor`; reselect the viewed agent by id when the pane closes
+- [x] 4.4 Tests `packages/pi-subagents/test/ui/fleet-list.test.ts` covering the key, focus, open, selection, timer and lifecycle scenarios
 
 ## 5. Wiring in the executor
 
