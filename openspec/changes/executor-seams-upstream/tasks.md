@@ -82,7 +82,7 @@ Blocked by: 7
 
 Blocked by: 7
 
-- [ ] 9.1 New ADR superseding 0006 (vendored executor, maintenance cost, upstream sync); mark 0006 superseded; update `docs/decisions/README.md`
-- [ ] 9.2 Update `docs/architecture.md` (host seams table, runtime contexts, module map), `docs/domain-model.md`, `docs/workflow.md`, `docs/jev-contract.md`, `docs/glossary.md`, `docs/testing.md`, `docs/roadmap.md`, `docs/project-brief.md`
-- [ ] 9.3 Update `README.md`, `docs/usage-guide.md` and `docs/configuration.md`: one install, uninstall `@gotgenes/pi-subagents` first, `disallowed_tools`, `tools.grantAt`, the duplicate-executor limit
-- [ ] 9.4 Add a `CHANGELOG.md` entry marking the breaking change
+- [x] 9.1 New ADR superseding 0006 (vendored executor, maintenance cost, upstream sync); mark 0006 superseded; update `docs/decisions/README.md`
+- [x] 9.2 Update `docs/architecture.md` (host seams table, runtime contexts, module map), `docs/domain-model.md`, `docs/workflow.md`, `docs/jev-contract.md`, `docs/glossary.md`, `docs/testing.md`, `docs/roadmap.md`, `docs/project-brief.md`
+- [x] 9.3 Update `README.md`, `docs/usage-guide.md` and `docs/configuration.md`: one install, uninstall `@gotgenes/pi-subagents` first, `disallowed_tools`, `tools.grantAt`, the duplicate-executor limit
+- [x] 9.4 Add a `CHANGELOG.md` entry marking the breaking change
