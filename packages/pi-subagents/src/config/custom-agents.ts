@@ -9,6 +9,7 @@ import { BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
 import { isLockableField, type LockDeclaration } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import { debugLog } from "#src/debug";
+import { noteDeclaredAndDisallowed } from "#src/seams/registry";
 import type { AgentConfig } from "#src/types";
 
 /**
@@ -54,12 +55,18 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
     }
 
     const { frontmatter: fm, body } = parseFrontmatter(content);
+    const toolNames = listField(fm.tools, BUILTIN_TOOL_NAMES);
+    const toolsDeclared = fm.tools != null;
+    const disallowedTools = listField(fm.disallowed_tools, []);
+    if (toolsDeclared) noteDeclaredAndDisallowed(name, toolNames, disallowedTools);
 
     agents.set(name, {
       name,
       displayName: str(fm.display_name),
       description: str(fm.description) ?? name,
-      toolNames: listField(fm.tools, BUILTIN_TOOL_NAMES),
+      toolNames,
+      toolsDeclared,
+      disallowedTools,
       model: str(fm.model),
       thinking: thinkingLevel(fm.thinking, name),
       maxTurns: nonNegativeInt(fm.max_turns),

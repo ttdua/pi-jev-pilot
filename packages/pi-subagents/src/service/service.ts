@@ -9,6 +9,7 @@
  *   svc?.spawn("Explore", "Check for stale TODOs");
  */
 
+import type { LockableField } from "#src/config/invocation-config";
 import type { SubagentThinkingLevel } from "#src/config/thinking-level";
 import type { ResumeRefusal, SubagentStatus } from "#src/lifecycle/subagent";
 import type { ResumeRefusalReason } from "#src/lifecycle/subagent-manager";
@@ -95,6 +96,31 @@ export interface SubagentRecord {
   effectiveThinking?: SubagentThinkingLevel;
 }
 
+/**
+ * Frozen, serializable snapshot of an agent definition as a launch resolves it.
+ * Never a live executor object; changing it changes nothing in the executor.
+ */
+export interface AgentTypeSnapshot {
+  name: string;
+  source: "builtin" | "global" | "project";
+  description: string;
+  /** The agent file's body (a built-in's prompt for built-ins). */
+  instructions: string;
+  /** The declared tools, or `null` when the agent declares no `tools` field. */
+  tools: readonly string[] | null;
+  /** The tools the executor gives an agent that declares none. */
+  defaultTools: readonly string[];
+  disallowedTools: readonly string[];
+  model?: string;
+  thinking?: string;
+  locked?: true | readonly LockableField[];
+  maxTurns?: number;
+  runInBackground?: boolean;
+  inheritContext?: boolean;
+}
+
+export type { LockableField };
+
 /** Options for resuming an agent via the service. */
 export interface ResumeOptions {
   /**
@@ -175,6 +201,15 @@ export interface SubagentsService {
    * question before the call.
    */
   resume(id: string, prompt: string, options?: ResumeOptions): Promise<ResumeResult>;
+
+  /** Every enabled agent type after file overrides; agent files are reloaded first. */
+  listAgentTypes(): readonly AgentTypeSnapshot[];
+
+  /**
+   * The agent a launch of `name` would run (exact, case-insensitive, then
+   * `general-purpose`); `undefined` when it resolves to a disabled agent.
+   */
+  getAgentType(name: string): AgentTypeSnapshot | undefined;
 
   /** Wait for all running and queued agents to complete. */
   waitForAll(): Promise<void>;

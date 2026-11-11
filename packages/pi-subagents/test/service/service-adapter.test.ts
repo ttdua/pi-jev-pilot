@@ -206,6 +206,9 @@ function makeStubCtx(): SessionContext {
  * Minimal ServiceRuntimeLike stub for tests.
  * Override `currentCtx` to simulate no active session.
  */
+/** A catalog stub for tests that never query agent types. */
+const NO_AGENT_TYPES = { list: () => [], get: () => undefined };
+
 function makeRuntimeStub(override: Partial<ServiceRuntimeLike> = {}): ServiceRuntimeLike {
   return {
     currentCtx: makeStubCtx(),
@@ -268,7 +271,7 @@ describe("SubagentsServiceAdapter — getRecord and listAgents", () => {
     return new SubagentsServiceAdapter(
       manager,
       () => makeModel({ id: "test" }),
-      makeRuntimeStub(),
+      makeRuntimeStub(), NO_AGENT_TYPES,
     );
   }
 
@@ -316,7 +319,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
     const svc = new SubagentsServiceAdapter(
       createManagerStub(),
       vi.fn(),
-      makeRuntimeStub({ currentCtx: undefined }),
+      makeRuntimeStub({ currentCtx: undefined }), NO_AGENT_TYPES,
     );
     expect(() => svc.spawn("Explore", "do something")).toThrow(
       /no active session/i,
@@ -329,7 +332,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
     const svc = new SubagentsServiceAdapter(
       createManagerStub(),
       resolveModel,
-      makeRuntimeStub({ currentCtx: { ...makeStubCtx(), modelRegistry: registry } }),
+      makeRuntimeStub({ currentCtx: { ...makeStubCtx(), modelRegistry: registry } }), NO_AGENT_TYPES,
     );
     svc.spawn("Explore", "check TODOs", { model: "haiku" });
     expect(resolveModel).toHaveBeenCalledWith("haiku", registry);
@@ -339,7 +342,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
     const svc = new SubagentsServiceAdapter(
       createManagerStub(),
       () => 'Model not found: "bad-model".\n\nAvailable models:\n  anthropic/claude-sonnet',
-      makeRuntimeStub(),
+      makeRuntimeStub(), NO_AGENT_TYPES,
     );
     expect(() => svc.spawn("Explore", "task", { model: "bad-model" })).toThrow(
       /Model not found/,
@@ -348,7 +351,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
   describe("thinking level", () => {
     it("throws for an unrecognized level rather than letting the SDK clamp it to off", () => {
-      const svc = new SubagentsServiceAdapter(createManagerStub(), vi.fn(), makeRuntimeStub());
+      const svc = new SubagentsServiceAdapter(createManagerStub(), vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
 
       expect(() => svc.spawn("Explore", "task", { thinkingLevel: "turbo" })).toThrow(
         'Invalid thinking level "turbo". Valid levels: off, minimal, low, medium, high, xhigh, max.',
@@ -357,7 +360,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
     it("passes a recognized level through to the manager", () => {
       const mgr = createManagerStub();
-      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
 
       svc.spawn("Explore", "task", { thinkingLevel: "xhigh" });
 
@@ -371,7 +374,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
     it("leaves the level unset when the caller omits it", () => {
       const mgr = createManagerStub();
-      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
 
       svc.spawn("Explore", "task");
 
@@ -390,7 +393,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
     const svc = new SubagentsServiceAdapter(
       mgr,
       () => resolvedModel,
-      makeRuntimeStub(),
+      makeRuntimeStub(), NO_AGENT_TYPES,
     );
     const id = svc.spawn("Explore", "check TODOs", { model: "sonnet", maxTurns: 5 });
     expect(id).toBe("spawned-id");
@@ -414,7 +417,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
   describe("parent session", () => {
     it("passes the runtime's session identity, without a toolCallId", () => {
       const mgr = createManagerStub();
-      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
 
       svc.spawn("Explore", "check TODOs");
 
@@ -442,7 +445,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
   describe("background mode", () => {
     function spawnAndCaptureBackground(options?: { foreground?: boolean }) {
       const mgr = createManagerStub();
-      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
       svc.spawn("Plan", "plan work", options);
       return mgr.spawn;
     }
@@ -483,7 +486,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
   it("uses truncated prompt as default description", () => {
     const mgr = createManagerStub();
-    const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+    const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
     const longPrompt = "x".repeat(200);
     svc.spawn("Explore", longPrompt);
     expect(mgr.spawn).toHaveBeenCalledWith(
@@ -496,7 +499,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
   it("uses provided description over default", () => {
     const mgr = createManagerStub();
-    const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+    const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
     svc.spawn("Explore", "long prompt here", { description: "short desc" });
     expect(mgr.spawn).toHaveBeenCalledWith(
       expect.anything(), // snapshot
@@ -508,7 +511,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
   it("does not call resolveModel when no model option is provided", () => {
     const resolveModel = vi.fn();
-    const svc = new SubagentsServiceAdapter(createManagerStub(), resolveModel, makeRuntimeStub());
+    const svc = new SubagentsServiceAdapter(createManagerStub(), resolveModel, makeRuntimeStub(), NO_AGENT_TYPES);
     svc.spawn("Explore", "quick check");
     expect(resolveModel).not.toHaveBeenCalled();
   });
@@ -516,7 +519,7 @@ describe("SubagentsServiceAdapter — spawn", () => {
 
 describe("SubagentsServiceAdapter — steer, abort, waitForAll, hasRunning", () => {
   function createSvc(mgr: ReturnType<typeof createManagerStub>) {
-    return new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+    return new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
   }
 
   describe("abort", () => {
@@ -594,7 +597,7 @@ describe("SubagentsServiceAdapter — steer, abort, waitForAll, hasRunning", () 
 
 describe("SubagentsServiceAdapter — resume", () => {
   function createSvc(mgr: ReturnType<typeof createManagerStub>) {
-    return new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+    return new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
   }
 
   it("delegates to manager.resume with the caller's prompt, resuming in the background", async () => {
@@ -664,7 +667,7 @@ describe("SubagentsServiceAdapter — registerWorkspaceProvider", () => {
     const disposer = vi.fn();
     const mgr = createManagerStub();
     mgr.registerWorkspaceProvider.mockReturnValue(disposer);
-    const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub());
+    const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
     const provider: WorkspaceProvider = { prepare: vi.fn(async () => undefined) };
 
     const result = svc.registerWorkspaceProvider(provider);

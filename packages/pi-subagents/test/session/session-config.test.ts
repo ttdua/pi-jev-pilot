@@ -12,6 +12,8 @@ const mockResolveAgentConfig = vi.fn((): AgentConfig => ({
   toolNames: ["read"],
   systemPrompt: "You are Explore.",
   promptMode: "replace",
+  toolsDeclared: true,
+  disallowedTools: [],
 }));
 const mockGetToolNamesForType = vi.fn((): string[] => ["read"]);
 const mockBuildAgentPrompt: Mock<AssemblerIO["buildAgentPrompt"]> = vi.fn(
@@ -236,6 +238,8 @@ describe("assembleSessionConfig — unknown type fallback", () => {
       description: "General-purpose",
       systemPrompt: "",
       promptMode: "append" as const,
+      toolsDeclared: false,
+      disallowedTools: [],
     });
 
     mockBuildAgentPrompt.mockImplementationOnce(

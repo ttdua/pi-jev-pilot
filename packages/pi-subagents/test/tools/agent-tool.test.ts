@@ -560,6 +560,8 @@ describe("AgentTool — resume path", () => {
 									name: "watcher",
 									description: "background by default",
 									promptMode: "append" as const,
+									toolsDeclared: false,
+									disallowedTools: [],
 									systemPrompt: "",
 									runInBackground: true,
 								},

@@ -10,7 +10,9 @@ import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-lev
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig, ResumeCallOptions, ResumeOutcome } from "#src/lifecycle/subagent-manager";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
+import type { AgentTypeCatalog } from "#src/seams/registry";
 import type {
+  AgentTypeSnapshot,
   ResumeOptions,
   ResumeResult,
   SpawnOptions,
@@ -51,6 +53,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
     private readonly manager: SubagentManagerLike,
     private readonly resolveModel: (input: string, registry: ModelRegistry) => Model<any> | string,
     private readonly runtime: ServiceRuntimeLike,
+    private readonly agentTypes: Pick<AgentTypeCatalog, "list" | "get">,
   ) {}
 
   private session = "";
@@ -130,6 +133,14 @@ export class SubagentsServiceAdapter implements SubagentsService {
     return outcome.kind === "refused"
       ? outcome
       : { kind: "resumed", record: toSubagentRecord(outcome.record) };
+  }
+
+  listAgentTypes(): readonly AgentTypeSnapshot[] {
+    return this.agentTypes.list();
+  }
+
+  getAgentType(name: string): AgentTypeSnapshot | undefined {
+    return this.agentTypes.get(name);
   }
 
   async waitForAll(): Promise<void> {

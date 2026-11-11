@@ -39,6 +39,7 @@ import {
 } from "#src/observation/notification";
 import { SubagentEventsObserver } from "#src/observation/subagent-events-observer";
 import { createSubagentRuntime } from "#src/runtime";
+import { AgentTypeCatalog } from "#src/seams/registry";
 import { SubagentsServiceAdapter } from "#src/service/service-adapter";
 import { ServicePublication } from "#src/seams/service-identity";
 import { detectEnv } from "#src/session/env";
@@ -202,7 +203,7 @@ export default function (pi: ExtensionAPI) {
   // Consumers: const { getSubagentsService } = await import("@gotgenes/pi-subagents");
   // Published at load, as upstream does, unless this implementation's service
   // already holds the slot (children load after the main session).
-  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime);
+  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime, new AgentTypeCatalog(registry));
   const publication = new ServicePublication(service);
   publication.publish();
 

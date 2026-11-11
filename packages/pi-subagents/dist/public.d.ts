@@ -23,13 +23,6 @@ declare const THINKING_LEVELS: readonly ["off", "minimal", "low", "medium", "hig
 type SubagentThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 /**
- * types.ts — Type definitions for the subagent system.
- */
-
-/** Agent type: any string name (built-in defaults or user-defined). */
-type SubagentType = string;
-
-/**
  * turn-limits.ts — The turn-budget policy for subagent execution.
  *
  * Owns the budget's shape, the limit normalization the subagent tool's
@@ -156,6 +149,21 @@ interface WorkspaceProvider {
 type ResumeRefusal = "still-running" | "resume-queued" | "no-session" | "session-released" | "workspace-disposed";
 
 /**
+ * types.ts — Type definitions for the subagent system.
+ */
+
+/** Agent type: any string name (built-in defaults or user-defined). */
+type SubagentType = string;
+
+/**
+ * The fields a `subagent` tool caller may pass, spelled as the frontmatter key an
+ * agent author writes rather than the camelCase `AgentConfig` property.
+ */
+declare const LOCKABLE_FIELDS: readonly ["model", "thinking", "max_turns", "inherit_context", "run_in_background"];
+/** One field an agent file may withhold from its callers. */
+type LockableField = (typeof LOCKABLE_FIELDS)[number];
+
+/**
  * subagent-manager.ts - Tracks subagents, background execution, resume support.
  *
  * Background runs, spawned or resumed, are subject to a configurable concurrency
@@ -232,6 +240,29 @@ interface SubagentRecord {
     /** The thinking level the session was created with; absent until it exists. */
     effectiveThinking?: SubagentThinkingLevel;
 }
+/**
+ * Frozen, serializable snapshot of an agent definition as a launch resolves it.
+ * Never a live executor object; changing it changes nothing in the executor.
+ */
+interface AgentTypeSnapshot {
+    name: string;
+    source: "builtin" | "global" | "project";
+    description: string;
+    /** The agent file's body (a built-in's prompt for built-ins). */
+    instructions: string;
+    /** The declared tools, or `null` when the agent declares no `tools` field. */
+    tools: readonly string[] | null;
+    /** The tools the executor gives an agent that declares none. */
+    defaultTools: readonly string[];
+    disallowedTools: readonly string[];
+    model?: string;
+    thinking?: string;
+    locked?: true | readonly LockableField[];
+    maxTurns?: number;
+    runInBackground?: boolean;
+    inheritContext?: boolean;
+}
+
 /** Options for resuming an agent via the service. */
 interface ResumeOptions {
     /**
@@ -306,6 +337,13 @@ interface SubagentsService {
      * question before the call.
      */
     resume(id: string, prompt: string, options?: ResumeOptions): Promise<ResumeResult>;
+    /** Every enabled agent type after file overrides; agent files are reloaded first. */
+    listAgentTypes(): readonly AgentTypeSnapshot[];
+    /**
+     * The agent a launch of `name` would run (exact, case-insensitive, then
+     * `general-purpose`); `undefined` when it resolves to a disabled agent.
+     */
+    getAgentType(name: string): AgentTypeSnapshot | undefined;
     /** Wait for all running and queued agents to complete. */
     waitForAll(): Promise<void>;
     /** Whether any agents are running or queued. */
@@ -336,4 +374,4 @@ declare function getSubagentsService(): SubagentsService | undefined;
 declare function unpublishSubagentsService(): void;
 
 export { SUBAGENT_EVENTS, getSubagentsService, publishSubagentsService, unpublishSubagentsService };
-export type { LifetimeUsage, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };
+export type { AgentTypeSnapshot, LifetimeUsage, LockableField, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };

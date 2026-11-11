@@ -71,6 +71,10 @@ export interface AgentPromptConfig {
 export interface AgentConfig extends AgentIdentity, AgentPromptConfig {
   /** The agent's tool allowlist. Entries name built-in or extension-registered tools; omitted means every built-in. */
   toolNames?: string[];
+  /** Whether the agent declared a `tools` field (even `none`); false means it runs with the built-ins. */
+  toolsDeclared: boolean;
+  /** Tool names removed from the child after every other source; compared exactly. */
+  disallowedTools: string[];
   model?: string;
   thinking?: ThinkingLevel;
   maxTurns?: number;

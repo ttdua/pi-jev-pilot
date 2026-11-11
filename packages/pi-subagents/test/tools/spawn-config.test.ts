@@ -299,7 +299,7 @@ describe("resolveSpawnConfig — minimum turns note", () => {
     const registry = new AgentTypeRegistry(
       () =>
         new Map([
-          ["terse", { name: "terse", description: "Terse", systemPrompt: "", promptMode: "append" as const, maxTurns: 1 }],
+          ["terse", { name: "terse", description: "Terse", systemPrompt: "", promptMode: "append" as const, toolsDeclared: false, disallowedTools: [], maxTurns: 1 }],
         ]),
     );
     const result = resolveSpawnConfig(
@@ -347,6 +347,8 @@ describe("resolveSpawnConfig — notes", () => {
               description: "Pinned",
               systemPrompt: "",
               promptMode: "append" as const,
+              toolsDeclared: false,
+              disallowedTools: [],
               model: "provider/pinned",
               maxTurns: 7,
               locked: true as const,
@@ -383,6 +385,8 @@ describe("resolveSpawnConfig — notes", () => {
               description: "Pinned",
               systemPrompt: "",
               promptMode: "append" as const,
+              toolsDeclared: false,
+              disallowedTools: [],
               model: "provider/pinned",
               locked: ["model"] as const,
             },
@@ -425,6 +429,8 @@ describe("resolveSpawnConfig — notes", () => {
               description: "Pinned general-purpose",
               systemPrompt: "",
               promptMode: "append" as const,
+              toolsDeclared: false,
+              disallowedTools: [],
               maxTurns: 7,
               locked: true as const,
             },

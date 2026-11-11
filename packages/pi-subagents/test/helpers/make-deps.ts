@@ -106,6 +106,8 @@ export function createToolDepsWithDisabledBuiltInAgents(...names: string[]): Age
 						name,
 						description: "disabled built-in agent",
 						promptMode: "append" as const,
+						toolsDeclared: false,
+						disallowedTools: [],
 						systemPrompt: "",
 						isDefault: true,
 						enabled: false,

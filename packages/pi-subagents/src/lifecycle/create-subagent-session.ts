@@ -24,6 +24,7 @@ import { debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import { type EffectiveFacts, effectiveFacts, launchIdentity } from "#src/seams/identity";
+import { finalToolNames } from "#src/seams/registry";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
 import { resolveTurnLimits, type TurnLimitRequest } from "#src/lifecycle/turn-limits";
 import { AskParentTool, type QuestionRecorder } from "#src/session/ask-parent-tool";
@@ -256,13 +257,19 @@ export async function createSubagentSession(
     deps.io.assemblerIO,
   );
 
-  const { toolNames, unmatchedPatterns } = expandMcpToolPatterns(
+  const { toolNames: expandedToolNames, unmatchedPatterns } = expandMcpToolPatterns(
     cfg.toolNames,
     deps.listParentToolNames(),
   );
   for (const pattern of unmatchedPatterns) {
     debugNote(`agent ${type}: tools pattern ${pattern} matched no tool the parent has`);
   }
+  // `disallowed_tools` applies last, before the recursion denylist. No policy grants yet.
+  const toolNames = finalToolNames(
+    expandedToolNames,
+    [],
+    deps.registry.resolveAgentConfig(type).disallowedTools,
+  );
 
   const agentDir = deps.io.getAgentDir();
   const sessionSettings = deps.io.createSettingsManager(cfg.effectiveCwd, agentDir);

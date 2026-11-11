@@ -30,6 +30,8 @@ describe("getDisplayName", () => {
         description: "test",
         systemPrompt: "",
         promptMode: "replace",
+        toolsDeclared: false,
+        disallowedTools: [],
       },
     ]]);
     const registry = new AgentTypeRegistry(() => customAgents);
@@ -44,6 +46,8 @@ describe("getDisplayName", () => {
         description: "test",
         systemPrompt: "",
         promptMode: "replace",
+        toolsDeclared: false,
+        disallowedTools: [],
       },
     ]]);
     const registry = new AgentTypeRegistry(() => customAgents);
@@ -68,6 +72,8 @@ describe("getPromptModeLabel", () => {
         description: "test",
         systemPrompt: "",
         promptMode: "append",
+        toolsDeclared: false,
+        disallowedTools: [],
       },
     ]]);
     const registry = new AgentTypeRegistry(() => customAgents);

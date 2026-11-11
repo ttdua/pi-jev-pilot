@@ -20,6 +20,8 @@ export const DEFAULT_AGENTS: Map<string, AgentConfig> = new Map([
       // inheritContext / runInBackground omitted — strategy fields, callers decide per-call.
       // No built-in declares `locked`: Explore's haiku is a cost default, not a
       // correctness one, so a caller that knows better may override it (#829).
+      toolsDeclared: false,
+      disallowedTools: [],
       systemPrompt: "",
       promptMode: "append",
       isDefault: true,
@@ -33,6 +35,8 @@ export const DEFAULT_AGENTS: Map<string, AgentConfig> = new Map([
       description: "Fast codebase exploration agent (read-only)",
       toolGuideline: "- Use Explore for codebase searches and code understanding.",
       toolNames: READ_ONLY_TOOLS,
+      toolsDeclared: true,
+      disallowedTools: [],
       model: "anthropic/claude-haiku-4-5-20251001",
       systemPrompt: `# CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS
 You are a file search specialist. You excel at thoroughly navigating and exploring codebases.
@@ -74,6 +78,8 @@ Use Bash ONLY for read-only operations: ls, git status, git log, git diff, find,
       description: "Software architect for implementation planning (read-only)",
       toolGuideline: "- Use Plan for architecture and implementation planning.",
       toolNames: READ_ONLY_TOOLS,
+      toolsDeclared: true,
+      disallowedTools: [],
       systemPrompt: `# CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS
 You are a software architect and planning specialist.
 Your role is EXCLUSIVELY to explore the codebase and design implementation plans.

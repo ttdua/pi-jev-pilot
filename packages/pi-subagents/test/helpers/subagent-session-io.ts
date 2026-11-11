@@ -12,6 +12,8 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
 	toolNames: ["read"],
 	systemPrompt: "You are Explore.",
 	promptMode: "replace",
+	toolsDeclared: true,
+	disallowedTools: [],
 	inheritContext: false,
 	runInBackground: false,
 };

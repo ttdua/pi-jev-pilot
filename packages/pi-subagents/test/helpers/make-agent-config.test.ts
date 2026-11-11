@@ -7,6 +7,8 @@ describe("makeAgentConfig", () => {
       name: "test-agent",
       description: "Test agent",
       toolNames: ["read", "grep"],
+      toolsDeclared: true,
+      disallowedTools: [],
       systemPrompt: "You are a test agent.",
       promptMode: "replace",
       inheritContext: false,
