@@ -2,8 +2,8 @@
 
 Blocked by: none
 
-- [ ] 1.1 Add `fleetView` to `SubagentsSettings`, `SettingsSnapshot`, load (boolean only), snapshot and `toggleFleetView()` in `packages/pi-subagents/src/settings.ts`, default `true`, with tests in `test/settings.test.ts`
-- [ ] 1.2 Add the `Fleet view` toggle row to `packages/pi-subagents/src/ui/subagents-settings.ts`, with a test in `test/ui/subagents-settings.test.ts`
+- [x] 1.1 Add `fleetView` to `SubagentsSettings`, `SettingsSnapshot`, load (boolean only), snapshot and `toggleFleetView()` in `packages/pi-subagents/src/settings.ts`, default `true`, with tests in `test/settings.test.ts`
+- [x] 1.2 Add the `Fleet view` toggle row to `packages/pi-subagents/src/ui/subagents-settings.ts`, with a test in `test/ui/subagents-settings.test.ts`
 
 ## 2. Shared open step for the session pane
 
