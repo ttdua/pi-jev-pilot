@@ -6,60 +6,38 @@ When and how a main session's `subagent` launches are classified and rewritten, 
 ## Requirements
 
 ### Requirement: When routing runs
-Worker routing SHALL act only on `subagent` tool calls in a main session. It MUST do nothing, and call Jev for nothing, when the session is a child, `config.json` is invalid, the API key is unset, the executor is absent, or the `subagents` switch is off. These conditions SHALL be read fresh at each assistant message and at each launch classified at its own tool call.
+Worker routing SHALL act only inside its launch policy, for launches started from a main session. It MUST do nothing, and call Jev for nothing, when `config.json` is invalid, the API key is unset, the executor is absent or duplicated (see `readiness-checks`), or the `subagents` switch is off. These conditions SHALL be read fresh at each policy call. Doing nothing MUST mean returning no adjustment, unless tool assessment returns one (see `tool-assessment`).
 
 #### Scenario: Switch off
 - **WHEN** the `subagents` switch is off and the main model launches a worker
-- **THEN** no worker request is sent and the launch input is unchanged
+- **THEN** no worker request is sent and the child runs with the requested model and thinking
 
 #### Scenario: No key
 - **WHEN** the API key is unset and the main model launches a worker
-- **THEN** no worker request is sent and the launch input is unchanged
+- **THEN** no worker request is sent and the child runs with the requested model and thinking
 
 #### Scenario: Invalid config
 - **WHEN** `config.json` is invalid and the main model launches a worker
-- **THEN** no worker request is sent and the launch input is unchanged
+- **THEN** no worker request is sent and the child runs with the requested model and thinking
 
 #### Scenario: Executor absent
-- **WHEN** the executor is not installed and a `subagent` tool call is made
-- **THEN** no worker request is sent and the input is unchanged
+- **WHEN** the executor is not installed
+- **THEN** no launch policy is registered and no worker request is sent
 
 #### Scenario: Child session
 - **WHEN** a child session's assistant message calls `subagent`
 - **THEN** no worker request is sent
 
-#### Scenario: Nested launch with the switch off
-- **WHEN** the `subagents` switch is off and a codemode script calls `subagent`
-- **THEN** no worker request is sent and the input is unchanged
-
 #### Scenario: Other tools ignored
 - **WHEN** an assistant message calls only `read` and `bash`
 - **THEN** no worker request is sent
 
-### Requirement: Sibling launches classified together
-When an assistant message ends with one or more `subagent` calls, routing SHALL send one worker request per launch that is not left untouched, all concurrently, and wait for all of them before the message's tool calls run, bounded by the classifier timeout. Each result MUST be kept for the matching tool call by its id.
-
-#### Scenario: Two launches
-- **WHEN** an assistant message launches two workers
-- **THEN** two worker requests are sent before either `subagent` call runs
-
-#### Scenario: Untouched launch not asked
-- **WHEN** an assistant message launches one worker with `resume` and one without
-- **THEN** exactly one worker request is sent
-
-### Requirement: Launches without a cached result
-A `subagent` call with no result from its message, such as one issued by another tool (`parentToolCallId` set), SHALL be classified at its own tool call with a single worker request, bounded by the classifier timeout, before the launch runs.
-
-#### Scenario: Nested launch
-- **WHEN** a codemode script calls `subagent`
-- **THEN** one worker request is sent for that call before it runs, and its input is routed like any other launch
-
-#### Scenario: Nested launch with Jev down
-- **WHEN** a codemode script calls `subagent` and Jev does not answer
-- **THEN** the launch runs with the caller's input after at most `timeoutMs` of added wait
+#### Scenario: Nested launch with the switch off
+- **WHEN** the `subagents` switch is off and a codemode script calls `subagent`
+- **THEN** no worker request is sent and the child runs with the requested model and thinking
 
 ### Requirement: Worker request content
-Each worker request SHALL use the agent read for the launch's `subagent_type`, the worker state from `input.prompt` and `input.description`, and the effective `run_in_background`. The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
+Each worker request SHALL use the agent facts built from the launch request's agent snapshot, the worker state from the launch request's `prompt` and `description`, and its `isBackground`. The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
 
 #### Scenario: Display name prefix
 - **WHEN** `tiers.fast` names a registry model whose display name is `Fixture Fast`
@@ -76,6 +54,10 @@ Each worker request SHALL use the agent read for the launch's `subagent_type`, t
 #### Scenario: Forked launch with thinking asks fewer questions
 - **WHEN** a launch inherits context and `subagents.forkedLaunch` is `thinking`
 - **THEN** the request asks exactly `effort` and `risky`
+
+#### Scenario: Service launch content
+- **WHEN** an extension calls `spawn("Plan", brief, { description: "probe" })`
+- **THEN** the worker request's agent is `Plan` and its state is built from `brief` and `probe`
 
 ### Requirement: Target check before writing
 For a launch whose route can write a model (its request asks the `tier` question and `model` is not locked), routing SHALL check the model of every offered tier and slot: the `provider/id` MUST name a model in Pi's model registry, and that model MUST have configured credentials. A target failing either check SHALL count as unable to run for the fallback choice. Other launches MUST NOT be checked or warned about.
@@ -97,7 +79,7 @@ For a launch whose route can write a model (its request asks the `tier` question
 - **THEN** no warning is shown for that launch
 
 ### Requirement: Input mutation
-Routing SHALL write the route's model to `input.model` and its thinking to `input.thinking`, replacing what the caller set, and MUST leave every other input field unchanged. A route that writes nothing MUST leave the input exactly as the caller sent it.
+Routing SHALL return the route's model as the adjustment's `model` and its thinking as `thinking`, and MUST return no other launch field. A route that writes nothing MUST return neither, so the launch runs with the requested values.
 
 #### Scenario: Caller model replaced
 - **WHEN** the caller set `model` `fixture/fixture-main` and the route writes `fixture/fixture-fast` with thinking `medium`
@@ -109,7 +91,11 @@ Routing SHALL write the route's model to `input.model` and its thinking to `inpu
 
 #### Scenario: Resume untouched
 - **WHEN** a launch sets `resume`
-- **THEN** the input is unchanged
+- **THEN** the policy is not called and the resumed worker keeps its model and thinking
+
+#### Scenario: Effective values recorded
+- **WHEN** the route writes `fixture/fixture-fast` with thinking `medium` and the child starts
+- **THEN** the worker's ledger line has `effectiveModel` `fixture/fixture-fast` and `effectiveThinking` `medium`
 
 ### Requirement: Fallback warning
 When the decided target cannot run, routing SHALL warn through the UI, naming the target, its model, why it cannot run (`not in the model registry` or `no credentials`), the tier used instead or that the launch is left unchanged, and the setting to fix with the path of `config.json`: `tiers.<name>` for a tier, and `crew.slots "<name>" model` for a slot. A warning for the same target and model string MUST be shown at most once per session, until any `/jev` form runs (slot forms included) or that target's model string changes. No warning SHALL be drawn without a UI.
@@ -163,42 +149,46 @@ When the decided target cannot run, routing SHALL warn through the UI, naming th
 - **THEN** the warning is shown again
 
 ### Requirement: Routing fails open
-Any Jev failure (timeout, error, unreadable answers) SHALL leave the launch input unchanged. A cancelled turn MUST leave the input unchanged and record nothing. An error inside routing itself MUST be caught, leave the input unchanged, and never block or fail the launch.
+Any Jev failure (timeout, error, unreadable answers) SHALL return no model and no thinking. A launch cancelled while its policy call runs MUST record nothing. An error inside routing itself MUST be caught, return no model and no thinking, and never block or fail the launch. If the policy call outlives its `timeoutMs`, the executor launches with the requested values (see `executor-launch-policy`).
 
 #### Scenario: Jev timeout
-- **WHEN** Jev does not answer within `timeoutMs`
-- **THEN** the launch runs with the caller's input, after at most `timeoutMs` of added wait
+- **WHEN** Jev does not answer within `classifier.timeoutMs`
+- **THEN** the child runs with the requested model and thinking, after at most `classifier.timeoutMs` of added wait plus the policy's own processing
+
+#### Scenario: Timeout changed after session start
+- **WHEN** `classifier.timeoutMs` is 1500 at session start, tuning raises it to 1700, and Jev answers a later launch after 1600 ms
+- **THEN** that launch is routed with Jev's answer
 
 #### Scenario: Jev error
 - **WHEN** Jev answers HTTP 500
-- **THEN** the launch runs with the caller's input
+- **THEN** the child runs with the requested model and thinking
 
 #### Scenario: Unreadable answers
 - **WHEN** Jev answers a body without `answers`
-- **THEN** the launch runs with the caller's input
+- **THEN** the child runs with the requested model and thinking
 
 #### Scenario: Turn cancelled
 - **WHEN** the operator cancels the turn while a worker request is outstanding
-- **THEN** the launch input is unchanged and no ledger line is recorded for it
+- **THEN** no ledger line is recorded for that launch
 
 #### Scenario: Internal error
-- **WHEN** reading the agent throws inside routing
-- **THEN** the launch runs with the caller's input and is not blocked
+- **WHEN** building the agent facts throws inside routing
+- **THEN** the child runs with the requested model and thinking and is not blocked
 
 ### Requirement: Mode of a launch
-Routing SHALL read the mode once per launch, when its worker request is built, and MUST use that same mode for the launch's cut points and its ledger line. A mode change after the request is built MUST NOT affect that launch. A launch left untouched or not asked SHALL record the mode read when it was classified.
+Routing SHALL read the mode once per launch, when its policy call builds the worker request, and MUST use that same mode for the launch's cut points and its ledger line. A mode change after the request is built MUST NOT affect that launch. A launch left untouched SHALL record the mode read when its policy call ran.
 
 #### Scenario: Premium launch end to end
 - **WHEN** the mode is `premium`, all four tiers are configured, the window uses the seed (`premium` `expertMin` 2.12), and Jev answers `tier` with probabilities `deep` .9 and `balanced` .1, and `effort` `xhigh`
 - **THEN** the request is the same as in `standard`, the child runs on `tiers.expert`, and the ledger line has `mode` `premium`, `reason` `expert` and a `score` of 2.275
 
 #### Scenario: Mode changed between message end and launch
-- **WHEN** a worker request is built in `standard`, then `state.json` is changed to `premium` before the `subagent` call runs
-- **THEN** the decision uses the `standard` cut points and the ledger line has `mode` `standard`
+- **WHEN** a worker request is built in `standard`, then `state.json` is changed to `premium` before the child session is created
+- **THEN** the ledger line has `mode` `standard`
 
 #### Scenario: Jev down in premium
 - **WHEN** the mode is `premium` and Jev does not answer
-- **THEN** the launch keeps the caller's input, and the ledger line has `mode` `premium`, `reason` `miss` and no `score`
+- **THEN** the launch keeps the requested values, and the ledger line has `mode` `premium`, `reason` `miss` and no `score`
 
 ### Requirement: Reviewer slot routes
 A launch whose brief Jev assigns to a configured slot at probability ≥ .6 SHALL run on that slot's model, with the thinking from the worker effort clamped to that model, in foreground and background launches alike. When Jev fails, the launch MUST keep the caller's input as for any launch.
@@ -243,12 +233,45 @@ In a main session, routing SHALL keep the cut-point window in memory. At every m
 - **THEN** the ledger is read only at session start
 
 ### Requirement: Cut points of a launch
-Routing SHALL compute each launch's cut points once, from the window and the mode read for that launch, when its worker request is built. Sibling launches classified together at the end of one assistant message MUST use the window as it was at that moment. A launch classified at its own tool call MUST use the window as it is then. The decision and the ledger line MUST use those cut points even if the window changes before the launch runs.
+Routing SHALL compute each launch's cut points once, from the window as it is when that launch's policy call starts and the mode read for that launch. The decision and the ledger line MUST use those cut points even if the window changes before the launch completes.
 
 #### Scenario: Siblings share a window state
-- **WHEN** an assistant message ends with two `subagent` calls
-- **THEN** both launches use cut points computed from the window as it was when the message ended
+- **WHEN** an assistant message ends with two `subagent` calls and neither launch has written a line when the other's policy call starts
+- **THEN** both use cut points from the same window state
 
 #### Scenario: Launch classified alone
 - **WHEN** a codemode script calls `subagent` after an earlier launch of the session added a line to the window
 - **THEN** that launch's cut points include the added line
+
+### Requirement: Routing is the executor's launch policy
+In a main session, the extension SHALL register its launch policy with the executor service captured at `session_start` (see `executor-launch-policy`), with a watchdog `timeoutMs` of 10000 ms. Each policy call SHALL read `classifier.timeoutMs` fresh and bound its Jev requests by that value, so a tuned or edited timeout applies to the next launch; the watchdog only guards against a policy that hangs. It SHALL unregister it at `session_shutdown` and before registering again. A child session MUST NOT register a policy.
+
+#### Scenario: Registered at session start
+- **WHEN** a main session starts with the executor present
+- **THEN** the executor has exactly one launch policy registered, and it is this extension's
+
+#### Scenario: Re-registered after reload
+- **WHEN** the main session starts again after a reload
+- **THEN** the earlier policy was unregistered and the new one is registered
+
+### Requirement: Launches routing acts on
+The policy SHALL return nothing, and ask Jev nothing, for a launch whose `parentSessionId` is a recorded child session (see `child-registry`). For a launch with `origin.kind` `service` and a set `requested.model`, routing SHALL treat `model` as locked in the worker request, the route and the ledger line, exactly as for an agent that locks only `model` (see `worker-decision` "Locks in the route"). Every other launch SHALL be routed.
+
+#### Scenario: Launch from a worker
+- **WHEN** a worker's own `subagent` call launches a nested worker
+- **THEN** the policy returns nothing and no worker request is sent
+
+#### Scenario: Service launch with an explicit model
+- **WHEN** an extension calls `spawn("Plan", brief, { model: "fixture/fixture-deep" })`, and Jev answers `tier` `fast` and `effort` `high`
+- **THEN** the child runs on `fixture/fixture-deep` with reasoning effort `high`, and the ledger line has `locked` true
+
+#### Scenario: Service launch without a model
+- **WHEN** an extension calls `spawn("Plan", brief)` and Jev's answers cut to `fast` with effort `medium`
+- **THEN** the child runs on `tiers.fast` with reasoning effort `medium`
+
+### Requirement: Launch policy slot taken
+When registering the launch policy throws, because another extension holds the slot, routing and tool assessment MUST stay off for that session, and `/jev` SHALL report `launch policy held by another extension`.
+
+#### Scenario: Slot taken
+- **WHEN** another extension registered a launch policy first
+- **THEN** no worker request is sent for any launch, and `/jev` reports `launch policy held by another extension`

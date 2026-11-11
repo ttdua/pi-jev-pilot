@@ -43,10 +43,10 @@ The fixture SHALL answer each request from a test-supplied script whose entries 
 - **THEN** the fixture returns an error response and the test can read that request in the unmatched list
 
 ### Requirement: Extensions under test are installed by a real install
-The harness SHALL install the pinned `@gotgenes/pi-subagents` package and each probe extension a test names into the isolated agent directory with `pi install`, and SHALL write the agent definition files a test supplies into that directory before the session starts. The install MUST succeed with `PI_OFFLINE=1` and no network beyond loopback, from the locally installed package or from a tarball packed from it.
+The harness SHALL install this repository's checkout, which brings the vendored executor (see `executor-vendoring`), and each probe extension a test names into the isolated agent directory with `pi install`, and SHALL write the agent definition files a test supplies into that directory before the session starts. The install MUST succeed with `PI_OFFLINE=1` and no network beyond loopback, from the checkout or from a tarball packed from it. A test that needs the executor without jev-pilot SHALL install a fixture package whose manifest lists only `packages/pi-subagents/src/index.ts`.
 
 #### Scenario: Executor installs offline
-- **WHEN** the harness installs the executor with `PI_OFFLINE=1`
+- **WHEN** the harness installs the checkout with `PI_OFFLINE=1`
 - **THEN** the install exits with code 0
 
 #### Scenario: Executor and probe are loaded
@@ -60,12 +60,12 @@ The harness SHALL give each session a report file path through an environment va
 - **WHEN** a probe appends records during a session
 - **THEN** the test reads them, in write order, after the run settles
 
-### Requirement: Pinned executor
-`@gotgenes/pi-subagents` SHALL be a devDependency pinned to exactly `25.0.5`, and the package MUST still have no runtime `dependencies`.
+### Requirement: Executor comes from the vendored package
+The executor SHALL come only from `packages/pi-subagents/`. The root `package.json` MUST NOT list `@gotgenes/pi-subagents` in any dependency field, and the package MUST still have no runtime `dependencies`.
 
-#### Scenario: Executor version is exact
+#### Scenario: No published executor dependency
 - **WHEN** `package.json` is read
-- **THEN** `devDependencies["@gotgenes/pi-subagents"]` is `"25.0.5"` and `dependencies` is absent or empty
+- **THEN** no dependency field names `@gotgenes/pi-subagents`, and `dependencies` is absent or empty
 
 #### Scenario: Lockfile matches
 - **WHEN** `bun install --frozen-lockfile` runs on the committed tree

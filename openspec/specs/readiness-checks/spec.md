@@ -21,15 +21,36 @@ The key check SHALL report the key as set exactly when the environment variable 
 - **THEN** the key is not set
 
 ### Requirement: Executor presence
-The executor check SHALL report the executor as present exactly when Pi's tool list contains a tool named `subagent`. It MUST be evaluated at the moment of the check, not when the extension loads, so extension load order does not change the result.
+The executor check SHALL run in a main session after its extensions are bound, at the moment of the check, so extension load order does not change the result. It SHALL report one of three states:
+- `duplicate`: the tool named `subagent` that Pi reports in `pi.getAllTools()` has a `sourceInfo` path outside this package's `packages/pi-subagents/`, or the service on `globalThis` exists and its `implementation` is not `@ttdua/pi-subagents`. The check SHALL keep the other extension's `sourceInfo` path, when Pi reports one, for the report.
+- `present`: not `duplicate`, and the service captured at the main session's `session_start` has `implementation` `@ttdua/pi-subagents` and offers `registerLaunchPolicy`.
+- `absent`: neither of the above holds.
+
+Worker routing and tool assessment SHALL treat `duplicate` as `absent`. Pi refuses to start a session in which two extensions register a tool with the same name, so this package and `@gotgenes/pi-subagents` never run together; `duplicate` therefore covers a session where another `subagent` provider runs instead of, or beside a renamed copy of, the vendored executor (for example jev-pilot's extension installed without its executor next to the original package). The check MUST NOT claim more.
 
 #### Scenario: Executor installed
-- **WHEN** `@gotgenes/pi-subagents` is installed and a main session has started
-- **THEN** the executor is present
+- **WHEN** this package is installed and a main session has started
+- **THEN** the executor is `present`
 
 #### Scenario: Executor absent
 - **WHEN** no installed extension registers a `subagent` tool
-- **THEN** the executor is absent
+- **THEN** the executor is `absent`
+
+#### Scenario: Original loaded first
+- **WHEN** jev-pilot's extension runs without the vendored executor and `@gotgenes/pi-subagents` loads before it
+- **THEN** the `subagent` tool's `sourceInfo` is the original's, the executor is `duplicate`, and the check names that path
+
+#### Scenario: Original loaded last
+- **WHEN** jev-pilot's extension runs without the vendored executor, `@gotgenes/pi-subagents` loads after it and publishes its own service
+- **THEN** the service's `implementation` is not `@ttdua/pi-subagents`, and the executor is `duplicate`
+
+#### Scenario: Both executors installed
+- **WHEN** this package and `@gotgenes/pi-subagents` are both installed
+- **THEN** Pi refuses to start the session and names the conflicting `subagent` tool, before any `/jev` check runs
+
+#### Scenario: Present after children
+- **WHEN** a main session started, and two workers were created and disposed
+- **THEN** the executor is still `present`
 
 ### Requirement: Snapshot from the files
 Each status refresh and each `/jev` run SHALL read `config.json`, `state.json` and `tuning.json` again and resolve the effective settings with the tuning layer, without keeping settings between refreshes. The snapshot MUST keep the kind of the tuning read (`ok`, `missing`, `malformed` or `unreadable`) and its problems, and the untuned `timeoutMs` (the config value, or the default). When the config is invalid, the switches and mode MUST still be resolved from the state over the code defaults, the config problems MUST be kept for the report, and the key check MUST use the default variable `TYPESAFE_API_KEY`. A malformed or unreadable `tuning.json` MUST contribute no tuned value, and while the config is invalid the tuning layer MUST be ignored.

@@ -88,7 +88,9 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | worker | `reason` | `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
 | worker | `callerModel` | caller model | |
 | worker | `locked` | flag | |
-| worker | `toolsScored`, `toolsFlagged`, `tokens`, `toolUses` | count | |
+| worker | `toolsScored`, `toolsFlagged`, `toolsGranted`, `tokens`, `toolUses` | count | |
+| worker | `effectiveModel` | model | |
+| worker | `effectiveThinking` | level | |
 | worker | `status` | `completed`, `aborted`, `stopped` or `error` | yes |
 | correction | `turnId` | id | yes |
 | correction | `corrects` | probability | yes |
@@ -134,6 +136,15 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 #### Scenario: Unknown agent value is still an identifier
 - **WHEN** a worker entry has `agent` `unknown`
 - **THEN** validation passes, since the writer and not the schema is responsible for naming the agent
+
+
+#### Scenario: Worker line with effective launch fields accepted
+- **WHEN** a worker entry with the required fields has `effectiveModel` `fixture/fixture-fast`, `effectiveThinking` `medium`, `toolsScored` 6, `toolsFlagged` 1 and `toolsGranted` 2
+- **THEN** validation passes with no issues
+
+#### Scenario: Bad effective thinking rejected
+- **WHEN** a worker entry's `effectiveThinking` is `huge`
+- **THEN** validation fails with an issue at `effectiveThinking`
 
 ### Requirement: Worker decisions record their tier
 A worker line whose `reason` is `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model. The names `expert-admitted`, `expert-denied`, `fast-unsure` and `choice` are accepted so that older lines stay valid; the package MUST NOT write them.
