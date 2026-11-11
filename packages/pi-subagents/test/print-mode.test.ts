@@ -64,6 +64,8 @@ function makeHeadlessCtx() {
     ui: {
       setStatus: vi.fn(),
       setWidget: vi.fn(),
+      onTerminalInput: vi.fn(() => () => {}),
+      getEditorText: () => "",
     },
     cwd: "/tmp",
     model: undefined,

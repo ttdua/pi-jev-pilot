@@ -54,6 +54,7 @@ import { AgentTool } from "#src/tools/agent-tool";
 import { GetResultTool } from "#src/tools/get-result-tool";
 import { SteerTool } from "#src/tools/steer-tool";
 import { AgentWidget } from "#src/ui/agent-widget";
+import { FleetList, type FleetUI } from "#src/ui/fleet-list";
 import {
   createNotificationRenderer,
   createUpdateRenderer,
@@ -225,6 +226,20 @@ export default function (pi: ExtensionAPI) {
   const widget = new AgentWidget(manager, registry);
   observer.add(widget);
 
+  // Below-editor fleet list: a second lifecycle observer next to the widget.
+  // It reads the setting live and the cwd of the latest session, so a toggle or
+  // a session switch needs no reconstruction.
+  let sessionCwd = process.cwd();
+  const fleet = new FleetList({
+    manager,
+    registry,
+    enabled: () => settings.fleetView,
+    cwd: () => sessionCwd,
+    readFile: (path) => readFileSync(path, "utf8"),
+  });
+  observer.add(fleet);
+  pi.events.on("subagents:settings_changed", () => fleet.update());
+
   // Give the widget its UI context and its turn ticks. Pi fans an event out to
   // every handler an extension registers for it, so these take their own
   // registrations rather than sharing a lambda with an unrelated concern.
@@ -235,6 +250,12 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on("session_start", (event, ctx) => lifecycle.handleSessionStart(event, ctx));
   pi.on("session_start", (event, ctx) => widgetEvents.handleSessionStart(event, ctx));
+  pi.on("session_start", (_event, ctx) => {
+    sessionCwd = ctx.cwd;
+    // The list declares the narrow slice of Pi's TUI and theme it reads, so Pi's
+    // wider widget callback parameters do not unify with it structurally.
+    fleet.setUICtx(ctx.ui as unknown as FleetUI);
+  });
   pi.on("session_before_switch", () => lifecycle.handleSessionBeforeSwitch());
   pi.on("session_shutdown", () => lifecycle.handleSessionShutdown());
   // Registered after the lifecycle handler on purpose. Pi awaits an extension's
@@ -242,6 +263,8 @@ export default function (pi: ExtensionAPI) {
   // `abortAll()` and the awaited `manager.dispose()` have finished — no terminal
   // transition is left to drive an `update()` at a half-disposed widget.
   pi.on("session_shutdown", () => widgetEvents.handleSessionShutdown());
+  // Same ordering reason for the fleet list.
+  pi.on("session_shutdown", () => fleet.dispose());
 
   // Capture the prompt parts Pi assembled for the parent's turn. This is the
   // only event carrying them — `getSystemPromptOptions()` is attached to a
