@@ -10,7 +10,11 @@ import { tempDir } from "../helpers.ts";
 
 export type Handler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown;
 
-export const TIERS = { fast: "fx/fast", balanced: "fx/balanced", deep: "fx/deep" };
+export const TIERS = {
+  fast: "fx/fast",
+  balanced: "fx/balanced",
+  deep: "fx/deep",
+};
 
 export const TIERS_X = { ...TIERS, expert: "fx/expert" };
 
@@ -49,7 +53,7 @@ export function snap(o: Opts = {}): Snapshot {
     keySet: o.keySet ?? true,
     tuning: { kind: "missing", issues: [], record: {} },
     untunedTimeoutMs: settings.classifier.timeoutMs,
-    executor: o.executor ?? true,
+    executor: { kind: o.executor === false ? "absent" : "present" },
   };
 }
 
@@ -75,7 +79,14 @@ export function effort(level: string) {
     type: "choice",
     choice: level,
     confidence: 0.9,
-    probabilities: { low: 0, medium: 0, high: 0, xhigh: 0, max: 0, [level]: 0.9 },
+    probabilities: {
+      low: 0,
+      medium: 0,
+      high: 0,
+      xhigh: 0,
+      max: 0,
+      [level]: 0.9,
+    },
   };
 }
 export function body(tier: string, eff = "medium") {
@@ -139,7 +150,10 @@ export function harness(
       getSessionId: () => "main-1",
       getBranch: () => [
         { type: "message", message: { role: "user", content: "old" } },
-        { type: "message", message: { role: "user", content: [{ type: "text", text: "do X" }] } },
+        {
+          type: "message",
+          message: { role: "user", content: [{ type: "text", text: "do X" }] },
+        },
         { type: "message", message: { role: "assistant", content: "ok" } },
       ],
     },
@@ -149,13 +163,22 @@ export function harness(
         const r = reg[`${p}/${id}`];
         return r === undefined
           ? undefined
-          : { id, provider: p, name: r.name ?? id, reasoning: true, auth: r.auth !== false };
+          : {
+              id,
+              provider: p,
+              name: r.name ?? id,
+              reasoning: true,
+              auth: r.auth !== false,
+            };
       },
       hasConfiguredAuth: (m: { auth: boolean }) => m.auth,
       getAvailable: () =>
         Object.entries(reg)
           .filter(([, r]) => r.auth !== false)
-          .map(([key]) => ({ provider: key.split("/")[0], id: key.slice(key.indexOf("/") + 1) })),
+          .map(([key]) => ({
+            provider: key.split("/")[0],
+            id: key.slice(key.indexOf("/") + 1),
+          })),
     },
   };
   const asks: JevRequest[] = [];

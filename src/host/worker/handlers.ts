@@ -32,7 +32,7 @@ function gate(host: WorkerHost, ctx: ExtensionContext): Snapshot | undefined {
   // Called detached, as before the split: `snapshot` never receives a `this`.
   const { snapshot } = host;
   const snap = snapshot();
-  if (!snap.config.valid || !snap.keySet || !snap.executor) return undefined;
+  if (!snap.config.valid || !snap.keySet || snap.executor.kind !== "present") return undefined;
   return snap.settings.switches.subagents ? snap : undefined;
 }
 

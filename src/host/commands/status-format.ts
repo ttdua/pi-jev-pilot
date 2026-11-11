@@ -35,23 +35,28 @@ function modeLine(s: Snapshot): string {
     : `mode: ${mode}`;
 }
 
+function executorLine(e: Snapshot["executor"]): string {
+  if (e.kind === "present") return "executor: present";
+  if (e.kind === "absent") {
+    return "executor: no executor; worker routing and tool assessment are off";
+  }
+  const other = e.path === undefined ? "" : ` (${e.path})`;
+  return `executor: duplicate executor${other}; uninstall @gotgenes/pi-subagents; worker routing and tool assessment are off`;
+}
+
 export function formatStatus(s: Snapshot, t?: Tally, window?: readonly WindowEntry[]): string {
   const lines = [statusText(s), modeLine(s), "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
   lines.push(reviewLine(s.settings.review));
   lines.push(`key: ${s.keyVar} ${s.keySet ? "set" : "not set"}`);
-  lines.push(
-    s.executor
-      ? "executor: present"
-      : "executor: no executor; worker routing and tool assessment are off",
-  );
+  lines.push(executorLine(s.executor));
   const problems: string[] = [];
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
   problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
   problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));
   if (problems.length > 0) lines.push("problems:", ...problems);
-  if (s.executor && window) lines.push(...mixLines(s.settings.mode, window));
+  if (s.executor.kind === "present" && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");
 }

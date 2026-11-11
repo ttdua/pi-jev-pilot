@@ -91,6 +91,8 @@ type PrepareOpts = {
   executor?: boolean;
   /** Which package to install: the whole checkout (executor and jev-pilot) or only the vendored executor. */
   install?: InstallMode;
+  /** Package sources installed in this order instead of `install`; sets the extension load order. */
+  installs?: string[];
   /** Adds provider `fixture2` (no credentials) to models.json. */
   keyless?: boolean;
   agents?: Record<string, string>;
@@ -144,6 +146,14 @@ function legacyMode(opts: PrepareOpts): InstallMode | undefined {
 
 /** Installs the checkout (the default) or the executor-only fixture, unless the agent directory already lists it. */
 function installMode(opts: PrepareOpts, dirs: Dirs): void {
+  if (opts.installs !== undefined) {
+    for (const source of opts.installs) {
+      if (isInstalled(dirs, (p) => p === source)) continue;
+      const r = install(source, dirs);
+      if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
+    }
+    return;
+  }
   const mode = opts.install ?? legacyMode(opts) ?? "checkout";
   if (mode === "none") return;
   const source = INSTALL_SOURCES[mode];

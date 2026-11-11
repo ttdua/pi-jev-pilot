@@ -13,7 +13,11 @@ const FILE = "/tmp/child-1.jsonl";
 function snap(): Snapshot {
   const settings = resolveSettings({
     config: {
-      classifier: { url: "https://jev.test/ask", model: "m-1", timeoutMs: 1234 },
+      classifier: {
+        url: "https://jev.test/ask",
+        model: "m-1",
+        timeoutMs: 1234,
+      },
       tools: { mode: "enforce" },
     } as never,
     state: { switches: { tools: true } } as never,
@@ -27,7 +31,7 @@ function snap(): Snapshot {
     keySet: true,
     tuning: { kind: "missing", issues: [], record: {} },
     untunedTimeoutMs: settings.classifier.timeoutMs,
-    executor: true,
+    executor: { kind: "present" },
   } as Snapshot;
 }
 
@@ -58,7 +62,12 @@ function run(opts: { agentDir?: string; allTools?: () => unknown[] } = {}) {
       agentDir: opts.agentDir ?? tempDir("jev-req-agentdir-"),
       service: () => ({
         listAgents: () => [
-          { id: "ag-1", type: "general-purpose", description: "probe", outputFile: FILE },
+          {
+            id: "ag-1",
+            type: "general-purpose",
+            description: "probe",
+            outputFile: FILE,
+          },
         ],
       }),
     },

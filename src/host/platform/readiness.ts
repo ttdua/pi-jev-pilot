@@ -1,10 +1,11 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { readConfig, type ConfigRead } from "../../store/config.ts";
 import { resolveSettings, untunedTimeout, type Settings } from "../../store/settings.ts";
 import { readState, type StateRead } from "../../store/state-file.ts";
 import { readTuning, type TuningDocument, type TuningRead } from "../../store/tuning-file.ts";
 import type { Issue } from "../../store/validate.ts";
 import { readLocalMode, type LocalModeRead } from "../../store/local-mode.ts";
+import { capturedService, publishedService } from "../tools/index.ts";
 import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 
@@ -16,7 +17,7 @@ export type Snapshot = {
   settings: Settings;
   keyVar: string;
   keySet: boolean;
-  executor: boolean;
+  executor: ExecutorState;
   tuning: { kind: TuningRead["kind"]; issues: Issue[]; record: TuningDocument };
   /** The classifier timeout before tuning: config value, else the default. */
   untunedTimeoutMs: number;
@@ -26,6 +27,43 @@ export type Snapshot = {
 export function isKeySet(env: Record<string, string | undefined>, varName: string): boolean {
   const value = env[varName];
   return typeof value === "string" && value.length > 0;
+}
+
+/** Whether exactly one usable executor is installed: none, the vendored one, or a second one beside it. */
+export type ExecutorState =
+  | { kind: "present" }
+  | { kind: "absent" }
+  | { kind: "duplicate"; path?: string };
+
+const VENDORED_DIR = "/packages/pi-subagents/";
+
+function insideVendored(path: string): boolean {
+  return path.split("\\").join("/").includes(VENDORED_DIR);
+}
+
+function isOtherService(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  return (value as { implementation?: unknown }).implementation !== "@ttdua/pi-subagents";
+}
+
+/** Pure. `captured` is the slot this package copied at load; only `published` decides a duplicate. */
+export function executorState(
+  tools: readonly ToolInfo[],
+  published: unknown,
+  captured: unknown,
+): ExecutorState {
+  void captured;
+  const tool = tools.find((t) => t.name === "subagent");
+  if (tool === undefined) return { kind: "absent" };
+  const path = tool.sourceInfo?.path;
+  if (path !== undefined && !insideVendored(path)) return { kind: "duplicate", path };
+  if (isOtherService(published)) return { kind: "duplicate", ...(path ? { path } : {}) };
+  return { kind: "present" };
+}
+
+function toolNamesState(toolNames: readonly string[], given?: ExecutorState): ExecutorState {
+  if (given !== undefined) return given;
+  return { kind: hasExecutor(toolNames) ? "present" : "absent" };
 }
 
 export function hasExecutor(toolNames: readonly string[]): boolean {
@@ -38,18 +76,25 @@ export function buildSnapshot(input: {
   stateRead: StateRead;
   env: Record<string, string | undefined>;
   toolNames: string[];
+  /** The executor state; derived from the tool names when missing. */
+  executor?: ExecutorState;
   tuningRead?: TuningRead;
   /** The directory mode file read; a missing read applies nothing. */
   localModeRead?: LocalModeRead;
 }): Snapshot {
   const { configRead, stateRead, env, toolNames } = input;
-  const tuningRead: TuningRead = input.tuningRead ?? { kind: "missing", record: {} };
+  const tuningRead: TuningRead = input.tuningRead ?? {
+    kind: "missing",
+    record: {},
+  };
   const state = stateRead.kind === "ok" ? stateRead.state : {};
   // An invalid config contributes nothing, so the key variable falls back to the default.
   const config = configRead.kind === "ok" ? configRead.config : {};
   // Tuning applies only on top of a valid config (design D3).
   const tuning = configRead.kind === "ok" ? tuningRead.record : undefined;
-  const localModeRead: LocalModeRead = input.localModeRead ?? { kind: "missing" };
+  const localModeRead: LocalModeRead = input.localModeRead ?? {
+    kind: "missing",
+  };
   const settings = resolveSettings({
     config,
     state,
@@ -71,7 +116,7 @@ export function buildSnapshot(input: {
     settings,
     keyVar,
     keySet: isKeySet(env, keyVar),
-    executor: hasExecutor(toolNames),
+    executor: toolNamesState(toolNames, input.executor),
     tuning: {
       kind: tuningRead.kind,
       issues: "issues" in tuningRead ? tuningRead.issues : [],
@@ -84,12 +129,14 @@ export function buildSnapshot(input: {
 /** Reads the three files, the directory mode file, the environment and the tool list now; keeps nothing between calls. */
 export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">, cwd?: string): Snapshot {
   const dir = jevDir();
+  const tools = pi.getAllTools();
   return buildSnapshot({
+    executor: executorState(tools, publishedService(), capturedService()),
     configRead: readConfig(dir),
     stateRead: readState(dir),
     tuningRead: readTuning(dir),
     env: process.env,
-    toolNames: pi.getAllTools().map((t) => t.name),
+    toolNames: tools.map((t) => t.name),
     localModeRead: readLocalMode(cwd ?? mainCwd() ?? process.cwd()),
   });
 }

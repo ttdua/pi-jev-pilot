@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   buildSnapshot,
+  executorState,
   hasExecutor,
   isKeySet,
   loadSnapshot,
@@ -14,7 +15,11 @@ import type { StateRead } from "../../../src/store/state-file.ts";
 import type { TuningRead } from "../../../src/store/tuning-file.ts";
 import { tempDir } from "../../helpers.ts";
 
-const okConfig = (config: Config = {}): ConfigRead => ({ kind: "ok", present: true, config });
+const okConfig = (config: Config = {}): ConfigRead => ({
+  kind: "ok",
+  present: true,
+  config,
+});
 const okState: StateRead = { kind: "missing", state: {} };
 const KEY = { TYPESAFE_API_KEY: "test-key" };
 
@@ -72,8 +77,10 @@ describe("buildSnapshot", () => {
   });
 
   test("executor", () => {
-    expect(snap({ toolNames: ["read", "subagent"] }).executor).toBe(true);
-    expect(snap({ toolNames: ["read"] }).executor).toBe(false);
+    expect(snap({ toolNames: ["read", "subagent"] }).executor).toEqual({
+      kind: "present",
+    });
+    expect(snap({ toolNames: ["read"] }).executor).toEqual({ kind: "absent" });
   });
 
   test("invalid config keeps switches", () => {
@@ -184,7 +191,7 @@ describe("loadSnapshot", () => {
     const pi = { getAllTools: () => [{ name: "subagent" }] } as never;
     const s = loadSnapshot(pi);
     expect(s.settings.mode).toBe("budget");
-    expect(s.executor).toBe(true);
+    expect(s.executor).toEqual({ kind: "present" });
     expect(s.tuning.kind).toBe("ok");
     expect(s.settings.classifier.timeoutMs).toBe(1700);
   });
@@ -226,5 +233,51 @@ describe("loadSnapshot", () => {
     const s = loadSnapshot(pi, join(cwd, "sub"));
     expect(s.settings.mode).toBe("budget");
     expect(s.settings.modeSource).toBe("global");
+  });
+});
+
+describe("executorState", () => {
+  const VENDORED = {
+    implementation: "@ttdua/pi-subagents",
+    listAgents: () => [],
+  };
+  const tool = (path: string) => [{ name: "subagent", sourceInfo: { path } }] as never;
+  const inside = "/repo/packages/pi-subagents/src/index.ts";
+
+  test("installed executor is present", () => {
+    expect(executorState(tool(inside), VENDORED, VENDORED)).toEqual({
+      kind: "present",
+    });
+    expect(executorState(tool(inside), undefined, undefined)).toEqual({
+      kind: "present",
+    });
+  });
+
+  test("no subagent tool is absent", () => {
+    expect(
+      executorState(
+        [{ name: "read", sourceInfo: { path: inside } }] as never,
+        undefined,
+        undefined,
+      ),
+    ).toEqual({ kind: "absent" });
+  });
+
+  test("a winning tool outside the vendored executor is a duplicate with its path", () => {
+    const path = "/x/node_modules/@gotgenes/pi-subagents/src/index.ts";
+    expect(executorState(tool(path), VENDORED, VENDORED)).toEqual({
+      kind: "duplicate",
+      path,
+    });
+    expect(
+      executorState(tool("C:\\r\\packages\\pi-subagents\\src\\index.ts"), undefined, undefined),
+    ).toEqual({ kind: "present" });
+  });
+
+  test("a published service from another implementation is a duplicate", () => {
+    expect(executorState(tool(inside), { listAgents: () => [] }, VENDORED)).toEqual({
+      kind: "duplicate",
+      path: inside,
+    });
   });
 });

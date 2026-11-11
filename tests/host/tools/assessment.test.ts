@@ -39,7 +39,7 @@ function snap(o: Opts = {}): Snapshot {
     keySet: o.keySet ?? true,
     tuning: { kind: "missing", issues: [], record: {} },
     untunedTimeoutMs: settings.classifier.timeoutMs,
-    executor: true,
+    executor: { kind: "present" },
   };
 }
 
@@ -101,7 +101,9 @@ function setup(s: Setup = {}) {
             name: "bash",
             description: "Run it",
             sourceInfo: { source: "builtin" },
-            parameters: { properties: { command: { description: "Shell command" } } },
+            parameters: {
+              properties: { command: { description: "Shell command" } },
+            },
           },
         ])) as never,
     },
@@ -183,7 +185,9 @@ describe("When assessment runs", () => {
     expect(u.requests).toHaveLength(0);
   });
   test("Mode read once", async () => {
-    const t = setup({ snapshots: [snap({ mode: "observe" }), snap({ mode: "enforce" })] });
+    const t = setup({
+      snapshots: [snap({ mode: "observe" }), snap({ mode: "enforce" })],
+    });
     await t.run();
     await t.run();
     expect(t.selected).toEqual(["read", "edit", "bash"]);
@@ -221,14 +225,20 @@ describe("Worker finds its launch", () => {
     expect(t.requests).toHaveLength(0);
   });
   test("Undefined session file", async () => {
-    const t = setup({ file: undefined, records: [rec({ outputFile: undefined })] });
+    const t = setup({
+      file: undefined,
+      records: [rec({ outputFile: undefined })],
+    });
     await t.run();
     expect(t.requests).toHaveLength(0);
   });
 });
 
 describe("Captured executor service", () => {
-  const real = { implementation: "@ttdua/pi-subagents", listAgents: () => [rec()] };
+  const real = {
+    implementation: "@ttdua/pi-subagents",
+    listAgents: () => [rec()],
+  };
   function withDefaultService(records: unknown[]) {
     (globalThis as Record<symbol, unknown>)[MAIN_SERVICE_KEY] = {
       implementation: "@ttdua/pi-subagents",
@@ -257,7 +267,10 @@ describe("Captured executor service", () => {
       } as never,
       {
         cwd: tempDir("jev-tools-cwd-"),
-        sessionManager: { getSessionId: () => SESSION, getSessionFile: () => FILE },
+        sessionManager: {
+          getSessionId: () => SESSION,
+          getSessionFile: () => FILE,
+        },
       } as never,
     );
     return requests;
@@ -315,7 +328,9 @@ describe("Only agents that declare no tools", () => {
 
 describe("Candidates", () => {
   test("Protocol tools never candidates", async () => {
-    const t = setup({ selected: ["read", "bash", "ask_parent", "notify_parent"] });
+    const t = setup({
+      selected: ["read", "bash", "ask_parent", "notify_parent"],
+    });
     await t.run();
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["tool::read", "tool::bash"]);
   });
@@ -425,7 +440,9 @@ describe("Once per worker", () => {
     expect(t.selected).toEqual(["read", "edit", "bash"]);
   });
   test("Gate failure at first call is not retried", async () => {
-    const t = setup({ snapshots: [snap({ tools: false }), snap({ mode: "enforce" })] });
+    const t = setup({
+      snapshots: [snap({ tools: false }), snap({ mode: "enforce" })],
+    });
     await t.run();
     await t.run();
     expect(t.requests).toHaveLength(0);
@@ -494,12 +511,18 @@ describe("Defensive paths", () => {
     const state = t.requests[0]!.state as {
       tools: Record<string, { description: string; source: string; parameters: object }>;
     };
-    expect(state.tools["edit"]).toEqual({ description: "", source: "unknown", parameters: {} });
+    expect(state.tools["edit"]).toEqual({
+      description: "",
+      source: "unknown",
+      parameters: {},
+    });
   });
   test("Tool missing from getAllTools", async () => {
     const t = setup();
     await t.run();
-    const state = t.requests[0]!.state as { tools: Record<string, { source: string }> };
+    const state = t.requests[0]!.state as {
+      tools: Record<string, { source: string }>;
+    };
     expect(state.tools["bash"]!.source).toBe("builtin");
     expect(state.tools["read"]!.source).toBe("unknown");
   });

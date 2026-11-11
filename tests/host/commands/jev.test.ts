@@ -117,8 +117,14 @@ describe("parseJevArgs", () => {
     });
   });
   test("cli-review switch", () => {
-    expect(parseJevArgs("cli-review on")).toEqual({ kind: "cli-review-switch", on: true });
-    expect(parseJevArgs("cli-review off")).toEqual({ kind: "cli-review-switch", on: false });
+    expect(parseJevArgs("cli-review on")).toEqual({
+      kind: "cli-review-switch",
+      on: true,
+    });
+    expect(parseJevArgs("cli-review off")).toEqual({
+      kind: "cli-review-switch",
+      on: false,
+    });
   });
   for (const bad of [
     "cli-review off now",
@@ -1048,7 +1054,13 @@ describe("runJev sync", () => {
         dir,
         load: load(dir),
         decision: noDecision,
-        exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false, truncated: false }),
+        exec: async () => ({
+          stdout: "",
+          stderr: "",
+          code: 0,
+          killed: false,
+          truncated: false,
+        }),
         sync: () => void syncs++,
       });
       return c.rec;
@@ -1254,7 +1266,10 @@ describe("runJev cli-review", () => {
     expect(f.calls).toHaveLength(1);
     expect(f.calls[0]![0]).toBe("codex");
     expect(f.calls[0]![1]).toEqual(["debug", "models"]);
-    expect(f.calls[0]![2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+    expect(f.calls[0]![2]).toEqual({
+      timeout: 30000,
+      maxBuffer: 8 * 1024 * 1024,
+    });
     expect(rec.notes[0]![0]).toContain("cli review: on (codex, model luna, effort high)");
   });
 
@@ -1415,5 +1430,18 @@ describe("runJev cli-review", () => {
     expect(c.rec.notes).toHaveLength(0);
     expect(f.calls).toHaveLength(0);
     expect(existsSync(join(dir, "state.json"))).toBe(false);
+  });
+});
+
+describe("duplicate executor status", () => {
+  test("Duplicate executor reported", () => {
+    const text = formatStatus({
+      ...snap(),
+      executor: { kind: "duplicate", path: "/other/pi-subagents/index.ts" },
+    });
+    expect(text).toContain("duplicate executor");
+    expect(text).toContain("/other/pi-subagents/index.ts");
+    expect(text).toContain("uninstall @gotgenes/pi-subagents");
+    expect(text).toContain("worker routing and tool assessment are off");
   });
 });
