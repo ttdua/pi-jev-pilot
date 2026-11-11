@@ -44,11 +44,11 @@ Blocked by: 2, 3
 
 Blocked by: 1
 
-- [ ] 5.1 Add `tools.grantAt` (0.5–1, default 0.8) to config validation and settings resolution (specs `config-file`, `settings-resolution`)
-- [ ] 5.2 Add `effectiveModel`, `effectiveThinking` and `toolsGranted` to the worker line schema and exported field sets (spec `decision-ledger`)
+- [x] 5.1 Add `tools.grantAt` (0.5–1, default 0.8) to config validation and settings resolution (specs `config-file`, `settings-resolution`)
+- [x] 5.2 Add `effectiveModel`, `effectiveThinking` and `toolsGranted` to the worker line schema and exported field sets (spec `decision-ledger`)
 - [ ] 5.3 Replace `src/host/platform/agents.ts` with a pure mapper from the executor's agent snapshot to `AgentFacts` (including `disallowedTools`), never copying `model`/`thinking` values (spec `agent-metadata`); delete the built-in table and file reader
-- [ ] 5.4 Feed `capabilities.subagents` from `listAgentTypes()`, empty without the executor or on error (spec `main-state`)
-- [ ] 5.5 Unit tests for each changed requirement
+- [x] 5.4 Feed `capabilities.subagents` from `listAgentTypes()`, empty without the executor or on error (spec `main-state`)
+- [x] 5.5 Unit tests for each changed requirement
 
 ## 6. jev-pilot: readiness and duplicate detection
 
