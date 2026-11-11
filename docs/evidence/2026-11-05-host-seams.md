@@ -2,7 +2,7 @@
 
 Answers to the eight [WG-02](../roadmap.md#wg-02-host-seam-verification) questions, from real runs of the Pi CLI in RPC mode against a loopback recording provider (Q1 to Q7) and one manual run against a real provider (Q8). Counts and ids only: no prompts, request bodies, markers or account details.
 
-**Read with care:** Q3 to Q6 are repeatable and pinned by tests that fail if the host changes. Q1, Q2 and Q7 are superseded: the package no longer uses their seams, and their recorded answers are kept for history. Q8 is one controlled operator run, not a general rule. Links to `executor-launch-policy` point at its living spec under `openspec/specs/`; until the `executor-seams-upstream` change is archived, that file does not exist yet and the requirement is in the change's delta spec (`openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md`).
+**Read with care:** Q3 to Q6 are repeatable and pinned by tests that fail if the host changes. Q1, Q2 and Q7 are superseded: the package no longer uses their seams, and their recorded answers are kept for history. Q8 is one controlled operator run, not a general rule. Links to `executor-launch-policy` point at its living spec under `openspec/specs/`.
 
 Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-code` 47f9e2b and model `claude-code/claude-haiku-5-5`.
 

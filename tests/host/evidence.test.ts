@@ -10,10 +10,8 @@ const MARKER_PREFIX = "JEV-MARKER-";
 const SUPERSEDED = ["Q1", "Q2", "Q7"] as const;
 const PINNED = ["Q3", "Q4", "Q5", "Q6"] as const;
 const REPLACING_TEST = "tests/host/launch-policy-evidence.test.ts";
-// The report links the living spec. Before the change is archived the living spec does not exist
-// yet, and the change's delta spec stands in for it.
+// The report links the living spec of the requirement that replaces Q1, Q2 and Q7.
 const LIVING_SPEC = "openspec/specs/executor-launch-policy/spec.md";
-const CHANGE_SPEC = "openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md";
 const REPORT_DIR = "docs/evidence";
 
 /** Repo-relative targets of the report's markdown links to `executor-launch-policy`. */
@@ -78,8 +76,8 @@ describe("host seam evidence", () => {
     // Every superseded row and section links it: three rows, three sections.
     expect(links.length).toBeGreaterThanOrEqual(6);
     for (const link of links) expect(link, "links the living spec").toBe(LIVING_SPEC);
-    const target = [LIVING_SPEC, CHANGE_SPEC].find((p) => existsSync(join(REPO_ROOT, p)));
-    expect(target, "living spec, or before archive the change's delta spec, exists").toBeDefined();
+    expect(existsSync(join(REPO_ROOT, LIVING_SPEC)), "living spec exists").toBe(true);
+    expect(read(LIVING_SPEC)).toContain("### Requirement: One launch policy slot");
   });
 
   test("Q3 to Q6 stay pinned by their host tests", () => {
