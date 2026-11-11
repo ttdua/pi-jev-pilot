@@ -1,7 +1,7 @@
 // Host evidence for the executor launch policy (spec `host-seam-evidence`, "Launch policy host
 // evidence"), jev-pilot's use of it through an installed checkout, and one end-to-end session.
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { tempDir } from "../helpers";
@@ -171,21 +171,42 @@ function answersFor(body: string, opts: { flag?: string; grant?: string }): Fixt
   return { json: { answers } };
 }
 
+/** One shared timeline of fixture events, in the order the fixtures saw them. */
+type Timeline = string[];
+
 type Gate = { release(): void; route: FixtureRoute };
 
-/** Holds every tool assessment request until `release`; other requests are answered at once. */
-function heldToolRoute(opts: { flag?: string }): Gate {
+/**
+ * Holds every tool assessment request until `release`; other requests are answered at once.
+ * `jev:tool-answered` is logged when the held answer is handed to the server, before it is sent.
+ */
+function heldToolRoute(opts: { flag?: string }, log: Timeline): Gate {
   let release = (): void => undefined;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
   const route: FixtureRoute = {
-    each: (body) =>
-      isToolRequest(body)
-        ? { held: gate.then(() => answersFor(body, opts)) }
-        : answersFor(body, opts),
+    each: (body) => {
+      if (!isToolRequest(body)) return answersFor(body, opts);
+      log.push("jev:tool-request");
+      return {
+        held: gate.then(() => {
+          log.push("jev:tool-answered");
+          return answersFor(body, opts);
+        }),
+      };
+    },
   };
   return { release: () => release(), route };
+}
+
+/** Logs `provider:child` when the provider fixture sees the child's first request. */
+function loggedChild(log: Timeline): ScriptEntry {
+  return {
+    name: "child-logged",
+    match: (r) => isChild(r) && (log.push("provider:child"), false),
+    reply: { text: "never" },
+  };
 }
 
 async function newJev(route: FixtureRoute): Promise<JevFixture> {
@@ -270,6 +291,33 @@ const ledger = (s: HostSession): Record<string, unknown>[] => {
   const r = readLedger(join(s.agentDir, "jev"));
   return r.kind === "ok" ? (r.entries as unknown as Record<string, unknown>[]) : [];
 };
+
+/**
+ * Every raw line of both ledger segments, parsed and validated: unlike `readLedger`, which drops
+ * a bad line and counts it, any torn, unparsable or invalid line fails the test.
+ */
+function strictLedger(s: HostSession): Record<string, unknown>[] {
+  const dir = join(s.agentDir, "jev");
+  const read = readLedger(dir);
+  expect(read.kind).toBe("ok");
+  expect(read.kind === "ok" ? read.skipped : -1, "ledger lines skipped").toBe(0);
+  const out: Record<string, unknown>[] = [];
+  for (const file of LEDGER_FILES) {
+    const path = join(dir, file);
+    if (!existsSync(path)) continue;
+    const text = readFileSync(path, "utf8");
+    if (text === "") continue;
+    expect(text.endsWith("\n"), `${file} ends with a newline`).toBe(true);
+    for (const raw of text.slice(0, -1).split("\n")) {
+      const value = JSON.parse(raw) as Record<string, unknown>;
+      const checked = validateLedgerEntry(value);
+      expect(checked.ok ? [] : checked.issues, `${file} line valid`).toEqual([]);
+      out.push(value);
+    }
+  }
+  return out;
+}
+const LEDGER_FILES = ["ledger.1.jsonl", "ledger.jsonl"];
 const workerLines = (s: HostSession): Record<string, unknown>[] =>
   ledger(s).filter((e) => e["kind"] === "worker");
 
@@ -547,6 +595,29 @@ describe("jev-pilot launch policy through the installed checkout", () => {
   );
 
   test(
+    "Foreground completion: one completed line with toolUses 3",
+    async () => {
+      const jev = await newJev(answering({ grant: PROBE_TOOL }));
+      const probe = { name: PROBE_TOOL, arguments: {} };
+      const { fixture, session: s } = await jevSession({
+        config: jevConfig(jev, true),
+        script: [
+          ...childScript([probe, probe, probe]),
+          ...mainScript("START-MAIN", [launch(OPEN)]),
+        ],
+      });
+      await s.prompt("START-MAIN");
+      await s.waitFor(() => workerLines(s).length >= 1, "worker line");
+      expect(records(s, "tool:executed")).toHaveLength(3);
+      const lines = strictLedger(s).filter((e) => e["kind"] === "worker");
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toMatchObject({ status: "completed", toolUses: 3 });
+      expect(fixture.unmatched).toEqual([]);
+    },
+    TIMEOUT,
+  );
+
+  test(
     "Enforce removes",
     async () => {
       const jev = await newJev(answering({ flag: "edit" }));
@@ -593,24 +664,46 @@ describe("jev-pilot launch policy through the installed checkout", () => {
     ["observe", false],
     ["enforce", true],
   ] as const)(
-    "Slow answer in %s: the child waits for the tool answer",
+    "Slow answer in %s: the child's first request follows the tool answer",
     async (_mode, enforce) => {
-      const gate = heldToolRoute({ flag: "edit" });
+      const log: Timeline = [];
+      const gate = heldToolRoute({ flag: "edit" }, log);
       const jev = await newJev(gate.route);
       const { fixture, session: s } = await jevSession({
         config: jevConfig(jev, enforce),
-        script: [...childScript([]), ...mainScript("START-MAIN", [launch(OPEN)])],
+        script: [loggedChild(log), ...childScript([]), ...mainScript("START-MAIN", [launch(OPEN)])],
       });
       const prompted = s.prompt("START-MAIN");
-      await s.waitFor(() => toolRequests(jev).length === 1, "tool request");
-      // The answer is held; give the launch time it would need to start without waiting.
-      await Bun.sleep(300);
-      expect(childOf(fixture)).toBeUndefined();
+      await s.waitFor(() => log.includes("jev:tool-request"), "tool request");
       gate.release();
       await prompted;
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
+      await s.waitFor(() => log.includes("provider:child"), "child request");
+      expect(log).toEqual(["jev:tool-request", "jev:tool-answered", "provider:child"]);
       if (enforce) expect(childOf(fixture)?.toolNames).not.toContain("edit");
       else expect(childOf(fixture)?.toolNames).toContain("edit");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Ordering control: with tool assessment off, the child starts while a held answer waits",
+    async () => {
+      // Positive control for the timeline: the same held route, but nothing awaits it, so the
+      // child request is logged before the release. Shows the timeline can record either order.
+      const log: Timeline = [];
+      const gate = heldToolRoute({ flag: "edit" }, log);
+      const jev = await newJev(gate.route);
+      const { session: s } = await jevSession({
+        config: jevConfig(jev, false),
+        state: { version: 1, switches: { tools: false } },
+        script: [loggedChild(log), ...childScript([]), ...mainScript("START-MAIN", [launch(OPEN)])],
+      });
+      await s.prompt("START-MAIN");
+      await s.waitFor(() => log.includes("provider:child"), "child request");
+      gate.release();
+      log.push("test:released");
+      expect(log).toEqual(["provider:child", "test:released"]);
+      expect(toolRequests(jev)).toHaveLength(0);
     },
     TIMEOUT,
   );
@@ -709,9 +802,10 @@ describe("e2e", () => {
       for (const c of children) expect(c.toolNames).toContain(PROBE_TOOL);
       expect(records(s, "tool:executed")).toHaveLength(2);
 
-      const lines = workerLines(s);
+      const all = strictLedger(s);
+      const lines = all.filter((e) => e["kind"] === "worker");
+      expect(lines).toHaveLength(2);
       for (const line of lines) {
-        expect(validateLedgerEntry(line).ok).toBe(true);
         expect(line).toMatchObject({
           tier: "fast",
           status: "completed",
@@ -719,7 +813,6 @@ describe("e2e", () => {
           effectiveModel: "fixture/fixture-fast",
         });
       }
-      for (const line of ledger(s)) expect(validateLedgerEntry(line).ok).toBe(true);
       // Positive control: the marker reached Jev, so its absence from the files is meaningful.
       expect(jev.requests.some((r) => r.body.includes(MARKER))).toBe(true);
       const dir = join(s.agentDir, "jev");

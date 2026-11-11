@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { REPO_ROOT, tempDir } from "../helpers";
 import { assertProbeReportClean } from "./harness";
 
@@ -10,8 +10,18 @@ const MARKER_PREFIX = "JEV-MARKER-";
 const SUPERSEDED = ["Q1", "Q2", "Q7"] as const;
 const PINNED = ["Q3", "Q4", "Q5", "Q6"] as const;
 const REPLACING_TEST = "tests/host/launch-policy-evidence.test.ts";
-// The requirement lives in the change until archive syncs it into openspec/specs/.
-const SPEC_LINK = "openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md";
+// The report links the living spec. Before the change is archived the living spec does not exist
+// yet, and the change's delta spec stands in for it.
+const LIVING_SPEC = "openspec/specs/executor-launch-policy/spec.md";
+const CHANGE_SPEC = "openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md";
+const REPORT_DIR = "docs/evidence";
+
+/** Repo-relative targets of the report's markdown links to `executor-launch-policy`. */
+function launchPolicyLinks(text: string): string[] {
+  return [...text.matchAll(/\]\(([^)\s]*executor-launch-policy[^)\s]*)\)/g)].map((m) =>
+    relative(REPO_ROOT, resolve(REPO_ROOT, REPORT_DIR, (m[1] ?? "").split("#")[0] ?? "")),
+  );
+}
 const RETIRED = [
   "tests/host/q1-q7-worker-mutation.test.ts",
   "tests/host/q2-message-end-order.test.ts",
@@ -60,7 +70,16 @@ describe("host seam evidence", () => {
       expect(new RegExp(`^## ${q}$\\n+\\*\\*Superseded\\.\\*\\*`, "m").test(report), q).toBe(true);
     }
     expect(existsSync(join(REPO_ROOT, REPLACING_TEST)), "replacing test exists").toBe(true);
-    expect(existsSync(join(REPO_ROOT, SPEC_LINK)), "replacing requirement exists").toBe(true);
+  });
+
+  test("replacing requirement linked at its living spec path, and the target exists", () => {
+    const report = read(REPORT);
+    const links = launchPolicyLinks(report);
+    // Every superseded row and section links it: three rows, three sections.
+    expect(links.length).toBeGreaterThanOrEqual(6);
+    for (const link of links) expect(link, "links the living spec").toBe(LIVING_SPEC);
+    const target = [LIVING_SPEC, CHANGE_SPEC].find((p) => existsSync(join(REPO_ROOT, p)));
+    expect(target, "living spec, or before archive the change's delta spec, exists").toBeDefined();
   });
 
   test("Q3 to Q6 stay pinned by their host tests", () => {
