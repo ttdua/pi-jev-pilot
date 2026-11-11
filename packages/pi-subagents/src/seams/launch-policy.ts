@@ -65,6 +65,11 @@ export class LaunchPolicySlot {
 				callPolicy(registration.policy, request, guard.signal),
 			);
 			return adjustmentOf(outcome, guard);
+		} catch (err) {
+			// Reading the returned value can throw (a getter, a Proxy): fail open.
+			debugLog("launch policy adjustment unreadable; launch unchanged", err);
+			guard.abort();
+			return undefined;
 		} finally {
 			guard.dispose();
 		}

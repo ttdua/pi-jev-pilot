@@ -684,17 +684,67 @@ describe("consult after the guard aborts", () => {
 	const request = {} as LaunchRequest;
 
 	it("discards an adjustment the policy resolves from its abort handler", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
 		const slot = new LaunchPolicySlot();
+		const called = deferred();
 		slot.register(
 			(_req, signal) =>
 				new Promise((resolve) => {
 					signal.addEventListener("abort", () => resolve({ thinking: "low" }));
+					called.resolve();
 				}),
 			{ timeoutMs: 5 },
 		);
 
-		expect(await slot.consult(request)).toBeUndefined();
+		const consulted = slot.consult(request);
+		await called.promise;
+		await vi.advanceTimersByTimeAsync(5);
+
+		expect(await consulted).toBeUndefined();
 	});
+
+	it.each([
+		[
+			"a throwing getter",
+			() =>
+				Object.defineProperty({}, "model", {
+					enumerable: true,
+					get() {
+						throw new Error("bad accessor");
+					},
+				}),
+		],
+		[
+			"a throwing Proxy",
+			() =>
+				new Proxy(
+					{},
+					{
+						// `then` reads as absent, so the value reaches validation.
+						get(_target, key) {
+							if (key === "then") return undefined;
+							throw new Error("bad proxy");
+						},
+					},
+				),
+		],
+	])(
+		"an adjustment with %s fails open and aborts the policy signal",
+		async (_label, make) => {
+			const slot = new LaunchPolicySlot();
+			let policySignal!: AbortSignal;
+			slot.register(
+				(_req, signal) => {
+					policySignal = signal;
+					return make() as LaunchAdjustment;
+				},
+				{ timeoutMs: 10_000 },
+			);
+
+			await expect(slot.consult(request)).resolves.toBeUndefined();
+			expect(policySignal.aborted).toBe(true);
+		},
+	);
 
 	it("discards an adjustment resolved when the run is cancelled", async () => {
 		const slot = new LaunchPolicySlot();
