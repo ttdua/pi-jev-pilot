@@ -105,7 +105,7 @@ function lastWidgetContent(h: Harness): FleetWidgetFactory | undefined {
 }
 
 /** Pi mounts the widget by calling its factory with the TUI; the test mounts it the same way. */
-function mountWidget(h: Harness): { render(width: number): string[] } {
+function mountWidget(h: Harness): ReturnType<FleetWidgetFactory> {
   const content = lastWidgetContent(h);
   if (!content) throw new Error("no fleet widget set");
   return content(h.tui as unknown as Parameters<FleetWidgetFactory>[0], theme);
@@ -405,6 +405,27 @@ describe("FleetList", () => {
       await flush();
     });
 
+    it("notifies a fixed message when open rejects, without error content, and recovers", async () => {
+      const open = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("EACCES: /secret/home/a1.jsonl"))
+        .mockResolvedValueOnce(undefined);
+      const h = setup({ agents: [running("a1", 1000, "first task")], open });
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h);
+      h.ui.send(DOWN);
+
+      expect(h.ui.send(ENTER)).toEqual({ consume: true });
+      await flush();
+
+      expect(h.ui.notify).toHaveBeenCalledOnce();
+      expect(h.ui.notify).toHaveBeenCalledWith("Could not open the session pane.", "error");
+
+      expect(h.ui.send(ENTER)).toEqual({ consume: true });
+      expect(open).toHaveBeenCalledTimes(2);
+    });
+
     it("reselects the viewed agent by id after close", async () => {
       const { open, close } = controllableOpen();
       const h = setup({
@@ -533,6 +554,39 @@ describe("FleetList", () => {
       expect(h.ui.setWidget).toHaveBeenLastCalledWith("fleet", undefined);
       expect(vi.getTimerCount()).toBe(0);
       expect(h.ui.unsubscribes[0]).toHaveBeenCalledOnce();
+    });
+
+    it("keeps ↓ working after the widget is invalidated", () => {
+      const h = setup({ agents: [running("a1", 1000, "first task")] });
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h).invalidate();
+
+      expect(h.ui.send(DOWN)).toEqual({ consume: true });
+      expect(markedLine(h)).toContain("first task");
+    });
+
+    it("dispose clears the widget after it is invalidated", () => {
+      const h = setup({ agents: [running("a1", 1000, "first task")] });
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h).invalidate();
+
+      h.list.dispose();
+
+      expect(h.ui.setWidget).toHaveBeenLastCalledWith("fleet", undefined);
+    });
+
+    it("clears the widget when disabled after it is invalidated", () => {
+      const h = setup({ agents: [running("a1", 1000, "first task")] });
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h).invalidate();
+
+      h.state.enabled = false;
+      h.list.update();
+
+      expect(h.ui.setWidget).toHaveBeenLastCalledWith("fleet", undefined);
     });
   });
 });

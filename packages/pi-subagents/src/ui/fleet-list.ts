@@ -172,7 +172,8 @@ export class FleetList implements SubagentManagerObserver {
     this.tui = tui;
     return {
       render: (width) => this.renderLines(width, theme),
-      invalidate: () => this.forgetWidget(),
+      // Pi's invalidate only clears render caches; this renderer keeps none, and the widget stays mounted.
+      invalidate: () => {},
     };
   }
 
@@ -274,8 +275,8 @@ export class FleetList implements SubagentManagerObserver {
     this.viewingId = id;
     try {
       await (this.deps.open ?? openTranscript)(ui, entry, { cwd: this.deps.cwd(), readFile: this.deps.readFile });
-    } catch (error) {
-      ui.notify(`Could not open the session pane: ${error instanceof Error ? error.message : String(error)}`, "error");
+    } catch {
+      ui.notify("Could not open the session pane.", "error");
     } finally {
       this.reselect(id);
       this.viewingId = undefined;
