@@ -56,25 +56,46 @@ export class LaunchPolicySlot {
 	): Promise<LaunchAdjustment | undefined> {
 		const registration = this.current;
 		if (!registration) return undefined;
+		// The guard's cancellation state exists before the policy runs, so an
+		// abort during the call (watchdog or run cancel) always discards its result.
 		const guard = new ConsultGuard(registration.timeoutMs, runSignal);
 		try {
-			const value = await guard.race(
+			if (guard.signal.aborted) return undefined;
+			const outcome = await guard.race(
 				callPolicy(registration.policy, request, guard.signal),
 			);
-			const adjustment = validAdjustment(value);
-			if (adjustment === undefined && value !== undefined) {
-				debugNote("launch policy returned a malformed adjustment; ignored");
-				guard.abort();
-			}
-			return adjustment;
-		} catch (err) {
-			debugLog("launch policy failed; launch unchanged", err);
-			guard.abort();
-			return undefined;
+			return adjustmentOf(outcome, guard);
 		} finally {
 			guard.dispose();
 		}
 	}
+}
+
+/** How a policy call ended, seen through the guard. */
+type PolicyOutcome =
+	| { kind: "value"; value: unknown }
+	| { kind: "error"; error: unknown }
+	| { kind: "aborted" };
+
+/** The outcome as an adjustment; anything but a valid value before abort is none. */
+function adjustmentOf(
+	outcome: PolicyOutcome,
+	guard: ConsultGuard,
+): LaunchAdjustment | undefined {
+	// Checked first: a result produced once the guard aborted is discarded,
+	// whichever promise won the race.
+	if (outcome.kind === "aborted" || guard.signal.aborted) return undefined;
+	if (outcome.kind === "error") {
+		debugLog("launch policy failed; launch unchanged", outcome.error);
+		guard.abort();
+		return undefined;
+	}
+	const adjustment = validAdjustment(outcome.value);
+	if (adjustment === undefined && outcome.value !== undefined) {
+		debugNote("launch policy returned a malformed adjustment; ignored");
+		guard.abort();
+	}
+	return adjustment;
 }
 
 /** One controller aborted by the watchdog or the run signal, whichever fires first. */
@@ -105,16 +126,23 @@ class ConsultGuard {
 		this.controller.abort();
 	}
 
-	/** Settle with `work`, or with `undefined` once the guard aborts. */
-	race<T>(work: Promise<T>): Promise<T | undefined> {
+	/**
+	 * Settle with how `work` ended, or `aborted` once the guard aborts. The
+	 * rejection of `work` is observed on every path, including after an abort.
+	 */
+	race(work: Promise<unknown>): Promise<PolicyOutcome> {
+		const settled = work.then(
+			(value): PolicyOutcome => ({ kind: "value", value }),
+			(error: unknown): PolicyOutcome => ({ kind: "error", error }),
+		);
 		const signal = this.controller.signal;
-		if (signal.aborted) return Promise.resolve(undefined);
-		const aborted = new Promise<undefined>((resolve) => {
-			signal.addEventListener("abort", () => resolve(undefined), {
+		if (signal.aborted) return Promise.resolve({ kind: "aborted" });
+		const aborted = new Promise<PolicyOutcome>((resolve) => {
+			signal.addEventListener("abort", () => resolve({ kind: "aborted" }), {
 				once: true,
 			});
 		});
-		return Promise.race([work, aborted]);
+		return Promise.race([settled, aborted]);
 	}
 
 	dispose(): void {

@@ -28,6 +28,7 @@ import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { RunConfig } from "#src/runtime";
 import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
 import { LaunchPolicySlot } from "#src/seams/launch-policy";
+import { applyLocks } from "#src/seams/locked-launch";
 import type { LaunchOrigin, LaunchPolicy } from "#src/service/service";
 import type { AgentConfig, CompactionInfo, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
@@ -381,6 +382,13 @@ export class SubagentManager {
   ): string {
     const { type, isBackground } = resolved;
     const id = randomUUID().slice(0, 17);
+    // Every door gets the agent's value for a locked field, so the launch policy
+    // and the session see the same request.
+    const values = applyLocks(
+      this.registry.resolveAgentConfig(type),
+      { model: options.model, thinkingLevel: options.thinkingLevel },
+      snapshot,
+    );
     const record = new Subagent({
       id,
       type,
@@ -394,9 +402,9 @@ export class SubagentManager {
         observer: this.buildObserver(options),
         getRunConfig: this.getRunConfig,
         getWorkspaceProvider: () => this._workspaceProvider,
-        model: options.model,
+        model: values.model,
         maxTurns: options.maxTurns,
-        thinkingLevel: options.thinkingLevel,
+        thinkingLevel: values.thinkingLevel,
         parentSession: options.parentSession,
         signal: options.signal,
         origin: options.origin,

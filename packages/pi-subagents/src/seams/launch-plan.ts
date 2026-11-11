@@ -73,7 +73,7 @@ function allowedRemovals(
 	request: LaunchRequest,
 	names: readonly string[],
 ): Set<string> {
-	const declared = request.toolSet.declared ?? [];
+	const declared = protectedTools(request);
 	return new Set(
 		names.filter(
 			(name) =>
@@ -81,6 +81,17 @@ function allowedRemovals(
 				dropNote(request, `declared tool ${name} cannot be removed`),
 		),
 	);
+}
+
+/**
+ * The tools a policy may not remove: the raw declarations and, for an agent
+ * that declares `tools`, their resolved form. Its defaults are exactly that
+ * declared set with MCP patterns expanded (minus disallowed), so a tool
+ * reached through `mcp__server__*` is as protected as one named outright.
+ */
+function protectedTools(request: LaunchRequest): readonly string[] {
+	const { declared, defaults } = request.toolSet;
+	return declared === null ? [] : [...declared, ...defaults];
 }
 
 function dropNote(request: LaunchRequest, reason: string): false {

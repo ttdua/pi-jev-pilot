@@ -205,6 +205,7 @@ beforeEach(() => {
 	});
 });
 afterEach(() => {
+	vi.useRealTimers();
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
 });
@@ -276,10 +277,16 @@ describe("when the policy runs", () => {
 	});
 
 	it("queued launch consults policy only at dequeue, with a fresh signal", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
 		const release = deferred();
+		const firstBinding = deferred();
 		const h = harness({
 			maxConcurrent: 1,
-			bind: (i) => (i === 0 ? release.promise : undefined),
+			bind: (i) => {
+				if (i !== 0) return undefined;
+				firstBinding.resolve();
+				return release.promise;
+			},
 		});
 		const seen: boolean[] = [];
 		const policy = register(
@@ -301,12 +308,14 @@ describe("when the policy runs", () => {
 			background: bg,
 			origin: { kind: "service" },
 		});
+		await firstBinding.promise;
 
-		await new Promise((r) => setTimeout(r, 120));
+		// Queued well past the 50 ms watchdog.
+		await vi.advanceTimersByTimeAsync(500);
 		expect(policy).toHaveBeenCalledTimes(1);
-		expect(h.manager.getRecord(second)!.status).toBe("queued");
+		expect(h.manager.getRecord(second)?.status).toBe("queued");
 		release.resolve();
-		await h.manager.getRecord(second)!.promise;
+		await h.manager.getRecord(second)?.promise;
 
 		expect(policy).toHaveBeenCalledTimes(2);
 		expect(seen).toEqual([false, false]);
@@ -414,6 +423,52 @@ describe("launch request", () => {
 		expect(requestOf(policy).requested.model).toBe("fixture/fixture-deep");
 		expect(requestOf(policy).locked).toContain("model");
 	});
+
+	it("a service launch requests the locked agent values, and the session runs them", async () => {
+		const h = harness({
+			agent: {
+				model: "fixture/fixture-deep",
+				thinking: "high",
+				locked: ["model", "thinking"],
+			},
+		});
+		const policy = register(h);
+
+		const id = h.service.spawn("Explore", "go", {
+			model: "fixture/fixture-fast",
+			thinkingLevel: "low",
+			foreground: true,
+		});
+		await h.manager.getRecord(id)!.promise;
+
+		expect(requestOf(policy).requested).toEqual({
+			model: "fixture/fixture-deep",
+			thinking: "high",
+		});
+		expect(requestOf(policy).locked).toEqual(["model", "thinking"]);
+		expect(h.sessionOpts().model?.id).toBe("fixture-deep");
+		expect(h.sessionOpts().thinkingLevel).toBe("high");
+	});
+
+	it("a service launch with no policy runs the locked agent values", async () => {
+		const h = harness({
+			agent: {
+				model: "fixture/fixture-deep",
+				thinking: "high",
+				locked: ["model", "thinking"],
+			},
+		});
+
+		const id = h.service.spawn("Explore", "go", {
+			model: "fixture/fixture-fast",
+			thinkingLevel: "low",
+			foreground: true,
+		});
+		await h.manager.getRecord(id)!.promise;
+
+		expect(h.sessionOpts().model?.id).toBe("fixture-deep");
+		expect(h.sessionOpts().thinkingLevel).toBe("high");
+	});
 });
 
 describe("applying the adjustment", () => {
@@ -459,6 +514,24 @@ describe("applying the adjustment", () => {
 
 		expect(h.sessionOpts().tools).toContain("edit");
 		expect(warnings.some((w) => w.includes("edit"))).toBe(true);
+	});
+
+	it("a tool declared through an MCP wildcard is not removable", async () => {
+		const h = harness({
+			agent: { toolNames: ["read", "mcp__github__*"] },
+			parentTools: ["read", "mcp__github__issues"].map(topLevel),
+		});
+		const policy = register(h, () => ({
+			removeTools: ["mcp__github__issues"],
+		}));
+
+		await h.call("call_1", explore);
+
+		expect(h.sessionOpts().tools).toContain("mcp__github__issues");
+		expect(requestOf(policy).toolSet.declared).toEqual([
+			"read",
+			"mcp__github__*",
+		]);
 	});
 
 	it("a default tool is removed", async () => {
@@ -537,30 +610,31 @@ describe("the policy fails open", () => {
 	});
 
 	it("a slow policy is cut at timeoutMs and its signal aborted", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
 		const h = harness();
+		const called = deferred();
 		let policySignal!: AbortSignal;
 		register(
 			h,
 			(_req, signal) => {
 				policySignal = signal;
+				called.resolve();
 				return new Promise((r) =>
 					setTimeout(() => r({ thinking: "low" }), 1000),
 				);
 			},
 			200,
 		);
-		const started = Date.now();
-		let createdAt = 0;
-		const original = h.io.createSession.getMockImplementation()!;
-		h.io.createSession.mockImplementation(async (opts: never) => {
-			createdAt = Date.now();
-			return original(opts);
-		});
 
-		await h.call("call_1", { ...explore, thinking: "medium" });
+		const result = h.call("call_1", { ...explore, thinking: "medium" });
+		await called.promise;
+		await vi.advanceTimersByTimeAsync(199);
+		expect(h.io.createSession).not.toHaveBeenCalled();
+		expect(policySignal.aborted).toBe(false);
+		await vi.advanceTimersByTimeAsync(1);
+		await result;
 
-		expect(createdAt - started).toBeGreaterThanOrEqual(180);
-		expect(createdAt - started).toBeLessThan(800);
+		expect(h.io.createSession).toHaveBeenCalledOnce();
 		expect(policySignal.aborted).toBe(true);
 		expect(h.sessionOpts().thinkingLevel).toBe("medium");
 	});
@@ -603,6 +677,90 @@ describe("the policy fails open", () => {
 		expect(h.manager.listAgents()[0]!.status).toBe("stopped");
 		expect(h.io.createSession).not.toHaveBeenCalled();
 		expect(h.on("subagents:child:session-created")).toEqual([]);
+	});
+});
+
+describe("consult after the guard aborts", () => {
+	const request = {} as LaunchRequest;
+
+	it("discards an adjustment the policy resolves from its abort handler", async () => {
+		const slot = new LaunchPolicySlot();
+		slot.register(
+			(_req, signal) =>
+				new Promise((resolve) => {
+					signal.addEventListener("abort", () => resolve({ thinking: "low" }));
+				}),
+			{ timeoutMs: 5 },
+		);
+
+		expect(await slot.consult(request)).toBeUndefined();
+	});
+
+	it("discards an adjustment resolved when the run is cancelled", async () => {
+		const slot = new LaunchPolicySlot();
+		const run = new AbortController();
+		slot.register(
+			(_req, signal) =>
+				new Promise((resolve) => {
+					signal.addEventListener("abort", () => resolve({ thinking: "low" }));
+					run.abort();
+				}),
+			{ timeoutMs: 10_000 },
+		);
+
+		expect(await slot.consult(request, run.signal)).toBeUndefined();
+	});
+
+	it.each([
+		["throws", "sync"],
+		["rejects", "async"],
+	] as const)(
+		"a policy that cancels the run then %s leaves no unhandled rejection",
+		async (_label, mode) => {
+			const unhandled: unknown[] = [];
+			const onUnhandled = (reason: unknown) => unhandled.push(reason);
+			process.on("unhandledRejection", onUnhandled);
+			try {
+				const slot = new LaunchPolicySlot();
+				const run = new AbortController();
+				slot.register(
+					(() => {
+						run.abort();
+						if (mode === "sync") throw new Error("boom");
+						return Promise.reject(new Error("boom"));
+					}) as LaunchPolicy,
+					{ timeoutMs: 10_000 },
+				);
+
+				expect(await slot.consult(request, run.signal)).toBeUndefined();
+				await new Promise((r) => setImmediate(r));
+				await new Promise((r) => setImmediate(r));
+				expect(unhandled).toEqual([]);
+			} finally {
+				process.off("unhandledRejection", onUnhandled);
+			}
+		},
+	);
+
+	it("a run already cancelled before consult leaves no unhandled rejection", async () => {
+		const unhandled: unknown[] = [];
+		const onUnhandled = (reason: unknown) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+		try {
+			const slot = new LaunchPolicySlot();
+			const run = new AbortController();
+			run.abort();
+			slot.register(() => Promise.reject(new Error("boom")), {
+				timeoutMs: 10_000,
+			});
+
+			expect(await slot.consult(request, run.signal)).toBeUndefined();
+			await new Promise((r) => setImmediate(r));
+			await new Promise((r) => setImmediate(r));
+			expect(unhandled).toEqual([]);
+		} finally {
+			process.off("unhandledRejection", onUnhandled);
+		}
 	});
 });
 

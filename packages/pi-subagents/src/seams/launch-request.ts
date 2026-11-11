@@ -7,6 +7,7 @@ import {
 	LOCKABLE_FIELDS,
 	type LockableField,
 } from "#src/config/invocation-config";
+import { lockedFields } from "#src/seams/locked-launch";
 import { finalToolNames, snapshotOf } from "#src/seams/registry";
 import type { LaunchOrigin, LaunchRequest } from "#src/service/service";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
@@ -118,21 +119,6 @@ function defaultTools(
 	const base = config.toolNames ?? BUILTIN_TOOL_NAMES;
 	const { toolNames } = expandMcpToolPatterns(base, parentToolNames);
 	return finalToolNames(toolNames, [], config.disallowedTools);
-}
-
-/** The lockable fields the agent withholds, with `locked: true` meaning every field it sets. */
-function lockedFields(config: AgentConfig): LockableField[] {
-	const locked = config.locked;
-	if (locked === undefined) return [];
-	if (locked !== true) return [...locked];
-	const sets: Record<LockableField, unknown> = {
-		model: config.model,
-		thinking: config.thinking,
-		max_turns: config.maxTurns,
-		inherit_context: config.inheritContext,
-		run_in_background: config.runInBackground,
-	};
-	return LOCKABLE_FIELDS.filter((field) => sets[field] !== undefined);
 }
 
 function definedOnly(

@@ -9,7 +9,7 @@
  */
 
 import type { ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
-import { debugNote } from "#src/debug";
+import { debugLog, debugNote } from "#src/debug";
 
 /** Exposures whose active tools Pi declares to the model. */
 const MODEL_CALLABLE: ReadonlySet<ToolExposure> = new Set([
@@ -40,12 +40,31 @@ export interface GrantedSession {
 /**
  * Check `granted` in the bound child, deactivate the dropped ones (default and
  * declared tools stay), and return the grants that took effect.
+ *
+ * Fails open: when the check cannot complete, every grant is deactivated (the
+ * pre-grant set) and none is reported. Throws only when even that baseline
+ * cannot be set, so the caller can dispose a child it cannot return safely.
  */
 export function enforceGrants(
 	session: GrantedSession,
 	granted: readonly string[],
 ): string[] {
 	if (granted.length === 0) return [];
+	try {
+		return dropUncallable(session, granted);
+	} catch (err) {
+		debugLog("grant check failed; no grants applied", err);
+		session.setActiveToolsByName(
+			session.getActiveToolNames().filter((name) => !granted.includes(name)),
+		);
+		return [];
+	}
+}
+
+function dropUncallable(
+	session: GrantedSession,
+	granted: readonly string[],
+): string[] {
 	const kept = checkGrants(granted, session.getAllTools());
 	const dropped = granted.filter((name) => !kept.includes(name));
 	if (dropped.length === 0) return kept;

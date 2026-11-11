@@ -365,7 +365,15 @@ export async function createSubagentSession(
   // Every child session_start handler has now run, so this is the first — and
   // only — moment a parent can observe what the child's extensions installed.
   // Deliberately outside the try above: a child whose binding threw never ran.
-  const grantedTools = enforceGrants(session, grants);
+  let grantedTools: string[];
+  try {
+    grantedTools = enforceGrants(session, grants);
+  } catch (err) {
+    // Not even the pre-grant tool set could be restored: the child cannot be
+    // returned safely, so tear it down as a failed bind is torn down.
+    await subagentSession.dispose();
+    throw err;
+  }
   deps.lifecycle.bound({ sessionId, parentSessionId, ...identity, grantedTools });
 
   return subagentSession;
