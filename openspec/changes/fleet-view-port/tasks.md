@@ -49,4 +49,4 @@ Blocked by: 5
 
 Blocked by: 6
 
-- [ ] 7.1 With `scripts/e2e/fleet-fixture.ts` (loopback fixture provider, slow children), install the checkout into a temporary agent dir with `PI_OFFLINE=1`, start Pi interactively in tmux, launch a background and a foreground subagent with a local fake provider, and confirm the list appears below the editor, `↓` selects the first agent, `Enter` opens the session pane, `Esc` returns, and the list clears 4 s after the last agent finishes; record the evidence under `docs/evidence/`
+- [x] 7.1 With `scripts/e2e/fleet-fixture.ts` (loopback fixture provider, slow children), install the checkout into a temporary agent dir with `PI_OFFLINE=1`, start Pi interactively in tmux, launch a background and a foreground subagent with a local fake provider, and confirm the list appears below the editor, `↓` selects the first agent, `Enter` opens the session pane, `Esc` returns, and the list clears 4 s after the last agent finishes; record the evidence under `docs/evidence/`
