@@ -286,6 +286,23 @@ describe("readConfig", () => {
     ]);
   });
 
+  test("Grant cut accepted", () => {
+    const r = readJson({ tools: { grantAt: 0.9 } });
+    expectValid(r);
+    if (r.kind === "ok") expect(r.config.tools?.grantAt).toBe(0.9);
+  });
+
+  test("Grant cut bounds are inclusive", () => {
+    expectValid(readJson({ tools: { grantAt: 0.5 } }));
+    expectValid(readJson({ tools: { grantAt: 1 } }));
+  });
+
+  test("Grant cut out of range", () => {
+    expect(paths(readJson({ tools: { grantAt: 0.3 } }))).toEqual(["tools.grantAt"]);
+    expect(paths(readJson({ tools: { grantAt: "high" } }))).toEqual(["tools.grantAt"]);
+    expect(paths(readJson({ tools: { grantAt: 1.01 } }))).toEqual(["tools.grantAt"]);
+  });
+
   test("Read leaves the file untouched", () => {
     withDir((dir) => {
       const file = join(dir, "config.json");

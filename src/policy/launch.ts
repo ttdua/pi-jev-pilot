@@ -41,6 +41,8 @@ export type AgentFacts = {
   description: string;
   instructionsExcerpt: string;
   declaredTools: string[] | null;
+  /** Tools the executor removes from the child after every other source. */
+  disallowedTools: readonly string[];
   maxTurns: number | null;
   runInBackground?: boolean;
   inheritContext?: boolean;

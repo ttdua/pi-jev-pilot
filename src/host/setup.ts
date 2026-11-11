@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   subscribeChildren,
   scanPlatforms,
-  listAgents,
+  executorAgents,
   loadSnapshot,
   jevDir,
 } from "./platform/index.ts";
@@ -21,7 +21,7 @@ import { createMain } from "./main/index.ts";
 import { registerReviewTool } from "./review/index.ts";
 import { compactTally, logLine, createSessionLog } from "./status/index.ts";
 import type { TuningDeps } from "./tuning/index.ts";
-import { createToolAssessment } from "./tools/index.ts";
+import { createToolAssessment, mainService } from "./tools/index.ts";
 import {
   registerJevCommand,
   subscribeSessionShutdown,
@@ -92,7 +92,7 @@ function buildMain(pi: ExtensionAPI, log: Log, append: Append) {
     rich: {
       groups: SHIPPED_MAIN_GROUPS,
       tools: () => activeTools(pi),
-      agents: (cwd) => listAgents({ cwd, agentDir: getAgentDir() }),
+      agents: () => executorAgents(mainService()),
     },
   });
 }

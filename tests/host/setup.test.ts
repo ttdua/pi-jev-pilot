@@ -502,7 +502,7 @@ describe("setup", () => {
   });
 
   describe("tool assessment wiring", () => {
-    const service = { listAgents: () => [] as unknown[] };
+    const service = { implementation: "@ttdua/pi-subagents", listAgents: () => [] as unknown[] };
     const put = () => ((globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = service);
     const start = (f: ReturnType<typeof fakePi>, id: string) =>
       f.handlers.get("session_start")![0]!(
@@ -520,7 +520,7 @@ describe("setup", () => {
       const f = fakePi();
       setup(f.pi);
       await start(f, "main");
-      expect(mainService()).toBe(service);
+      expect(mainService()).toBe(service as never);
     });
 
     test("child session_start does not capture", async () => {
@@ -540,7 +540,7 @@ describe("setup", () => {
       f.emit(CREATED, { sessionId: "kid" });
       await start(f, "kid");
       await stop(f, "kid");
-      expect(mainService()).toBe(service);
+      expect(mainService()).toBe(service as never);
       await stop(f, "main");
       expect(mainService()).toBeUndefined();
     });
@@ -556,6 +556,7 @@ describe("setup", () => {
           JSON.stringify({ classifier: { url: fx.url("/ask") } }),
         );
         (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
+          implementation: "@ttdua/pi-subagents",
           listAgents: () => [
             { id: "a1", type: "general-purpose", description: "d", outputFile: "/kid.jsonl" },
           ],
@@ -636,7 +637,10 @@ describe("setup", () => {
     test("an assessment failure still leaves the review tool hidden", async () => {
       mkdirSync(join(agentDir, "jev"), { recursive: true });
       writeFileSync(join(agentDir, "jev", "config.json"), JSON.stringify({}));
-      (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = { listAgents: () => [] };
+      (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
+        implementation: "@ttdua/pi-subagents",
+        listAgents: () => [],
+      };
       const f = fakePi();
       setup(f.pi);
       await start(f, "main");

@@ -6,6 +6,7 @@ import { RESERVED_SLOT_NAMES, TIERS } from "./defaults.ts";
 import {
   array,
   boolean,
+  finiteNumber,
   integer,
   object,
   oneOf,
@@ -24,7 +25,7 @@ export type Config = {
   crew?: { slots?: Slot[] };
   effort?: { holdProviders?: string[] };
   skills?: { inject?: "content" | "suggest" };
-  tools?: { mode?: "observe" | "enforce" };
+  tools?: { mode?: "observe" | "enforce"; grantAt?: number };
   state?: { parentRequest?: boolean };
   subagents?: { forkedLaunch?: "untouched" | "thinking" };
   review?: { cli?: "codex" | "opencode"; enabled?: boolean };
@@ -89,7 +90,10 @@ function configValidator(): V<Config> {
     crew: object({ slots: slotsValidator }),
     effort: object({ holdProviders: array(providerName, { max: 32, uniqueBy: (s) => s }) }),
     skills: object({ inject: oneOf(["content", "suggest"] as const) }),
-    tools: object({ mode: oneOf(["observe", "enforce"] as const) }),
+    tools: object({
+      mode: oneOf(["observe", "enforce"] as const),
+      grantAt: finiteNumber({ min: 0.5, max: 1 }),
+    }),
     state: object({ parentRequest: boolean() }),
     subagents: object({ forkedLaunch: oneOf(["untouched", "thinking"] as const) }),
     review: object({ cli: oneOf(["codex", "opencode"] as const), enabled: boolean() }),

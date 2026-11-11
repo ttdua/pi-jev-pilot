@@ -18,6 +18,7 @@ function facts(overrides: Partial<AgentFacts> = {}): AgentFacts {
     description: "",
     instructionsExcerpt: "",
     declaredTools: null,
+    disallowedTools: [],
     maxTurns: null,
     sets: { model: false, thinking: false },
     ...overrides,

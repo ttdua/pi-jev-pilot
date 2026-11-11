@@ -7,7 +7,10 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "types": ["bun"]
+    "types": ["bun"],
+    "paths": {
+      "@ttdua/pi-subagents": ["./packages/pi-subagents/dist/public.d.ts"]
+    }
   },
   "include": ["src", "tests", "scripts"],
   "exclude": ["tests/fixtures", "packages"]

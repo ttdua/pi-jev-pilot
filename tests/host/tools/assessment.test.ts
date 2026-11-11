@@ -228,9 +228,12 @@ describe("Worker finds its launch", () => {
 });
 
 describe("Captured executor service", () => {
-  const real = { listAgents: () => [rec()] };
+  const real = { implementation: "@ttdua/pi-subagents", listAgents: () => [rec()] };
   function withDefaultService(records: unknown[]) {
-    (globalThis as Record<symbol, unknown>)[MAIN_SERVICE_KEY] = { listAgents: () => records };
+    (globalThis as Record<symbol, unknown>)[MAIN_SERVICE_KEY] = {
+      implementation: "@ttdua/pi-subagents",
+      listAgents: () => records,
+    };
   }
   async function runDefault(): Promise<JevRequest[]> {
     (globalThis as Record<symbol, Set<string>>)[CHILDREN_KEY]!.add(SESSION);
@@ -262,11 +265,17 @@ describe("Captured executor service", () => {
   test("Child's own service ignored", async () => {
     (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = real;
     captureMainService();
-    (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = { listAgents: () => [] };
+    (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
+      implementation: "@ttdua/pi-subagents",
+      listAgents: () => [],
+    };
     expect(await runDefault()).toHaveLength(1);
   });
   test("New main session", async () => {
-    (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = { listAgents: () => [] };
+    (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = {
+      implementation: "@ttdua/pi-subagents",
+      listAgents: () => [],
+    };
     captureMainService();
     (globalThis as Record<symbol, unknown>)[EXECUTOR_KEY] = real;
     captureMainService();

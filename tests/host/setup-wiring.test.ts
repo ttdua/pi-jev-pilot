@@ -472,13 +472,13 @@ describe("setup turn handlers", () => {
 
 describe("setup session_shutdown", () => {
   test("clears the service, then drops the child and routing subscriptions in order", async () => {
-    const service = { listAgents: () => [] as unknown[] };
+    const service = { implementation: "@ttdua/pi-subagents", listAgents: () => [] as unknown[] };
     g[EXECUTOR_KEY] = service;
     const log: string[] = [];
     const f = fakePi(log);
     setup(f.pi);
     await f.fire("session_start", {}, loggingCtx("main", []));
-    expect(mainService()).toBe(service);
+    expect(mainService()).toBe(service as never);
     log.length = 0;
     await f.fire("session_shutdown", {}, loggingCtx("main", log));
     expect(mainService()).toBeUndefined();
@@ -493,7 +493,7 @@ describe("setup session_shutdown", () => {
   });
 
   test("a child shutdown keeps the service but still unsubscribes", async () => {
-    const service = { listAgents: () => [] as unknown[] };
+    const service = { implementation: "@ttdua/pi-subagents", listAgents: () => [] as unknown[] };
     g[EXECUTOR_KEY] = service;
     const log: string[] = [];
     const f = fakePi(log);
@@ -502,7 +502,7 @@ describe("setup session_shutdown", () => {
     f.markChild("kid");
     log.length = 0;
     await f.fire("session_shutdown", {}, loggingCtx("kid", log));
-    expect(mainService()).toBe(service);
+    expect(mainService()).toBe(service as never);
     expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(5);
   });
 

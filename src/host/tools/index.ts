@@ -1,3 +1,8 @@
 export { createToolAssessment } from "./assessment.ts";
 export { takeToolCounts } from "./counts.ts";
-export { captureMainService, clearMainService } from "./service.ts";
+export {
+  captureMainService,
+  clearMainService,
+  mainService,
+  type VendoredService,
+} from "./service.ts";

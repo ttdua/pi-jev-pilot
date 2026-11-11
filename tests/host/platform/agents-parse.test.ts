@@ -39,6 +39,7 @@ describe("agent file parsing: exact result", () => {
       description: "Does work",
       instructionsExcerpt: "Instructions here.",
       declaredTools: ["read", "grep"],
+      disallowedTools: [],
       maxTurns: 7,
       sets: { model: true, thinking: true },
       runInBackground: true,
@@ -51,6 +52,7 @@ describe("agent file parsing: exact result", () => {
       "description",
       "instructionsExcerpt",
       "declaredTools",
+      "disallowedTools",
       "maxTurns",
       "sets",
       "runInBackground",
@@ -69,6 +71,7 @@ describe("agent file parsing: exact result", () => {
       description: "w",
       instructionsExcerpt: "just a body",
       declaredTools: null,
+      disallowedTools: [],
       maxTurns: null,
       sets: { model: false, thinking: false },
     });
@@ -78,6 +81,7 @@ describe("agent file parsing: exact result", () => {
       "description",
       "instructionsExcerpt",
       "declaredTools",
+      "disallowedTools",
       "maxTurns",
       "sets",
     ]);
@@ -92,6 +96,7 @@ describe("agent file parsing: exact result", () => {
       description: "w",
       instructionsExcerpt: "",
       declaredTools: null,
+      disallowedTools: [],
       maxTurns: null,
       sets: { model: false, thinking: false },
     });
@@ -101,7 +106,7 @@ describe("agent file parsing: exact result", () => {
     const s = setup();
     s.project("w.md", fm("locked: true\ninherit_context: true\nrun_in_background: false"));
     const facts = readAgent("w", s.dirs);
-    expect(Object.keys(facts).slice(7)).toEqual(["runInBackground", "inheritContext", "locked"]);
+    expect(Object.keys(facts).slice(8)).toEqual(["runInBackground", "inheritContext", "locked"]);
     expect(facts.runInBackground).toBe(false);
     expect(facts.inheritContext).toBe(true);
     expect(facts.locked).toBe(true);
@@ -202,6 +207,7 @@ describe("agent file parsing: field values", () => {
       description: "w",
       instructionsExcerpt: "body",
       declaredTools: null,
+      disallowedTools: [],
       maxTurns: null,
       sets: { model: false, thinking: false },
     });

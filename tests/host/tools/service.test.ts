@@ -9,6 +9,15 @@ import {
 const EXECUTOR = Symbol.for("@gotgenes/pi-subagents:service");
 const g = globalThis as Record<symbol, unknown>;
 
+function vendored(records: unknown[] = []) {
+  return {
+    implementation: "@ttdua/pi-subagents",
+    sessionId: "main",
+    listAgents: () => records,
+    listAgentTypes: () => [],
+  };
+}
+
 afterEach(() => {
   delete g[EXECUTOR];
   delete g[MAIN_SERVICE_KEY];
@@ -16,18 +25,18 @@ afterEach(() => {
 
 describe("tool service", () => {
   test("captures the executor service and a second capture replaces it", () => {
-    const a = { listAgents: () => [] };
-    const b = { listAgents: () => [1] };
+    const a = vendored();
+    const b = vendored([1]);
     g[EXECUTOR] = a;
     captureMainService();
-    expect(mainService()).toBe(a);
+    expect(mainService()).toBe(a as never);
     g[EXECUTOR] = b;
     captureMainService();
-    expect(mainService()).toBe(b);
+    expect(mainService()).toBe(b as never);
   });
 
   test("clearMainService empties the slot", () => {
-    g[EXECUTOR] = { listAgents: () => [] };
+    g[EXECUTOR] = vendored();
     captureMainService();
     clearMainService();
     expect(mainService()).toBeUndefined();
@@ -35,10 +44,24 @@ describe("tool service", () => {
 
   test("no executor global leaves nothing; unusable service clears", () => {
     expect(mainService()).toBeUndefined();
-    g[EXECUTOR] = { listAgents: () => [] };
+    g[EXECUTOR] = vendored();
     captureMainService();
-    g[EXECUTOR] = { listAgents: 1 };
+    g[EXECUTOR] = { ...vendored(), listAgents: 1 };
     captureMainService();
+    expect(mainService()).toBeUndefined();
+  });
+
+  test("a service from another implementation is not captured", () => {
+    g[EXECUTOR] = { listAgents: () => [], listAgentTypes: () => [] };
+    captureMainService();
+    expect(mainService()).toBeUndefined();
+    g[EXECUTOR] = { ...vendored(), implementation: "@gotgenes/pi-subagents" };
+    captureMainService();
+    expect(mainService()).toBeUndefined();
+  });
+
+  test("a slot holding another implementation is not returned", () => {
+    g[MAIN_SERVICE_KEY] = { listAgents: () => [], listAgentTypes: () => [] };
     expect(mainService()).toBeUndefined();
   });
 });

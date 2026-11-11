@@ -215,6 +215,7 @@ const FACTS: AgentFacts = {
   description: "does work",
   instructionsExcerpt: "be careful",
   declaredTools: ["read", "edit"],
+  disallowedTools: [],
   maxTurns: null,
   sets: { model: false, thinking: false },
 };
@@ -430,6 +431,13 @@ describe("mainState rich shaping", () => {
     expect(out).toHaveLength(30);
     expect(out[0]!.name).toBe("a00");
     expect(Array.from(out[0]!.description)).toHaveLength(200);
+  });
+  test("No executor", () => {
+    const s = shaped({
+      capabilities: { tools: [{ name: "read", description: "Read." }], agents: [] },
+    });
+    expect(s.capabilities!.subagents).toEqual([]);
+    expect(s.capabilities!.tools).toHaveLength(1);
   });
   test("no model or thinking in subagents", () => {
     const agent = { name: "a", description: "d", tools: ["read"], model: "m", thinking: "high" };

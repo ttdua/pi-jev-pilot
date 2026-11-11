@@ -49,7 +49,7 @@ export const DEFAULTS = {
   },
   effort: { holdProviders: ["9router"] as readonly string[] },
   skills: { inject: "content" },
-  tools: { mode: "observe" },
+  tools: { mode: "observe", grantAt: 0.8 },
   state: { parentRequest: false },
   subagents: { forkedLaunch: "untouched" },
   review: { cli: "codex", enabled: false },
