@@ -381,8 +381,9 @@
 - `executor-launch-policy` / Policy throws → `packages/pi-subagents/test/seams/launch-policy.test.ts`
 - `executor-launch-policy` / Policy too slow → `packages/pi-subagents/test/seams/launch-policy.test.ts`
 - `executor-launch-policy` / Malformed adjustment → `packages/pi-subagents/test/seams/launch-policy.test.ts`
-- `executor-vendoring` / Workspace member → `tests/vendoring.test.ts`
-- `executor-vendoring` / Not confused with the published package → `tests/vendoring.test.ts`
+- `executor-vendoring` / Workspace member → `tests/manifest.test.ts`
+- `executor-vendoring` / Not confused with the published package → `tests/manifest.test.ts`
+- `executor-vendoring` / Load-time consumer finds the service → `packages/pi-subagents/test/seams/service-wiring.test.ts`
 - `executor-vendoring` / Initial provenance → `tests/vendoring.test.ts`
 - `executor-vendoring` / Unlisted edit detected → `tests/vendoring.test.ts`
 - `executor-vendoring` / Notice entry → `tests/vendoring.test.ts`
@@ -436,6 +437,7 @@
 - `readiness-checks` / Original loaded first → `tests/host/duplicate-executor.test.ts (host)`
 - `readiness-checks` / Original loaded last → `tests/host/duplicate-executor.test.ts (host)`
 - `readiness-checks` / Present after children → `tests/host/duplicate-executor.test.ts (host)`
+- `readiness-checks` / Both executors installed → `tests/host/duplicate-executor.test.ts (host)`
 - `settings-resolution` / Everything defaulted → `tests/store/settings.test.ts`
 - `settings-resolution` / Config over default → `tests/store/settings.test.ts`
 - `settings-resolution` / Tuning over config → `tests/store/settings.test.ts`
@@ -483,7 +485,7 @@
 - `tool-assessment` / Malformed response → `tests/host/tools/policy-assessment.test.ts`
 - `tool-assessment` / Counts on the line → `tests/host/tools/policy-assessment.test.ts`
 - `tool-assessment` / No worker line → `tests/host/tools/policy-assessment.test.ts`
-- `worker-decision` / Resume → `tests/policy/worker/route.test.ts`
+- `worker-decision` / Resume → `packages/pi-subagents/test/seams/launch-policy.test.ts`
 - `worker-decision` / Forked launch left alone → `tests/policy/worker/route.test.ts`
 - `worker-decision` / Both fields locked → `tests/policy/worker/route.test.ts`
 - `worker-decision` / Service launch with a model and locked thinking → `tests/policy/worker/route.test.ts`

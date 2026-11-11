@@ -30,7 +30,7 @@ The vendored package SHALL keep upstream's `LICENSE` file unchanged. The root `N
 - **THEN** it has an entry for `packages/pi-subagents` naming `gotgenes/pi-packages` and `MIT`
 
 ### Requirement: One install loads both extensions
-The root `package.json` `pi.extensions` SHALL list exactly `./packages/pi-subagents/src/index.ts` and then `./src/extension.ts`, in that order, so that one `pi install` of the repository loads the executor and jev-pilot, and the executor's `session_start` handler publishes its service before jev-pilot's `session_start` handler captures it.
+The root `package.json` `pi.extensions` SHALL list exactly `./packages/pi-subagents/src/index.ts` and then `./src/extension.ts`, in that order, so that one `pi install` of the repository loads the executor and jev-pilot, and the executor's service is published (at load, see "Service identity and ownership") before jev-pilot's `session_start` handler captures it.
 
 #### Scenario: Both extensions loaded from one install
 - **WHEN** the checkout is installed with the pinned `pi` CLI into a fresh temporary agent directory with `PI_OFFLINE=1`, and the resource loader reloads

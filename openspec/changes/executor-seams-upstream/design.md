@@ -77,7 +77,7 @@ The vendored workspace is renamed (`@ttdua/pi-subagents`, `private: true`), so i
 
 ### D6. Agent registry query (public contract)
 
-`SubagentsService` gains `listAgentTypes()` and `getAgentType(name)`. They return frozen, serializable snapshots of what the executor resolves: `name`, `source` (`builtin`, `global`, `project`), `description`, `instructions` (body), declared `tools` (or `null`), `disallowedTools`, `model`, `thinking`, `locked`, `maxTurns`, `runInBackground`, `inheritContext` and `enabled`. `getAgentType` resolves names exactly as a launch does (case-insensitive fallback, `general-purpose` default), and both reload agent files first, as the tool door does.
+`SubagentsService` gains `listAgentTypes()` and `getAgentType(name)`. They return frozen, serializable snapshots of what the executor resolves: `name`, `source` (`builtin`, `global`, `project`), `description`, `instructions` (body), declared `tools` (or `null`), `disallowedTools`, `model`, `thinking`, `locked`, `maxTurns`, `runInBackground`, `inheritContext`, plus `defaultTools`. Disabled agents are left out of `listAgentTypes()` and `getAgentType` returns nothing for them, so the snapshot has no `enabled` field. `getAgentType` resolves names exactly as a launch does (case-insensitive fallback, `general-purpose` default), and both reload agent files first, as the tool door does.
 
 jev-pilot keeps its rule never to send an agent's model or thinking to Jev; it maps the snapshot to its existing `AgentFacts` with `sets` booleans.
 
@@ -128,7 +128,7 @@ The main-session instance registers the policy when the service is captured at `
 - Jev and tool assessment run concurrently, bounded by one classifier timeout.
 - Removing tools from a child no longer goes through `before_agent_start`. The child handler that hides `jev_review` stays, as a guard for an agent that names it in `tools`.
 
-**Removed:** the `message_end` batching, the `tool_call` mutation and stamping, the `tool_result` agent-id join, the `outputFile` lookup and `src/host/platform/agents.ts`. Outcome joins use `agentId` from the D5 events.
+**Removed:** the `message_end` batching, the `tool_call` mutation and stamping, the `tool_result` agent-id join, the `outputFile` lookup, and the agent-file reader and built-in table in `src/host/platform/agents.ts` (the file stays as the pure `agentFacts` mapper). Outcome joins use `agentId` from the D5 events.
 
 ### D10. Executor presence and duplicates
 

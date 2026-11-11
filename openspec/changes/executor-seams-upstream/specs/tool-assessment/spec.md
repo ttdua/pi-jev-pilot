@@ -217,7 +217,7 @@ When a launch was assessed with an answer, the policy SHALL keep `toolsScored` (
 **Migration**: "When assessment runs".
 
 ### Requirement: Captured executor service
-**Reason**: Only the main session uses the service, to register its policy (see `worker-routing`). Child sessions no longer look anything up.
+**Reason**: Child sessions no longer capture or look up the service to find their launch. The main session still captures it at `session_start`, only to register its launch policy (see `worker-routing`).
 **Migration**: `worker-routing` "Routing is the executor's launch policy".
 
 ### Requirement: Only agents that declare no tools
