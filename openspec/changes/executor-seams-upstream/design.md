@@ -132,6 +132,9 @@ The main-session instance registers the policy when the service is captured at `
 
 ### D10. Executor presence and duplicates
 
+Apply-time finding (operator decision 2026-11-11): Pi 1.5.2 refuses to start a session when two extensions register the same tool name, so installing this package next to `@gotgenes/pi-subagents` fails at startup with Pi's own error. The `duplicate` state stays (cheap, harmless) and covers jev-pilot running with the original executor but without the vendored one.
+
+
 - **Present:** the published service at the key has `registerLaunchPolicy`.
 - **Duplicate:** checked after bind in the main session, from the winning `subagent` tool's `sourceInfo` (original loaded first) and the published service's `implementation` (original loaded last). Pi keeps only the first registration of a name and does not expose extension paths to extensions, so a provider that loses both races is not detectable; the docs say so. The vendored service is published at load only when the slot holds no vendored service, and unpublishes only itself, so children never replace or remove it. This is reported in `/jev` as a problem naming the original package, and routing stays off until it is removed.
 - **No executor:** behaves as today: worker features off with a note in `/jev`.

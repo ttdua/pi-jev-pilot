@@ -69,5 +69,5 @@
 
 
 #### Scenario: Duplicate executor reported
-- **WHEN** `@gotgenes/pi-subagents` is installed next to this package and `/jev` runs
+- **WHEN** jev-pilot's extension runs with `@gotgenes/pi-subagents` and without the vendored executor, and `/jev` runs
 - **THEN** the report contains `duplicate executor`, the other extension's path, the advice to uninstall `@gotgenes/pi-subagents`, and says worker routing and tool assessment are off
