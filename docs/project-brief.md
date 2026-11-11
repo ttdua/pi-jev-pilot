@@ -5,7 +5,7 @@ Date of this scope: 2026-11-05
 | | |
 |---|---|
 | **Target host** | Official Pi, `@earendil-works/pi-coding-agent` 1.5.0 |
-| **Subagent executor** | `@gotgenes/pi-subagents` 25.x |
+| **Subagent executor** | Vendored from `@gotgenes/pi-subagents` 25.0.5 ([ADR 0009](decisions/0009-vendored-executor.md)) |
 | **Decision model** | TypeSafe Jev, `POST /v1/systemone`, `jev-latest` |
 
 ## Intent
@@ -47,7 +47,7 @@ The work has failed, even if it technically runs, when:
 ## Constraints
 
 - Public Pi APIs only. No user-message metadata tricks, no patches, no package-cache edits.
-- `@gotgenes/pi-subagents` is the executor. It runs children in-process, and a child binds the parent's extension set.
+- The vendored executor (`packages/pi-subagents`, from `@gotgenes/pi-subagents`) runs workers. It runs children in-process, and a child binds the parent's extension set. See [ADR 0009](decisions/0009-vendored-executor.md).
 - Jev's primary language is English, and TypeSafe documents lower accuracy for other languages. The operator writes prompts in Vietnamese, so every threshold is uncalibrated until measured.
 - Package code, docs, commits and comments are in English. This repository is public.
 - Upstream is MIT. [NOTICE.md](../NOTICE.md) carries the attribution.
@@ -75,7 +75,7 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 | H1 | `expert` tier | WG-12 |
 | F1 | Custom model slots, checked against Pi's registry | WG-13 |
 | H3 | Pre-launch fallback to a lower tier | WG-11 (tiers), WG-13 (slots) |
-| H2 | Tool assessment in workers, through `@gotgenes/pi-subagents` | WG-14 |
+| H2 | Tool assessment at launch, through the vendored executor's launch policy | WG-14 |
 | F4 | On-demand CLI review with Codex or OpenCode | WG-15 |
 | G1 | Decision ledger | WG-05 |
 | G3 | Automatic tuning | WG-18 |
@@ -112,7 +112,7 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 
 ## Approaches considered
 
-1. **One package, public Pi APIs only (chosen).** Main-session context goes through `before_agent_start`'s `message`; workers through `tool_call` mutation and the child's `before_agent_start`. Much smaller than the port, and less exposed to host upgrades. Trade-off: injected skills and advice are real session history until compaction, so duplicates must be avoided, and they follow the history across forks.
+1. **One package, public Pi APIs only (chosen).** Main-session context goes through `before_agent_start`'s `message`; workers through the vendored executor's launch policy. Much smaller than the port, and less exposed to host upgrades. Trade-off: injected skills and advice are real session history until compaction, so duplicates must be avoided, and they follow the history across forks.
 2. **One package, per-request projection through `context`, as the port does.** Keeps history cleaner and gives exact per-branch control. Requires an originating-message identity Pi does not document as stable, the main source of the port's complexity.
 3. **Separate core and adapter packages.** Makes the executor replaceable, at the cost of several versions to keep in sync for one user and one executor. Internal module boundaries give most of the benefit.
 
@@ -122,5 +122,5 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 - Language and tooling details: TypeScript run by Pi directly, Bun for tests, matching the Pi ecosystem.
 - Ledger concurrency and trimming, provided lines are never silently lost to a parallel Pi process.
 - Exact wording of the tool assessment criteria, verified by replay.
-- How agent files are parsed, and the table of the executor's built-in agents, since no public registry API exposes them.
+- ~~How agent files are parsed, and the table of the executor's built-in agents~~. Removed: the vendored executor's registry supplies agent facts ([ADR 0009](decisions/0009-vendored-executor.md)).
 - ~~How `workspace.languages` is detected~~. Removed: the [WG-16 replay](evidence/2026-11-07-state-replay.md) found it within noise.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-pi-jev-pilot is one Pi package with one extension. It watches a few host events, asks Jev typed questions, turns the answers into decisions with deterministic rules, and applies them through public Pi APIs.
+pi-jev-pilot is one Pi package with two extensions: the [vendored executor](decisions/0009-vendored-executor.md) in `packages/pi-subagents/`, loaded first, and the Jev extension in `src/`. The Jev extension watches a few host events, asks Jev typed questions, turns the answers into decisions with deterministic rules, and applies them through public Pi APIs.
 
 Jev never controls anything directly. **Code owns the control flow; Jev only answers questions.**
 
@@ -19,16 +19,16 @@ flowchart LR
         S["Stores"]
     end
     J[("TypeSafe API<br/>Jev")]
-    X["@gotgenes/pi-subagents"]
+    X["Vendored executor<br/>(packages/pi-subagents)"]
     CLI["codex / opencode CLI"]
 
     E --> H
     H --> C --> J
     C --> P --> H
-    H -- "thinking level, context message,<br/>subagent model and thinking" --> Pi
+    H -- "thinking level, context message" --> Pi
+    H -- "launch policy: model, thinking,<br/>tool grants and blocks" --> X
     H --> U
     H --> S
-    H --> X
     H -- "only when asked" --> CLI
 ```
 
@@ -64,7 +64,7 @@ src/
       cli.ts                CLI commands, model catalogs, tier names, result text, details
     tools/
       index.ts              Entry point for other folders
-      assess.ts             Candidates, the 32 cap, the flag threshold
+      assess.ts             Block and grant candidates, the 32 cap, both thresholds, the tool plan
     tuning/
       index.ts              Entry point for other folders
       rules.ts              Tuning rules: step, revert, undo, reset, off
@@ -112,7 +112,7 @@ src/
       start.ts              before_agent_start: gate, ask Jev, apply the reply
     platform/
       index.ts              Entry point for other folders
-      agents.ts             Reads agent files and the built-in agent table
+      agents.ts             Maps the executor's agent snapshot to plain agent facts
       child.ts              Child registry
       context.ts            Previous turn id and hold context from the branch; re-exports
                             branchItems and scanPlatforms from jev/
@@ -126,10 +126,11 @@ src/
       tally.ts              In-memory session observer fed by validated ledger lines
     tools/
       index.ts              Entry point for other folders
-      assessment.ts         Worker-side tool assessment: record lookup, request, flag, removal
-      counts.ts             Hands the counts to the worker ledger line
+      assessment.ts         Tool assessment at launch: request, answers, block and grant lists
+      counts.ts             Hands the counts (scored, flagged, granted) to the worker ledger line
       facts.ts              Maps Pi tool info to plain tool facts
-      service.ts            Captures the executor service at main session_start
+      plan.ts               Which candidates a launch scores: the switch, the prompt, the request's tool set
+      service.ts            Captures the executor service at main session_start; accepts only the vendored one
     tuning/
       index.ts              Entry point for other folders
       command.ts            /jev tune: report, undo, reset, on, off
@@ -145,11 +146,13 @@ src/
     worker/
       index.ts              Entry point for other folders
       cutpoint-window.ts    In-memory window of the latest eligible worker lines
-      routing.ts            registerWorkerRouting: wires the handlers, owns no logic
-      handlers.ts           message_end, tool_call, tool_result and executor-event handlers
-      classify.ts           Reads the agent and launch, builds the questions, starts the Jev ask
-      route.ts              Reads the answer, routes the launch, writes model and thinking
-      launches.ts           LaunchBook: launches, parked launches and buffered outcomes
+      routing.ts            registerWorkerRouting: registers the launch policy and the event handlers, owns no logic
+      policy.ts             The launch policy: scope checks, concurrent worker and tool asks, the adjustment
+      request.ts            What the policy reads from the main session it was registered in
+      outcomes.ts           Executor lifecycle and outcome events, joined by agentId
+      classify.ts           Builds the questions for a launch and starts the Jev ask
+      route.ts              Reads the answer and maps the route to a model and thinking adjustment
+      launches.ts           LaunchBook: decided launches waiting for their outcome
       warnings.ts           "Cannot run" warning text, shown once per target and model
       entry.ts              LaunchEntry and the executor outcome fields a line needs
     review/
@@ -182,6 +185,12 @@ src/
     state-file.ts           state.json: switches, mode, CLI review default and on/off
     tuning-file.ts          tuning.json: changes, history
     validate.ts             Small validators that collect issues with field paths
+
+packages/
+  pi-subagents/             Vendored executor (private `@ttdua/pi-subagents`). Own toolchain and tests.
+    VENDORED.md             Upstream tag and commit, and every local change
+    src/seams/              The seams, in new files: launch identity, registry, launch policy, grants
+                            (existing upstream files only get thin call sites)
 
 scripts/
   replay/                   Offline measurement. Output stays outside the repository.
@@ -227,12 +236,14 @@ flowchart TD
 - `jev/` knows nothing about Pi. It receives plain inputs, which is what lets `scripts/replay` reuse it.
 - `store/` knows files and schemas, nothing about decisions.
 - Only `host/` imports `@earendil-works/pi-coding-agent` or reads executor events.
+- `src/` may `import type` from `@ttdua/pi-subagents`, never at runtime: the two extensions are separate module instances, and the service is reached through the global slot.
+- jev-pilot's import-graph test, lint and `tsc` skip `packages/`; the executor runs its own suite (`bun run test:executor`).
 
 
 
 ## Host seams
 
-Each row is a public contract the package relies on. Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md).
+Each row is a contract the package relies on: a public Pi API, or a seam of the vendored executor ([ADR 0009](decisions/0009-vendored-executor.md)). Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md). Q1, Q2 and Q7 of that report are superseded: their seams are gone and the launch policy replaces them.
 
 | Purpose | Seam | Status |
 |---|---|---|
@@ -242,8 +253,10 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
 | Skill catalog | `pi.getCommands()` with `sourceInfo.path`, `parseFrontmatter` / `stripFrontmatter` | Documented |
 | Skills already in context | `ctx.sessionManager.buildSessionProjection()` | Documented |
-| Pre-classify sibling launches | `pi.on("message_end")` before `tool_call` preflight | Verified: yes ([Q2](evidence/2026-11-05-host-seams.md#q2)) |
-| Set worker model and thinking | `pi.on("tool_call")` mutating `event.input` | Documented. Verified: yes, it reaches the child ([Q1](evidence/2026-11-05-host-seams.md#q1)) |
+| Decide every worker launch | Executor `registerLaunchPolicy`: one slot, 10 s watchdog, fails open. Returns `model`, `thinking`, `addTools`, `removeTools` | Executor contract. Verified by `tests/host/launch-policy-evidence.test.ts`. Supersedes Q1, Q2 and Q7 ([evidence](evidence/2026-11-05-host-seams.md)) |
+| Join a launch to its child and outcome | `agentId`, `agentType`, `toolCallId` on `subagents:*` events; effective model and thinking on `session-created` | Executor contract; `tests/host/worker-ledger.test.ts` |
+| Agent facts | Service `listAgentTypes()` / `getAgentType()` (declared `tools`, `disallowed_tools`, locks) | Executor contract; `tests/host/platform/agent-facts.test.ts` |
+| Grant a tool to a worker | `addTools` in the policy adjustment, checked by the executor against the parent's tools and, after the child binds, against what the child registered (`grantedTools` on `subagents:child:bound`) | Executor contract; host test `launch-policy-evidence` |
 | Detect a child session | `subagents:child:session-created` on `pi.events` | Verified: yes ([Q4](evidence/2026-11-05-host-seams.md#q4)) |
 | Remove tools in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` | Verified: yes ([Q3](evidence/2026-11-05-host-seams.md#q3)) |
 | Worker outcome | `subagents:completed`, `subagents:failed` | Documented by the executor |
@@ -254,7 +267,7 @@ Each row is a public contract the package relies on. Rows marked **Verified** we
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
 | CLI review | `pi.registerTool`, `pi.exec` | Verified by host test `tests/host/cli-review.test.ts` (fake `codex` and `opencode` on `PATH`) |
-| Find a worker's launch | Executor service `listAgents()` matched by `outputFile`, captured at main `session_start` | Verified by host test `tests/host/tool-assessment.test.ts` ([evidence](evidence/2026-11-05-host-seams.md#tool-assessment-service-lookup-wg-14)) |
+| Reach the executor | Service on `globalThis`, published when the executor loads and captured at main `session_start`; only a service whose `implementation` is `@ttdua/pi-subagents` counts | `tests/host/tools/policy-assessment.test.ts` |
 | Hide the review tool in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` (the Q3 seam) | Verified by the same host test: absent in a child's request |
 
 ## Runtime contexts
@@ -264,14 +277,16 @@ A child session binds the parent's extension set and runs in the same process, s
 | | Main session | Child session (worker) |
 |---|---|---|
 | Effort, skill, advice | Yes | No |
-| Worker routing | Yes | Not possible: the executor removes `subagent` |
-| Tool assessment | No | Yes |
+| Worker routing (launch policy) | Yes: the policy is registered here and decides every launch | Not possible: the executor removes `subagent`. A launch whose parent is a child session is left untouched |
+| Tool assessment | Yes, at launch, in the same policy call | No |
 | Status line, tally | Yes | No |
-| Review tool | Yes | Not offered: removed from `selectedTools` in `before_agent_start`, and refused if called |
+| Review tool | Yes | Not offered: removed from `selectedTools` in `before_agent_start`, and refused if called. This is the only guard the child keeps |
 
 **Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. The registry also drops an id on `subagents:child:disposed`, and each instance unsubscribes on `session_shutdown`. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
 
-Without the executor installed, nothing counts as a child, and worker routing and tool assessment are off with a note in `/jev`.
+**Policy registration.** The main-session instance captures the executor service at `session_start`, registers the launch policy and unregisters it at `session_shutdown`. Workers still running at a reload or session switch get no ledger line.
+
+**Executor states.** `/jev` reports one of three. `present`: the vendored service is captured. `absent`: no `subagent` provider, so worker routing and tool assessment are off with a note. `duplicate executor`: jev-pilot's extension runs with the original `@gotgenes/pi-subagents` but without the vendored executor. Pi refuses to start when two extensions register `subagent`, so installing this package next to the original fails at startup; uninstall the original first. A provider that loses both load races cannot be detected.
 
 ## Display surfaces
 
@@ -302,7 +317,10 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Slot model unavailable | `balanced`, then `fast`, with a warning naming `crew.slots "<name>" model` | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
 | Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
-| Tool assessment fails | Worker keeps all tools | Nothing (counts omitted) |
+| Launch policy throws, is slow or returns nonsense | Launch proceeds unchanged (the executor falls open after 10 s) | Debug note in the executor |
+| Tool assessment fails | Worker keeps its default tools; nothing is granted or blocked | Nothing (counts omitted) |
+| A grant the child cannot take | Dropped by the executor | `toolsGranted` counts only what took effect |
+| Original executor present without the vendored one | Worker routing and tool assessment off | `duplicate executor` in `/jev` |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
 | CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |
 | Ledger write fails | Decision still applied | Verbose log |
@@ -319,8 +337,8 @@ Without the executor installed, nothing counts as a child, and worker routing an
 | Moment | Added wait |
 |---|---|
 | Each main prompt | Typically about 0.5 s, at most `timeoutMs` (1500 ms) |
-| Each message with subagent launches | One concurrent batch, at most `timeoutMs` |
-| Tool assessment | Runs inside the worker; the worker waits up to `timeoutMs` before its first turn, in both modes. The main session does not wait |
+| Each worker launch | The launch waits for the policy, at most `classifier.timeoutMs` (the policy watchdog is 10 s). The worker request and, with the `tools` switch on and candidates present, one extra tool-assessment request run concurrently under that one deadline |
+| Tool assessment | No separate wait: it shares the launch deadline. Background launches return their id at once |
 | Everything else | None. Commands never call Jev |
 
 ## Not in the architecture

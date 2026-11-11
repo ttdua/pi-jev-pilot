@@ -57,35 +57,40 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant M as Main model
-    participant P as Pi
+    participant E as Executor
     participant X as pi-jev-pilot
     participant J as Jev
-    participant E as Executor
 
-    M-->>P: assistant message with subagent calls
-    P->>X: message_end
-    X->>J: one request per launch, concurrently
-    J-->>X: answers
-    X->>X: cache by toolCallId
-    loop each subagent call
-        P->>X: tool_call
-        alt resume, forked with untouched, both locked, or switched off
-            X-->>P: leave input unchanged
-        else forked with thinking
-            X->>X: policy: thinking only
-            X->>P: mutate input.thinking
-        else
-            X->>X: policy: model, then effort
-            X->>X: check registry and credentials
-            X->>P: mutate input.model, input.thinking
+    M->>E: subagent tool call (or a service spawn)
+    E->>E: queue, dequeue, resolve the agent
+    E->>X: launch policy (request: agent, prompt, tool set)
+    alt child-originated, resume, or switches off
+        X-->>E: nothing
+    else
+        par worker request
+            X->>J: tier, effort, risk, slots
+        and tool request (switch on, candidates present)
+            X->>J: tool:: and grant:: per candidate
         end
+        J-->>X: answers (one deadline: classifier.timeoutMs)
+        X->>X: policy: model, thinking, block and grant lists
+        X-->>E: adjustment: model, thinking, addTools, removeTools
     end
-    P->>E: execute subagent
-    E-->>X: subagents:completed, failed or resumed
-    X->>X: ledger: status, tokens, tool uses
+    E->>E: apply locks, declared tools and disallowed_tools, then create the child
+    E-->>X: subagents:child:session-created, bound, completed or failed
+    X->>X: ledger: status, tokens, effective model, tool counts
 ```
 
-Classification of sibling launches happens at `message_end`, which finishes before `tool_call` preflight (verified, [Q2](evidence/2026-11-05-host-seams.md#q2)). Launches issued by another tool (nested, with `parentToolCallId`) have no `message_end` batch, so they are classified at `tool_call`. The outcome is read from `subagents:completed`, `subagents:failed` or `subagents:resumed`.
+The executor calls the launch policy once per new launch, from either door, after dequeue and before the child is created. The policy is registered by the main session at `session_start`. It does not run for `resume`, which creates no session.
+
+What the policy leaves alone:
+
+- A launch whose parent is a child session.
+- A service `spawn()` that names a model: the model is kept and thinking is still decided, as for an agent file that locks only the model.
+- A forked launch (`inherit_context`) under the default `subagents.forkedLaunch`; with `thinking` only thinking changes.
+- Anything the agent file locks. The executor enforces this; a locked field is never changed.
+
+If the policy throws, is too slow or returns something malformed, the launch runs unchanged. The ledger joins events to launches by `agentId`; a resumed launch writes no line.
 
 **Model selection example** with the default `standard` mode. The tier follows the difficulty score and the mode's cut points; the table shows only typical reads:
 
@@ -98,41 +103,39 @@ Classification of sibling launches happens at `message_end`, which finishes befo
 | Review a pull request | `slot::reviewer` .92 | The `reviewer` slot's model |
 | Anything that would deploy or delete data | `risky` .9 | Opus, effort at least `high` |
 
-**Effect on the session:** worker model and effort differ from what the main model asked for, and the ledger records `callerModel`. The executor's widget shows the actual model.
+**Effect on the session:** worker model and effort differ from what the main model asked for, and the ledger records `callerModel`, plus `effectiveModel` and `effectiveThinking` as the executor applied them. The executor's widget shows the actual model.
 
-## 3. A worker starts
+## 3. Tool assessment at launch
+
+Runs inside the launch policy call (workflow 2), in the main session, for every agent. The child is not involved.
 
 ```mermaid
-sequenceDiagram
-    participant E as Executor
-    participant X as pi-jev-pilot (parent)
-    participant C as pi-jev-pilot (child)
-    participant J as Jev
-
-    E->>X: subagents:child:session-created
-    X->>X: add session id to registry
-    E->>C: bindExtensions, session_start
-    E->>C: before_agent_start
-    C->>C: is a child: only tool assessment runs
-    alt agent declares tools, switch off, or no key
-        C-->>E: nothing
-    else
-        C->>E: listAgents(), match outputFile with own session file
-        E-->>C: launch record (agent, description)
-        C->>J: task + agent + tools (one noul per candidate)
-        J-->>C: scores (waits up to timeoutMs)
-        C->>X: scored and flagged counts
-        alt observe mode
-            C-->>E: selectedTools unchanged
-        else enforce mode
-            C-->>E: selectedTools without flagged tools
-        end
-    end
+flowchart TD
+    A["Launch policy call"] --> B{"tools switch on,<br/>prompt not empty?"}
+    B -- no --> Z["No tool request"]
+    B -- yes --> C["Candidates:<br/>default set ∪ parent tools<br/>− declared − disallowed − never-candidates"]
+    C --> D{"Any candidate?"}
+    D -- no --> Z
+    D -- yes --> E["Cap at 32, block candidates first"]
+    E --> F["One request, concurrent with the worker request"]
+    F --> G{"Answered in time?"}
+    G -- no --> Z
+    G -- yes --> H["tool:: ≥ 0.5 → block<br/>grant:: ≥ tools.grantAt → grant"]
+    H --> I{"Mode"}
+    I -- observe --> J["Record counts only"]
+    I -- enforce --> K["removeTools, addTools in the adjustment"]
 ```
 
-The worker finds its launch through the executor service that the main session captured at `session_start`; a worker session loads its own executor instance, which overwrites the global service, so the main session's capture is kept. The worker waits for Jev before its first turn in both modes, at most `classifier.timeoutMs`. Any failure keeps every tool and records nothing. The counts reach the `worker` ledger line when the launch ends, only if that line exists. Later turns and resumed runs make no new request: in `enforce` the flagged tools stay removed.
+- **Declared `tools` are kept** and `disallowed_tools` are never added. Only the rest is decided.
+- **Block candidates** are tools the child would have by default. They get `tool::<name>`.
+- **Grant candidates** are tools in the parent session the child would not have. They get `grant::<name>`; the default cut is `tools.grantAt` 0.8.
+- **Never candidates:** `jev_review` and the executor's own tools (`subagent`, `get_subagent_result`, `steer_subagent`, `ask_parent`, `notify_parent`).
+- **Cost:** one extra Jev request per launch with candidates, concurrent with the worker request, under one `classifier.timeoutMs` deadline. A failure keeps the default tools and records nothing.
+- **Checked grants.** The executor drops grants outside the parent's tools. After the child binds, it also drops tools the child did not register and reports the rest as `grantedTools`. The ledger's `toolsGranted` counts those.
+- **Child guard.** The child still hides `jev_review` in `before_agent_start`, for an agent that names it in `tools`.
+- **Resume.** A resumed worker keeps the tools it started with; no new request.
 
-Default is `observe`, so workers keep all their tools until the operator switches to `enforce`.
+Default is `observe`: tools are recorded, not changed.
 
 ## 4. A mode change
 
@@ -173,7 +176,7 @@ flowchart TD
     Q -- yes --> K["Apply one step, show a line"]
 ```
 
-Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Tool assessment also uses `timeoutMs`, but its misses write no ledger line, so the rule does not see them; phase 1 accepts this blind spot. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
+Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Tool assessment shares the launch deadline `timeoutMs`, but its misses write no ledger line, so the rule does not see them; phase 1 accepts this blind spot. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
 
 ## 6. A CLI review
 
@@ -204,7 +207,7 @@ This is separate from the `reviewer` slot, which routes ordinary review subagent
 1. Read `config.json`. If malformed, report and stay inert.
 2. Read `state.json` and `tuning.json`.
 3. Check the API key's presence, without calling Jev.
-4. Check for the executor; note its absence.
+4. Capture the executor service and register the launch policy; note an absent executor or a `duplicate` one. Workers still running at a reload or session switch get no ledger line.
 5. Draw the status line. In print and JSON modes, nothing is drawn.
 6. Show one line if tuning changed something since the last session. `seenAt` is written first, so a refused write shows nothing; without a UI nothing is written or shown.
 

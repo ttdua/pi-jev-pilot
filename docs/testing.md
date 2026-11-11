@@ -33,13 +33,19 @@ The manual Q8 run and the manual CLI review run are the only Host evidence that 
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
 - Jev down: identical provider requests to a run without the package, apart from a status line.
 - Esc during classification: no provider request follows.
-- A worker's actual model and thinking at the child's first request, foreground and background.
+- A worker's actual model and thinking at the child's first request, foreground and background, set by the launch policy; a service `spawn()` is routed too.
+- A tool grant reaches the child's first request; `disallowed_tools` wins over a grant; a slow or failing policy lets the launch run unchanged.
+- The executor is `present` after workers were created and disposed, and `duplicate` when jev-pilot's extension runs with the original executor but without the vendored one.
 - Nothing from a hidden log line reaches a provider.
 - Installation from a packed tarball, not only a checkout.
 - CLI review with fake `codex` and `opencode` scripts on `PATH`: the exact command lines, success, failure and exit codes, one retry on timeout, tier resolution at each run, the output file removed, and no brief or output in details or the ledger.
 - The review tool is offered in the main session only while on, and absent in a child's provider request.
 
-The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md).
+The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. It runs `pi install` of this repository into the isolated directory, so the vendored executor and the Jev extension load together, as for a user. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md); Q1, Q2 and Q7 are superseded by `tests/host/launch-policy-evidence.test.ts`.
+
+### Vendored executor
+
+`bun run test:executor` runs the executor's own checks and tests (`tsc` and its test suite) from the root. It is separate from `bun run test`, which runs jev-pilot's suite, including `tests/vendoring.test.ts`: it checks the files under `packages/pi-subagents/` against the upstream manifest, and every difference needs a row in `VENDORED.md`. jev-pilot's import-graph test, lint and `tsc` skip `packages/`. CI runs both suites.
 
 **Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
 
@@ -51,7 +57,7 @@ A test asserts the exact field set of each ledger kind against `LEDGER_FIELDS`, 
 
 ## Version policy
 
-Host tests pin Pi and `@gotgenes/pi-subagents`. Upgrading either reruns them, and the [host seams](architecture.md#host-seams) table is rechecked. The peer ranges state only what has been tested.
+Host tests pin Pi and run against the vendored executor. Upgrading Pi, or syncing the executor from upstream, reruns them, and the [host seams](architecture.md#host-seams) table is rechecked. The peer ranges state only what has been tested.
 
 ## Replay rules
 

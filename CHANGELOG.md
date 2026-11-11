@@ -2,6 +2,33 @@
 
 All notable changes to pi-jev-pilot are listed here, newest first.
 
+## [Unreleased]
+
+### Breaking
+
+- **Uninstall `@gotgenes/pi-subagents` before installing this version.** The executor is now vendored in `packages/pi-subagents/` and one `pi install` loads both extensions. Pi refuses to start when two extensions register the `subagent` tool.
+
+### Added
+
+- Vendored executor (from `@gotgenes/pi-subagents` 25.0.5, see [ADR 0009](docs/decisions/0009-vendored-executor.md)) with seams: launch policy provider (one slot, 10 s watchdog, fails open), launch identity on events, effective model and thinking per launch, an agent registry, checked tool grants and `disallowed_tools` in agent files.
+- Worker routing through the launch policy for every main-session launch, including service `spawn()`. A model named by a service caller is kept. Launches from a worker, and `resume`, are untouched.
+- Tool assessment at launch for every agent: declared tools are kept, disallowed tools are never added, Jev decides blocks (`tool::` at 0.5 or more) and grants (`grant::` at `tools.grantAt`, default 0.8).
+- Worker ledger lines gain `effectiveModel`, `effectiveThinking` and `toolsGranted`.
+- `/jev` reports `duplicate executor` when Jev's extension runs with the original executor but without the vendored one.
+- `bun run test:executor` for the vendored package's own tests.
+
+### Changed
+
+- With the `tools` switch on, each launch with candidates costs one extra Jev request, sent concurrently with the worker request under one `classifier.timeoutMs` deadline.
+- Tool assessment moved from the child session to the launch, in the main session. The child only keeps the guard that hides `jev_review`.
+- Agent facts come from the executor's registry instead of parsed agent files.
+- Workers still running at a reload or session switch get no ledger line.
+- `RUBRIC_VERSION` is unchanged (2).
+
+### Removed
+
+- The `message_end` pre-classification and `tool_call` input rewriting. ADR 0006 is superseded; Q1, Q2 and Q7 of the host seams report are superseded.
+
 ## [0.1.0] - 2026-11-08
 
 Tag: v0.1.0
