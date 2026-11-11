@@ -14,6 +14,7 @@ import {
 	buildLaunchRequest,
 	type ParentToolInfo,
 } from "#src/seams/launch-request";
+import { applyLocks } from "#src/seams/locked-launch";
 import type {
 	LaunchAdjustment,
 	LaunchOrigin,
@@ -40,15 +41,22 @@ export interface LaunchFacts {
 	thinkingLevel?: ThinkingLevel;
 	inheritContext: boolean;
 	isBackground: boolean;
+	/** The parent's model, which a locked agent model falls back to when unresolvable. */
+	parentModel: Model<any> | undefined;
 	modelRegistry: ModelRegistry;
 }
 
-/** The values a policy changed; absent fields keep the launch's own. */
+/**
+ * What a launch runs with while a policy is registered. `model` and
+ * `thinkingLevel` are authoritative (undefined means inherit), with the
+ * agent's locked fields applied for every door; `tools` is absent when the
+ * policy changed no tools.
+ */
 export interface LaunchOverrides {
-	model?: Model<any>;
-	thinkingLevel?: ThinkingLevel;
+	model: Model<any> | undefined;
+	thinkingLevel: ThinkingLevel | undefined;
 	/** The child's base tool names, and the grants among them to check after bind. */
-	tools: { toolNames: string[]; grants: string[] };
+	tools?: { toolNames: string[]; grants: string[] };
 }
 
 export class LaunchPolicyGate {
@@ -64,27 +72,37 @@ export class LaunchPolicyGate {
 	}
 
 	/**
-	 * Consult the policy; `undefined` means the launch runs unchanged. Never
-	 * rejects: any failure here leaves the launch as it would run without a policy.
+	 * Apply the agent's locks, then consult the policy. The locked values are
+	 * what the policy sees as `requested` and what the session runs when the
+	 * policy returns nothing or fails. Never rejects: a failure before the
+	 * request exists yields `undefined`, and the launch runs as upstream would.
 	 */
 	async plan(
 		facts: LaunchFacts,
 		runSignal: AbortSignal,
 	): Promise<LaunchOverrides | undefined> {
 		try {
-			const request = this.request(facts);
+			const config = this.resolveConfig(facts.agentType);
+			const locked = applyLocks(config, facts, {
+				model: facts.parentModel,
+				modelRegistry: facts.modelRegistry,
+			});
+			const request = this.request({ ...facts, ...locked }, config);
+			const base: LaunchOverrides = {
+				model: locked.model,
+				thinkingLevel: locked.thinkingLevel,
+			};
 			const adjustment = await this.slot.consult(request, runSignal);
-			return (
-				adjustment && overridesOf(request, adjustment, facts.modelRegistry)
-			);
+			return adjustment
+				? overridesOf(request, adjustment, base, facts.modelRegistry)
+				: base;
 		} catch (err) {
 			debugLog("launch policy gate failed; launch unchanged", err);
 			return undefined;
 		}
 	}
 
-	private request(facts: LaunchFacts): LaunchRequest {
-		const config = this.resolveConfig(facts.agentType);
+	private request(facts: LaunchFacts, config: AgentConfig): LaunchRequest {
 		return buildLaunchRequest({
 			...facts,
 			config,
@@ -95,20 +113,22 @@ export class LaunchPolicyGate {
 	}
 }
 
-/** The launch values `adjustment` changes, after the precedence rules. */
+/** `base` with the changes `adjustment` may make, after the precedence rules. */
 function overridesOf(
 	request: LaunchRequest,
 	adjustment: LaunchAdjustment,
+	base: LaunchOverrides,
 	registry: ModelRegistry,
 ): LaunchOverrides {
 	const plan = applyAdjustment(request, adjustment);
-	const overrides: LaunchOverrides = {
+	const model = plan.model
+		? resolvePolicyModel(plan.model, registry)
+		: undefined;
+	return {
+		model: model ?? base.model,
+		thinkingLevel: plan.thinking ?? base.thinkingLevel,
 		tools: { toolNames: plan.toolNames, grants: plan.grants },
 	};
-	const model = plan.model && resolvePolicyModel(plan.model, registry);
-	if (model) overrides.model = model;
-	if (plan.thinking !== undefined) overrides.thinkingLevel = plan.thinking;
-	return overrides;
 }
 
 /**

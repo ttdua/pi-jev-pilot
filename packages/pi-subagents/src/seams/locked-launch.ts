@@ -2,9 +2,10 @@
  * locked-launch.ts — One lock precedence for every launch door.
  *
  * The `subagent` tool door merges an agent's `locked:` fields into the call
- * before it resolves a model; the service door did not. Applying the same rule
- * at the manager's spawn choke point gives both doors the agent's value for a
- * locked field, and the launch policy sees exactly what the session runs.
+ * before it resolves a model; the service door does not (upstream). While a
+ * launch policy is registered, the launch gate applies the same rule for every
+ * door, so the policy's `requested` is exactly what the session runs. With no
+ * policy registered the doors keep upstream precedence.
  */
 
 import type { Model } from "@earendil-works/pi-ai";

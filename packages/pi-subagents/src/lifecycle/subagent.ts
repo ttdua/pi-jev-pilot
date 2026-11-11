@@ -456,8 +456,10 @@ export class Subagent {
 				type: this.type,
 				cwd,
 				parentSession: this.execution.parentSession,
-				model: overrides?.model ?? this.execution.model,
-				thinkingLevel: overrides?.thinkingLevel ?? this.execution.thinkingLevel,
+				// With a policy registered the gate's values are authoritative (locks and
+				// adjustment applied); without one the door's values run, as upstream.
+				model: overrides ? overrides.model : this.execution.model,
+				thinkingLevel: overrides ? overrides.thinkingLevel : this.execution.thinkingLevel,
 				tools: overrides?.tools,
 				// The session outlives this run, so a question goes to whichever run is
 				// under way when the child asks it.
@@ -496,6 +498,7 @@ export class Subagent {
 			thinkingLevel: execution.thinkingLevel,
 			inheritContext: execution.inheritContext ?? false,
 			isBackground: run.inBackground,
+			parentModel: execution.snapshot.model,
 			modelRegistry: execution.snapshot.modelRegistry,
 		}, run.signal);
 	}

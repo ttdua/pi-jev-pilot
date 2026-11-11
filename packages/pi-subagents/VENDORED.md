@@ -29,8 +29,8 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/service/service-adapter.ts` | edit | Carry `implementation` and `sessionId` (bound at first `session_start`); map the effective facts into the record snapshot. Serve `listAgentTypes`/`getAgentType` through the injected catalog. Forward `registerLaunchPolicy`; service spawns carry `origin: service`. |
 | `src/lifecycle/child-lifecycle.ts` | edit | Child events carry `agentId`, `agentType`, `toolCallId`; `session-created` carries the effective facts; `bound` carries `grantedTools`. |
 | `src/lifecycle/create-subagent-session.ts` | edit | Take `agentId`; publish launch identity and effective facts on child events. Apply `disallowed_tools` through `finalToolNames` before the recursion denylist. Take the launch policy's tool plan; check grants after bind and report `grantedTools` on `bound`; dispose the child if not even the pre-grant tool set can be restored. |
-| `src/lifecycle/subagent.ts` | edit | Pass `agentId` to the session factory, store effective facts, track the resume's tool call id. Consult the launch policy after dequeue and before session creation (new launches only); a launch cancelled meanwhile ends `stopped`. |
-| `src/lifecycle/subagent-manager.ts` | edit | Forward the resume's `toolCallId` to the record. Own the launch policy slot; `AgentSpawnConfig.origin`; hand each record the launch gate. Apply the agent's locked model/thinking at the spawn choke point for every door. |
+| `src/lifecycle/subagent.ts` | edit | Pass `agentId` to the session factory, store effective facts, track the resume's tool call id. Consult the launch policy after dequeue and before session creation (new launches only); a launch cancelled meanwhile ends `stopped`. With a policy registered, the gate's model/thinking (locks and adjustment applied) are authoritative. |
+| `src/lifecycle/subagent-manager.ts` | edit | Forward the resume's `toolCallId` to the record. Own the launch policy slot; `AgentSpawnConfig.origin`; hand each record the launch gate. |
 | `src/tools/agent-tool.ts` | edit | Pass the `subagent` call's tool call id to `startResume`; launches carry `origin: tool`. |
 | `src/observation/subagent-events-observer.ts` | edit | Record events carry `toolCallId` when launched or resumed from a tool call. |
 | `test/lifecycle/child-lifecycle.test.ts` | edit | Child event payloads now include launch identity fields. |
@@ -58,9 +58,9 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/tools/spawn-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
 | `src/seams/launch-policy.ts` | seam | `LaunchPolicySlot` (one policy, fail-open consult with watchdog and run signal) and `validAdjustment`. |
 | `src/seams/launch-request.ts` | seam | Build the frozen `LaunchRequest`; grantable parent tools (minus orchestration tools and excluded packages' tools). |
-| `src/seams/locked-launch.ts` | seam | `lockedFields`/`applyLocks`: one lock precedence for the tool and service doors. |
+| `src/seams/locked-launch.ts` | seam | `lockedFields`/`applyLocks`: one lock precedence for the tool and service doors, applied by the launch gate only while a policy is registered. |
 | `src/seams/launch-plan.ts` | seam | `applyAdjustment`: precedence rules for model, thinking, grants and removals. |
-| `src/seams/launch-gate.ts` | seam | `LaunchPolicyGate`: request, consult, apply and resolve the policy model for one launch. |
+| `src/seams/launch-gate.ts` | seam | `LaunchPolicyGate`: apply locks, request, consult, apply and resolve the policy model for one launch. |
 | `src/seams/grant-check.ts` | seam | `checkGrants`/`enforceGrants`: keep grants the child registered with a model-callable exposure. |
 | `src/tools/background-spawner.ts` | edit | Pass the launch `origin` to the manager. |
 | `src/tools/foreground-runner.ts` | edit | Pass the launch `origin` to the manager. |

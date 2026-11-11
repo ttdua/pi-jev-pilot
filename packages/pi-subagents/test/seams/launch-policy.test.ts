@@ -450,7 +450,7 @@ describe("launch request", () => {
 		expect(h.sessionOpts().thinkingLevel).toBe("high");
 	});
 
-	it("a service launch with no policy runs the locked agent values", async () => {
+	it("a service launch with no policy keeps upstream precedence: the caller's values win", async () => {
 		const h = harness({
 			agent: {
 				model: "fixture/fixture-deep",
@@ -464,10 +464,10 @@ describe("launch request", () => {
 			thinkingLevel: "low",
 			foreground: true,
 		});
-		await h.manager.getRecord(id)!.promise;
+		await h.manager.getRecord(id)?.promise;
 
-		expect(h.sessionOpts().model?.id).toBe("fixture-deep");
-		expect(h.sessionOpts().thinkingLevel).toBe("high");
+		expect(h.sessionOpts().model?.id).toBe("fixture-fast");
+		expect(h.sessionOpts().thinkingLevel).toBe("low");
 	});
 });
 
