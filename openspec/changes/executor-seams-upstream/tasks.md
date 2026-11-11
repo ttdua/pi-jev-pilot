@@ -54,9 +54,9 @@ Blocked by: 1
 
 Blocked by: 2, 5
 
-- [ ] 6.1 Implement the three-state executor check after bind: `duplicate` from the winning `subagent` tool's `sourceInfo` or a non-vendored `implementation`; `present` from the captured main service; `absent` otherwise (spec `readiness-checks`)
-- [ ] 6.2 Report `duplicate executor` with the other path and the uninstall advice in `/jev`, with worker routing and tool assessment off (spec `jev-command`)
-- [ ] 6.3 Unit and host tests for both load orders and for "present after children"
+- [x] 6.1 Implement the three-state executor check after bind: `duplicate` from the winning `subagent` tool's `sourceInfo` or a non-vendored `implementation`; `present` from the captured main service; `absent` otherwise (spec `readiness-checks`)
+- [x] 6.2 Report `duplicate executor` with the other path and the uninstall advice in `/jev`, with worker routing and tool assessment off (spec `jev-command`)
+- [x] 6.3 Unit and host tests for both load orders and for "present after children"
 
 ## 7. jev-pilot: routing and tool assessment through the launch policy
 
