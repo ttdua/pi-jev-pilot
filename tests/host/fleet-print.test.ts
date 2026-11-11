@@ -17,6 +17,7 @@ afterEach(async () => {
 const KEY = { TYPESAFE_API_KEY: "test-key" };
 const TIMEOUT = 90_000;
 const BRIEF = "CHILD-TASK answer plainly";
+const CHILD_MODEL = "fixture-balanced";
 
 type Msg = { role?: string; content?: unknown };
 const messages = (r: RecordedRequest): Msg[] =>
@@ -39,7 +40,7 @@ const script: ScriptEntry[] = [
             prompt: BRIEF,
             description: "fleet probe",
             subagent_type: "general-purpose",
-            model: "fixture/fixture-balanced",
+            model: `fixture/${CHILD_MODEL}`,
             thinking: "low",
           },
         },
@@ -73,8 +74,13 @@ async function run(fleetView: boolean) {
     cwd,
     env: KEY,
   });
-  // The child really ran: a request carries its brief.
-  expect(fixture.requests.some((r) => JSON.stringify(r.body).includes("CHILD-TASK"))).toBe(true);
+  // The child really ran: the fixture saw a request to the child model whose user message is the brief.
+  const childRan = fixture.requests.some(
+    (r) =>
+      r.model === CHILD_MODEL &&
+      JSON.stringify(messages(r).find((m) => m.role === "user")).includes(BRIEF),
+  );
+  expect(childRan).toBe(true);
   return result;
 }
 
