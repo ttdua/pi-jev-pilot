@@ -28,7 +28,7 @@ export type FleetAgent = NavigableSubagent & { readonly lifetimeUsage: Readonly<
 
 /** Whether the agent has a transcript the pane can open, live or from file. */
 function isOpenable(agent: FleetAgent): boolean {
-  return agent.isSessionReady() || agent.outputFile !== undefined;
+  return agent.isSessionReady() || Boolean(agent.outputFile);
 }
 
 /** Whether the agent is live, recently finished, or the one being viewed. */
@@ -61,9 +61,10 @@ export function formatFleetTokens(count: number): string {
 /** Place `right` flush to `width`, truncating `left` first; never exceeds `width`. */
 export function rightAlign(left: string, right: string, width: number): string {
   const rightWidth = visibleWidth(right);
+  if (rightWidth >= width) return truncateToWidth(right, width);
   const leftClamped = truncateToWidth(left, Math.max(0, width - rightWidth - 1));
-  const gap = Math.max(1, width - visibleWidth(leftClamped) - rightWidth);
-  return truncateToWidth(leftClamped + " ".repeat(gap) + right, width);
+  const gap = width - visibleWidth(leftClamped) - rightWidth;
+  return leftClamped + " ".repeat(gap) + right;
 }
 
 function marker(selected: boolean, theme: Theme): string {

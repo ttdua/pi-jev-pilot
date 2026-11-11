@@ -6,6 +6,7 @@ import {
   formatFleetElapsed,
   formatFleetTokens,
   renderFleetLines,
+  rightAlign,
 } from "#src/ui/fleet-roster";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { makeNavigable } from "../helpers/make-navigable";
@@ -56,6 +57,16 @@ describe("fleetRows", () => {
   it("skips a queued agent with no session and no outputFile", () => {
     const a = agent({ status: "queued", isSessionReady: () => false, outputFile: undefined });
     expect(fleetRows([a], 5000, undefined)).toEqual([]);
+  });
+
+  it("skips an agent whose session is not ready and outputFile is empty", () => {
+    const a = agent({ isSessionReady: () => false, outputFile: "" });
+    expect(fleetRows([a], 5000, undefined)).toEqual([]);
+  });
+
+  it("lists an agent with no ready session but a non-empty outputFile", () => {
+    const a = agent({ isSessionReady: () => false, outputFile: "/tmp/out.jsonl" });
+    expect(fleetRows([a], 5000, undefined)).toEqual([a]);
   });
 
   it("orders by startedAt", () => {
@@ -140,5 +151,18 @@ describe("renderFleetLines", () => {
         expect(visibleWidth(line)).toBeLessThanOrEqual(width);
       }
     }
+  });
+});
+
+describe("rightAlign", () => {
+  it("keeps stats that exactly fill the width", () => {
+    const stats = "12s · ↓ 13.1k tokens";
+    const line = rightAlign("  ○ Explore  audit auth", stats, 20);
+    expect(line).toBe(stats);
+    expect(visibleWidth(line)).toBe(20);
+  });
+
+  it("truncates stats wider than the width", () => {
+    expect(visibleWidth(rightAlign("left", "12s · ↓ 13.1k tokens", 10))).toBeLessThanOrEqual(10);
   });
 });
