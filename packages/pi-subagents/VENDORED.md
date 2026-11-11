@@ -64,7 +64,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/seams/grant-check.ts` | seam | `checkGrants`/`enforceGrants`: keep grants the child registered with a model-callable exposure. |
 | `src/tools/background-spawner.ts` | edit | Pass the launch `origin` to the manager. |
 | `src/tools/foreground-runner.ts` | edit | Pass the launch `origin` to the manager. |
-| `test/seams/launch-policy.test.ts` | seam | Tests for the launch policy slot, request, adjustment rules, fail-open and cancellation. |
+| `test/seams/launch-policy.test.ts` | seam | Tests for the launch policy slot, request, adjustment rules (incl. effective facts after a rewrite), fail-open and cancellation. |
 | `test/seams/grant-check.test.ts` | seam | Tests for the in-child grant check and `grantedTools`. |
 | `test/helpers/make-deps.test.ts` | edit | Spawn fixtures carry the now-required `origin`. |
 | `test/lifecycle/subagent-manager.test.ts` | edit | Spawn fixtures carry the now-required `origin`. |

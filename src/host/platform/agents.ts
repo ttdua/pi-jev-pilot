@@ -14,9 +14,6 @@ function snapshotLaunchFields(snapshot: AgentTypeSnapshot): Partial<AgentFacts> 
   const fields: Partial<AgentFacts> = {};
   if (snapshot.runInBackground !== undefined) fields.runInBackground = snapshot.runInBackground;
   if (snapshot.inheritContext !== undefined) fields.inheritContext = snapshot.inheritContext;
-  if (snapshot.locked !== undefined) {
-    fields.locked = snapshot.locked === true ? true : [...snapshot.locked];
-  }
   return fields;
 }
 

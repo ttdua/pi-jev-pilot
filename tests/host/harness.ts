@@ -277,6 +277,8 @@ export async function runOnce(opts: {
   message: string;
   self: boolean;
   install?: InstallMode;
+  /** Package sources installed in this order instead of `install`. */
+  installs?: string[];
   agentDir?: string;
   cwd?: string;
   env?: Record<string, string>;
@@ -286,6 +288,7 @@ export async function runOnce(opts: {
     fixture: opts.fixture,
     self: opts.self,
     install: opts.install,
+    installs: opts.installs,
     agentDir: opts.agentDir,
     cwd: opts.cwd,
     jevConfig: opts.jevConfig,

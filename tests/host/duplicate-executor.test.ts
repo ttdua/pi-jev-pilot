@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT, tempDir } from "../helpers";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
-import { startHostSession, type HostSession } from "./harness";
+import { runOnce, startHostSession, type HostSession } from "./harness";
 import { command, notifies } from "./rpc-helpers";
 
 const JEV_ONLY = join(REPO_ROOT, "tests", "fixtures", "jev-only");
@@ -121,6 +121,31 @@ async function status(s: HostSession): Promise<string> {
 describe("duplicate executor through the real CLI", () => {
   const original = originalExecutor();
   afterAll(() => rmSync(original, { recursive: true, force: true }));
+
+  test(
+    "Both executors installed: Pi refuses to start and names the conflicting subagent tool",
+    async () => {
+      const fixture = await startFixture(MAIN_ONLY);
+      fixtures.push(fixture);
+      const agentDir = ownedTempDir("jev-dup-agent-");
+      const run = await runOnce({
+        fixture,
+        mode: "print",
+        message: "hello",
+        self: false,
+        installs: [REPO_ROOT, original],
+        agentDir,
+        env: { TYPESAFE_API_KEY: "test-key" },
+      });
+      expect(run.code).not.toBe(0);
+      expect(run.stderr).toContain('Tool "subagent" conflicts');
+      expect(run.stderr).toContain("pi-subagents");
+      // The session never started, so no /jev check ran and nothing reported a duplicate.
+      expect(`${run.stdout}${run.stderr}`).not.toContain("duplicate executor");
+      rmSync(run.cwd, { recursive: true, force: true });
+    },
+    TIMEOUT,
+  );
 
   test(
     "Original loaded last: a published non-vendored service is a duplicate",

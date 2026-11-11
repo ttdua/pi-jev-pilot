@@ -72,16 +72,14 @@ describe("agentFacts", () => {
 
   test("Launch fields carried only when declared", () => {
     const declared = agentFacts(
-      snapshot({ maxTurns: 7, runInBackground: true, inheritContext: false, locked: ["model"] }),
+      snapshot({ maxTurns: 7, runInBackground: true, inheritContext: false }),
     );
     expect(declared.maxTurns).toBe(7);
     expect(declared.runInBackground).toBe(true);
     expect(declared.inheritContext).toBe(false);
-    expect(declared.locked).toEqual(["model"]);
     const bare = agentFacts(snapshot());
     expect("runInBackground" in bare).toBe(false);
     expect("inheritContext" in bare).toBe(false);
-    expect("locked" in bare).toBe(false);
   });
 
   test("Executor agents mapped through agentFacts", () => {

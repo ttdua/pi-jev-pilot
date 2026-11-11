@@ -47,6 +47,7 @@ Operator decisions during apply (public):
 
 Internal:
 
+- `AgentFacts.locked`, `LockDeclaration`, `isFieldLocked` removed and `effectiveLaunch(request)` drops its `facts` argument (fix iteration 2). Reason: the `agent-metadata` spec REMOVES the locked-fields requirement; locks come only from the executor's `LaunchRequest.locked`.
 - `LaunchRequestFacts` (structural) replaces a `LaunchRequest` slice as `effectiveLaunch` input, with `callerNamedModel` (a service launch is model-locked only when the caller named a model different from the agent's own).
 - `LaunchBook<E>` single type parameter; API `remember`, `sessionCreated`, `bound`, `settle`, `pending`, `stop`, `clear`.
 - `WorkerRouting` adds `start(ctx)`, `stop()`, `problems()`; `WorkerDeps` drops `agentDir`, adds `service`.

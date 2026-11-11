@@ -47,10 +47,7 @@ export function newEntry(call: PolicyCall, window: readonly WindowEntry[]): Laun
   const { request, snap } = call;
   const { settings } = snap;
   const facts = agentFacts(request.agent);
-  const launch = effectiveLaunch(
-    { ...request, callerNamedModel: callerNamedModel(request) },
-    facts,
-  );
+  const launch = effectiveLaunch({ ...request, callerNamedModel: callerNamedModel(request) });
   const offered = offeredTiers(settings.tiers, settings.switches.expert);
   const slots = settings.crew.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
   const caller = callerModel(request);

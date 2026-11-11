@@ -335,6 +335,17 @@ describe("Target check before writing", () => {
     expect(adjustment).not.toHaveProperty("model");
   });
 
+  test("Agent lock declaration is not read, only the request's locked", async () => {
+    const h = harness({ reg: { "fx/fast": {}, "fx/balanced": {}, "fx/deep": {} } });
+    h.setScript(() => ok(body("deep")));
+    const { adjustment } = await h.launch({
+      agent: { name: "locker", source: "project", model: "fx/x", locked: true },
+      locked: [],
+    });
+    expect(h.lines[0]).not.toHaveProperty("locked");
+    expect(adjustment).toMatchObject({ model: "fx/deep" });
+  });
+
   test("Model id with a slash", async () => {
     const h = harness({
       tiers: { ...TIERS, fast: "openrouter/anthropic/claude" },

@@ -6,7 +6,6 @@ import type { ModelThinking } from "../../../src/policy/effort.ts";
 import {
   TIER_LADDER,
   effectiveLaunch,
-  type AgentFacts,
   type EffectiveLaunch,
   type Target,
   type TierName,
@@ -34,19 +33,6 @@ function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
     modelLocked: false,
     thinkingLocked: false,
     ...overrides,
-  };
-}
-
-function facts(): AgentFacts {
-  return {
-    name: "a",
-    source: "project",
-    description: "",
-    instructionsExcerpt: "",
-    declaredTools: null,
-    disallowedTools: [],
-    maxTurns: null,
-    sets: { model: false, thinking: false },
   };
 }
 
@@ -177,7 +163,7 @@ describe("launchKind", () => {
 
 describe("Route result", () => {
   test("Service launch naming a model", () => {
-    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }), facts());
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }));
     const r = routed(
       routeLaunch(input({ launch: l, answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
     );
@@ -213,10 +199,7 @@ describe("Launches left untouched", () => {
   test("Resume", () => {
     // A resume never reaches the launch policy, so the effective launch has no resume field and
     // nothing here can compute a route for one.
-    const l = effectiveLaunch(
-      serviceRequest({ origin: { kind: "tool", toolCallId: "c" } }),
-      facts(),
-    );
+    const l = effectiveLaunch(serviceRequest({ origin: { kind: "tool", toolCallId: "c" } }));
     expect("resume" in l).toBe(false);
   });
   test("Forked launch left alone", () => {
@@ -224,10 +207,7 @@ describe("Launches left untouched", () => {
     expect(r).toEqual({ kind: "untouched" });
   });
   test("Service launch with a model and locked thinking", () => {
-    const l = effectiveLaunch(
-      serviceRequest({ callerNamedModel: true, locked: ["thinking"] }),
-      facts(),
-    );
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true, locked: ["thinking"] }));
     expect(routeLaunch(input({ answers: undefined, launch: l }))).toEqual({
       kind: "untouched",
       locked: true,
@@ -418,7 +398,7 @@ describe("Nothing can run", () => {
 
 describe("Locks in the route", () => {
   test("Service launch with a model", () => {
-    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }), facts());
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }));
     const r = routeLaunch(
       input({ launch: l, answers: read({ tier: ["fast", { fast: 0.9 }], effort: "high" }) }),
     );

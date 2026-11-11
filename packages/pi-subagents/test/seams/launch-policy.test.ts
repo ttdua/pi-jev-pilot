@@ -17,7 +17,10 @@ import type {
 	LaunchPolicy,
 	LaunchRequest,
 } from "#src/service/service";
-import { SubagentsServiceAdapter } from "#src/service/service-adapter";
+import {
+	SubagentsServiceAdapter,
+	toSubagentRecord,
+} from "#src/service/service-adapter";
 import { resolveModel } from "#src/session/model-resolver";
 import { AgentTool } from "#src/tools/agent-tool";
 import type { AgentConfig } from "#src/types";
@@ -468,6 +471,27 @@ describe("launch request", () => {
 
 		expect(h.sessionOpts().model?.id).toBe("fixture-fast");
 		expect(h.sessionOpts().thinkingLevel).toBe("low");
+	});
+
+	it("a rewritten model and thinking are the effective facts everywhere", async () => {
+		const h = harness();
+		register(h, () => ({ model: "fixture/fixture-fast", thinking: "medium" }));
+
+		await h.call("call_1", { ...explore, model: "fixture/fixture-main" });
+
+		const expected = {
+			effectiveModel: "fixture/fixture-fast",
+			effectiveThinking: "medium",
+		};
+		expect(h.on("subagents:child:session-created")[0]?.data).toMatchObject(
+			expected,
+		);
+		const record = h.manager.listAgents()[0]!;
+		expect(toSubagentRecord(h.manager.getRecord(record.id)!)).toMatchObject(
+			expected,
+		);
+		expect(h.sessionOpts().model?.id).toBe("fixture-fast");
+		expect(h.sessionOpts().thinkingLevel).toBe("medium");
 	});
 });
 
