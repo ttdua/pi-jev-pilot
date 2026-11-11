@@ -1,11 +1,11 @@
 # Fleet list end to end (2026-11-12)
 
-Change `fleet-view-port` (Refs #62). A real interactive Pi in tmux (120x40) against the loopback fixture `scripts/e2e/fleet-fixture.ts`. Re-captured with full editor/footer regions (second run).
+Change `fleet-view-port` (Refs #62). A real interactive Pi in tmux (120x40) against the loopback fixture `tests/host/manual/fleet-fixture.ts`. Re-captured with full editor/footer regions (second run). The fixture script was moved from `scripts/e2e/` to `tests/host/manual/` (import-graph forbids `scripts/` importing `tests/`); the commands below use the new path.
 
 ## Setup
 
 - Pi: `node_modules/.bin/pi --version` → `1.5.0`; executor: vendored `pi-subagents` 25.0.5 plus the fleet list (executor-only fixture install; Jev stays off, no key needed).
-- Fixture: `bun scripts/e2e/fleet-fixture.ts` prints `AGENT_DIR=`, `CWD=`, `BASE_URL=`, `STATUS_FILE=`. `launch` makes `fixture-main` call `subagent` twice (one `run_in_background: true`, one foreground, model `fixture/fixture-fast`); children reply `done` after 20 s (`delayMs`); `again` makes one background launch with a 20 s child. The status file lists each request's seq, model, fixture marker and `repliedAt` (epoch ms when the child reply streamed).
+- Fixture: `bun tests/host/manual/fleet-fixture.ts` prints `AGENT_DIR=`, `CWD=`, `BASE_URL=`, `STATUS_FILE=`. `launch` makes `fixture-main` call `subagent` twice (one `run_in_background: true`, one foreground, model `fixture/fixture-fast`); children reply `done` after 20 s (`delayMs`); `again` makes one background launch with a 20 s child. The status file lists each request's seq, model, fixture marker and `repliedAt` (epoch ms when the child reply streamed).
 - Pi: `tmux new-session -d -s fleet-e2e -x 120 -y 40 -c $CWD "env HOME=$AGENT_DIR/home PI_CODING_AGENT_DIR=$AGENT_DIR PI_OFFLINE=1 pi --provider fixture --model fixture-main"`, then `tmux set-option -t fleet-e2e window-size manual` and `resize-window -x 120 -y 40`. Keys by `tmux send-keys` (`Down`, `Enter`, `Escape`, literal text); screens by `tmux capture-pane -p` (temp paths shortened to `<tmp>`).
 - Layout of a screen, top to bottom: transcript, `● Agents` widget (above editor), `── Working` rule (editor top), the prompt line(s), the editor bottom rule, the fleet list (below the editor), cwd line, footer.
 
@@ -222,7 +222,7 @@ First capture without the list (editor rules, prompt, footer, nothing between ru
 1 running agent
 ```
 
-Explicit fixture assertion (the `again` child reached the fixture), `bun scripts/e2e/fleet-fixture.ts --check-again $STATUS_FILE`:
+Explicit fixture assertion (the `again` child reached the fixture), `bun tests/host/manual/fleet-fixture.ts --check-again $STATUS_FILE`:
 
 ```
 CHECK-AGAIN OK: seq 7 fixture-fast [{"type":"text","text":"FLEET-AGAIN"}]

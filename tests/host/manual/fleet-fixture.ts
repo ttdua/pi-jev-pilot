@@ -1,18 +1,18 @@
-// Loopback fixture for the interactive fleet-list check (docs/evidence). Run with `bun scripts/e2e/fleet-fixture.ts`.
-// `bun scripts/e2e/fleet-fixture.ts --check-again <status-file>` exits non-zero unless a `fixture-fast`
+// Loopback fixture for the interactive fleet-list check (docs/evidence). Run with `bun tests/host/manual/fleet-fixture.ts`.
+// `bun tests/host/manual/fleet-fixture.ts --check-again <status-file>` exits non-zero unless a `fixture-fast`
 // request carrying FLEET-AGAIN is recorded in that file.
 // Prints AGENT_DIR=, CWD=, BASE_URL= and STATUS_FILE=, then runs until SIGINT/SIGTERM.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PI_BIN, REPO_ROOT, tempDir } from "../../tests/helpers";
+import { PI_BIN, REPO_ROOT, tempDir } from "../../helpers.ts";
 import {
   fixtureModelsJson,
   startFixture,
   type Fixture,
   type RecordedRequest,
   type ScriptEntry,
-} from "../../tests/host/fixture";
-import { isolatedEnv } from "../../tests/host/rpc";
+} from "../fixture.ts";
+import { isolatedEnv } from "../rpc.ts";
 
 const CHILD_MODEL = "fixture-fast";
 const CHILD_DELAY_MS = 20_000;
