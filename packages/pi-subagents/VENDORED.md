@@ -77,3 +77,5 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/lifecycle/subagent-manager.test.ts` | edit | Spawn fixtures carry the now-required `origin`. |
 | `test/tools/background-spawner.test.ts` | edit | Params carry the launch `origin`. |
 | `test/tools/foreground-runner.test.ts` | edit | Params carry the launch `origin`. |
+| `src/ui/fleet-roster.ts` | seam | Pure fleet roster and renderer: row filter, ordering, windowing and width-clamped lines. List behavior ported from tintinweb/pi-subagents 0.23.2. |
+| `test/ui/fleet-roster.test.ts` | seam | Tests for the fleet roster filter, ordering, formats, layout, overflow windowing and width clamping. |
