@@ -73,10 +73,10 @@ Blocked by: 4, 5, 6
 
 Blocked by: 7
 
-- [ ] 8.1 Retire the Q1, Q2 and Q7 host tests; keep Q3–Q6 pinned (spec `host-seam-evidence`)
-- [ ] 8.2 Add host tests for "Launch policy host evidence": policy model and thinking in foreground, background, service and inherited-context launches; locked field wins; watchdog timeout falls open; grant reaches and is callable; `disallowed_tools` wins over a grant; effective model on the ledger line equals the child's first request
-- [ ] 8.3 Mark Q1, Q2 and Q7 superseded in `docs/evidence/2026-11-05-host-seams.md`, with links to the new tests
-- [ ] 8.4 Run an end-to-end session through the installed checkout with the fixture provider: a routed tool launch, a service spawn, an enforce-mode grant, `/jev` output, and the ledger line
+- [x] 8.1 Retire the Q1, Q2 and Q7 host tests; keep Q3–Q6 pinned (spec `host-seam-evidence`)
+- [x] 8.2 Add host tests for "Launch policy host evidence": policy model and thinking in foreground, background, service and inherited-context launches; locked field wins; watchdog timeout falls open; grant reaches and is callable; `disallowed_tools` wins over a grant; effective model on the ledger line equals the child's first request
+- [x] 8.3 Mark Q1, Q2 and Q7 superseded in `docs/evidence/2026-11-05-host-seams.md`, with links to the new tests
+- [x] 8.4 Run an end-to-end session through the installed checkout with the fixture provider: a routed tool launch, a service spawn, an enforce-mode grant, `/jev` output, and the ledger line
 
 ## 9. Documentation and release notes
 
