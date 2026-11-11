@@ -6,9 +6,9 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `executor-seams-upstream`
-**Verified at**: `2026-11-11 16:35`
-**Iteration**: `1`
-**Verifier**: parent session (checks 1, 2, 6, fresh test run, adjudication); `Plan` agent `1b2ee03b` as read-only verifier for checks 3–5 (evidence collected in this run, file:line below re-checked by the parent for every non-Pass item)
+**Verified at**: `2026-11-11 17:55`
+**Iteration**: `2`
+**Verifier**: parent session (checks 1, 2, 6, fresh full test run, adjudication); `Plan` agent `2309c08a` as read-only verifier for checks 3–5 (evidence collected in this run; focused tests 349 pass, 0 fail)
 
 ---
 
@@ -20,7 +20,7 @@
 
 ```text
 Change 'executor-seams-upstream' is valid
-validate exit=0   (8 warnings: requirement text over 500 characters)
+validate exit=0   (warnings only: requirement text over 500 characters)
 ```
 
 ---
@@ -29,7 +29,7 @@ validate exit=0   (8 warnings: requirement text over 500 characters)
 
 - [x] Every box is ticked, or each open box has a recorded reason
 
-44 of 44 ticked, 0 open (`grep -c "^- \[x\]"` = 44, `"^- \[ \]"` = 0).
+44 of 44 ticked, 0 open.
 
 | Open task | Reason | Blocks archive? |
 |---|---|---|
@@ -39,46 +39,42 @@ validate exit=0   (8 warnings: requirement text over 500 characters)
 
 ## 3. Requirement Evidence
 
-- [ ] ADDED / MODIFIED: implementation evidence (file / line)
-- [ ] REMOVED: evidence the baseline behavior is gone (main spec, else git history)
+- [x] ADDED / MODIFIED: implementation evidence (file / line)
+- [x] REMOVED: evidence the baseline behavior is gone (main spec, else git history)
 - [x] RENAMED: none in this change
 
-84 requirements: 29 ADDED, 34 MODIFIED, 21 REMOVED. 82 Pass, 1 Fail, 1 Pass with a recorded note. Only non-Pass and noteworthy rows are listed; every other requirement has file:line evidence in the verifier report (summary: launch policy `packages/pi-subagents/src/seams/launch-policy.ts:35–207`, launch request `launch-request.ts:53–121`, adjustment `launch-plan.ts:26–99`, grant check `grant-check.ts:15–78`, registry `registry.ts:32–132`, identity `identity.ts:29–69`, service identity `service-identity.ts:26–37`; jev-pilot policy `src/host/worker/policy.ts:38–130`, outcomes `outcomes.ts:24–93`, request `request.ts:33–64`, tool plan `src/policy/tools/assess.ts:6–94`, readiness `src/host/platform/readiness.ts:33–73`, ledger schema `src/store/ledger-schema.ts:130–157,320–350`, config `src/store/config.ts:95`, defaults `src/store/defaults.ts:52`).
+84 requirements (29 ADDED, 34 MODIFIED, 21 REMOVED): all Pass.
 
 | Requirement | Operation | Status | Evidence (file:line) or reason |
 |---|---|---|---|
-| agent-metadata / Locked fields | REMOVED | **Fail** | Baseline pure function still present and used: `src/policy/launch.ts:60–79` (`agentSets`, `isFieldLocked`), called from `effectiveLaunch` at `:102–103`. The delta's migration says the executor's `LaunchRequest.locked` replaces it, and the executor computes the same set (`packages/pi-subagents/src/seams/locked-launch.ts:23–35`). |
-| tool-assessment / Captured executor service | REMOVED | Pass (note) | The removed behavior was the child looking up its launch through the captured service; that path is gone (no `outputFile`/`listAgents` lookup in `src/`). The main-session capture remains at `src/host/platform/service.ts:24–37` because ADDED `worker-routing` "Routing is the executor's launch policy" requires registering with the service captured at `session_start`. Artifact wording should say only the child lookup is removed. |
-| tool-assessment / Fail open | MODIFIED | Pass (note) | Jev failure paths fail open (`src/host/worker/policy.ts:114,124–130`). When `pi.getAllTools()` throws, assessment continues with empty metadata (`src/host/tools/assessment.ts:44–52`, test `tests/host/tools/policy-assessment.test.ts:293–305`). `main` has the identical fallback and pinned it in `tests/host/tools/assessment.test.ts:478–488` under the same spec sentence, so this is pre-existing, unchanged behavior, recorded as a warning (W-1), not a regression. |
-| executor-launch-identity / Identity fields are additive | ADDED | Pass (note) | Fields optional in `packages/pi-subagents/dist/public.d.ts:68–108,307`. Upstream tests were adjusted only to accept the added fields (`objectContaining`, `VENDORED.md` rows for `test/lifecycle/*.test.ts`); expectations of existing fields are unchanged. |
+| ADDED/MODIFIED, 63 across 18 capabilities | ADDED / MODIFIED | Pass | Executor: `packages/pi-subagents/src/seams/launch-policy.ts:35–207`, `launch-request.ts:53–140`, `launch-plan.ts:26–107`, `grant-check.ts:21–82`, `registry.ts:27–104`, `identity.ts:24–69`, `service-identity.ts:26–37`, `src/lifecycle/subagent.ts:408–480`, `create-subagent-session.ts:267–285,350–352`. jev-pilot: `src/host/worker/policy.ts:38–130`, `routing.ts:26–164`, `request.ts:46–75`, `outcomes.ts:22–96`, `launches.ts:20–76`, `src/policy/launch.ts:36–83`, `src/policy/tools/assess.ts:6–103`, `src/host/tools/assessment.ts:56–113`, `src/host/platform/readiness.ts:33–73`, `src/host/platform/agents.ts:13–48`, `src/store/ledger-schema.ts:130–157,320–350`, `src/store/config.ts:80–98`, `src/store/defaults.ts:52`, `package.json:9–47`, `packages/pi-subagents/VENDORED.md:5–72`. |
+| agent-metadata / Locked fields (iteration 1 CRITICAL) | REMOVED | Pass | No lock computation from agent facts in `src/` (`agentSets`, `isFieldLocked`, `LockDeclaration`, `facts.locked` absent); `effectiveLaunch` reads only `request.locked` plus the caller-named service model rule, `src/policy/launch.ts:61–83`; regression `tests/host/worker/policy.test.ts:338–346`. |
+| tool-assessment / Captured executor service | REMOVED | Pass | Child lookup by `outputFile`/`listAgents()` gone; main capture at `src/host/wiring/session.ts:30–32` is required by ADDED `worker-routing` "Routing is the executor's launch policy" (REMOVED reason now says so). |
+| other 19 REMOVED requirements | REMOVED | Pass | Agent reader, lookup, built-in table, lock parsing gone (`src/host/platform/agents.ts:1–48`); message-end batching and tool-call cache gone (`src/host/worker/handlers.ts` deleted); Q1/Q2/Q7 tests and probes deleted (`tests/host/evidence.test.ts:25–30,97–99`); one-entry manifest and `@gotgenes/pi-subagents` devDependency gone (`package.json:21–47`). |
 
 ---
 
 ## 4. Scenario Coverage
 
-- [ ] Every scenario maps to a test
+- [x] Every scenario maps to a test
 - [x] The project test command was run fresh in this step
 
-**Test command** (cwd `/Users/naicoi/Projects/oss/pi-jev-pilot.executor-seams-upstream`, HEAD `7d9bcd27`):
+252 active scenarios, 252 mapped to a test (plan.md Scenario → test; verifier line anchors per capability). The two iteration 1 gaps are closed:
+
+| Scenario | Test |
+|---|---|
+| readiness-checks / Both executors installed | `tests/host/duplicate-executor.test.ts:125–147`; passed in the fresh full run below (`(pass) … Both executors installed: Pi refuses to start and names the conflicting subagent tool [1456.72ms]`) |
+| executor-launch-identity / Model rewritten by the policy | `packages/pi-subagents/test/seams/launch-policy.test.ts:476–494` (event, `getRecord`, session inputs); first provider request `tests/host/launch-policy-evidence.test.ts:570–594` |
+| all other scenarios | as mapped in plan.md Scenario → test |
+
+**Test commands** (cwd `/Users/naicoi/Projects/oss/pi-jev-pilot.executor-seams-upstream`, HEAD `0842b515`):
 
 | Command | Exit | Result |
 |---|---|---|
 | `bun run typecheck && bun run lint && bun run fmt:check` | 0 | clean |
-| `bun run test` | 0 | 2655 pass, 0 fail, 17022 expect() calls, 141 files |
-| `bun run test:executor` | 0 | 95 files, 2287 tests passed |
+| `bun run test` | 0 | 2652 pass, 0 fail, 17016 expect() calls, 141 files (host tests included) |
+| `bun run test:executor` | 0 | 95 files, 2288 tests passed |
 | `bun install --frozen-lockfile` | 0 | no changes |
-| `openspec validate executor-seams-upstream` | 0 | valid |
-
-252 active scenarios (REMOVED requirements skipped): 250 mapped to an existing test, 1 missing, 1 not verified.
-
-| Scenario | Test |
-|---|---|
-| readiness-checks / Both executors installed | **Missing**: `tests/host/duplicate-executor.test.ts:119–120` is a comment only; no test installs both the checkout and the original executor and asserts Pi refuses to start. No row in plan.md Scenario → test. |
-| executor-launch-identity / Model rewritten by the policy | **Not verified**: the mapped `packages/pi-subagents/test/seams/identity.test.ts:243` covers a caller override, not a policy rewrite; `tests/host/launch-policy-evidence.test.ts:574` covers event → ledger → first provider request but not `getRecord(id)` after a policy rewrite. |
-| host-test-harness / Lockfile matches | Pass: fresh `bun install --frozen-lockfile` exit 0 (above); CI step `.github/workflows/ci.yml:21`. |
-| executor-vendoring / Workspace member, Not confused with the published package | Pass: tests are in `tests/manifest.test.ts:50–59` (plan row points at `tests/vendoring.test.ts`). |
-| executor-vendoring / Load-time consumer finds the service | Pass: `packages/pi-subagents/test/seams/service-wiring.test.ts:84` (no plan row). |
-| all other scenarios | Pass: mapped test found by name in the plan's Scenario → test file (verifier tables, check 4). |
 
 ---
 
@@ -87,16 +83,12 @@ validate exit=0   (8 warnings: requirement text over 500 characters)
 - [ ] Decisions in design.md match the code
 - [x] Contracts in plan.md, with the Contract deviations recorded in apply.md, match the code
 
-All 39 Contracts rows matched (row C32, the original `effectiveLaunch` signature, matched as superseded by C34 and the apply deviation). C30 `dist/public.d.ts`: exports present, freshness not verified (no regeneration in a read-only check). Apply-time deviations (load-time publication, optional identity fields, narrowed duplicate scope, child event exports, internal contract changes, extra seam files) all match the code.
+All 39 Contracts rows matched (C32 superseded by C34 and the apply deviation; C30 `dist/public.d.ts` exports matched, freshness not verified because no regeneration ran). Every apply.md Contract deviation matches the code. D1–D8 and D11–D14 match.
 
 **Drift warnings** (non-blocking):
 
-- `specs/executor-vendoring` "One install loads both extensions" (line 33) still says the executor's `session_start` handler publishes the service; the accepted deviation and the code (`packages/pi-subagents/src/index.ts:208–214`) publish at load.
-- design.md D6 lists an `enabled` snapshot field; Contracts, delta and code have none (disabled agents are excluded instead).
-- design.md D9 says `src/host/platform/agents.ts` is removed; Contracts and code keep it as the pure `agentFacts` mapper.
-- design.md D14 / tests: no executable test for Pi's startup refusal with two executors (see check 4).
-- `callerNamedModel` (`src/host/worker/request.ts:33–35`) cannot tell a caller that explicitly names the agent's own model from no caller model; the apply.md parked note describes the opposite case and is stale.
-- plan.md Scenario → test: two rows point at the wrong file, two scenarios have no row.
+- design.md D10 (`design.md:138–139`) still describes duplicate detection from the published service and the first-registration race; code and the readiness delta use the captured service plus Pi's startup refusal (`src/host/platform/readiness.ts:60–73`).
+- design.md D9 (`design.md:121`) does not state the `callerNamedModel` same-model limitation recorded in apply.md.
 
 ---
 
@@ -104,7 +96,7 @@ All 39 Contracts rows matched (row C32, the original `effectiveLaunch` signature
 
 - [x] Working tree is clean (`git status --porcelain` empty before and after the run)
 
-**Commit range**: `4969c4de..7d9bcd27` (apply receipt range; this receipt adds one commit)
+**Commit range**: `4969c4de..0842b515` (this receipt adds one commit)
 
 ---
 
@@ -112,32 +104,32 @@ All 39 Contracts rows matched (row C32, the original `effectiveLaunch` signature
 
 ### CRITICAL
 
-1. **REMOVED "Locked fields" baseline still in code.** `src/policy/launch.ts:60–79,102–103`. Recommendation: make `effectiveLaunch` read locks only from `LaunchRequestFacts.locked` (the executor's `lockedFields`), delete `agentSets`/`isFieldLocked`, drop `locked` from `AgentFacts` if nothing else reads it, and update `tests/policy/launch.test.ts` and route tests that build facts with `locked`.
-2. **Scenario "Both executors installed" has no test.** Recommendation: add a host test in `tests/host/duplicate-executor.test.ts` that installs the checkout and the original-executor fixture (built from the squash commit, as the existing cases do) and asserts the session fails to start with an error naming the conflicting `subagent` tool; add the plan.md Scenario → test row.
+None.
 
 ### WARNING
 
-1. **Metadata read failure still assesses** (`src/host/tools/assessment.ts:44–52`). Pre-existing on `main` and pinned by its tests, so not a regression. Recommendation: decide in the follow-up (#58 or a small change) whether `getAllTools()` failing should skip assessment; then align the `tool-assessment` "Fail open" wording and the test.
-2. **Artifact drift** (check 5 list). Recommendation: in the fix iteration, update `specs/executor-vendoring` line 33 to load-time publication, design D6 (no `enabled`), D9 (mapper kept), the "Captured executor service" REMOVED reason (only the child lookup is removed), and the plan Scenario → test rows.
-3. **"Model rewritten by the policy" not directly covered.** Recommendation: add an executor test where a registered policy sets model and thinking and assert `session-created`, `getRecord(id)` and the session inputs carry them.
-4. **`callerNamedModel` same-model ambiguity.** Recommendation: correct the apply.md parked note; a real fix needs a public `requested.modelSource` field (operator decision).
-5. **Release and tooling items already parked** (README `@v0.1.0`, public-types freshness and old verifier name, living-spec links pending sync). Recommendation: unchanged from apply.md.
+1. **Metadata read failure still assesses tools** (`src/host/tools/assessment.ts:38–52`, test `tests/host/tools/policy-assessment.test.ts:293–305`). Pre-existing on `main`, unchanged by this change. Recommendation: decide whether a failing `getAllTools()` skips assessment, then align the `tool-assessment` "Fail open" wording and test (fits ttdua/pi-jev-pilot#58 or a small follow-up).
+2. **`callerNamedModel` same-model ambiguity** (`src/host/worker/request.ts:33–35`). Recommendation: add the limitation to design D9; a precise fix needs a public `requested.modelSource` field (operator decision).
+3. **No freshness gate for `packages/pi-subagents/dist/public.d.ts`**; `scripts/verify-public-types.sh:16,73,93,122` still uses pnpm and the old package name. Recommendation: port the verifier to Bun and `@ttdua/pi-subagents`, add a generate-then-diff CI step.
+4. **Install snippets still use `@v0.1.0`** (`README.md:7–10`, `docs/usage-guide.md:24–27`), a tag without the vendored executor; `tests/release-check.ts` pins the tag form. Recommendation: bump version, tag and update both files at release.
+5. **design.md D10 wording drift** (check 5). Recommendation: restate D10 with the three readiness conditions and Pi's startup refusal.
 
 ### SUGGESTION
 
-- Point the `worker-decision` / Resume plan row at the executor test `packages/pi-subagents/test/seams/launch-policy.test.ts:325`, which proves the behavior, rather than the pure route test.
+- plan.md Scenario → test: map "Upstream consumer unaffected" to the lifecycle/service-adapter tests that prove compatibility (`packages/pi-subagents/test/lifecycle/*.test.ts`, `test/service/service-adapter.test.ts`), and drop the `(host)` label from unit-only worker-ledger rows.
+- Living-spec links in `docs/evidence/2026-11-05-host-seams.md` need `/opsx-sync` or archive in the same PR (parked in apply.md).
 
 ---
 
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [ ] PASS_WITH_WARNINGS: proceed, noting: —
-- [x] FAIL: fix the cause, then re-apply (iteration 2)
+- [x] PASS_WITH_WARNINGS: proceed, noting: no CRITICAL issues and fresh tests are green; warnings 1–5 are pre-existing, parked for release, or design-document wording, none blocking
+- [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 **Next step**:
 
-Run `/opsx-apply executor-seams-upstream` (fix iteration 2): fix CRITICAL 1 and 2 with TDD, apply the artifact fixes in WARNING 2, and optionally WARNING 3; then `/opsx-verify` again.
+Run `/opsx-continue executor-seams-upstream` with the worktree as working directory to create the finalize artifact (code review gate, merge into `spec/executor-seams-upstream`), then `/opsx-archive`.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.
