@@ -105,7 +105,7 @@ describe("duplicate executor through the real CLI", () => {
   const original = originalExecutor();
 
   test(
-    "original loaded last is reported",
+    "Original loaded last: a published non-vendored service is a duplicate",
     async () => {
       const text = await status(await start([JEV_ONLY, original]));
       expect(text).toContain("duplicate executor");
@@ -115,7 +115,7 @@ describe("duplicate executor through the real CLI", () => {
   );
 
   test(
-    "original loaded first is reported",
+    "Original loaded first: the other tool path is a duplicate",
     async () => {
       const text = await status(await start([original, JEV_ONLY]));
       expect(text).toContain("duplicate executor");
@@ -135,7 +135,7 @@ describe("duplicate executor through the real CLI", () => {
   );
 
   test(
-    "the executor is not a duplicate after two workers were spawned and disposed",
+    "Present after children: two workers created and disposed leave the executor state unchanged",
     async () => {
       const calls = ["first", "second"].map((description) => ({
         name: "subagent",
@@ -161,20 +161,32 @@ describe("duplicate executor through the real CLI", () => {
         { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
       ]);
       fixtures.push(fixture);
-      const agentDir = tempDir("jev-dup-agent-");
-      mkdirSync(join(agentDir, "jev"), { recursive: true });
       const session = await startHostSession({
         fixture,
-        agentDir,
+        probes: ["child"],
         env: { TYPESAFE_API_KEY: "test-key" },
         timeoutMs: 90_000,
       });
       sessions.push(session);
       await session.prompt("START-MAIN");
-      await session.waitFor(
-        () => fixture.requests.filter(isChild).length >= 2,
-        "two child requests",
-      );
+      // The child probe records `subagents:child:disposed` (event name and session id only).
+      const disposed = (): number =>
+        new Set(
+          session
+            .probeRecords()
+            .filter((r) => r.event === "child:disposed")
+            .map((r) => r.sessionId),
+        ).size;
+      // The executor disposes finished children when a session starts: wait for both children to
+      // answer, then start a new session (retrying until neither is still active) until both are
+      // disposed.
+      await session.waitFor(() => fixture.requests.filter(isChild).length >= 2, "two children ran");
+      const deadline = Date.now() + 60_000;
+      while (disposed() < 2 && Date.now() < deadline) {
+        await session.send({ type: "new_session" });
+        await Bun.sleep(500);
+      }
+      await session.waitFor(() => disposed() >= 2, "two children disposed");
       const text = await status(session);
       expect(text).not.toContain("duplicate executor");
       // TODO(Task 4): the vendored service gains `registerLaunchPolicy` there; until then the
