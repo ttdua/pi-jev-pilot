@@ -24,10 +24,10 @@ Blocked by: 1
 
 Blocked by: 1
 
-- [ ] 3.1 Parse `disallowed_tools` (list or comma string) into agent config; keep provenance so a missing `tools` field stays distinct from defaults
-- [ ] 3.2 Add `listAgentTypes()` and `getAgentType(name)` returning frozen snapshots (`tools` or `null`, `defaultTools`, `disallowedTools`, `instructions`, `locked`, …), reloading agent files first, launch-equivalent name resolution, nothing for disabled agents (spec `executor-agent-registry`)
-- [ ] 3.3 Apply `disallowed_tools` last when building the child's tool allowlist, with a debug note when a tool is both declared and disallowed
-- [ ] 3.4 Unit tests for every scenario of `executor-agent-registry`; update `VENDORED.md`
+- [x] 3.1 Parse `disallowed_tools` (list or comma string) into agent config; keep provenance so a missing `tools` field stays distinct from defaults
+- [x] 3.2 Add `listAgentTypes()` and `getAgentType(name)` returning frozen snapshots (`tools` or `null`, `defaultTools`, `disallowedTools`, `instructions`, `locked`, …), reloading agent files first, launch-equivalent name resolution, nothing for disabled agents (spec `executor-agent-registry`)
+- [x] 3.3 Apply `disallowed_tools` last when building the child's tool allowlist, with a debug note when a tool is both declared and disallowed
+- [x] 3.4 Unit tests for every scenario of `executor-agent-registry`; update `VENDORED.md`
 
 ## 4. Executor: launch policy provider and tool grants
 
