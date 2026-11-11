@@ -24,6 +24,8 @@ export const FLEET_WIDGET_KEY = "fleet";
 export const TICK_MS = 1000;
 
 const CONSUMED = { consume: true } as const;
+/** Selection sentinel for the `main` entry; agent ids select their row. */
+const MAIN = null;
 
 /** Builds the widget body; Pi calls it once the widget is mounted. */
 export type FleetWidgetFactory = (
@@ -53,11 +55,15 @@ export interface FleetListDeps {
   open?: typeof openTranscript;
 }
 
-/** Whether the focused component is the prompt editor, recognized structurally. */
+/**
+ * Whether the focused component is the prompt editor, recognized structurally.
+ * An editor with its autocomplete menu open owns the keys, so it does not count.
+ */
 function isEditor(component: unknown): boolean {
   if (typeof component !== "object" || component === null) return false;
-  const candidate = component as { getText?: unknown; setText?: unknown };
-  return typeof candidate.getText === "function" && typeof candidate.setText === "function";
+  const candidate = component as { getText?: unknown; setText?: unknown; isShowingAutocomplete?: () => boolean };
+  if (typeof candidate.getText !== "function" || typeof candidate.setText !== "function") return false;
+  return !candidate.isShowingAutocomplete?.();
 }
 
 export class FleetList implements SubagentManagerObserver {
@@ -68,8 +74,10 @@ export class FleetList implements SubagentManagerObserver {
   private widgetRegistered = false;
   /** Whether arrow keys currently navigate the list (vs. flow to the editor). */
   private active = false;
-  /** 0 = `main`, 1..N = agent rows. */
-  private selectedIndex = 0;
+  /** The selected agent's id, or `MAIN`; the row index is derived so a shifting roster cannot move the cursor. */
+  private selectedId: string | typeof MAIN = MAIN;
+  /** Index the selection last resolved to; the clamp target when the selected agent is gone. */
+  private lastIndex = 0;
   /** Id of the agent whose pane the list opened; set while that pane is up. */
   private viewingId: string | undefined;
 
@@ -80,6 +88,8 @@ export class FleetList implements SubagentManagerObserver {
     this.inputUnsub?.();
     this.ui = ui;
     this.forgetWidget();
+    this.resetSelection();
+    this.viewingId = undefined;
     this.inputUnsub = ui.onTerminalInput((data) => this.handleKey(data));
   }
 
@@ -90,7 +100,7 @@ export class FleetList implements SubagentManagerObserver {
     const rowCount = this.rowsOf(agents).length;
     const shown = this.deps.enabled() && rowCount > 0;
     this.syncTimer(shown || agents.some((agent) => isActiveStatus(agent.status)));
-    if (shown) this.show(rowCount);
+    if (shown) this.show();
     else this.hide();
   }
 
@@ -144,9 +154,9 @@ export class FleetList implements SubagentManagerObserver {
 
   // ---- Widget ----
 
-  private show(rowCount: number): void {
+  private show(): void {
     if (!this.ui) return;
-    this.selectedIndex = Math.min(this.selectedIndex, rowCount);
+    this.resolveIndex(this.rows());
     if (!this.widgetRegistered) {
       this.ui.setWidget(FLEET_WIDGET_KEY, (tui, theme) => this.createWidget(tui, theme), { placement: "belowEditor" });
       this.widgetRegistered = true;
@@ -158,8 +168,30 @@ export class FleetList implements SubagentManagerObserver {
   private hide(): void {
     if (this.ui && this.widgetRegistered) this.ui.setWidget(FLEET_WIDGET_KEY, undefined);
     this.forgetWidget();
+    this.resetSelection();
+  }
+
+  /** Leaves the list and points the selection back at `main`. */
+  private resetSelection(): void {
     this.active = false;
-    this.selectedIndex = 0;
+    this.selectedId = MAIN;
+    this.lastIndex = 0;
+  }
+
+  /**
+   * The selected row index (0 = `main`, 1..N = agent rows) for these rows. When
+   * the selected agent is gone, clamps the last index and rebinds to what is there.
+   */
+  private resolveIndex(rows: ReturnType<typeof fleetRows>): number {
+    if (this.selectedId === MAIN) return this.bind(rows, 0);
+    const found = rows.findIndex((row) => row.id === this.selectedId);
+    return this.bind(rows, found >= 0 ? found + 1 : Math.min(this.lastIndex, rows.length));
+  }
+
+  private bind(rows: ReturnType<typeof fleetRows>, index: number): number {
+    this.selectedId = index === 0 ? MAIN : rows[index - 1].id;
+    this.lastIndex = index;
+    return index;
   }
 
   /** Drops the registration so the next `show` registers the widget again. */
@@ -178,9 +210,10 @@ export class FleetList implements SubagentManagerObserver {
   }
 
   private renderLines(width: number, theme: Theme): string[] {
+    const rows = this.rows();
     return renderFleetLines({
-      rows: this.rows(),
-      selected: this.selectedIndex,
+      rows,
+      selected: this.active ? this.resolveIndex(rows) : 0,
       active: this.active,
       width,
       now: Date.now(),
@@ -196,7 +229,10 @@ export class FleetList implements SubagentManagerObserver {
   // ---- Timer ----
 
   private syncTimer(needed: boolean): void {
-    if (needed && !this.timer) this.timer = setInterval(() => this.update(), TICK_MS);
+    if (needed && !this.timer) {
+      this.timer = setInterval(() => this.update(), TICK_MS);
+      this.timer.unref?.();
+    }
     if (!needed) this.stopTimer();
   }
 
@@ -209,11 +245,11 @@ export class FleetList implements SubagentManagerObserver {
   // ---- Keys ----
 
   private handleInactiveKey(data: string): { consume: true } | undefined {
-    if (!this.ui || this.ui.getEditorText() !== "") return undefined;
+    if (this.ui?.getEditorText() !== "") return undefined;
     if (this.rows().length === 0) return undefined;
     if (!matchesKey(data, Key.down) && !matchesKey(data, Key.left)) return undefined;
     this.active = true;
-    this.selectedIndex = 1;
+    this.bind(this.rows(), 1);
     this.redraw();
     return CONSUMED;
   }
@@ -228,20 +264,23 @@ export class FleetList implements SubagentManagerObserver {
   }
 
   private moveDown(): { consume: true } {
-    this.selectedIndex = Math.min(this.selectedIndex + 1, this.rows().length);
+    const rows = this.rows();
+    this.bind(rows, Math.min(this.resolveIndex(rows) + 1, rows.length));
     this.redraw();
     return CONSUMED;
   }
 
   private moveUp(): { consume: true } {
-    if (this.selectedIndex === 0) return this.leave();
-    this.selectedIndex -= 1;
+    const rows = this.rows();
+    const index = this.resolveIndex(rows);
+    if (index === 0) return this.leave();
+    this.bind(rows, index - 1);
     this.redraw();
     return CONSUMED;
   }
 
   private enter(): { consume: true } {
-    if (this.selectedIndex === 0) return this.leave();
+    if (this.resolveIndex(this.rows()) === 0) return this.leave();
     this.openSelected();
     return CONSUMED;
   }
@@ -253,15 +292,15 @@ export class FleetList implements SubagentManagerObserver {
 
   private deactivate(): void {
     if (!this.active) return;
-    this.active = false;
-    this.selectedIndex = 0;
+    this.resetSelection();
     this.redraw();
   }
 
   // ---- Open ----
 
   private openSelected(): void {
-    const row = this.rows()[this.selectedIndex - 1];
+    const rows = this.rows();
+    const row = rows[this.resolveIndex(rows) - 1];
     if (!row) return;
     const entry = navigationEntryFor(row, this.deps.registry);
     if (!entry) return;
@@ -286,8 +325,7 @@ export class FleetList implements SubagentManagerObserver {
 
   /** Selects the viewed agent's row by id, or keeps the index within the rows that remain. */
   private reselect(id: string): void {
-    const rows = this.rows();
-    const index = rows.findIndex((row) => row.id === id);
-    this.selectedIndex = index >= 0 ? index + 1 : Math.min(this.selectedIndex, rows.length);
+    this.selectedId = id;
+    this.resolveIndex(this.rows());
   }
 }

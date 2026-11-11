@@ -343,6 +343,59 @@ describe("FleetList", () => {
     });
   });
 
+  describe("autocomplete", () => {
+    it("passes keys through while the editor shows its autocomplete menu", () => {
+      const h = setup({ agents: [running("a1", 1000, "first task")] });
+      h.tui.focus = { getText: () => "", setText: vi.fn(), isShowingAutocomplete: () => true };
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h);
+
+      expect(h.ui.send(DOWN)).toBeUndefined();
+      expect(h.ui.send(LEFT)).toBeUndefined();
+      expect(markedLine(h)).toBeUndefined();
+    });
+
+    it("deactivates an active list when the autocomplete menu opens", () => {
+      const h = setup({ agents: [running("a1", 1000, "first task")] });
+      const editor = { getText: () => "", setText: vi.fn(), isShowingAutocomplete: () => false };
+      h.tui.focus = editor;
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h);
+      h.ui.send(DOWN);
+      expect(markedLine(h)).toContain("first task");
+
+      editor.isShowingAutocomplete = () => true;
+
+      expect(h.ui.send(ENTER)).toBeUndefined();
+      expect(markedLine(h)).toBeUndefined();
+    });
+  });
+
+  describe("selection identity", () => {
+    it("keeps the selected agent when an agent above it drops out", () => {
+      const a1 = running("a1", 1000, "first task");
+      const a2 = running("a2", 2000, "second task");
+      const a3 = running("a3", 3000, "third task");
+      const h = setup({ agents: [a1, a2, a3] });
+      h.list.setUICtx(h.ui as unknown as FleetUI);
+      h.list.update();
+      mountWidget(h);
+      h.ui.send(DOWN);
+      h.ui.send(DOWN);
+      expect(markedLine(h)).toContain("second task");
+
+      h.state.agents = [a2, a3];
+      h.list.update();
+
+      expect(markedLine(h)).toContain("second task");
+      h.ui.send(ENTER);
+      expect(h.open).toHaveBeenCalledTimes(1);
+      expect(h.open.mock.calls[0][1].record.id).toBe("a2");
+    });
+  });
+
   describe("open", () => {
     it("Enter on an agent calls open with its navigation entry", () => {
       const { open, close } = controllableOpen();
