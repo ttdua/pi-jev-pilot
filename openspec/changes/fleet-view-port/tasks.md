@@ -32,9 +32,9 @@ Blocked by: 2, 3
 
 Blocked by: 1, 4
 
-- [ ] 5.1 Wire `FleetList` in `packages/pi-subagents/src/index.ts`: construct after the manager, add as observer, UI at `session_start`, `enabled: () => settings.fleetView`, dispose at `session_shutdown` after the lifecycle handler, refresh on `subagents:settings_changed`; give the existing test UI fixtures `onTerminalInput` and `getEditorText`
-- [ ] 5.2 Wiring test `packages/pi-subagents/test/seams/fleet-wiring.test.ts` (widget key `fleet` below the editor once a spawned agent's session is ready, one listener after two `session_start`s, settings toggle) and root host test `tests/host/fleet-print.test.ts` (print output identical with `fleetView` on and off)
-- [ ] 5.3 Run `bun run test:executor`, `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test` from the root; all pass
+- [x] 5.1 Wire `FleetList` in `packages/pi-subagents/src/index.ts`: construct after the manager, add as observer, UI at `session_start`, `enabled: () => settings.fleetView`, dispose at `session_shutdown` after the lifecycle handler, refresh on `subagents:settings_changed`; give the existing test UI fixtures `onTerminalInput` and `getEditorText`
+- [x] 5.2 Wiring test `packages/pi-subagents/test/seams/fleet-wiring.test.ts` (widget key `fleet` below the editor once a spawned agent's session is ready, one listener after two `session_start`s, settings toggle) and root host test `tests/host/fleet-print.test.ts` (print output identical with `fleetView` on and off)
+- [x] 5.3 Run `bun run test:executor`, `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test` from the root; all pass
 
 ## 6. Provenance and docs
 
