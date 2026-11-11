@@ -43,7 +43,7 @@ describe("package loading", () => {
   const entry = join(REPO_ROOT, "src", "extension.ts");
   const executorEntry = join(REPO_ROOT, "packages", "pi-subagents", "src", "index.ts");
 
-  test("installed checkout is loaded", async () => {
+  test("Installed checkout is loaded; Both extensions loaded from one install", async () => {
     const result = await installAndLoad(REPO_ROOT);
     expect(result.errors).toEqual([]);
     const matches = result.extensions.filter((e) => resolvesTo(e.resolvedPath, entry));
@@ -54,7 +54,7 @@ describe("package loading", () => {
     expect(tools).toContain("subagent");
   }, 60_000);
 
-  test("loaded extension registers only /jev and handlers", async () => {
+  test("Loaded extension registers only /jev and handlers", async () => {
     const result = await installAndLoad(REPO_ROOT);
     const ext = result.extensions.find((e) => resolvesTo(e.resolvedPath, entry));
     expect(ext).toBeDefined();
@@ -72,7 +72,7 @@ describe("package loading", () => {
     expect(ext?.shortcuts.size).toBe(0);
   }, 60_000);
 
-  test("failing entry point is not reported as loaded", async () => {
+  test("A failing entry point is not reported as loaded", async () => {
     const fixture = join(REPO_ROOT, "tests", "fixtures", "throwing-extension");
     const target = join(fixture, "index.ts");
     const result = await installAndLoad(fixture);

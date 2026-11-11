@@ -31,15 +31,15 @@ export type WorkerHost = {
   main: () => MainContext | undefined;
 };
 
-/** Which parts may act on this launch, read fresh from the snapshot. */
-type Gates = { routing: boolean; tools: boolean };
+/** Whether routing may act on this launch; tool assessment has its own switch in `planTools`. */
+type Gates = { routing: boolean };
 
 /** Config, key and executor first; then each part's own switch. */
 function openGates(snap: Snapshot): Gates | undefined {
   if (!snap.config.valid || !snap.keySet || snap.executor.kind !== "present") return undefined;
   const { switches } = snap.settings;
   if (!switches.subagents && !switches.tools) return undefined;
-  return { routing: switches.subagents, tools: switches.tools };
+  return { routing: switches.subagents };
 }
 
 /** One classifier deadline, shared by every Jev request of this launch. */
@@ -109,7 +109,7 @@ async function decideLaunch(
   if (gates === undefined) return undefined;
   const remainingMs = deadline(host, snap.settings.classifier.timeoutMs);
   const call: PolicyCall = { request, ctx, snap, signal, remainingMs };
-  const plan = gates.tools ? planTools(request, snap.settings) : { block: [], grant: [] };
+  const plan = planTools(request, snap.settings);
   const { entry, routed, tools } = await decide(host, call, gates, plan);
   if (signal.aborted) return undefined;
   warn(host, call, routed);

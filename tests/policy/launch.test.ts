@@ -59,7 +59,7 @@ describe("Effective launch fields", () => {
   type Req = Parameters<typeof effectiveLaunch>[0];
   const request = (over: Partial<Req> = {}): Req => ({
     origin: { kind: "tool", toolCallId: "call_1" },
-    requested: {},
+    callerNamedModel: false,
     inheritContext: false,
     isBackground: false,
     locked: [],
@@ -90,7 +90,7 @@ describe("Effective launch fields", () => {
 
   test("Service launch naming a model locks the model", () => {
     const r = effectiveLaunch(
-      request({ origin: { kind: "service" }, requested: { model: "fixture/fixture-deep" } }),
+      request({ origin: { kind: "service" }, callerNamedModel: true }),
       facts(),
     );
     expect(r).toMatchObject({ modelLocked: true, thinkingLocked: false });
@@ -99,7 +99,7 @@ describe("Effective launch fields", () => {
   test("a service launch without a model, or a tool launch with one, is not locked", () => {
     const service = effectiveLaunch(request({ origin: { kind: "service" } }), facts());
     expect(service.modelLocked).toBe(false);
-    const tool = effectiveLaunch(request({ requested: { model: "fx/main" } }), facts());
+    const tool = effectiveLaunch(request({ callerNamedModel: true }), facts());
     expect(tool.modelLocked).toBe(false);
   });
 

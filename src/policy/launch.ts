@@ -80,20 +80,21 @@ export function isFieldLocked(facts: AgentFacts, field: LockableField): boolean 
 }
 
 /**
- * The launch request fields the route reads, structurally the executor's `LaunchRequest` slice;
- * `requested` is after the agent's locks were applied.
+ * The launch request fields the route reads, structurally a slice of the executor's
+ * `LaunchRequest` plus `callerNamedModel`, which the host derives from it.
  */
 export type LaunchRequestFacts = {
   origin: { kind: "tool"; toolCallId: string } | { kind: "service" };
-  requested: { model?: string; thinking?: string };
+  /** The caller named a model, rather than the agent's own `model` filling `requested.model`. */
+  callerNamedModel: boolean;
   inheritContext: boolean;
   isBackground: boolean;
   locked: readonly LockableField[];
 };
 
-/** A service launch that names a model keeps it, as if the agent locked `model`. */
+/** A service launch whose caller names a model keeps it, as if the agent locked `model`. */
 function serviceModel(request: LaunchRequestFacts): boolean {
-  return request.origin.kind === "service" && request.requested.model !== undefined;
+  return request.origin.kind === "service" && request.callerNamedModel;
 }
 
 /** The launch as routing sees it; a resume never reaches the policy, so it has no field here. */

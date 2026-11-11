@@ -26,10 +26,19 @@ export type PolicyCall = {
 /** A caller-chosen model id the ledger may record. */
 const CALLER_MODEL = /^[A-Za-z0-9._:/-]{1,128}$/;
 
-/** The caller's model: the requested model unless it is only the agent's own. */
+/**
+ * Whether the caller named the requested model. The executor fills `requested.model` from the
+ * agent's own `model` when the caller names none, so a model equal to the agent's is not the caller's.
+ */
+export function callerNamedModel(request: LaunchRequest): boolean {
+  const model = request.requested.model;
+  return model !== undefined && model !== request.agent.model;
+}
+
+/** The caller's model for the ledger, when the caller named one the ledger may record. */
 function callerModel(request: LaunchRequest): string | undefined {
   const model = request.requested.model;
-  if (model === undefined || model === request.agent.model) return undefined;
+  if (model === undefined || !callerNamedModel(request)) return undefined;
   return CALLER_MODEL.test(model) ? model : undefined;
 }
 
@@ -38,7 +47,10 @@ export function newEntry(call: PolicyCall, window: readonly WindowEntry[]): Laun
   const { request, snap } = call;
   const { settings } = snap;
   const facts = agentFacts(request.agent);
-  const launch = effectiveLaunch(request, facts);
+  const launch = effectiveLaunch(
+    { ...request, callerNamedModel: callerNamedModel(request) },
+    facts,
+  );
   const offered = offeredTiers(settings.tiers, settings.switches.expert);
   const slots = settings.crew.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
   const caller = callerModel(request);

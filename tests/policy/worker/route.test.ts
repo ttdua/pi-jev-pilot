@@ -56,7 +56,7 @@ type LaunchReq = Parameters<typeof effectiveLaunch>[0];
 function serviceRequest(over: Partial<LaunchReq> = {}): LaunchReq {
   return {
     origin: { kind: "service" },
-    requested: {},
+    callerNamedModel: false,
     inheritContext: false,
     isBackground: false,
     locked: [],
@@ -121,7 +121,7 @@ function routed(r: Route): Extract<Route, { kind: "routed" }> {
 describe("launchKind", () => {
   const kind = (l: Partial<EffectiveLaunch>, offered = NO_EXPERT, f: ForkedLaunch = "untouched") =>
     launchKind(launch(l), offered, f);
-  test("slot alone with thinking locked asks", () => {
+  test("Slot alone with thinking locked", () => {
     expect(launchKind(launch({ thinkingLocked: true }), [], "untouched", 1)).toEqual({
       kind: "ask",
       tierQuestion: true,
@@ -177,10 +177,7 @@ describe("launchKind", () => {
 
 describe("Route result", () => {
   test("Service launch naming a model", () => {
-    const l = effectiveLaunch(
-      serviceRequest({ requested: { model: "fixture/fixture-deep" } }),
-      facts(),
-    );
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }), facts());
     const r = routed(
       routeLaunch(input({ launch: l, answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
     );
@@ -228,7 +225,7 @@ describe("Launches left untouched", () => {
   });
   test("Service launch with a model and locked thinking", () => {
     const l = effectiveLaunch(
-      serviceRequest({ requested: { model: "fixture/fixture-deep" }, locked: ["thinking"] }),
+      serviceRequest({ callerNamedModel: true, locked: ["thinking"] }),
       facts(),
     );
     expect(routeLaunch(input({ answers: undefined, launch: l }))).toEqual({
@@ -421,10 +418,7 @@ describe("Nothing can run", () => {
 
 describe("Locks in the route", () => {
   test("Service launch with a model", () => {
-    const l = effectiveLaunch(
-      serviceRequest({ requested: { model: "fixture/fixture-deep" } }),
-      facts(),
-    );
+    const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }), facts());
     const r = routeLaunch(
       input({ launch: l, answers: read({ tier: ["fast", { fast: 0.9 }], effort: "high" }) }),
     );

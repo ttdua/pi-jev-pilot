@@ -6,7 +6,7 @@ import { REPO_ROOT } from "./helpers";
 const pkg = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
 
 describe("package manifest", () => {
-  test("manifest names both entry points", () => {
+  test("Manifest names both entry points", () => {
     expect(pkg.pi.extensions).toEqual([
       "./packages/pi-subagents/src/index.ts",
       "./src/extension.ts",
@@ -15,7 +15,7 @@ describe("package manifest", () => {
     expect(pkg.license).toBe("MIT");
   });
 
-  test("host package is a peer, not bundled", () => {
+  test("Host package is a peer, not bundled", () => {
     expect(pkg.peerDependencies).toEqual({
       "@earendil-works/pi-ai": "*",
       "@earendil-works/pi-coding-agent": "*",
@@ -25,7 +25,7 @@ describe("package manifest", () => {
     expect(Object.keys(pkg.dependencies ?? {}).length).toBe(0);
   });
 
-  test("every imported host package is declared", () => {
+  test("Every imported host package is declared", () => {
     const names = new Set<string>();
     for (const root of ["src", join("packages", "pi-subagents", "src")]) {
       for (const file of readdirSync(join(REPO_ROOT, root), { recursive: true })) {
@@ -47,7 +47,7 @@ describe("package manifest", () => {
     expect(Object.keys(pkg.peerDependencies)).toEqual(expect.arrayContaining([...names]));
   });
 
-  test("executor comes from the vendored package", () => {
+  test("No published executor dependency: executor comes from the vendored package", () => {
     for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
       expect(Object.keys(pkg[field] ?? {})).not.toContain("@gotgenes/pi-subagents");
     }

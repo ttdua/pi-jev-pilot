@@ -33,6 +33,17 @@ export type ToolCounts = { toolsScored: number; toolsFlagged: number; toolsGrant
 const TOOL_KEY_PREFIX = "tool::";
 const GRANT_KEY_PREFIX = "grant::";
 
+/** Names not yet in `skip`, in order; each picked name is added to `skip`. */
+function pickNew(names: readonly string[], skip: Set<string>): string[] {
+  const out: string[] = [];
+  for (const name of names) {
+    if (skip.has(name)) continue;
+    skip.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
 /**
  * Block candidates are the defaults, grant candidates the parent tools not among them; declared,
  * disallowed and never-candidate names are skipped, each name scored once. At most TOOL_CAP in
@@ -40,17 +51,8 @@ const GRANT_KEY_PREFIX = "grant::";
  */
 export function toolPlan(toolSet: ToolSet, never: readonly string[] = NEVER_CANDIDATES): ToolPlan {
   const skip = new Set([...(toolSet.declared ?? []), ...toolSet.disallowed, ...never]);
-  const take = (names: readonly string[]): string[] => {
-    const out: string[] = [];
-    for (const name of names) {
-      if (skip.has(name)) continue;
-      skip.add(name);
-      out.push(name);
-    }
-    return out;
-  };
-  const block = take(toolSet.defaults).slice(0, TOOL_CAP);
-  const grant = take(toolSet.parentTools).slice(0, TOOL_CAP - block.length);
+  const block = pickNew(toolSet.defaults, skip).slice(0, TOOL_CAP);
+  const grant = pickNew(toolSet.parentTools, skip).slice(0, TOOL_CAP - block.length);
   return { block, grant };
 }
 

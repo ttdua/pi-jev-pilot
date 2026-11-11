@@ -2,8 +2,6 @@ import type { LaunchRequest } from "@ttdua/pi-subagents";
 import { toolPlan, type ToolPlan } from "../../policy/tools/index.ts";
 import type { Settings } from "../../store/settings.ts";
 
-const NOTHING: ToolPlan = { block: [], grant: [] };
-
 /**
  * The candidates a launch scores: none with the `tools` switch off or an empty prompt, else the
  * block and grant candidates from the launch request's tool set.
@@ -12,7 +10,7 @@ export function planTools(
   request: Pick<LaunchRequest, "prompt" | "toolSet">,
   settings: Pick<Settings, "switches">,
 ): ToolPlan {
-  if (!settings.switches.tools || request.prompt === "") return NOTHING;
+  if (!settings.switches.tools || request.prompt === "") return { block: [], grant: [] };
   return toolPlan(request.toolSet);
 }
 

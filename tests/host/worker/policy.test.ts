@@ -144,6 +144,21 @@ describe("Launches routing acts on", () => {
     expect(h.lines[0]).not.toHaveProperty("model");
   });
 
+  test("Service launch of an agent with its own model, no caller model → routed", async () => {
+    const h = harness();
+    // The executor fills `requested.model` from the agent's own `model:` when the caller names none.
+    const { adjustment, request } = await h.launch({
+      origin: { kind: "service" },
+      agent: { name: "worker", source: "project", model: "fixture/fixture-agent" },
+      requested: { model: "fixture/fixture-agent" },
+    });
+    expect(adjustment).toEqual({ model: "fx/fast", thinking: "medium" });
+    h.created(request.agentId);
+    h.completed(request.agentId);
+    expect(h.lines[0]).not.toHaveProperty("locked");
+    expect(h.lines[0]).toMatchObject({ model: "fx/fast" });
+  });
+
   test("Service launch without a model", async () => {
     const h = harness();
     const { adjustment } = await h.launch({ origin: { kind: "service" } });
