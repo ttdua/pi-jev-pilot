@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT, tempDir } from "../helpers";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
@@ -11,10 +11,26 @@ const TIMEOUT = 120_000;
 const DISPOSE_WAIT_MS = 200_000;
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
+/** Temp directories this file creates and passes to the harness, which does not remove them. */
+const ownedDirs: string[] = [];
+
+function ownedTempDir(prefix: string): string {
+  const dir = tempDir(prefix);
+  ownedDirs.push(dir);
+  return dir;
+}
+
+function removeOwnedDirs(): void {
+  for (const dir of ownedDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+}
 
 afterEach(async () => {
-  for (const s of sessions.splice(0)) await s.close();
-  for (const f of fixtures.splice(0)) await f.stop();
+  try {
+    for (const s of sessions.splice(0)) await s.close();
+    for (const f of fixtures.splice(0)) await f.stop();
+  } finally {
+    removeOwnedDirs();
+  }
 });
 
 /** The pristine upstream tree commit recorded in VENDORED.md. */
@@ -44,7 +60,7 @@ function originalExecutor(): string {
  * `@gotgenes/pi-subagents` loaded last would leave it. Only the published-service path decides.
  */
 function standInInsideVendoredPath(): string {
-  const dir = join(tempDir("jev-stand-in-"), "packages", "pi-subagents");
+  const dir = join(ownedTempDir("jev-stand-in-"), "packages", "pi-subagents");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "package.json"),
@@ -80,7 +96,7 @@ const MAIN_ONLY: ScriptEntry[] = [
 async function start(installs: string[], script: ScriptEntry[] = MAIN_ONLY): Promise<HostSession> {
   const fixture = await startFixture(script);
   fixtures.push(fixture);
-  const agentDir = tempDir("jev-dup-agent-");
+  const agentDir = ownedTempDir("jev-dup-agent-");
   mkdirSync(join(agentDir, "jev"), { recursive: true });
   const session = await startHostSession({
     fixture,
@@ -104,6 +120,7 @@ async function status(s: HostSession): Promise<string> {
 // and the original cannot share a session; the original runs beside jev-pilot alone instead.
 describe("duplicate executor through the real CLI", () => {
   const original = originalExecutor();
+  afterAll(() => rmSync(original, { recursive: true, force: true }));
 
   test(
     "Original loaded last: a published non-vendored service is a duplicate",
@@ -166,7 +183,7 @@ describe("duplicate executor through the real CLI", () => {
       // same main session.
       // Project layer (`<cwd>/.pi/subagents.json`): the harness installs probes only into an agent
       // directory it creates itself, so the settings go in the working directory.
-      const cwd = tempDir("jev-dup-cwd-");
+      const cwd = ownedTempDir("jev-dup-cwd-");
       mkdirSync(join(cwd, ".pi"), { recursive: true });
       writeFileSync(
         join(cwd, ".pi", "subagents.json"),
