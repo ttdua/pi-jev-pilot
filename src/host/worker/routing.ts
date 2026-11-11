@@ -3,8 +3,13 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { askJev } from "../../jev/client.ts";
 import type { WindowEntry } from "../../policy/worker/index.ts";
 import { appendLedger } from "../../store/ledger.ts";
-import { jevDir, loadSnapshot, type Snapshot } from "../platform/index.ts";
-import { mainService, type VendoredService } from "../tools/index.ts";
+import {
+  jevDir,
+  loadSnapshot,
+  mainService,
+  type Snapshot,
+  type VendoredService,
+} from "../platform/index.ts";
 import { LaunchBook } from "./launches.ts";
 import {
   BOUND,

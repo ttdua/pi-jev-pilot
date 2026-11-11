@@ -6,7 +6,7 @@ import { CHILDREN_KEY, isChild } from "../../src/host/platform/child.ts";
 import { MAIN_CWD_KEY, mainCwd } from "../../src/host/platform/main-cwd.ts";
 import { writeLocalMode } from "../../src/store/local-mode.ts";
 import { setup } from "../../src/host/setup.ts";
-import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tools/service.ts";
+import { MAIN_SERVICE_KEY, mainService } from "../../src/host/platform/service.ts";
 import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";
 import { firing } from "./tuning-fakes.ts";

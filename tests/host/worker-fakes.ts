@@ -7,7 +7,7 @@ import type {
 } from "@ttdua/pi-subagents";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { Snapshot } from "../../src/host/platform/readiness.ts";
-import type { VendoredService } from "../../src/host/tools/service.ts";
+import type { VendoredService } from "../../src/host/platform/service.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker/routing.ts";
 import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
 import type { Mode } from "../../src/store/defaults.ts";

@@ -4,4 +4,12 @@ export { branchItems, holdContext, previousTurnId, scanPlatforms } from "./conte
 export { setMainCwd } from "./main-cwd.ts";
 export { checkModel, nearestModels, resolveModel, splitModel } from "./models.ts";
 export { loadSnapshot, type Snapshot } from "./readiness.ts";
+export {
+  capturedService,
+  captureMainService,
+  clearMainService,
+  mainService,
+  publishedService,
+  type VendoredService,
+} from "./service.ts";
 export { jevDir } from "./stores.ts";

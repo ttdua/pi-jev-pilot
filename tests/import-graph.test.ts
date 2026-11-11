@@ -6,6 +6,7 @@ import {
   importViolations,
   moduleSpecifiers,
   nestingViolations,
+  runtimeCycles,
   typeOnlySpecifiers,
   type ImportViolation,
 } from "./support/import-graph.ts";
@@ -44,6 +45,17 @@ async function fixtureViolations(file: string): Promise<ImportViolation[]> {
 test("source and scripts have no import violation", async () => {
   const files = tsFiles(REPO_ROOT, "src", "scripts");
   expect(await importViolations(REPO_ROOT, files)).toEqual([]);
+});
+
+test("source has no runtime import cycle", async () => {
+  expect(await runtimeCycles(REPO_ROOT, tsFiles(REPO_ROOT, "src"))).toEqual([]);
+});
+
+test("the cycle finder reports a runtime cycle and ignores type-only edges", async () => {
+  const root = join(FIXTURES, "import-cycles");
+  expect(await runtimeCycles(root, tsFiles(root, "src"))).toEqual([
+    ["src/host/a/index.ts", "src/host/b/index.ts"],
+  ]);
 });
 
 test("the canonical fixtures violate exactly where named bad-", async () => {

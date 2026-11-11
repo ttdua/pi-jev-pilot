@@ -1,9 +1,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { isChild, jevDir, loadSnapshot, setMainCwd } from "../platform/index.ts";
+import {
+  captureMainService,
+  clearMainService,
+  isChild,
+  jevDir,
+  loadSnapshot,
+  setMainCwd,
+} from "../platform/index.ts";
 import { readLedger } from "../../store/ledger.ts";
 import { drawStatus } from "../status/index.ts";
 import { showUnseenTuning } from "../tuning/index.ts";
-import { captureMainService, clearMainService } from "../tools/index.ts";
 import type { Parts } from "./parts.ts";
 
 function ledgerLines(): readonly unknown[] {

@@ -231,3 +231,53 @@ export async function importViolations(
   }
   return found;
 }
+
+/** Repository-relative files each file loads at runtime through a relative import. */
+async function runtimeEdges(
+  root: string,
+  files: readonly string[],
+): Promise<Map<string, string[]>> {
+  const known = new Set(files);
+  const edges = new Map<string, string[]>();
+  for (const file of files) {
+    const text = await Bun.file(join(root, file)).text();
+    const targets = moduleSpecifiers(text, true)
+      .filter((specifier) => specifier.startsWith("."))
+      .map((specifier) => targetPath(root, file, specifier))
+      .filter((path): path is string => path !== undefined && known.has(path));
+    edges.set(file, [...new Set(targets)]);
+  }
+  return edges;
+}
+
+/** One cycle per strongly connected group of runtime imports, each as its sorted files. */
+export async function runtimeCycles(root: string, files: readonly string[]): Promise<string[][]> {
+  const edges = await runtimeEdges(root, files);
+  const index = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const cycles: string[][] = [];
+  const visit = (file: string): void => {
+    index.set(file, index.size);
+    low.set(file, index.get(file) ?? 0);
+    stack.push(file);
+    onStack.add(file);
+    for (const next of edges.get(file) ?? []) {
+      if (!index.has(next)) visit(next);
+      if (onStack.has(next)) {
+        low.set(file, Math.min(low.get(file) ?? 0, low.get(next) ?? 0, index.get(next) ?? 0));
+      }
+    }
+    if (low.get(file) !== index.get(file)) return;
+    const group: string[] = [];
+    for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
+      onStack.delete(top);
+      group.push(top);
+      if (top === file) break;
+    }
+    if (group.length > 1 || (edges.get(file) ?? []).includes(file)) cycles.push(group.sort());
+  };
+  for (const file of files) if (!index.has(file)) visit(file);
+  return cycles;
+}

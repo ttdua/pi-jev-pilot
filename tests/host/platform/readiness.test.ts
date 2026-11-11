@@ -9,7 +9,7 @@ import {
   loadSnapshot,
 } from "../../../src/host/platform/readiness.ts";
 import { MAIN_CWD_KEY, setMainCwd } from "../../../src/host/platform/main-cwd.ts";
-import { captureMainService, clearMainService } from "../../../src/host/tools/index.ts";
+import { captureMainService, clearMainService } from "../../../src/host/platform/index.ts";
 import { writeLocalMode } from "../../../src/store/local-mode.ts";
 import type { Config, ConfigRead } from "../../../src/store/config.ts";
 import type { StateRead } from "../../../src/store/state-file.ts";

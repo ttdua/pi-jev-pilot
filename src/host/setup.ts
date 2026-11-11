@@ -21,7 +21,7 @@ import { createMain } from "./main/index.ts";
 import { registerReviewTool } from "./review/index.ts";
 import { compactTally, logLine, createSessionLog } from "./status/index.ts";
 import type { TuningDeps } from "./tuning/index.ts";
-import { mainService } from "./tools/index.ts";
+import { mainService } from "./platform/index.ts";
 import {
   registerJevCommand,
   subscribeSessionShutdown,

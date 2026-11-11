@@ -8,7 +8,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../src/host/platform/child.ts";
 import { MAIN_CWD_KEY } from "../../src/host/platform/main-cwd.ts";
 import type { CutpointWindow } from "../../src/host/worker/index.ts";
-import { MAIN_SERVICE_KEY, mainService } from "../../src/host/tools/service.ts";
+import { MAIN_SERVICE_KEY, mainService } from "../../src/host/platform/service.ts";
 import { setup } from "../../src/host/setup.ts";
 import { startJevFixture } from "../jev/fixture.ts";
 import { tempDir } from "../helpers.ts";

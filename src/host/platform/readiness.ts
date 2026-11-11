@@ -5,7 +5,7 @@ import { readState, type StateRead } from "../../store/state-file.ts";
 import { readTuning, type TuningDocument, type TuningRead } from "../../store/tuning-file.ts";
 import type { Issue } from "../../store/validate.ts";
 import { readLocalMode, type LocalModeRead } from "../../store/local-mode.ts";
-import { capturedService, publishedService } from "../tools/index.ts";
+import { capturedService, publishedService } from "./service.ts";
 import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 
