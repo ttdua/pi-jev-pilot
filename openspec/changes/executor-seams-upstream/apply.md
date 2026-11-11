@@ -5,8 +5,8 @@
 > Overwritten on each apply iteration; iteration counter grows.
 
 **Change**: `executor-seams-upstream`
-**Iteration**: `1`
-**Applied at**: `2026-11-11 14:02`
+**Iteration**: `2`
+**Applied at**: `2026-11-11 17:05` (iteration 1: `2026-11-11 14:02`)
 **Executor**: `subagent-driven-development` (implementer role: `general-purpose`; task reviewer role: `Plan`, read-only; final whole-branch review: `Plan`)
 
 ---
@@ -22,8 +22,8 @@
 
 ## Commits
 
-- **Range**: `4969c4de..HEAD` (HEAD = the commit that adds this receipt; implementation ends at `b70199d6`)
-- **Count**: `40` (39 implementation, fix and artifact commits plus this receipt; includes the subtree squash `dbaae798` and merge `41f14d91`)
+- **Range**: `4969c4de..HEAD` (HEAD = the commit that adds this receipt). Iteration 1 implementation ended at `b70199d6`; iteration 2 fix range `7e0727ba..8a83065c` (artifact drift fixes `88c6e677`, code fixes `8a83065c`)
+- **Count**: `46` (45 commits up to `8a83065c` plus this receipt; includes the subtree squash `dbaae798` and merge `41f14d91`)
 
 Fresh evidence (controller run at `9880057f`; fix wave `0f4beecb` re-run by its implementer): `bun run typecheck`, `lint`, `fmt:check` pass; `bun run test` 2655 pass / 0 fail; `bun run test:executor` 2287 pass; `bun install --frozen-lockfile` clean.
 
@@ -85,6 +85,17 @@ Order 1, 2, 3, 5, 6, 4, 7, 8, 9 (one writer, no child worktrees).
 - `docs/evidence/2026-11-05-host-seams.md` links living specs whose new requirements land only at sync: run `/opsx-sync` (or archive) in the same PR.
 
 ---
+
+## Iteration 2 (verify iteration 1 FAIL)
+
+| Verify item | Root cause | Fix | Review |
+|---|---|---|---|
+| CRITICAL 1: REMOVED "Locked fields" still in code | Task 5/7 kept jev-pilot's own lock computation beside the executor's `LaunchRequest.locked` | `effectiveLaunch` reads only `request.locked` (+ caller-named service model); `agentSets`, `isFieldLocked`, `AgentFacts.locked`, `LockDeclaration` removed; regression test | addressed |
+| CRITICAL 2: "Both executors installed" untested | Scenario added after Task 8's tests were written | Host test installs checkout + original executor, asserts Pi exits naming the `subagent` conflict; harness `runOnce` takes `installs` | addressed |
+| WARNING: "Model rewritten by the policy" not direct | Mapped test covered a caller override | Executor test asserts session-created payload, `getRecord(id)` and session inputs after a policy rewrite | addressed |
+| WARNING: artifact drift | Apply-time decisions not carried into every artifact | Spec vendoring publication wording, design D6/D9, tool-assessment REMOVED reason, plan Scenario → test rows, `callerModel` parked note (`88c6e677`) | n/a (artifacts) |
+
+Executor: subagent-driven fix (implementer `general-purpose`, reviewer `Plan`). Implementer evidence: typecheck/lint/fmt clean, `bun run test` 2652 pass, `test:executor` 2288 pass, `tests/vendoring.test.ts` 4 pass.
 
 ## Next step
 
