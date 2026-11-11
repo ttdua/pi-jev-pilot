@@ -21,7 +21,10 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `package.json` | edit | Rename to private `@ttdua/pi-subagents`; drop `publishConfig`; replace `catalog:` versions with the exact versions from upstream `pnpm-workspace.yaml` at the tag; pin the `@earendil-works/*` dev dependencies to `1.5.0` to match the root; `lint` without markdown lint; `prepack` through `bun`. |
 | `tsconfig.json` | edit | Inline upstream's `tsconfig.base.json` compiler options, since the base file lives outside the subtree. |
 | `test/ui/widget-viewport.test.ts` | edit | `fakeTerminal` gains `setProgramStatus`, required by the `Terminal` type in pi-tui 1.5.0. |
-| `test/ui/session-navigator.test.ts` | edit | Bind top/bottom to `home`/`end` in the test keybindings; pi-tui 1.5.0 defaults them to `ctrl+home`/`ctrl+end`. |
+| `test/ui/session-navigator.test.ts` | edit | Bind top/bottom to `home`/`end` in the test keybindings; pi-tui 1.5.0 defaults them to `ctrl+home`/`ctrl+end`. Cover `openTranscript`. |
+| `src/ui/session-navigation.ts` | edit | Add `navigationEntryFor`, the per-record live/snapshot entry, shared by `listNavigableAgents` and the fleet list. |
+| `src/ui/session-navigator.ts` | edit | Add `openTranscript`, the source/mount step of the session pane, shared by the picker handler and the fleet list. |
+| `test/ui/session-navigation.test.ts` | edit | Cover `navigationEntryFor`. |
 | `src/settings.ts` | edit | Add the `fleetView` setting (default on, boolean-only load, always in the snapshot, `toggleFleetView`) for the below-editor fleet list. |
 | `src/ui/subagents-settings.ts` | edit | Add the `Fleet view` toggle row after the mid-run updates row. |
 | `src/seams/identity.ts` | seam | Launch identity (`agentId`, `agentType`, `toolCallId`) and effective model/thinking facts. |

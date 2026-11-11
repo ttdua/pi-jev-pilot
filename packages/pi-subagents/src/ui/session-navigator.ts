@@ -52,6 +52,7 @@ import {
   fileSnapshotSource,
   listNavigableAgents,
   liveSource,
+  type NavigationEntry,
   type NavigableSubagent,
   type TranscriptSource,
 } from "#src/ui/session-navigation";
@@ -178,21 +179,33 @@ export class SessionNavigatorHandler {
     const entry = entries.find((candidate) => candidate.label === choice);
     if (!entry) return;
 
-    let source: TranscriptSource;
-    try {
-      source = entry.kind === "live" ? liveSource(entry.record) : fileSnapshotSource(entry.outputFile, readFile);
-    } catch {
-      ui.notify("Could not read the session transcript file.", "error");
-      return;
-    }
-    const markdownTheme = getMarkdownTheme();
-    const mode = await probeTuiMode(ui);
-    await ui.custom<undefined>(
-      (tui, theme, keys, done) =>
-        new TranscriptPane({ tui, theme, keys, source, heading: entry.heading, done, cwd, markdownTheme }),
-      viewerMountOptions(mode),
-    );
+    await openTranscript(ui, entry, { cwd, readFile });
   }
+}
+
+/**
+ * Open one entry's transcript in the read-only pane: pick its source, report an
+ * unreadable file, and mount the pane docked or as an overlay by TUI mode.
+ */
+export async function openTranscript(
+  ui: SessionNavigatorUI,
+  entry: NavigationEntry,
+  { cwd, readFile }: { cwd: string; readFile: (path: string) => string },
+): Promise<void> {
+  let source: TranscriptSource;
+  try {
+    source = entry.kind === "live" ? liveSource(entry.record) : fileSnapshotSource(entry.outputFile, readFile);
+  } catch {
+    ui.notify("Could not read the session transcript file.", "error");
+    return;
+  }
+  const markdownTheme = getMarkdownTheme();
+  const mode = await probeTuiMode(ui);
+  await ui.custom<undefined>(
+    (tui, theme, keys, done) =>
+      new TranscriptPane({ tui, theme, keys, source, heading: entry.heading, done, cwd, markdownTheme }),
+    viewerMountOptions(mode),
+  );
 }
 
 /**
@@ -426,3 +439,4 @@ function describeRuntime(model: ModelIdentity | undefined, thinkingLevel: string
   const level = thinkingLevel === "off" ? "thinking off" : thinkingLevel;
   return `${formatModel(model)} • ${level}`;
 }
+
