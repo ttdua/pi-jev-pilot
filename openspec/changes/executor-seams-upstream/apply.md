@@ -80,6 +80,7 @@ Order 1, 2, 3, 5, 6, 4, 7, 8, 9 (one writer, no child worktrees).
 - README and usage-guide install commands stay `@v0.1.0` (a tag without the vendored executor) because `tests/release-check.ts` pins them to `@v<package version>`; prose tells users to install the default branch. The release step must bump the version, tag, and update both files.
 - `callerModel` in the worker ledger line can mislabel the agent's resolved model as caller-named on tool launches; fixing it needs a public `requested.modelSource` field (ask first).
 - No CI check that `packages/pi-subagents/dist/public.d.ts` is fresh; vendored `verify:public-types` still probes the old package name.
+- Follow-up change (operator decision 2026-11-11): merge the worker and tool-assessment Jev requests into one request per launch, with a replay that shows the tier distribution does not shift. Start it after this change merges, since it builds on the launch policy.
 - `docs/evidence/2026-11-05-host-seams.md` links living specs whose new requirements land only at sync: run `/opsx-sync` (or archive) in the same PR.
 
 ---
