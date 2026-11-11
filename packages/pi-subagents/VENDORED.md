@@ -79,3 +79,5 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/tools/foreground-runner.test.ts` | edit | Params carry the launch `origin`. |
 | `src/ui/fleet-roster.ts` | seam | Pure fleet roster and renderer: row filter, ordering, windowing and width-clamped lines. List behavior ported from tintinweb/pi-subagents 0.23.2. |
 | `test/ui/fleet-roster.test.ts` | seam | Tests for the fleet roster filter, ordering, formats, layout, overflow windowing and width clamping. |
+| `src/ui/fleet-list.ts` | seam | Pi adapter for the below-editor fleet list: active and selection state, 1 s refresh timer, `fleet` widget, terminal-input listener with focus guard, and Enter opening the session pane. Key mechanics ported from tintinweb/pi-subagents 0.23.2. |
+| `test/ui/fleet-list.test.ts` | seam | Tests for the fleet list's visibility, activation, navigation, focus guard, open and reselect, observer hooks, and lifecycle with a fake UI and TUI. |
