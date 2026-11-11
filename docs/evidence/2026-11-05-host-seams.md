@@ -2,19 +2,19 @@
 
 Answers to the eight [WG-02](../roadmap.md#wg-02-host-seam-verification) questions, from real runs of the Pi CLI in RPC mode against a loopback recording provider (Q1 to Q7) and one manual run against a real provider (Q8). Counts and ids only: no prompts, request bodies, markers or account details.
 
-**Read with care:** Q1 to Q7 are repeatable and pinned by tests that fail if the host changes. Q8 is one controlled operator run, not a general rule.
+**Read with care:** Q3 to Q6 are repeatable and pinned by tests that fail if the host changes. Q1, Q2 and Q7 are superseded: the package no longer uses their seams, and their recorded answers are kept for history. Q8 is one controlled operator run, not a general rule.
 
 Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-code` 47f9e2b and model `claude-code/claude-haiku-5-5`.
 
 | Q | Question | Answer | Evidence | Level | Versions |
 |---|---|---|---|---|---|
-| Q1 | Do `input.model` and `input.thinking` mutations reach the child, foreground and background? | Yes. With agent `locked: model`, the agent file's model wins and thinking is still rewritten | `tests/host/q1-q7-worker-mutation.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
-| Q2 | Does `message_end` finish before `tool_call` preflight? | Yes. Batching at `message_end` is viable | `tests/host/q2-message-end-order.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
+| Q1 | Do `input.model` and `input.thinking` mutations reach the child, foreground and background? | Superseded: recorded answer Yes. With agent `locked: model`, the agent file's model wins and thinking is still rewritten | Was `tests/host/q1-q7-worker-mutation.test.ts` (retired); replaced by [`executor-launch-policy`](../../openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md) and `tests/host/launch-policy-evidence.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
+| Q2 | Does `message_end` finish before `tool_call` preflight? | Superseded: recorded answer Yes. Batching at `message_end` is viable | Was `tests/host/q2-message-end-order.test.ts` (retired); replaced by [`executor-launch-policy`](../../openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md) and `tests/host/launch-policy-evidence.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q3 | Can a child's `before_agent_start` remove tools through `selectedTools`, and does the model then lack them? | Yes | `tests/host/q3-q4-child.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q4 | Is `subagents:child:session-created` visible, in time, with a usable session id? | Yes | `tests/host/q3-q4-child.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q5 | Is a hidden `before_agent_start` message sent to the model and kept across compaction as expected? | Yes. Kept until a compaction, dropped by it | `tests/host/q5-q6-main.test.ts` | Host | Pi 1.5.0 |
 | Q6 | Does `setThinkingLevel` in `before_agent_start` apply to that turn's first request? | Yes | `tests/host/q5-q6-main.test.ts` | Host | Pi 1.5.0 |
-| Q7 | Do mutated `model` and `thinking` still behave with `inherit_context`? | Yes, both apply (child model `fixture-fast`, `reasoning_effort` `high`). The seam works; launches with `inherit_context` stay skipped by operator decision | `tests/host/q1-q7-worker-mutation.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
+| Q7 | Do mutated `model` and `thinking` still behave with `inherit_context`? | Superseded: recorded answer Yes, both apply (child model `fixture-fast`, `reasoning_effort` `high`). The seam worked; launches with `inherit_context` stayed skipped by operator decision | Was `tests/host/q1-q7-worker-mutation.test.ts` (retired); replaced by [`executor-launch-policy`](../../openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md) and `tests/host/launch-policy-evidence.test.ts` | Host | Pi 1.5.0, executor 25.0.5 |
 | Q8 | How do thinking changes and the prompt cache behave on `claude-code`? | No cache loss on one low to high change; no thinking-related events seen | `tests/host/manual/q8-claude-code.ts`, manual, real provider, one run | Host | Pi 1.5.0, executor 25.0.5, pi-claude-code 47f9e2b |
 
 ## Harness facts
@@ -25,6 +25,8 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 ## Q1
 
+**Superseded.** The package no longer rewrites `subagent` input in `tool_call`; the executor's launch policy sets a worker's model and thinking ([`executor-launch-policy`](../../openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md), ["Launch policy host evidence"](../../openspec/changes/executor-seams-upstream/specs/host-seam-evidence/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`. The answer below is the one recorded on 2026-11-05.
+
 **Observed.** A `tool_call` handler rewriting `input.model` and `input.thinking` changes the child's first request: model `fixture-fast`, `reasoning_effort` `high`. Identical for foreground and background launches. With an agent file that sets `locked: model`, the child runs the agent file's model (`fixture-main`) while thinking is still rewritten (`high`).
 
 **Documents changed.** [architecture.md](../architecture.md#host-seams) host seams table.
@@ -32,6 +34,8 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 **Work groups affected.** WG-11 (input mutation, `locked` handling) builds on this as designed.
 
 ## Q2
+
+**Superseded.** The package no longer classifies launches at `message_end`; each launch is classified when the executor calls the launch policy ([`executor-launch-policy`](../../openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`. The answer below is the one recorded on 2026-11-05.
 
 **Observed.** An asynchronous `message_end` handler that waits 300 ms completes before the first sibling `tool_call` preflight. Order: `message_end` start, `message_end` end, `tool_call` start, `tool_call` start.
 
@@ -72,6 +76,8 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 **Work groups affected.** WG-07 (main effort).
 
 ## Q7
+
+**Superseded.** Model and thinking changes on a launch with `inherit_context` go through the launch policy ([`executor-launch-policy`](../../openspec/changes/executor-seams-upstream/specs/executor-launch-policy/spec.md), ["Inherited context with a policy model"](../../openspec/changes/executor-seams-upstream/specs/host-seam-evidence/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`, test "Inherited context with a policy model". The answer below is the one recorded on 2026-11-05.
 
 **Observed.** With `inherit_context: true`, a rewritten model applies and the parent conversation reaches the child. A rewritten thinking level applies too: the child's first request carried `reasoning_effort` `high` in all three runs.
 
