@@ -2,7 +2,7 @@
 
 **Change**: `blocked-tools-by-grant`
 **Finalized at**: `2026-11-12 19:40`
-**Outcome**: `kept-as-is`
+**Outcome**: `pr-created`
 
 ---
 
@@ -10,10 +10,10 @@
 
 - **Branch**: `docs/blocked-tools-by-grant`
 - **Base branch**: `main`
-- **Final state**: `kept-open`
-- **PR URL**: `N/A` (no PR exists; not pushed)
+- **Final state**: `pr-open`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/73`
 
-The implementation is merged into the feature branch locally by fast-forward (`d2fbf871..28facc7d`) and the worktree branch is deleted. Push and PR creation were not done: the project instructions require the user's explicit permission in chat, and none was given. Deviation from the canonical git-side closeout (steps 9 to 12), recorded as the instruction requires.
+The implementation is merged into the feature branch by fast-forward (`d2fbf871..28facc7d`) and the worktree branch is deleted. Push and PR creation waited for the user's explicit permission in chat, as the project instructions require: the push followed the user's go-ahead, the PR followed the user's answer in the Inbox. The receipt commit was pushed after the PR existed, so it is not part of the first push. Recorded deviation from the canonical order (steps 9 to 12).
 
 ---
 
@@ -26,7 +26,7 @@ The implementation is merged into the feature branch locally by fast-forward (`d
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted`
 
 ---
 
@@ -48,4 +48,4 @@ Fresh runs on the merged feature branch: `bun run check` exit 0; executor suite 
 
 ## Next step
 
-Ask for permission to push `docs/blocked-tools-by-grant` and open a PR. After code review, run `/opsx-archive` on this feature branch, push the archive commits, then merge the PR.
+Wait for PR code review (the logic pre-review has not happened as a separate PR). After approval, run `/opsx-archive` on this feature branch, push the archive commits to update the PR, then merge the PR.
