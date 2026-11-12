@@ -98,6 +98,10 @@ export default function (pi: ExtensionAPI): void {
         agentId: id,
         toolCount: record?.toolCount ?? -1,
         blockedToolCount: record?.blockedToolCount ?? -1,
+        parentToolCount: pi.getAllTools().length,
+        parentHasProtocolTools: pi
+          .getAllTools()
+          .some((tool) => tool.name === "ask_parent" || tool.name === "notify_parent"),
       },
     });
   });

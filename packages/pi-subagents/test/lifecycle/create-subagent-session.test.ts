@@ -549,11 +549,16 @@ describe("createSubagentSession — MCP tool patterns", () => {
 
 describe("createSubagentSession — tool facts", () => {
   /** A session whose active tools follow the allowlist and whose registry holds `registered`. */
-  function armSession(registered: string[], opts: { activeThrowsAfterGrants?: boolean } = {}) {
+  function armSession(
+    registered: string[],
+    opts: { activeThrowsAfterGrants?: boolean; onCreate?: () => void; bindGate?: Promise<void> } = {},
+  ) {
     const session = createFactorySession();
     let active: string[] = [];
     io.createSession.mockImplementation(async (o: { tools: string[] }) => {
+      opts.onCreate?.();
       session.bindExtensions.mockImplementation(async () => {
+        await opts.bindGate;
         active = o.tools.filter((name) => registered.includes(name));
       });
       return { session };
@@ -589,14 +594,19 @@ describe("createSubagentSession — tool facts", () => {
         io,
         exec,
         registry: createAgentLookup({ toolNames: ["read", "grep"] }),
+        // Parent total: read, grep, web_search, bash, edit. Active: read, grep, ask_parent, web_search.
+        listParentToolNames: () => ["read", "grep", "web_search", "bash", "edit"],
       }),
     );
 
-    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 4, blockedToolCount: 0 });
+    // Total = {read, grep, web_search, bash, edit, ask_parent}; 4 active, bash and edit blocked.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 4, blockedToolCount: 2 });
   });
 
-  it("does not count a tool registered after the policy as blocked", async () => {
-    armSession(["read", "bash", "mcp__srv__a"]);
+  it("does not count a tool registered after the parent list was read", async () => {
+    const parent = ["mcp__srv__a", "mcp__srv__b"];
+    // The parent registers a tool after the launch has read its list.
+    armSession(["read", "bash", "mcp__srv__a"], { onCreate: () => parent.push("mcp__srv__late") });
     const onToolFacts = vi.fn();
 
     await createSubagentSession(
@@ -611,14 +621,15 @@ describe("createSubagentSession — tool facts", () => {
         io,
         exec,
         registry: createAgentLookup({ toolNames: ["mcp__srv__*"] }),
-        listParentToolNames: () => ["mcp__srv__a", "mcp__srv__b"],
+        listParentToolNames: () => [...parent],
       }),
     );
 
-    expect(onToolFacts).toHaveBeenCalledWith(expect.objectContaining({ blockedToolCount: 0 }));
+    // Total = {mcp__srv__a, mcp__srv__b}; the late tool is not counted.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 1, blockedToolCount: 1 });
   });
 
-  it("counts a disallowed known tool and a policy removal", async () => {
+  it("counts every tool the child lacks, whatever the cause", async () => {
     armSession(["read", "bash", "mcp__srv__a"]);
     const onToolFacts = vi.fn();
 
@@ -634,10 +645,124 @@ describe("createSubagentSession — tool facts", () => {
         io,
         exec,
         registry: createAgentLookup({ toolNames: ["read", "bash"], disallowedTools: ["bash"] }),
+        // Parent total: read, bash, edit, mcp__srv__a. Active: read.
+        listParentToolNames: () => ["read", "bash", "edit", "mcp__srv__a"],
       }),
     );
 
-    expect(onToolFacts).toHaveBeenCalledWith(expect.objectContaining({ blockedToolCount: 2 }));
+    // bash (disallowed), edit (policy removal) and mcp__srv__a (not on the allowlist) are blocked.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 1, blockedToolCount: 3 });
+  });
+
+  const PARENT_TEN = [
+    "read", "edit", "bash", "grep", "find", "ls", "write", "web_search", "subagent", "get_subagent_result",
+  ];
+
+  it("counts a policy-removed tool as blocked", async () => {
+    armSession(PARENT_TEN);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        tools: { toolNames: ["read"], grants: [], removed: ["edit"] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read", "edit"] }),
+        listParentToolNames: () => PARENT_TEN,
+      }),
+    );
+
+    // Total = the 10 parent tools. Active = {read} (edit removed), so 1 + 9 = 10.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 1, blockedToolCount: 9 });
+  });
+
+  it("does not count a removed tool that is granted back", async () => {
+    armSession(PARENT_TEN);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        tools: { toolNames: ["read"], grants: ["bash"], removed: ["bash"] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read"] }),
+        listParentToolNames: () => PARENT_TEN,
+      }),
+    );
+
+    // Total = the 10 parent tools. Active = {read, bash}, so 2 + 8 = 10.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 2, blockedToolCount: 8 });
+  });
+
+  it("counts both protocol tools as granted, not blocked", async () => {
+    armSession(["read", "bash", "edit", "grep", "ask_parent", "notify_parent"]);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        askParent: vi.fn(),
+        notifyParent: vi.fn(),
+        tools: { toolNames: ["read"], grants: [], removed: [] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read"] }),
+        listParentToolNames: () => ["read", "bash", "edit", "grep"],
+      }),
+    );
+
+    // Total = {read, bash, edit, grep, ask_parent, notify_parent} = 6.
+    // Active = {read, ask_parent, notify_parent} = 3; blocked = bash, edit, grep = 3.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 3, blockedToolCount: 3 });
+  });
+
+  it("reports nothing while the child is still binding", async () => {
+    let release!: () => void;
+    const bindGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    armSession(["read", "bash"], { bindGate });
+    const onToolFacts = vi.fn();
+
+    const pending = createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        tools: { toolNames: ["read"], grants: [], removed: [] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read"] }),
+        listParentToolNames: () => ["read", "bash"],
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onToolFacts).not.toHaveBeenCalled();
+
+    release();
+    await pending;
+    // Total = {read, bash}; active = {read}.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 1, blockedToolCount: 1 });
   });
 
   it("leaves facts unknown when the tool list is unreadable", async () => {

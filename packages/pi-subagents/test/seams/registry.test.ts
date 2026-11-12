@@ -21,7 +21,6 @@ import {
 	finalToolNames,
 } from "#src/seams/registry";
 import {
-	BUILTIN_EXTENSION_TOOL_NAMES,
 	builtinExtensionsFor,
 } from "#src/session/builtin-extensions";
 import type { AgentTypeSnapshot } from "#src/service/service";
@@ -435,110 +434,85 @@ describe("service registry methods", () => {
 });
 
 describe("blocked tool count", () => {
-	const isKnown = (name: string) =>
-		["read", "bash", "edit", "grep", "ask_parent"].includes(name) ||
-		BUILTIN_EXTENSION_TOOL_NAMES.has(name);
-	function count(p: {
-		candidates?: string[];
-		disallowed?: string[];
-		policyRemoved?: string[];
-		grantedTools?: string[];
-	}): number {
-		return blockedToolCount({
-			candidates: [],
-			disallowed: [],
-			policyRemoved: [],
-			grantedTools: [],
-			...p,
-			isKnown,
-		});
-	}
-
-	it("counts a disallowed candidate", () => {
+	it("allowlist narrows the child", () => {
+		// 30 parent tools, of which the allowlist keeps read and grep.
+		const parentToolNames = [
+			...Array.from({ length: 28 }, (_, i) => `tool_${i}`),
+			"read",
+			"grep",
+		];
 		expect(
-			count({
-				candidates: ["read", "bash", "edit"],
-				disallowed: ["bash", "write"],
+			blockedToolCount({
+				parentToolNames,
+				activeToolNames: ["read", "grep", "ask_parent"],
+			}),
+		).toBe(28);
+	});
+
+	it("disallowed tool is blocked", () => {
+		const parentToolNames = ["read", "bash", "edit", "a", "b", "c", "d", "e", "f", "g"];
+		expect(
+			blockedToolCount({
+				parentToolNames,
+				activeToolNames: ["read", "edit"],
+			}),
+		).toBe(8);
+	});
+
+	it("policy removal is blocked", () => {
+		expect(
+			blockedToolCount({
+				parentToolNames: ["read", "grep", "bash", "edit", "write", "find", "ls"],
+				activeToolNames: ["read", "grep", "bash", "write", "find", "ls"],
 			}),
 		).toBe(1);
 	});
 
-	it("counts a disallowed protocol tool", () => {
+	it("removal re-granted is not blocked", () => {
+		const parentToolNames = ["read", "bash"];
 		expect(
-			count({
-				candidates: ["read", "ask_parent"],
-				disallowed: ["ask_parent"],
-			}),
-		).toBe(1);
-	});
-
-	it("skips a protocol tool not installed", () => {
-		expect(
-			count({ candidates: ["read", "ask_parent"], disallowed: ["notify_parent"] }),
-		).toBe(0);
-	});
-
-	it("counts a disallowed built-in extension tool", () => {
-		expect(
-			count({ candidates: ["read", "codemode"], disallowed: ["codemode"] }),
-		).toBe(1);
-	});
-
-	it("skips an unknown name", () => {
-		expect(
-			count({ candidates: ["read", "ghost"], disallowed: ["ghost"] }),
-		).toBe(0);
-	});
-
-	it("counts a policy removal", () => {
-		expect(count({ candidates: ["read"], policyRemoved: ["edit"] })).toBe(1);
-	});
-
-	it("removal granted back is not blocked", () => {
-		expect(
-			count({ policyRemoved: ["bash"], grantedTools: ["bash"] }),
-		).toBe(0);
-	});
-
-	it("counts a tool both sources remove once", () => {
-		expect(
-			count({
-				candidates: ["read", "bash"],
-				disallowed: ["bash"],
-				policyRemoved: ["bash"],
-			}),
-		).toBe(1);
-	});
-
-	it("never counts the recursion denylist", () => {
-		expect(
-			count({
-				candidates: ["read", "subagent"],
-				disallowed: ["subagent"],
-				policyRemoved: ["steer_subagent"],
+			blockedToolCount({
+				parentToolNames,
+				activeToolNames: ["read", "bash"],
 			}),
 		).toBe(0);
 	});
 
-	it("skips an unregistered MCP name", () => {
+	it("recursion guard tools are blocked", () => {
 		expect(
-			count({
-				candidates: ["read", "mcp__missing__ghost"],
-				disallowed: ["mcp__missing__ghost"],
+			blockedToolCount({
+				parentToolNames: ["read", "subagent", "get_subagent_result", "steer_subagent"],
+				activeToolNames: ["read"],
+			}),
+		).toBe(3);
+	});
+
+	it("child-only tools are granted", () => {
+		const parentToolNames = ["read"];
+		const activeToolNames = ["read", "ask_parent", "notify_parent"];
+		expect(blockedToolCount({ parentToolNames, activeToolNames })).toBe(0);
+	});
+
+	it("granted plus blocked is the total", () => {
+		const parentToolNames = ["read", "bash", "edit", "subagent", "mcp__srv__a"];
+		const activeToolNames = ["read", "ask_parent"];
+		const total = new Set([...parentToolNames, ...activeToolNames]).size;
+		const blocked = blockedToolCount({ parentToolNames, activeToolNames });
+		expect(activeToolNames.length + blocked).toBe(total);
+	});
+
+	it("nothing blocked", () => {
+		expect(
+			blockedToolCount({
+				parentToolNames: ["read", "grep"],
+				activeToolNames: ["read", "grep", "ask_parent"],
 			}),
 		).toBe(0);
 	});
 });
 
-describe("BUILTIN_EXTENSION_TOOL_NAMES", () => {
-	it("holds the fixed tool names the built-in extensions supply", () => {
-		for (const name of ["codemode", "tool_search", "read_mcp_resource"])
-			expect(BUILTIN_EXTENSION_TOOL_NAMES.has(name)).toBe(true);
-		for (const name of ["mcp__srv__x", "ghost"])
-			expect(BUILTIN_EXTENSION_TOOL_NAMES.has(name)).toBe(false);
-	});
-
-	it("leaves the extension selection unchanged", () => {
+describe("builtinExtensionsFor", () => {
+	it("selects codemode by its tool name", () => {
 		expect(builtinExtensionsFor(["codemode"]).map((e) => e.name)).toEqual([
 			"codemode",
 		]);

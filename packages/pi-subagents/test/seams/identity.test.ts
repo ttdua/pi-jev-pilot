@@ -89,7 +89,12 @@ function harness(options: Options = {}) {
 			recordsSeenInCreated.push(record ? toSubagentRecord(record) : undefined);
 		}
 	};
-	const deps = createSubagentSessionDeps({ io, registry });
+	const deps = createSubagentSessionDeps({
+		io,
+		registry,
+		// The parent registers read and bash; the child keeps read, grep and edit.
+		listParentToolNames: () => ["read", "bash"],
+	});
 	const sessionDeps = {
 		...deps,
 		lifecycle: createChildLifecyclePublisher(emit),

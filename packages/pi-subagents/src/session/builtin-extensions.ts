@@ -49,13 +49,6 @@ const MCP_RESOURCE_TOOLS: ReadonlySet<string> = new Set([
   "read_mcp_resource",
 ]);
 
-/** The fixed tool names Pi's built-in extensions supply (MCP's dynamic `mcp__*` names are not fixed). */
-export const BUILTIN_EXTENSION_TOOL_NAMES: ReadonlySet<string> = new Set([
-  CODEMODE_TOOL,
-  TOOL_SEARCH_TOOL,
-  ...MCP_RESOURCE_TOOLS,
-]);
-
 /**
  * Pi's tool-supplying built-ins, named as Pi names them. Each factory keeps
  * its state inside the call that loads it, so one factory serves every child.

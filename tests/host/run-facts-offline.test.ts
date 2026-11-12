@@ -72,8 +72,20 @@ test(
       s.probeRecords().filter((r) => r.probe === "policy" && r.event === "record:facts");
     await s.waitFor(() => facts().length === 1, "record:facts");
     const data = facts()[0]?.data;
-    expect(data?.["toolCount"]).toBeGreaterThan(0);
-    expect(data?.["blockedToolCount"]).toBe(1);
+    const toolCount = data?.["toolCount"] as number;
+    const blockedToolCount = data?.["blockedToolCount"] as number;
+    const parentToolCount = data?.["parentToolCount"] as number;
+    expect(toolCount).toBeGreaterThan(0);
+    // The run's total is the parent's registered tools plus the child's own tools. The child's own
+    // tools here are exactly `ask_parent` and `notify_parent`; the probe confirms the parent does
+    // not register them, so they add 2 to the parent's count. Then toolCount + blockedToolCount
+    // equals parentToolCount + 2, and blockedToolCount is that total minus the child's active tools.
+    expect(data?.["parentHasProtocolTools"]).toBe(false);
+    const childOnlyTools = 2;
+    expect(toolCount + blockedToolCount).toBe(parentToolCount + childOnlyTools);
+    expect(blockedToolCount).toBe(parentToolCount + childOnlyTools - toolCount);
+    // `bash` (disallowed_tools) and the recursion guard tools are parent tools the child lacks.
+    expect(blockedToolCount).toBeGreaterThanOrEqual(4);
     // Nothing but the main session's and the child's scripted requests reached the provider.
     expect(fixture.unmatched).toEqual([]);
     expect(fixture.requests.length).toBeGreaterThan(0);

@@ -19,7 +19,7 @@ import {
   type SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { type AgentConfigLookup, BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
+import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugLog, debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
@@ -29,7 +29,7 @@ import { blockedToolCount, finalToolNames } from "#src/seams/registry";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
 import { resolveTurnLimits, type TurnLimitRequest } from "#src/lifecycle/turn-limits";
 import { AskParentTool, type QuestionRecorder } from "#src/session/ask-parent-tool";
-import { BUILTIN_EXTENSION_TOOL_NAMES, builtinExtensionsFor } from "#src/session/builtin-extensions";
+import { builtinExtensionsFor } from "#src/session/builtin-extensions";
 import type { EnvInfo } from "#src/session/env";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
 import type { ModelRegistry } from "#src/session/model-resolver";
@@ -234,32 +234,15 @@ function buildChildTools(params: CreateSubagentSessionParams): ToolDefinition[] 
 /** What the tool facts are computed from. */
 interface ToolFactsInput {
   session: Pick<AgentSession, "getActiveToolNames">;
-  /** The agent's own tools (MCP-expanded) plus the protocol tools installed, before `disallowed_tools`. */
-  candidates: readonly string[];
-  protocolNames: readonly string[];
-  disallowed: readonly string[];
-  policyRemoved: readonly string[];
-  grantedTools: readonly string[];
   parentToolNames: readonly string[];
 }
 
 /** The child's callable tool count and blocked tool count. */
 function computeToolFacts(input: ToolFactsInput): ToolFacts {
-  const known = new Set<string>([
-    ...BUILTIN_TOOL_NAMES,
-    ...BUILTIN_EXTENSION_TOOL_NAMES,
-    ...input.protocolNames,
-    ...input.parentToolNames,
-  ]);
+  const activeToolNames = input.session.getActiveToolNames();
   return {
-    toolCount: input.session.getActiveToolNames().length,
-    blockedToolCount: blockedToolCount({
-      candidates: input.candidates,
-      disallowed: input.disallowed,
-      policyRemoved: input.policyRemoved,
-      grantedTools: input.grantedTools,
-      isKnown: (name) => known.has(name),
-    }),
+    toolCount: activeToolNames.length,
+    blockedToolCount: blockedToolCount({ parentToolNames: input.parentToolNames, activeToolNames }),
   };
 }
 
@@ -326,7 +309,6 @@ export async function createSubagentSession(
   // tools and policy grants included, before the recursion denylist.
   const protocolTools = buildChildTools(params);
   const parentToolNames = deps.listParentToolNames();
-  const ownTools = expandMcpToolPatterns(cfg.toolNames, parentToolNames).toolNames;
   const disallowed = deps.registry.resolveAgentConfig(type).disallowedTools;
   const toolNames = finalToolNames(
     [...expandedToolNames, ...protocolTools.map((tool) => tool.name)],
@@ -427,18 +409,7 @@ export async function createSubagentSession(
     await subagentSession.dispose();
     throw err;
   }
-  reportToolFacts(
-    {
-      session,
-      candidates: [...ownTools, ...protocolTools.map((tool) => tool.name)],
-      protocolNames: protocolTools.map((tool) => tool.name),
-      disallowed,
-      policyRemoved: params.tools?.removed ?? [],
-      grantedTools,
-      parentToolNames,
-    },
-    params.onToolFacts,
-  );
+  reportToolFacts({ session, parentToolNames }, params.onToolFacts);
   deps.lifecycle.bound({ sessionId, parentSessionId, ...identity, grantedTools });
 
   return subagentSession;
