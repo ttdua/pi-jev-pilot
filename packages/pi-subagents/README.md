@@ -79,7 +79,7 @@ The extension renders a persistent widget above the editor showing the agents wh
 ```
 
 Each agent line names the provider and model the agent is running, read from its live session, so a model switched mid-run shows as the one actually in use.
-The tag is omitted until the model is known.
+The bracket holds whichever run facts are known and is omitted only when none is.
 
 ### Run facts
 
@@ -87,7 +87,7 @@ The bracket (and the same parts on inline results and fleet rows) reads `provide
 
 - **`thinking: <level>`** — the thinking level the run actually uses.
 - **`🔧N`** — how many tools the agent has available.
-- **`⊘M`** — how many tools were blocked for it (for example by `disallowed_tools`); shown only when `M` > 0.
+- **`⊘M`** — the number of distinct known tools deliberately removed from the child by the agent's `disallowed_tools` or an accepted launch-policy removal (a removal granted back does not count). The executor's recursion denylist (`subagent`, `get_subagent_result`, `steer_subagent`), which every child loses, is never counted. Shown only when `M` > 0.
 
 Each part is omitted while its value is unknown, for example `🔧` and `⊘` on a launch that is still queued.
 Only counts are kept; tool names, arguments and output are never stored for these facts.
