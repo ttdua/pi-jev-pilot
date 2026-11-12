@@ -137,7 +137,12 @@ export function resolveSpawnConfig(
 
   const modeLabel = getPromptModeLabel(subagentType, registry);
   const { tags: invocationTags } = buildInvocationTags(agentInvocation);
-  const agentTags = modeLabel ? [modeLabel, ...invocationTags] : invocationTags;
+  // agentTags keeps its historical content for its other readers: mode label, thinking, invocation tags.
+  const agentTags = [
+    ...(modeLabel ? [modeLabel] : []),
+    ...(thinking ? [`thinking: ${thinking}`] : []),
+    ...invocationTags,
+  ];
 
   const detailBase = {
     displayName,

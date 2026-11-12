@@ -207,15 +207,21 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
 
   it("carries thinking on detailBase, not as a tag", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", thinking: "high" },
+      {
+        subagent_type: "general-purpose",
+        prompt: "test",
+        description: "d",
+        thinking: "high",
+        inherit_context: true,
+      },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
     );
     if ("error" in result) return;
     expect(result.presentation.detailBase.thinking).toBe("high");
-    expect(result.presentation.agentTags.some((t) => t.startsWith("thinking:"))).toBe(false);
-    expect((result.presentation.detailBase.tags ?? []).some((t) => t.startsWith("thinking:"))).toBe(false);
+    expect(result.presentation.agentTags).toEqual(["twin", "thinking: high", "inherit context"]);
+    expect(result.presentation.detailBase.tags).toEqual(["inherit context"]);
   });
 
   it("omits mode label for replace-mode agents", () => {
