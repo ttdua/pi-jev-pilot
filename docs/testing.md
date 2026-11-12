@@ -47,6 +47,8 @@ The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent 
 
 `bun run test:executor` runs the executor's own checks and tests (`tsc` and its test suite) from the root. It is separate from `bun run test`, which runs jev-pilot's suite, including `tests/vendoring.test.ts`: it checks the files under `packages/pi-subagents/` against the upstream manifest, and every difference needs a row in `VENDORED.md`. jev-pilot's import-graph test, lint and `tsc` skip `packages/`. CI runs both suites.
 
+`bun run --cwd packages/pi-subagents verify:public-types` packs the executor and type-checks an external consumer against the packed `dist/*.d.ts`. It needs registry access, so it is not part of `test` or `test:executor`; CI runs it last, after `test:executor`.
+
 **Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
 
 **Manual CLI review procedure** (not in CI): `bun tests/host/manual/cli-review-real.ts`. Needs `codex` and `opencode` logins (each is skipped when not installed). It reviews a throwaway repository and prints counts only: outcome, attempts, exit code and output length, never the text. Set `JEV_REVIEW_CODEX_MODEL` or `JEV_REVIEW_OPENCODE_MODEL` to pick a model. Run it by hand after each CLI upgrade. Last run: [CLI review evidence](evidence/2026-11-06-cli-review.md).
