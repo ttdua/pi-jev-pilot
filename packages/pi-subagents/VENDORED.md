@@ -64,7 +64,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/helpers/subagent-session-io.ts` | edit | Default lookup config carries the new required fields. |
 | `test/service/service-adapter.test.ts` | edit | Construct the adapter with a no-op agent-type catalog; the manager stub has `registerLaunchPolicy`. |
 | `test/session/session-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
-| `test/tools/spawn-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
+| `test/tools/spawn-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. Thinking and mode label on `detailBase`, not in tags; `agentTags` keeps mode label, thinking, invocation tags. |
 | `src/seams/launch-policy.ts` | seam | `LaunchPolicySlot` (one policy, fail-open consult with watchdog and run signal) and `validAdjustment`. |
 | `src/seams/launch-request.ts` | seam | Build the frozen `LaunchRequest`; grantable parent tools (minus orchestration tools and excluded packages' tools). |
 | `src/seams/locked-launch.ts` | seam | `lockedFields`/`applyLocks`: one lock precedence for the tool and service doors, applied by the launch gate only while a policy is registered. |
@@ -100,6 +100,5 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/tools/progress-stream.ts` | edit | Streamed updates carry the record's live thinking and tool facts. |
 | `src/tools/result-renderer.ts` | edit | `renderStats` places mode label, thinking and tool parts in the existing order. |
 | `test/tools/result-renderer.test.ts` | edit | Run-facts order tests; thinking comes from `details.thinking`. |
-| `test/tools/spawn-config.test.ts` | edit | Thinking and mode label on `detailBase`, not in tags. |
 | `test/tools/helpers.test.ts` | edit | `buildDetails` copies thinking and tool facts. |
 | `test/tools/progress-stream.test.ts` | edit | Streamed update uses the record's live thinking. |
