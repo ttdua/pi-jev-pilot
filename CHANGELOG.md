@@ -4,6 +4,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-12
+
+Tag: v0.3.0
+
 ### Added
 
 - Run facts on every subagent row: the widget bracket, the inline result and the fleet list show `provider/id · thinking: <level> · 🔧N · ⊘M` (available and blocked tool counts), each part omitted while unknown ([#63](https://github.com/ttdua/pi-jev-pilot/issues/63)).

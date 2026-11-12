@@ -21,7 +21,7 @@ The package never edits your `settings.json` or agent files, and nothing is impo
 This package ships its own executor (vendored from `@gotgenes/pi-subagents`), so one install is enough.
 
 ```bash
-pi install git:github.com/ttdua/pi-jev-pilot@v0.2.0
+pi install git:github.com/ttdua/pi-jev-pilot@v0.3.0
 ```
 
 If you installed `@gotgenes/pi-subagents`, uninstall it first. Pi refuses to start when two extensions register the `subagent` tool, so the session fails at startup and names the conflict. `@gotgenes/pi-subagents-worktrees` keeps working. `/jev` reports `duplicate executor` only in the narrower case where this package's Jev extension runs with the original executor but without the vendored one; worker routing and tool assessment stay off until the original is removed.
