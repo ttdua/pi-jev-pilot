@@ -86,8 +86,8 @@ The bracket holds whichever run facts are known and is omitted only when none is
 The bracket (and the same parts on inline results and fleet rows) reads `provider/id · thinking: <level> · 🔧N · ⊘M`:
 
 - **`thinking: <level>`** — the thinking level the run actually uses.
-- **`🔧N`** — how many tools the agent has available.
-- **`⊘M`** — the number of distinct known tools deliberately removed from the child by the agent's `disallowed_tools` or an accepted launch-policy removal (a removal granted back does not count). The executor's recursion denylist (`subagent`, `get_subagent_result`, `steer_subagent`), which every child loses, is never counted. Shown only when `M` > 0.
+- **`🔧N`** — how many tools the agent can call.
+- **`⊘M`** — how many tools in the run's total the child cannot call. The total is the parent's registered tools plus the child's own tools (such as `ask_parent` and `notify_parent`). Blocked tools are those outside the agent's `tools:` allowlist, removed by `disallowed_tools` or an accepted launch-policy removal (unless granted back), and the recursion guard tools (`subagent`, `get_subagent_result`, `steer_subagent`). `🔧N + ⊘M` is the total. Shown only when `M` > 0.
 
 Each part is omitted while its value is unknown, for example `🔧` and `⊘` on a launch that is still queued.
 Only counts are kept; tool names, arguments and output are never stored for these facts.
