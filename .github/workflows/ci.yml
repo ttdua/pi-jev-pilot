@@ -24,3 +24,4 @@ jobs:
       - run: bun run fmt:check
       - run: bun run test
       - run: bun run test:executor
+      - run: bun run --cwd packages/pi-subagents verify:public-types

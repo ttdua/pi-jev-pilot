@@ -90,6 +90,14 @@ test("the vendored LICENSE is the upstream one", () => {
   expect(upstreamBlobs().get("LICENSE")).toBe(blobIds(["LICENSE"]).get("LICENSE"));
 });
 
+test("verify:public-types probes the vendored package name through bun", () => {
+  const script = read(join(VENDOR_DIR, "scripts", "verify-public-types.sh"));
+  expect(script).not.toContain("@gotgenes/pi-subagents");
+  expect(script).not.toMatch(/\bpnpm\b/);
+  expect(script).toContain("bun pm pack");
+  expect(script).toMatch(/PKG_NAME=.*package\.json/);
+});
+
 test("unlisted edit detected", () => {
   const upstream = upstreamBlobs();
   const listed = listedPaths(vendoredDoc());

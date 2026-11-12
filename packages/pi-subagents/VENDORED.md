@@ -19,6 +19,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | File | Kind | Reason |
 |---|---|---|
 | `package.json` | edit | Rename to private `@ttdua/pi-subagents`; drop `publishConfig`; replace `catalog:` versions with the exact versions from upstream `pnpm-workspace.yaml` at the tag; pin the `@earendil-works/*` dev dependencies to `1.5.0` to match the root; `lint` without markdown lint; `prepack` through `bun`. |
+| `scripts/verify-public-types.sh` | edit | Pack, install and type-check through `bun` instead of `pnpm`; the consumer probe imports the package name read from `package.json` (`@ttdua/pi-subagents`), not the upstream name. |
 | `tsconfig.json` | edit | Inline upstream's `tsconfig.base.json` compiler options, since the base file lives outside the subtree. |
 | `test/ui/widget-viewport.test.ts` | edit | `fakeTerminal` gains `setProgramStatus`, required by the `Terminal` type in pi-tui 1.5.0. |
 | `test/ui/session-navigator.test.ts` | edit | Bind top/bottom to `home`/`end` in the test keybindings; pi-tui 1.5.0 defaults them to `ctrl+home`/`ctrl+end`. Cover `openTranscript`. |
