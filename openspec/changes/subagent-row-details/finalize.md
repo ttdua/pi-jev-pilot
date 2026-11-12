@@ -7,7 +7,7 @@
 
 **Change**: `subagent-row-details`
 **Finalized at**: `2026-11-12 09:25`
-**Outcome**: `pr-updated` (local part done; push pending operator approval, see Policy deviation)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `feat/subagent-row-details`
 - **Base branch**: `main`
-- **Final state**: `pr-updated`. The worktree branch was merged fast-forward into `feat/subagent-row-details` at `55b01d64`. The branch is not pushed yet.
-- **PR URL**: `N/A`. No PR exists for `feat/subagent-row-details`; `gh pr view` reports none.
+- **Final state**: `pr-open`. The worktree branch was merged fast-forward into `feat/subagent-row-details` at `55b01d64`, then pushed with the `ttdua` account over HTTPS.
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/65
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/65#issuecomment-6812434370)
 
 ---
 
@@ -52,10 +52,10 @@
 
 ## Policy deviation
 
-The project `AGENTS.md` says: "do not push, merge or open a PR without the user's explicit permission in chat." It overrides finalize steps 10 and 11. The feature branch is therefore not pushed, and no PR has been created yet. Pushing and creating the PR wait for an explicit decision from the operator.
+The project `AGENTS.md` says: "do not push, merge or open a PR without the user's explicit permission in chat." It overrides finalize steps 10 and 11. The operator approved pushing and opening the PR with the suggested title in the Inbox thread before either happened.
 
 ---
 
 ## Next step
 
-The operator decides whether to push `feat/subagent-row-details` and open a PR. Suggested title: `feat(executor): subagent-row-details`, Refs #63. After code review on the PR, run `/opsx-archive` on this feature branch and push the archive commits. Then merge the PR (`gh pr merge --squash --delete-branch`), which lands the implementation and the archive in `main` together.
+Wait for code review on #65. After it is approved, run `/opsx-archive` on this feature branch and push the archive commits to update the PR. Then merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI); that single merge lands the implementation and the archive in `main`.
