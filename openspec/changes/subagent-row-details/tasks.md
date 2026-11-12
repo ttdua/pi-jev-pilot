@@ -46,4 +46,4 @@ Blocked by: 3, 4
 
 Blocked by: 5
 
-- [ ] 6.1 With `tests/host/manual/fleet-fixture.ts` and an agent file that sets `disallowed_tools`, run Pi interactively in tmux with `PI_OFFLINE=1` against the loopback fixture. Launch one background and one foreground subagent, and confirm that the widget, the inline result and the fleet row show the same model, `thinking:`, `🔧N` and `⊘M`, and that every detail shown before is still there. Record the evidence in `docs/evidence/<date>-row-details.md`
+- [x] 6.1 With `tests/host/manual/fleet-fixture.ts` and an agent file that sets `disallowed_tools`, run Pi interactively in tmux with `PI_OFFLINE=1` against the loopback fixture. Launch one background and one foreground subagent, and confirm that the widget, the inline result and the fleet row show the same model, `thinking:`, `🔧N` and `⊘M`, and that every detail shown before is still there. Record the evidence in `docs/evidence/<date>-row-details.md`

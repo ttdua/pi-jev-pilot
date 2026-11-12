@@ -15,6 +15,10 @@ import {
 import { isolatedEnv } from "../rpc.ts";
 
 const CHILD_MODEL = "fixture-fast";
+/** Project agent the launches use: one disallowed tool, so the run facts show `⊘1`. */
+const CHILD_AGENT = "fleet-probe";
+const CHILD_AGENT_FILE =
+  "---\ndescription: Fleet probe\ndisallowed_tools: bash\n---\nYou are a fleet probe worker.\n";
 const CHILD_DELAY_MS = 20_000;
 const STATUS_INTERVAL_MS = 500;
 const PREVIEW_CHARS = 40;
@@ -42,8 +46,9 @@ const subagentCall = (background: boolean, brief: string) => ({
   arguments: {
     prompt: brief,
     description: `fleet ${brief}`,
-    subagent_type: "general-purpose",
+    subagent_type: CHILD_AGENT,
     model: `fixture/${CHILD_MODEL}`,
+    thinking: "low",
     run_in_background: background,
   },
 });
@@ -95,6 +100,8 @@ function prepareDirs(fixture: Fixture, created: string[]): { agentDir: string; c
   created.push(cwd);
   const home = join(agentDir, "home");
   mkdirSync(home, { recursive: true });
+  mkdirSync(join(cwd, ".pi", "agents"), { recursive: true });
+  writeFileSync(join(cwd, ".pi", "agents", `${CHILD_AGENT}.md`), CHILD_AGENT_FILE);
   writeFileSync(join(agentDir, "models.json"), JSON.stringify(fixtureModelsJson(fixture.baseUrl)));
   const installed = Bun.spawnSync(
     [PI_BIN, "install", join(REPO_ROOT, "tests", "fixtures", "executor-only")],
