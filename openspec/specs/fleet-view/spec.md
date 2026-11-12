@@ -1,7 +1,7 @@
 # fleet-view Specification
 
 ## Purpose
-TBD
+In a main session with a UI, the vendored executor draws a keyboard-navigable list of running and recently finished subagents below the editor, controlled by the `fleetView` setting, from which the user can open an agent's session pane.
 
 ## Requirements
 

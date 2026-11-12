@@ -1,7 +1,7 @@
 # subagent-run-facts Specification
 
 ## Purpose
-TBD
+The vendored executor determines each subagent's model, thinking level, tool count and blocked tool count from local session state, and shows them through one shared formatter on the inline tool result, the `Agents` widget and the fleet row.
 
 ## Requirements
 
