@@ -131,3 +131,35 @@ export function noteDeclaredAndDisallowed(
 			);
 	}
 }
+
+/** What the child's blocked tool count is built from. */
+export interface BlockedToolInput {
+	/** The agent's own tools plus the protocol tools installed, before `disallowed_tools`. */
+	candidates: readonly string[];
+	disallowed: readonly string[];
+	/** Accepted policy removals of default tools. */
+	policyRemoved: readonly string[];
+	/** Grants that took effect in the child. */
+	grantedTools: readonly string[];
+	isKnown: (name: string) => boolean;
+}
+
+/** Orchestration tools the recursion guard withholds; never reported as blocked. */
+const RECURSION_DENYLIST: readonly string[] = [
+	"subagent",
+	"get_subagent_result",
+	"steer_subagent",
+];
+
+/** How many known tools the agent's `disallowed_tools` or the launch policy took from the child. */
+export function blockedToolCount(input: BlockedToolInput): number {
+	const { candidates, disallowed, policyRemoved, grantedTools, isKnown } = input;
+	const candidateSet = new Set(candidates);
+	const granted = new Set(grantedTools);
+	const blocked = new Set([
+		...disallowed.filter((name) => candidateSet.has(name) && isKnown(name)),
+		...policyRemoved.filter((name) => !granted.has(name)),
+	]);
+	for (const name of RECURSION_DENYLIST) blocked.delete(name);
+	return blocked.size;
+}

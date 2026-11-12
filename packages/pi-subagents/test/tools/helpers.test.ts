@@ -254,6 +254,20 @@ describe("buildDetails", () => {
     expect(details.agentId).toBe("agent-42");
   });
 
+  it("copies the live thinking and tool facts, falling back to the base thinking", () => {
+    const live = buildDetails(
+      { ...base, thinking: "high" },
+      { ...record, thinkingLevel: "low", toolFacts: { toolCount: 7, blockedToolCount: 2 } },
+    );
+    expect(live.thinking).toBe("low");
+    expect(live.toolCount).toBe(7);
+    expect(live.blockedToolCount).toBe(2);
+
+    const early = buildDetails({ ...base, thinking: "high" }, record);
+    expect(early.thinking).toBe("high");
+    expect(early.toolCount).toBeUndefined();
+  });
+
   it("leaves the turn budget undefined when the record has none", () => {
     expect(buildDetails(base, record).turnBudget).toBeUndefined();
   });

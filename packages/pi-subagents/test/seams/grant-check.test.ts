@@ -85,7 +85,7 @@ async function tryLaunch(
 				agentId: "a1",
 				snapshot: STUB_SNAPSHOT,
 				type: "Explore",
-				tools: { toolNames: ["read", "edit"], grants },
+				tools: { toolNames: ["read", "edit"], grants, removed: [] },
 			},
 			createSubagentSessionDeps({
 				io,

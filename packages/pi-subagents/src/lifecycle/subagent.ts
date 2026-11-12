@@ -21,7 +21,7 @@ import type { LifetimeUsage } from "#src/lifecycle/usage";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import { WorkspaceBracket } from "#src/lifecycle/workspace-bracket";
 import type { RunConfig } from "#src/runtime";
-import type { EffectiveFacts } from "#src/seams/identity";
+import type { EffectiveFacts, ToolFacts } from "#src/seams/identity";
 import type { LaunchOverrides, LaunchPolicyGate } from "#src/seams/launch-gate";
 import type { LaunchOrigin } from "#src/service/service";
 import type { CompactionInfo, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
@@ -239,6 +239,7 @@ export class Subagent {
 	private _sessionReleased = false;
 	private _resumeToolCallId?: string;
 	private _effective: EffectiveFacts = {};
+	private _toolFacts?: ToolFacts;
 	/** True once releaseSession() has freed a live session (distinct from never having had one). */
 	get sessionReleased(): boolean { return this._sessionReleased; }
 
@@ -290,6 +291,11 @@ export class Subagent {
 	/** The model and thinking level the session was created with; empty until it exists. */
 	get effective(): EffectiveFacts {
 		return this._effective;
+	}
+
+	/** The child's tool count and blocked tool count; unknown until it binds, kept after release. */
+	get toolFacts(): ToolFacts | undefined {
+		return this._toolFacts;
 	}
 
 	/** Returns true when a SubagentSession is available (session is ready). */
@@ -452,6 +458,7 @@ export class Subagent {
 			this.subagentSession = await this.execution.createSubagentSession({
 				agentId: this.id,
 				onEffectiveFacts: (facts) => { this._effective = facts; },
+				onToolFacts: (facts) => { this._toolFacts = facts; },
 				snapshot: this.execution.snapshot,
 				type: this.type,
 				cwd,

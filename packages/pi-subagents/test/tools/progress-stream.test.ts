@@ -70,6 +70,32 @@ describe("startProgressStream", () => {
 		});
 	});
 
+	it("streams the record's live thinking", () => {
+		const onUpdate = vi.fn();
+		const record: StreamedRecord = {
+			toolUses: 0,
+			model: undefined,
+			lifetimeUsage: { input: 0, output: 0, cacheWrite: 0 },
+			turnBudget: undefined,
+			activeTools: new Map(),
+			responseText: "",
+			thinkingLevel: "low",
+			toolFacts: { toolCount: 4, blockedToolCount: 1 },
+		};
+
+		const stop = startProgressStream({
+			detailBase: { ...detailBase, thinking: "high" },
+			onUpdate,
+			getRecord: () => record,
+		});
+		stop();
+
+		const details = onUpdate.mock.calls[0][0].details;
+		expect(details.thinking).toBe("low");
+		expect(details.toolCount).toBe(4);
+		expect(details.blockedToolCount).toBe(1);
+	});
+
 	it("streams nothing more once stopped, and stops again harmlessly", async () => {
 		const onUpdate = vi.fn();
 		const stop = startProgressStream({ detailBase, onUpdate, getRecord: () => undefined });

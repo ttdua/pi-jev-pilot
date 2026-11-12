@@ -14,10 +14,10 @@ import {
 import { type TurnBudget, wrappedUpAtTurnLimit } from "#src/lifecycle/turn-limits";
 import type { LifetimeUsage } from "#src/lifecycle/usage";
 import { getLifetimeTotal } from "#src/lifecycle/usage";
-import type { SubagentType } from "#src/types";
+import type { ToolFacts } from "#src/seams/identity";
+import type { SubagentType, ThinkingLevel } from "#src/types";
 import {
 	describeActivity,
-	formatModel,
 	formatMs,
 	formatSessionTokens,
 	formatTurnBudget,
@@ -27,6 +27,7 @@ import {
 	type Theme,
 } from "#src/ui/display";
 import { GLYPHS, SPINNER } from "#src/ui/glyphs";
+import { runFactParts, runFactsOf } from "#src/ui/run-facts";
 
 // ── Data interfaces ──────────────────────────────────────────────────────────
 
@@ -51,6 +52,10 @@ export interface WidgetAgent {
 	readonly contextPercent: number | null;
 	/** The model the agent runs, once known. */
 	readonly model?: ModelIdentity;
+	/** The thinking level the agent runs at, once known. */
+	readonly thinkingLevel?: ThinkingLevel;
+	/** The child's tool and blocked tool counts, once it binds. */
+	readonly toolFacts?: ToolFacts;
 }
 
 // ── Per-agent rendering ──────────────────────────────────────────────────────
@@ -92,7 +97,7 @@ export function renderFinishedLine(
 	parts.push(duration);
 
 	const modeTag = modeLabel ? ` ${theme.fg("dim", `(${modeLabel})`)}` : "";
-	return `${icon} ${theme.fg("dim", name)}${modeTag}${modelTag(agent, theme)}  ${theme.fg("dim", agent.description)} ${theme.fg("dim", "·")} ${theme.fg("dim", parts.join(" · "))}${statusText}`;
+	return `${icon} ${theme.fg("dim", name)}${modeTag}${runFactsTag(agent, theme)}  ${theme.fg("dim", agent.description)} ${theme.fg("dim", "·")} ${theme.fg("dim", parts.join(" · "))}${statusText}`;
 }
 
 /** Render a single running agent as header + activity line pair (no tree connector prefix). */
@@ -120,7 +125,7 @@ export function renderRunningLines(
 	const frame = SPINNER[spinnerFrame % SPINNER.length];
 	const activityText = describeActivity(agent.activeTools, agent.responseText);
 
-	const header = `${theme.fg("accent", frame)} ${theme.bold(name)}${modeTag}${modelTag(agent, theme)}  ${theme.fg("muted", agent.description)} ${theme.fg("dim", "·")} ${theme.fg("dim", statsText)}`;
+	const header = `${theme.fg("accent", frame)} ${theme.bold(name)}${modeTag}${runFactsTag(agent, theme)}  ${theme.fg("muted", agent.description)} ${theme.fg("dim", "·")} ${theme.fg("dim", statsText)}`;
 	const activityLine = theme.fg("dim", `  ${GLYPHS.subLine}  ${activityText}`);
 
 	return [header, activityLine];
@@ -132,9 +137,10 @@ function renderRunningTurns(budget: TurnBudget, theme: Theme): string {
 	return budget.phase === "warned" ? theme.fg("warning", turns) : turns;
 }
 
-/** ` [provider/id]` after the agent's name, or nothing while the model is unknown. */
-function modelTag(agent: WidgetAgent, theme: Theme): string {
-	return agent.model ? ` ${theme.fg("dim", `[${formatModel(agent.model)}]`)}` : "";
+/** ` [model · thinking · tools · blocked]` after the agent's name and mode, or nothing while no run fact is known. */
+function runFactsTag(agent: WidgetAgent, theme: Theme): string {
+	const parts = runFactParts(runFactsOf(agent));
+	return parts.length > 0 ? ` ${theme.fg("dim", `[${parts.join(" · ")}]`)}` : "";
 }
 
 // ── Full widget rendering ────────────────────────────────────────────────────

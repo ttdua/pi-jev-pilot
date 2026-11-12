@@ -100,6 +100,10 @@ export interface SubagentRecord {
   effectiveModel?: string;
   /** The thinking level the session was created with; absent until it exists. */
   effectiveThinking?: SubagentThinkingLevel;
+  /** How many tools the child can call, counted once it binds; absent until then. */
+  toolCount?: number;
+  /** How many known tools were withheld from the child (`disallowed_tools` or the launch policy); absent until it binds. */
+  blockedToolCount?: number;
 }
 
 /**

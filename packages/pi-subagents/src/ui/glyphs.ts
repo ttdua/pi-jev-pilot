@@ -24,6 +24,8 @@
  *   ◦ U+25E6 queued         9
  *   ⎿ U+23BF sub-line       0  — pi house style, tracked in #683
  *   ◍ U+25CD streaming      1  (Menlo), tracked in #683
+ *   ⊘ U+2298 blocked tools  Menlo and 9+ families
+ *   🔧 U+1F527 tool count   Apple Color Emoji, width 2, not a #669 case
  *   ⠋…⠏ spinner frames      0  — pi house style, tracked in #683
  *
  * Glyphs are written here as literal characters rather than `\uXXXX` escapes, so
@@ -50,6 +52,10 @@ export const GLYPHS = {
   toolCall: "▸",
   /** Live streaming activity in the session transcript. */
   streaming: "◍",
+  /** Tool count, as `🔧12`. */
+  tools: "🔧",
+  /** Blocked-tool count, as `⊘3`. */
+  blocked: "⊘",
   /** Queued-agents marker in the widget. */
   queued: "◦",
   /** Widget heading while agents are active. */
