@@ -7,7 +7,7 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 One install loads Jev and the executor it ships. If you installed `@gotgenes/pi-subagents`, uninstall it first: Pi refuses to start with two `subagent` tools.
 
 ```bash
-pi install git:github.com/ttdua/pi-jev-pilot@v0.2.0
+pi install git:github.com/ttdua/pi-jev-pilot@v0.3.0
 ```
 
 ```bash
