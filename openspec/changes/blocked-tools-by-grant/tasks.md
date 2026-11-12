@@ -10,7 +10,7 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Update the `blockedToolCount` doc comments in `src/service/service.ts`, `src/seams/identity.ts` and `src/ui/display.ts`, and regenerate `dist/public.d.ts`
-- [ ] 2.2 Update `tests/host/run-facts-offline.test.ts` to the new `blockedToolCount` value
-- [ ] 2.3 Run the executor checks (`bun run test:executor`), `bun run --cwd packages/pi-subagents verify:public-types` and `bun test`
-- [ ] 2.4 Verify in a real interactive Pi in tmux that a `tools:`-restricted agent shows `🔧N · ⊘M` with `N + M` equal to the parent's tool count plus the child's own tools, and record it in `docs/evidence/`
+- [x] 2.1 Update the `blockedToolCount` doc comments in `src/service/service.ts`, `src/seams/identity.ts` and `src/ui/display.ts`, and regenerate `dist/public.d.ts`
+- [x] 2.2 Update `tests/host/run-facts-offline.test.ts` to the new `blockedToolCount` value
+- [x] 2.3 Run the executor checks (`bun run test:executor`), `bun run --cwd packages/pi-subagents verify:public-types` and `bun test`
+- [x] 2.4 Verify in a real interactive Pi in tmux that a `tools:`-restricted agent shows `🔧N · ⊘M` with `N + M` equal to the parent's tool count plus the child's own tools, and record it in `docs/evidence/`
