@@ -2,9 +2,9 @@
 
 Blocked by: none
 
-- [ ] 1.1 Replace `blockedToolCount()` in `src/seams/registry.ts` with a set-difference over the parent's tool names and the child's active tools; delete `BlockedToolInput` and `RECURSION_DENYLIST`
-- [ ] 1.2 Simplify `ToolFactsInput`, `computeToolFacts` and the `reportToolFacts` call site in `src/lifecycle/create-subagent-session.ts` to `session` and `parentToolNames`; drop `candidates`, `protocolNames`, `disallowed`, `policyRemoved`, `grantedTools` from the facts input and delete `ownTools` if it becomes unused
-- [ ] 1.3 Replace the per-source tests in `test/seams/registry.test.ts` and `test/lifecycle/create-subagent-session.test.ts` with tests for the new scenarios; update `test/seams/identity.test.ts` only if it depends on the old rule
+- [x] 1.1 Replace `blockedToolCount()` in `src/seams/registry.ts` with a set-difference over the parent's tool names and the child's active tools; delete `BlockedToolInput` and `RECURSION_DENYLIST`
+- [x] 1.2 Simplify `ToolFactsInput`, `computeToolFacts` and the `reportToolFacts` call site in `src/lifecycle/create-subagent-session.ts` to `session` and `parentToolNames`; drop `candidates`, `protocolNames`, `disallowed`, `policyRemoved`, `grantedTools` from the facts input and delete `ownTools` if it becomes unused
+- [x] 1.3 Replace the per-source tests in `test/seams/registry.test.ts` and `test/lifecycle/create-subagent-session.test.ts` with tests for the new scenarios; update `test/seams/identity.test.ts` only if it depends on the old rule
 
 ## 2. Docs, types and end-to-end
 
