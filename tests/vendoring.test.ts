@@ -40,9 +40,19 @@ function listedPaths(doc: string): Set<string> {
   return new Set(rows.map((r) => /^\|\s*`([^`]+)`/.exec(r)?.[1]).filter((p) => p !== undefined));
 }
 
-function blobId(file: string): string {
-  const r = Bun.spawnSync(["git", "hash-object", join(VENDOR_DIR, file)], { cwd: REPO_ROOT });
-  return r.stdout.toString().trim();
+/** Blob ids of vendored files, hashed in one `git` process to keep the test fast. */
+function blobIds(files: readonly string[]): Map<string, string> {
+  if (files.length === 0) return new Map();
+  const r = Bun.spawnSync(["git", "hash-object", "--stdin-paths"], {
+    cwd: REPO_ROOT,
+    stdin: Buffer.from(files.map((f) => `${join(VENDOR_DIR, f)}\n`).join("")),
+  });
+  if (r.exitCode !== 0) throw new Error(`git hash-object failed: ${r.stderr.toString()}`);
+  const ids = r.stdout.toString().trim().split("\n");
+  if (ids.length !== files.length) {
+    throw new Error(`git hash-object returned ${ids.length} ids for ${files.length} files`);
+  }
+  return new Map(files.map((f, i) => [f, ids[i] ?? ""]));
 }
 
 test("VENDORED.md records the upstream", () => {
@@ -77,15 +87,17 @@ test("notice credits tintinweb for the fleet list", () => {
 });
 
 test("the vendored LICENSE is the upstream one", () => {
-  expect(upstreamBlobs().get("LICENSE")).toBe(blobId("LICENSE"));
+  expect(upstreamBlobs().get("LICENSE")).toBe(blobIds(["LICENSE"]).get("LICENSE"));
 });
 
 test("unlisted edit detected", () => {
   const upstream = upstreamBlobs();
   const listed = listedPaths(vendoredDoc());
   const unlisted: string[] = [];
-  for (const file of vendoredFiles(VENDOR_DIR)) {
-    const changed = upstream.get(file) !== blobId(file);
+  const files = vendoredFiles(VENDOR_DIR);
+  const current = blobIds(files);
+  for (const file of files) {
+    const changed = upstream.get(file) !== current.get(file);
     if (changed && !listed.has(file)) unlisted.push(file);
   }
   for (const file of upstream.keys()) {
