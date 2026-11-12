@@ -102,7 +102,7 @@ export interface SubagentRecord {
   effectiveThinking?: SubagentThinkingLevel;
   /** How many tools the child can call, counted once it binds; absent until then. */
   toolCount?: number;
-  /** How many known tools were withheld from the child (`disallowed_tools` or the launch policy); absent until it binds. */
+  /** Tools in the run's total (parent's tools plus the child's own) that the child cannot call; absent until it binds. */
   blockedToolCount?: number;
 }
 

@@ -46,7 +46,7 @@ export interface AgentDetails {
   thinking?: ThinkingLevel;
   /** Tools the child can call; absent until its session exists. */
   toolCount?: number;
-  /** Tools the launch blocked; absent until its session exists. */
+  /** Tools in the run's total that the child cannot call; absent until its session exists. */
   blockedToolCount?: number;
   /** Invocation tags (e.g. ["inherit context", "background", "max turns: 9"]). */
   tags?: string[];

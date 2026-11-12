@@ -70,8 +70,9 @@ export function effectiveFacts(session: CreatedSession): EffectiveFacts {
 }
 
 /**
- * The child's callable tool count and how many tools were deliberately
- * withheld from it. Structurally equal to `RunFactsSource.toolFacts`.
+ * The child's callable tool count and how many tools in the run's total
+ * (parent's tools plus the child's own) it cannot call. Structurally equal to
+ * `RunFactsSource.toolFacts`.
  */
 export interface ToolFacts {
 	readonly toolCount: number;

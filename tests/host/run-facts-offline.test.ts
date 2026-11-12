@@ -73,7 +73,11 @@ test(
     await s.waitFor(() => facts().length === 1, "record:facts");
     const data = facts()[0]?.data;
     expect(data?.["toolCount"]).toBeGreaterThan(0);
-    expect(data?.["blockedToolCount"]).toBe(1);
+    // blockedToolCount is the parent's tools plus the child's own, minus the child's active tools.
+    // The probe does not expose the total, so assert the floor it implies: `bash` (disallowed_tools)
+    // and the recursion guard tools `subagent`, `get_subagent_result`, `steer_subagent` (the parent
+    // has them, the child lacks them), i.e. at least 4.
+    expect(data?.["blockedToolCount"]).toBeGreaterThanOrEqual(4);
     // Nothing but the main session's and the child's scripted requests reached the provider.
     expect(fixture.unmatched).toEqual([]);
     expect(fixture.requests.length).toBeGreaterThan(0);
