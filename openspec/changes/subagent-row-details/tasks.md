@@ -20,10 +20,10 @@ Blocked by: none
 
 Blocked by: 1, 2
 
-- [ ] 3.1 `AgentDetails` (`src/ui/display.ts`) gains `thinking` and the tool facts; `buildInvocationTags` stops emitting `thinking:`; `detailBase` in `src/tools/spawn-config.ts` carries the spawn thinking as the pre-session fallback (design D2)
-- [ ] 3.2 `buildDetails` (`src/tools/helpers.ts`) and `startProgressStream` (`src/tools/progress-stream.ts`) fill the facts from the record (`thinkingLevel`, `toolFacts`)
-- [ ] 3.3 `renderStats` in `src/tools/result-renderer.ts` keeps today's order: the model part, the mode label, the thinking part, the tool parts, the other tags, the turn budget, tool uses and tokens (design D2)
-- [ ] 3.4 Update `test/tools/result-renderer.test.ts`, `test/tools/spawn-config.test.ts`, `test/tools/helpers.test.ts` and `test/tools/progress-stream.test.ts`; add the "Policy-changed thinking shown live" and "Existing order kept" scenarios
+- [x] 3.1 `AgentDetails` (`src/ui/display.ts`) gains `thinking` and the tool facts; `buildInvocationTags` stops emitting `thinking:`; `detailBase` in `src/tools/spawn-config.ts` carries the spawn thinking as the pre-session fallback (design D2)
+- [x] 3.2 `buildDetails` (`src/tools/helpers.ts`) and `startProgressStream` (`src/tools/progress-stream.ts`) fill the facts from the record (`thinkingLevel`, `toolFacts`)
+- [x] 3.3 `renderStats` in `src/tools/result-renderer.ts` keeps today's order: the model part, the mode label, the thinking part, the tool parts, the other tags, the turn budget, tool uses and tokens (design D2)
+- [x] 3.4 Update `test/tools/result-renderer.test.ts`, `test/tools/spawn-config.test.ts`, `test/tools/helpers.test.ts` and `test/tools/progress-stream.test.ts`; add the "Policy-changed thinking shown live" and "Existing order kept" scenarios
 
 ## 4. Widget and fleet row use run facts
 
