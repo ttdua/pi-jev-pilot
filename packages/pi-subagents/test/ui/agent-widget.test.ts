@@ -709,3 +709,34 @@ describe("AgentWidget.dispose", () => {
 		expect(setWidget.mock.calls.length).toBe(callsAfterDispose);
 	});
 });
+
+describe("AgentWidget — run facts on the widget snapshot", () => {
+	it("carries thinkingLevel and toolFacts from the record into the rendered tag", () => {
+		const record = createTestSubagent({
+			status: "running",
+			completedAt: undefined,
+			startedAt: Date.now() - 100,
+			isBackground: true,
+			execution: makeStubExecution({
+				model: makeModel({ provider: "anthropic", id: "claude-sonnet-5" }),
+				thinkingLevel: "high",
+			}),
+		});
+		vi.spyOn(record, "toolFacts", "get").mockReturnValue({ toolCount: 7, blockedToolCount: 1 });
+		const manager = { listAgents: () => [record] } as unknown as SubagentManager;
+		const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+
+		let renderFn: ((tui: unknown, theme: unknown) => { render(): string[] }) | undefined;
+		widget.setUICtx({
+			setStatus: () => {},
+			setWidget: (_key, content) => {
+				if (typeof content === "function") renderFn = content as typeof renderFn;
+			},
+		});
+		widget.update();
+
+		expect(renderFn!(stubTui(), stubTheme()).render().join("\n")).toContain(
+			"[anthropic/claude-sonnet-5 · thinking: high · 🔧7 · ⊘1]",
+		);
+	});
+});

@@ -16,7 +16,7 @@ import { buildSessionContext, parseSessionEntries, type SessionEntry, type ToolD
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import { isRunningStatus, type SubagentStatus } from "#src/lifecycle/subagent-state";
 import type { PersistedRunSummary } from "#src/persisted-record";
-import type { AgentSessionEvent, SessionMessage, SubagentType } from "#src/types";
+import type { AgentSessionEvent, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 import { formatRunDuration, getDisplayName, getPromptModeLabel, type ModelIdentity, type RunTiming } from "#src/ui/display";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export interface NavigableSubagent {
   /** The model the agent runs, when known. */
   readonly model: ModelIdentity | undefined;
   /** The thinking level the agent runs at, when known. */
-  readonly thinkingLevel: string | undefined;
+  readonly thinkingLevel: ThinkingLevel | undefined;
   isSessionReady(): boolean;
   subscribeToUpdates(fn: (event: AgentSessionEvent) => void): (() => void) | undefined;
   getToolDefinition(name: string): ToolDefinition | undefined;

@@ -89,6 +89,10 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/ui/run-facts.ts` | seam | Pure run-facts formatter (model, thinking, tool counts) shared by every subagent row surface. |
 | `test/ui/run-facts.test.ts` | seam | Tests for the run-facts formatter. |
 | `src/ui/glyphs.ts` | edit | Add the `tools` and `blocked` glyphs for the run-facts parts. |
+| `src/ui/agent-widget.ts` | edit | `toWidgetAgent` carries the record's `thinkingLevel` and `toolFacts` into the widget snapshot. |
+| `src/ui/widget-renderer.ts` | edit | The `[provider/id]` tag becomes the shared run-facts tag (model, thinking, tools, blocked) after the name and mode label. |
+| `test/ui/agent-widget.test.ts` | edit | Tests that the widget snapshot carries thinking and tool facts into the rendered tag. |
+| `test/widget-renderer.test.ts` | edit | Tests for the run-facts tag on running and finished lines, and omission of unknown facts. |
 | `src/session/builtin-extensions.ts` | edit | Export `BUILTIN_EXTENSION_TOOL_NAMES`, the fixed tool names the built-in extensions supply; the `supplies` predicates reuse it. Selection behavior unchanged. |
 | `src/ui/display.ts` | edit | `AgentDetails` gains `modeLabel`, `thinking`, `toolCount`, `blockedToolCount`; `buildInvocationTags` no longer emits the thinking tag. |
 | `src/tools/spawn-config.ts` | edit | `detailBase` carries `modeLabel` and `thinking`; its `tags` hold invocation tags only. |

@@ -166,3 +166,31 @@ describe("rightAlign", () => {
     expect(visibleWidth(rightAlign("left", "12s · ↓ 13.1k tokens", 10))).toBeLessThanOrEqual(10);
   });
 });
+
+describe("Row with run facts", () => {
+  const facts = {
+    model: { provider: "anthropic", id: "claude-haiku-4-5" },
+    thinkingLevel: "high" as const,
+    toolFacts: { toolCount: 12, blockedToolCount: 3 },
+  };
+
+  it("shows the run facts after the description, with stats at the end", () => {
+    const row = render([agent({ startedAt: 1000, ...facts })], 0, { now: 13_400, width: 120 })[3];
+    expect(row).toContain("audit auth  anthropic/claude-haiku-4-5 · thinking: high · 🔧12 · ⊘3");
+    expect(row.endsWith("12s · ↓ 13.1k tokens")).toBe(true);
+  });
+
+  it("keeps stats at width 40, cutting the run facts before the description", () => {
+    const row = render([agent({ startedAt: 1000, ...facts })], 0, { now: 13_400, width: 40 })[3];
+    expect(row.endsWith("12s · ↓ 13.1k tokens")).toBe(true);
+    expect(row).toContain("aud");
+    expect(row).not.toContain("anthropic");
+    expect(row).not.toContain("⊘");
+    expect(visibleWidth(row)).toBeLessThanOrEqual(40);
+  });
+
+  it("clamps a row with run facts at width 10", () => {
+    const lines = render([agent({ startedAt: 1000, ...facts })], 0, { now: 13_400, width: 10 });
+    for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(10);
+  });
+});

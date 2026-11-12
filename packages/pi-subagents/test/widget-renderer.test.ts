@@ -457,3 +457,42 @@ describe("renderWidgetLines", () => {
 		expect(lines[0]).toContain("[dim:Agents]");
 	});
 });
+
+describe("run-facts tag", () => {
+	const theme = stubTheme();
+	const facts = {
+		model: { provider: "openai", id: "gpt-6" },
+		thinkingLevel: "medium" as const,
+		toolFacts: { toolCount: 9, blockedToolCount: 2 },
+	};
+
+	it("shows the run-facts tag after name and mode label on the running line", () => {
+		const agent = makeAgent({ status: "running", completedAt: undefined, toolUses: 3, ...facts });
+		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
+		expect(header).toContain("[dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [muted:test task]");
+		expect(header).toContain("3 tool uses");
+	});
+
+	it("shows the run-facts tag after name and mode label on the finished line", () => {
+		const line = renderFinishedLine(makeAgent({ toolUses: 3, ...facts }), testRegistry, theme);
+		expect(line).toContain("[dim:Agent] [dim:(twin)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
+		expect(line).toContain("3 tool uses");
+	});
+
+	it("omits unknown tool facts for a queued agent, keeping the model", () => {
+		const [header] = renderRunningLines(
+			makeAgent({ status: "queued", completedAt: undefined, model: { provider: "openai", id: "gpt-6" } }),
+			testRegistry,
+			0,
+			theme,
+		);
+		expect(header).toContain("[dim:[openai/gpt-6]]");
+		expect(header).not.toContain("🔧");
+		expect(header).not.toContain("⊘");
+	});
+
+	it("shows no bracket when no run fact is known", () => {
+		const line = renderFinishedLine(makeAgent(), testRegistry, theme);
+		expect(line).not.toContain("[dim:[");
+	});
+});

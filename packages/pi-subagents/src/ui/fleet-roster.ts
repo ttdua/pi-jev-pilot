@@ -12,7 +12,10 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import { isActiveStatus } from "#src/lifecycle/subagent-state";
 import { getLifetimeTotal, type LifetimeUsage } from "#src/lifecycle/usage";
-import { getDisplayName, type Theme } from "#src/ui/display";
+import type { ToolFacts } from "#src/seams/identity";
+import type { ThinkingLevel } from "#src/types";
+import { getDisplayName, type ModelIdentity, type Theme } from "#src/ui/display";
+import { runFactParts, runFactsOf } from "#src/ui/run-facts";
 import type { NavigableSubagent } from "#src/ui/session-navigation";
 
 /** Max agent rows shown at once; extras collapse into a "↑/↓ N more" line. */
@@ -24,7 +27,12 @@ const HINT_INACTIVE = "esc to interrupt · ← for agents · ↓ to manage";
 const HINT_ACTIVE = "↑↓ select · enter view · esc back";
 
 /** A subagent the list can show: navigable, plus the usage its row reports. */
-export type FleetAgent = NavigableSubagent & { readonly lifetimeUsage: Readonly<LifetimeUsage> };
+export type FleetAgent = NavigableSubagent & {
+  readonly lifetimeUsage: Readonly<LifetimeUsage>;
+  readonly model?: ModelIdentity;
+  readonly thinkingLevel?: ThinkingLevel;
+  readonly toolFacts?: ToolFacts;
+};
 
 /** Whether the agent has a transcript the pane can open, live or from file. */
 function isOpenable(agent: FleetAgent): boolean {
@@ -84,7 +92,9 @@ function renderAgentRow(agent: FleetAgent, ctx: RowContext): string {
   const name = getDisplayName(agent.type, ctx.registry);
   const nameText = theme.fg(selected ? "text" : "muted", name);
   const description = selected ? theme.fg("text", agent.description) : agent.description;
-  const left = `  ${marker(selected, theme)} ${nameText}  ${description}`;
+  const facts = runFactParts(runFactsOf(agent)).join(" · ");
+  const factsText = facts === "" ? "" : `  ${selected ? theme.fg("text", facts) : theme.fg("dim", facts)}`;
+  const left = `  ${marker(selected, theme)} ${nameText}  ${description}${factsText}`;
   const elapsed = (agent.completedAt ?? ctx.now) - agent.startedAt;
   const stats = `${formatFleetElapsed(elapsed)} · ${formatFleetTokens(getLifetimeTotal(agent.lifetimeUsage))}`;
   return rightAlign(left, theme.fg(selected ? "text" : "dim", stats), ctx.width);
