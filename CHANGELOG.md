@@ -4,6 +4,14 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-12
+
+Tag: v0.3.1
+
+### Fixed
+
+- The blocked tool count `⊘M` on subagent rows was always 0 for agents that restrict themselves with a `tools:` allowlist, so it stayed hidden. It now counts every tool in the run's total (the parent's tools plus the child's own `ask_parent` and `notify_parent`) that the subagent cannot call, so `🔧N + ⊘M` equals the total. Tools outside the allowlist and the orchestration tools (`subagent`, `get_subagent_result`, `steer_subagent`) count as blocked, so `⊘` now shows on almost every row ([#73](https://github.com/ttdua/pi-jev-pilot/pull/73)).
+
 ## [0.3.0] - 2026-11-12
 
 Tag: v0.3.0
