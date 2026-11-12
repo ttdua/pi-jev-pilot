@@ -121,12 +121,9 @@ export function listNavigableAgents(
   const live: NavigationEntry[] = [];
   const snapshots: NavigationEntry[] = [];
   for (const record of agents) {
-    const heading = buildHeading(record, registry);
-    if (record.isSessionReady()) {
-      live.push({ kind: "live", record, heading, label: buildLabel(record, registry) });
-    } else if (record.outputFile) {
-      snapshots.push({ kind: "snapshot", outputFile: record.outputFile, heading, label: buildLabel(record, registry, true) });
-    }
+    const entry = navigationEntryFor(record, registry);
+    if (entry?.kind === "live") live.push(entry);
+    else if (entry) snapshots.push(entry);
   }
   const held = new Set(agents.map((record) => record.id));
   for (const run of persisted) {
@@ -135,6 +132,21 @@ export function listNavigableAgents(
     snapshots.push({ kind: "snapshot", outputFile: run.outputFile, heading: buildHeading(run, registry), label });
   }
   return [...live, ...snapshots];
+}
+
+/**
+ * The navigable entry for one record: `live` when its session is ready,
+ * `snapshot` when only its transcript pointer survives, else undefined.
+ */
+export function navigationEntryFor(record: NavigableSubagent, registry: AgentConfigLookup): NavigationEntry | undefined {
+  const heading = buildHeading(record, registry);
+  if (record.isSessionReady()) {
+    return { kind: "live", record, heading, label: buildLabel(record, registry) };
+  }
+  if (record.outputFile) {
+    return { kind: "snapshot", outputFile: record.outputFile, heading, label: buildLabel(record, registry, true) };
+  }
+  return undefined;
 }
 
 /**

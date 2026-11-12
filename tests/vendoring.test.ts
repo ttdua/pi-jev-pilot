@@ -68,6 +68,14 @@ test("NOTICE.md has an entry for the vendored package", () => {
   expect(entry).toContain("MIT");
 });
 
+test("notice credits tintinweb for the fleet list", () => {
+  const notice = read(join(REPO_ROOT, "NOTICE.md"));
+  const entry = notice.split("\n").find((l) => l.startsWith("- [tintinweb/pi-subagents]")) ?? "";
+  expect(entry).toContain("tintinweb/pi-subagents");
+  expect(entry).toContain("0.23.2");
+  expect(entry).toContain("MIT");
+});
+
 test("the vendored LICENSE is the upstream one", () => {
   expect(upstreamBlobs().get("LICENSE")).toBe(blobId("LICENSE"));
 });

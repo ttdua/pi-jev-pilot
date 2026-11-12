@@ -4,6 +4,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- Below-editor fleet list in the vendored executor: `main` and the subagents with a transcript, `↓` or `←` on an empty prompt to enter, `Enter` to open the session pane. Turn it off with `Fleet view` in `/subagents:settings` (ADR 0013, [#62](https://github.com/ttdua/pi-jev-pilot/issues/62)).
+
 ## [0.2.0] - 2026-11-11
 
 Tag: v0.2.0

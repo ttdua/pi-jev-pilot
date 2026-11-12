@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { PersistedRunSummary } from "#src/persisted-record";
 import type { AgentSessionEvent, SessionMessage } from "#src/types";
-import { fileSnapshotSource, listNavigableAgents, liveSource, type NavigableSubagent, type TranscriptSource } from "#src/ui/session-navigation";
+import { fileSnapshotSource, listNavigableAgents, liveSource, navigationEntryFor, type NavigableSubagent, type TranscriptSource } from "#src/ui/session-navigation";
 import { makeNavigable } from "#test/helpers/make-navigable";
 
 const registry = new AgentTypeRegistry(() => new Map());
@@ -292,5 +292,25 @@ describe("fileSnapshotSource", () => {
     const headerOnly = JSON.stringify({ type: "session", version: 3, id: "s1", timestamp: "2026-06-23T00:00:00Z", cwd: "/proj" });
     const source = fileSnapshotSource("/tasks/empty.jsonl", () => headerOnly);
     expect(source.getMessages()).toEqual([]);
+  });
+});
+
+describe("navigationEntryFor", () => {
+  it("returns a live entry for a ready session", () => {
+    const ready = makeNavigable({ isSessionReady: () => true });
+    const entry = navigationEntryFor(ready, registry);
+    expect(entry?.kind).toBe("live");
+    expect(entry?.kind === "live" && entry.record).toBe(ready);
+  });
+
+  it("returns a snapshot entry when only outputFile is set", () => {
+    const released = makeNavigable({ isSessionReady: () => false, outputFile: "/tasks/a.jsonl" });
+    const entry = navigationEntryFor(released, registry);
+    expect(entry?.kind).toBe("snapshot");
+    expect(entry?.kind === "snapshot" && entry.outputFile).toBe("/tasks/a.jsonl");
+  });
+
+  it("returns undefined with neither", () => {
+    expect(navigationEntryFor(makeNavigable({ isSessionReady: () => false, outputFile: undefined }), registry)).toBeUndefined();
   });
 });

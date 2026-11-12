@@ -57,7 +57,12 @@ function instance() {
 			{},
 			{
 				hasUI: false,
-				ui: { setStatus: vi.fn(), setWidget: vi.fn() },
+				ui: {
+					setStatus: vi.fn(),
+					setWidget: vi.fn(),
+					onTerminalInput: vi.fn(() => () => {}),
+					getEditorText: () => "",
+				},
 				cwd: "/tmp",
 				model: undefined,
 				modelRegistry: {

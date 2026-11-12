@@ -28,11 +28,15 @@ The repository SHALL hold the executor in `packages/pi-subagents/`, as a member 
 - **THEN** the repository test fails and names that file
 
 ### Requirement: Upstream license kept
-The vendored package SHALL keep upstream's `LICENSE` file unchanged. The root `NOTICE.md` SHALL name the vendored package, its upstream, its authors as stated in upstream's license and its license (`MIT`).
+The vendored package SHALL keep upstream's `LICENSE` file unchanged. The root `NOTICE.md` SHALL name the vendored package, its upstream, its authors as stated in upstream's license and its license (`MIT`). When code in the vendored package is ported from another project, `NOTICE.md` SHALL also name that project, the version ported from, its authors as stated in its license and its license.
 
 #### Scenario: Notice entry
 - **WHEN** `NOTICE.md` is read
 - **THEN** it has an entry for `packages/pi-subagents` naming `gotgenes/pi-packages` and `MIT`
+
+#### Scenario: Ported fleet list credited
+- **WHEN** `NOTICE.md` is read after the fleet list is added
+- **THEN** it names `tintinweb/pi-subagents`, version `0.23.2` and `MIT` for the fleet list behavior
 
 ### Requirement: One install loads both extensions
 The root `package.json` `pi.extensions` SHALL list exactly `./packages/pi-subagents/src/index.ts` and then `./src/extension.ts`, in that order, so that one `pi install` of the repository loads the executor and jev-pilot, and the executor's service is published (at load, see "Service identity and ownership") before jev-pilot's `session_start` handler captures it.

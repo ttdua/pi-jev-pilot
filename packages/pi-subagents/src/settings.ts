@@ -38,6 +38,10 @@ export interface SubagentsSettings {
    */
   midRunUpdates?: boolean;
   /**
+   * When false, the below-editor fleet list is not shown while subagents run.
+   */
+  fleetView?: boolean;
+  /**
    * Pi package sources whose extensions child sessions must not load, matched
    * against Pi's configured source string exactly (e.g. `npm:@scope/pkg`).
    * The package's skills, prompts, and themes stay available to children.
@@ -66,6 +70,8 @@ export interface SettingsSnapshot {
   unconsumedSessionRetentionMinutes: number;
   abortAllOnInterrupt: boolean;
   midRunUpdates: boolean;
+  /** Always written, so a hand-edited value round-trips through any settings save. */
+  fleetView: boolean;
   /**
    * Present only when non-empty, so files that never set it gain no noise.
    * It must round-trip: the key has no `/subagents:settings` affordance, so a
@@ -86,6 +92,7 @@ const DEFAULT_CONSUMED_RETENTION_MINUTES = 10;
 const DEFAULT_UNCONSUMED_RETENTION_MINUTES = 720;
 const DEFAULT_ABORT_ALL_ON_INTERRUPT = true;
 const DEFAULT_MID_RUN_UPDATES = true;
+const DEFAULT_FLEET_VIEW = true;
 
 /**
  * Owns all three in-memory settings values and their load/save/persist cycle.
@@ -99,6 +106,7 @@ export class SettingsManager {
   private _unconsumedSessionRetentionMinutes: number = DEFAULT_UNCONSUMED_RETENTION_MINUTES;
   private _abortAllOnInterrupt: boolean = DEFAULT_ABORT_ALL_ON_INTERRUPT;
   private _midRunUpdates: boolean = DEFAULT_MID_RUN_UPDATES;
+  private _fleetView: boolean = DEFAULT_FLEET_VIEW;
   private _excludedExtensionPackages: string[] = [];
   private _promptInheritance: Record<string, PromptInheritance> = {};
 
@@ -211,6 +219,7 @@ export class SettingsManager {
     if (typeof settings.abortAllOnInterrupt === "boolean")
       this._abortAllOnInterrupt = settings.abortAllOnInterrupt;
     if (typeof settings.midRunUpdates === "boolean") this._midRunUpdates = settings.midRunUpdates;
+    if (typeof settings.fleetView === "boolean") this._fleetView = settings.fleetView;
     // Assigned unconditionally: removing the key from disk must clear the value.
     this._excludedExtensionPackages = [...(settings.excludedExtensionPackages ?? [])];
     this._promptInheritance = { ...settings.promptInheritance };
@@ -231,6 +240,7 @@ export class SettingsManager {
       unconsumedSessionRetentionMinutes: this._unconsumedSessionRetentionMinutes,
       abortAllOnInterrupt: this._abortAllOnInterrupt,
       midRunUpdates: this._midRunUpdates,
+      fleetView: this._fleetView,
     };
     if (this._excludedExtensionPackages.length > 0) {
       snapshot.excludedExtensionPackages = [...this._excludedExtensionPackages];
@@ -294,6 +304,16 @@ export class SettingsManager {
 
   get midRunUpdates(): boolean {
     return this._midRunUpdates;
+  }
+
+  get fleetView(): boolean {
+    return this._fleetView;
+  }
+
+  /** Flip whether the below-editor fleet list is shown, persist, and return the toast. */
+  toggleFleetView(): { message: string; level: "info" | "warning" } {
+    this._fleetView = !this._fleetView;
+    return this.saveAndNotify(`Fleet view: ${this._fleetView ? "on" : "off"}`);
   }
 
   /**
@@ -395,6 +415,9 @@ function sanitize(raw: unknown): SubagentsSettings {
   }
   if (typeof r.midRunUpdates === "boolean") {
     out.midRunUpdates = r.midRunUpdates;
+  }
+  if (typeof r.fleetView === "boolean") {
+    out.fleetView = r.fleetView;
   }
   if (Array.isArray(r.excludedExtensionPackages)) {
     const sources = r.excludedExtensionPackages

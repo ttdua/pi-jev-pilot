@@ -14,10 +14,11 @@ import type { SessionMessage } from "#src/types";
 import {
   type EntryHeading,
   listNavigableAgents,
+  navigationEntryFor,
   type SessionModel,
   type TranscriptSource,
 } from "#src/ui/session-navigation";
-import { type PaneKeys, SessionNavigatorHandler, type SessionNavigatorParams, TranscriptPane } from "#src/ui/session-navigator";
+import { openTranscript, type PaneKeys, SessionNavigatorHandler, type SessionNavigatorParams, TranscriptPane } from "#src/ui/session-navigator";
 import { makeNavigable } from "#test/helpers/make-navigable";
 import { fakeSource, mockTui } from "#test/helpers/transcript-fixtures";
 
@@ -675,5 +676,82 @@ describe("SessionNavigatorHandler", () => {
 
     expect(ui.notify).toHaveBeenCalledWith("Could not read the session transcript file.", "error");
     expect(ui.custom).not.toHaveBeenCalled();
+  });
+});
+
+describe("openTranscript", () => {
+  const noRead = (): string => {
+    throw new Error("readFile not expected");
+  };
+  const deps = { cwd: "/test/cwd", readFile: noRead };
+
+  type Factory = (tui: TUI, theme: ReturnType<typeof ansiTheme>, kb: PaneKeys, done: (r: unknown) => void) => Component;
+
+  function makeUI(mode: TuiMode = "regular") {
+    return {
+      select: vi.fn(),
+      notify: vi.fn(),
+      custom: vi.fn().mockImplementation((factory: Factory) => {
+        let result: unknown;
+        factory(mockTui(40, 80, mode), ansiTheme(), keysWith(), (r) => {
+          result = r;
+        });
+        return Promise.resolve(result);
+      }),
+    };
+  }
+
+  const paneOf = (ui: ReturnType<typeof makeUI>): Component =>
+    (ui.custom.mock.calls.at(-1)?.[0] as Factory)(mockTui(), ansiTheme(), keysWith(), vi.fn());
+
+  const entryFor = (record: ReturnType<typeof makeNavigable>) => {
+    const entry = navigationEntryFor(record, registry);
+    if (!entry) throw new Error("not navigable");
+    return entry;
+  };
+
+  it("mounts a TranscriptPane on a live source", async () => {
+    const messages = [{ role: "assistant", content: [{ type: "text", text: "live reply" }] }] as unknown as SessionMessage[];
+    const ui = makeUI();
+    await openTranscript(ui, entryFor(makeNavigable({ agentMessages: messages })), deps);
+    expect(ui.custom).toHaveBeenLastCalledWith(expect.any(Function), { overlay: false });
+    expect(paneOf(ui).render(80).some((l) => l.includes("live reply"))).toBe(true);
+  });
+
+  it("renders the file's transcript for a snapshot entry", async () => {
+    const jsonl = [
+      { type: "session", version: 3, id: "s1", timestamp: "2026-06-23T00:00:00Z", cwd: "/proj" },
+      { type: "message", id: "m1", parentId: null, timestamp: "2026-06-23T00:00:01Z", message: { role: "assistant", content: [{ type: "text", text: "released reply" }] } },
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join("\n");
+    const readFile = vi.fn(() => jsonl);
+    const released = makeNavigable({ isSessionReady: () => false, outputFile: "/tasks/e1.jsonl" });
+    const ui = makeUI();
+    await openTranscript(ui, entryFor(released), { cwd: "/test/cwd", readFile });
+    expect(readFile).toHaveBeenCalledWith("/tasks/e1.jsonl");
+    expect(paneOf(ui).render(80).some((l) => l.includes("released reply"))).toBe(true);
+  });
+
+  it('notifies "Could not read the session transcript file." and mounts nothing when readFile throws', async () => {
+    const released = makeNavigable({ isSessionReady: () => false, outputFile: "/tasks/e1.jsonl" });
+    const ui = makeUI();
+    await openTranscript(ui, entryFor(released), {
+      cwd: "/test/cwd",
+      readFile: () => {
+        throw new Error("ENOENT");
+      },
+    });
+    expect(ui.notify).toHaveBeenCalledWith("Could not read the session transcript file.", "error");
+    expect(ui.custom).not.toHaveBeenCalled();
+  });
+
+  it("uses the overlay mount in fullscreen", async () => {
+    const ui = makeUI("fullscreen");
+    await openTranscript(ui, entryFor(makeNavigable()), deps);
+    expect(ui.custom).toHaveBeenLastCalledWith(expect.any(Function), {
+      overlay: true,
+      overlayOptions: { anchor: "bottom-center", width: "100%", maxHeight: "70%", margin: { bottom: 2 } },
+    });
   });
 });

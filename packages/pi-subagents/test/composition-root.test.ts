@@ -125,7 +125,17 @@ function makeParentRegistry() {
 
 /** A UI context that records what the widget registers on it. */
 function makeRecordingUI() {
-  return { setStatus: vi.fn(), setWidget: vi.fn() };
+  return {
+    setStatus: vi.fn(),
+    setWidget: vi.fn(),
+    onTerminalInput: vi.fn(() => () => {}),
+    getEditorText: () => "",
+  };
+}
+
+/** The arguments of the last `setWidget` call made for the `agents` key. */
+function lastAgentsWidgetCall(ui: ReturnType<typeof makeRecordingUI>): unknown[] | undefined {
+  return ui.setWidget.mock.calls.findLast((call) => call[0] === "agents");
 }
 
 /** The session context Pi hands a `session_start` handler. */
@@ -285,11 +295,11 @@ describe("composition root: widget activation", () => {
     await vi.advanceTimersByTimeAsync(300);
 
     // The run finished within this turn, so the row is seeded at age 0 and still shown.
-    expect(ui.setWidget).toHaveBeenLastCalledWith("agents", expect.any(Function), expect.anything());
+    expect(lastAgentsWidgetCall(ui)).toEqual(["agents", expect.any(Function), expect.anything()]);
 
     await fire("turn_start", {}, { signal: undefined });
 
-    expect(ui.setWidget).toHaveBeenLastCalledWith("agents", undefined);
+    expect(lastAgentsWidgetCall(ui)).toEqual(["agents", undefined]);
 
     await fire("session_shutdown", {}, {});
   });
@@ -337,7 +347,7 @@ describe("composition root: widget teardown", () => {
     await vi.advanceTimersByTimeAsync(300);
 
     // The run finished within this turn, so the row lingers and the widget stays up.
-    expect(ui.setWidget).toHaveBeenLastCalledWith("agents", expect.any(Function), expect.anything());
+    expect(lastAgentsWidgetCall(ui)).toEqual(["agents", expect.any(Function), expect.anything()]);
     return { ui, fire };
   }
 
@@ -355,7 +365,7 @@ describe("composition root: widget teardown", () => {
 
     await fire("session_shutdown", {}, {});
 
-    expect(ui.setWidget).toHaveBeenLastCalledWith("agents", undefined);
+    expect(lastAgentsWidgetCall(ui)).toEqual(["agents", undefined]);
     expect(ui.setStatus).toHaveBeenLastCalledWith("subagents", undefined);
   });
 });
