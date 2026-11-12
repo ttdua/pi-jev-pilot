@@ -9,7 +9,7 @@ import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import type { SubagentStatus } from "#src/lifecycle/subagent-state";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
-import type { AgentInvocation, SubagentType } from "#src/types";
+import type { AgentInvocation, SubagentType, ThinkingLevel } from "#src/types";
 import { GLYPHS } from "#src/ui/glyphs";
 
 // ---- Types ----
@@ -40,7 +40,15 @@ export interface AgentDetails {
   spinnerFrame?: number;
   /** The `provider/id` of the model the agent runs (e.g. "anthropic/claude-haiku-4-5"). */
   modelName?: string;
-  /** Notable config tags (e.g. ["thinking: high", "inherit context"]). */
+  /** The prompt-mode label (e.g. "twin"); absent for replace-mode agents. */
+  modeLabel?: string;
+  /** The run's thinking level: the record's live value, else the launch's resolved one. */
+  thinking?: ThinkingLevel;
+  /** Tools the child can call; absent until its session exists. */
+  toolCount?: number;
+  /** Tools the launch blocked; absent until its session exists. */
+  blockedToolCount?: number;
+  /** Invocation tags (e.g. ["inherit context", "background", "max turns: 9"]). */
   tags?: string[];
   agentId?: string;
   error?: string;
@@ -165,13 +173,12 @@ export function getPromptModeLabel(type: SubagentType, registry: AgentConfigLook
   return config.promptMode === "append" ? "twin" : undefined;
 }
 
-/** Mode label is not included — callers add it where they want it. */
+/** Mode label and thinking are not included — they are separate run facts. */
 export function buildInvocationTags(
   invocation: AgentInvocation | undefined,
 ): { tags: string[] } {
   const tags: string[] = [];
   if (!invocation) return { tags };
-  if (invocation.thinking) tags.push(`thinking: ${invocation.thinking}`);
   if (invocation.inheritContext) tags.push("inherit context");
   if (invocation.runInBackground) tags.push("background");
   if (invocation.maxTurns != null) tags.push(`max turns: ${invocation.maxTurns}`);

@@ -51,7 +51,10 @@ export interface SpawnExecution {
 /** Presentation: display/UI values derived from identity and execution. */
 export interface SpawnPresentation {
   agentTags: string[];
-  detailBase: Pick<AgentDetails, "displayName" | "description" | "subagentType" | "modelName" | "tags">;
+  detailBase: Pick<
+    AgentDetails,
+    "displayName" | "description" | "subagentType" | "modelName" | "modeLabel" | "thinking" | "tags"
+  >;
 }
 
 /** Fully resolved config for spawning an agent — composed of domain-aligned sub-interfaces. */
@@ -141,7 +144,9 @@ export function resolveSpawnConfig(
     description: params.description as string,
     subagentType,
     modelName,
-    tags: agentTags.length > 0 ? agentTags : undefined,
+    modeLabel,
+    thinking,
+    tags: invocationTags.length > 0 ? invocationTags : undefined,
   };
 
   return {

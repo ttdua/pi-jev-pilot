@@ -90,3 +90,12 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/ui/run-facts.test.ts` | seam | Tests for the run-facts formatter. |
 | `src/ui/glyphs.ts` | edit | Add the `tools` and `blocked` glyphs for the run-facts parts. |
 | `src/session/builtin-extensions.ts` | edit | Export `BUILTIN_EXTENSION_TOOL_NAMES`, the fixed tool names the built-in extensions supply; the `supplies` predicates reuse it. Selection behavior unchanged. |
+| `src/ui/display.ts` | edit | `AgentDetails` gains `modeLabel`, `thinking`, `toolCount`, `blockedToolCount`; `buildInvocationTags` no longer emits the thinking tag. |
+| `src/tools/spawn-config.ts` | edit | `detailBase` carries `modeLabel` and `thinking`; its `tags` hold invocation tags only. |
+| `src/tools/helpers.ts` | edit | `buildDetails` copies the live thinking and tool facts. |
+| `src/tools/progress-stream.ts` | edit | Streamed updates carry the record's live thinking and tool facts. |
+| `src/tools/result-renderer.ts` | edit | `renderStats` places mode label, thinking and tool parts in the existing order. |
+| `test/tools/result-renderer.test.ts` | edit | Run-facts order tests; thinking comes from `details.thinking`. |
+| `test/tools/spawn-config.test.ts` | edit | Thinking and mode label on `detailBase`, not in tags. |
+| `test/tools/helpers.test.ts` | edit | `buildDetails` copies thinking and tool facts. |
+| `test/tools/progress-stream.test.ts` | edit | Streamed update uses the record's live thinking. |

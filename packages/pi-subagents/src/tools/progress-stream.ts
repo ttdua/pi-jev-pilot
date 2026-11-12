@@ -16,7 +16,7 @@ import { SPINNER } from "#src/ui/glyphs";
 /** The record fields one update renders. */
 export type StreamedRecord = Pick<
   Subagent,
-  "toolUses" | "model" | "lifetimeUsage" | "turnBudget" | "activeTools" | "responseText"
+  "toolUses" | "model" | "thinkingLevel" | "toolFacts" | "lifetimeUsage" | "turnBudget" | "activeTools" | "responseText"
 >;
 
 export interface ProgressStreamParams {
@@ -45,6 +45,9 @@ export function startProgressStream(params: ProgressStreamParams): () => void {
     const details: AgentDetails = {
       ...detailBase,
       modelName: modelLabel(record?.model) ?? detailBase.modelName,
+      thinking: record?.thinkingLevel ?? detailBase.thinking,
+      toolCount: record?.toolFacts?.toolCount,
+      blockedToolCount: record?.toolFacts?.blockedToolCount,
       toolUses,
       tokens: record ? formatLifetimeTokens(record) : "",
       turnBudget: record?.turnBudget,

@@ -11,6 +11,7 @@ import { type TurnBudget, wrappedUpAtTurnLimit } from "#src/lifecycle/turn-limit
 import type { AgentDetails, Theme } from "#src/ui/display";
 import { formatMs, formatTurnBudget } from "#src/ui/display";
 import { GLYPHS, SPINNER } from "#src/ui/glyphs";
+import { formatRunFacts } from "#src/ui/run-facts";
 
 // ---- Dispatcher ----
 
@@ -156,6 +157,13 @@ export function renderStatusIcon(status: SubagentStatus, theme: Theme): string {
 export function renderStats(details: AgentDetails, theme: Theme): string {
 	const parts: string[] = [];
 	if (details.modelName) parts.push(details.modelName);
+	if (details.modeLabel) parts.push(details.modeLabel);
+	const facts = formatRunFacts({
+		thinking: details.thinking,
+		toolCount: details.toolCount,
+		blockedToolCount: details.blockedToolCount,
+	});
+	for (const part of [facts.thinking, facts.tools, facts.blocked]) if (part) parts.push(part);
 	if (details.tags) parts.push(...details.tags);
 	if (details.turnBudget) {
 		parts.push(formatTurnBudget(details.turnBudget));

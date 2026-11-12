@@ -205,7 +205,7 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
     expect(result.presentation.detailBase.displayName).toBe("Agent");
   });
 
-  it("includes thinking tag when thinking is set", () => {
+  it("carries thinking on detailBase, not as a tag", () => {
     const result = resolveSpawnConfig(
       { subagent_type: "general-purpose", prompt: "test", description: "d", thinking: "high" },
       testRegistry,
@@ -213,7 +213,9 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
       defaultSettings,
     );
     if ("error" in result) return;
-    expect(result.presentation.agentTags).toContain("thinking: high");
+    expect(result.presentation.detailBase.thinking).toBe("high");
+    expect(result.presentation.agentTags.some((t) => t.startsWith("thinking:"))).toBe(false);
+    expect((result.presentation.detailBase.tags ?? []).some((t) => t.startsWith("thinking:"))).toBe(false);
   });
 
   it("omits mode label for replace-mode agents", () => {
@@ -238,6 +240,8 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
     if ("error" in result) return;
     // general-purpose has promptMode: "append" → gets "twin" label
     expect(result.presentation.agentTags).toContain("twin");
+    expect(result.presentation.detailBase.modeLabel).toBe("twin");
+    expect(result.presentation.detailBase.tags ?? []).not.toContain("twin");
   });
 
   it("sets tags to undefined on detailBase for replace-mode agents with no invocation overrides", () => {

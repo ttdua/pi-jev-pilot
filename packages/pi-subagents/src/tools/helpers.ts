@@ -1,11 +1,16 @@
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
+import type { ToolFacts } from "#src/seams/identity";
+import type { ThinkingLevel } from "#src/types";
 import { getLifetimeTotal, type LifetimeUsage } from "#src/lifecycle/usage";
 import { type AgentDetails, formatTokens, type ModelIdentity, modelLabel } from "#src/ui/display";
 
 /** Build AgentDetails from a base + record-specific fields. */
 export function buildDetails(
-  base: Pick<AgentDetails, "displayName" | "description" | "subagentType" | "modelName" | "tags">,
+  base: Pick<
+    AgentDetails,
+    "displayName" | "description" | "subagentType" | "modelName" | "modeLabel" | "thinking" | "tags"
+  >,
   record: {
     toolUses: number;
     startedAt: number;
@@ -17,12 +22,18 @@ export function buildDetails(
     /** The model the agent runs; unknown for an inherited model until its session exists. */
     model?: ModelIdentity;
     turnBudget?: TurnBudget;
+    /** The live thinking level; unknown until the session exists. */
+    thinkingLevel?: ThinkingLevel;
+    toolFacts?: ToolFacts;
   },
   overrides?: Partial<AgentDetails>,
 ): AgentDetails {
   return {
     ...base,
     modelName: modelLabel(record.model) ?? base.modelName,
+    thinking: record.thinkingLevel ?? base.thinking,
+    toolCount: record.toolFacts?.toolCount,
+    blockedToolCount: record.toolFacts?.blockedToolCount,
     toolUses: record.toolUses,
     tokens: formatLifetimeTokens(record),
     durationMs: (record.completedAt ?? Date.now()) - record.startedAt,
