@@ -3,7 +3,7 @@
 # exactly as an external developer would consume it — no workspace privileges,
 # no publish round-trip.
 #
-#   1. pnpm pack       — triggers prepack -> build:types -> dist/public.d.ts
+#   1. bun pm pack     — triggers prepack -> build:types -> dist/public.d.ts
 #   2. self-containment guard — the emitted .d.ts carries no #src/* aliases
 #   3. install the tarball into a throwaway consumer and run tsc against it
 set -euo pipefail
@@ -12,8 +12,12 @@ PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+# The consumer imports the package under its own name, read from package.json
+# so the probe follows a rename.
+PKG_NAME="$(bun -e 'console.log(require(process.argv[1]).name)' "$PKG_DIR/package.json")"
+
 # --- 1. Pack the real tarball (prepack regenerates the declaration) --------
-pnpm --dir "$PKG_DIR" pack --pack-destination "$WORK" >/dev/null
+(cd "$PKG_DIR" && bun pm pack --destination "$WORK" --quiet) >/dev/null
 TARBALL="$(ls "$WORK"/*.tgz | head -n1)"
 echo "Packed: $(basename "$TARBALL")"
 
@@ -62,7 +66,7 @@ cat > "$CONSUMER/tsconfig.json" <<'JSON'
 }
 JSON
 
-cat > "$CONSUMER/probe.ts" <<'TS'
+cat > "$CONSUMER/probe.ts" <<TS
 import {
   getSubagentsService,
   type Workspace,
@@ -70,7 +74,7 @@ import {
   type WorkspaceDisposeResult,
   type WorkspacePrepareContext,
   type WorkspaceProvider,
-} from "@gotgenes/pi-subagents";
+} from "${PKG_NAME}";
 
 // Exercise the value export and all workspace collaborator type exports.
 const provider: WorkspaceProvider = {
@@ -89,8 +93,8 @@ void provider;
 void getSubagentsService;
 TS
 
-cat > "$CONSUMER/probe-settings.ts" <<'TS'
-import { loadLayeredSettings, type LayeredSettingsSource } from "@gotgenes/pi-subagents/settings";
+cat > "$CONSUMER/probe-settings.ts" <<TS
+import { loadLayeredSettings, type LayeredSettingsSource } from "${PKG_NAME}/settings";
 
 interface MyConfig { enabled?: boolean; limit?: number }
 
@@ -116,14 +120,13 @@ void config;
 TS
 
 # Install the packaged tarball plus the peer deps a real consumer would have.
-# --ignore-scripts: a type-check needs no dependency build scripts, and it
-# avoids ERR_PNPM_IGNORED_BUILDS in the isolated (--ignore-workspace) consumer,
-# which does not inherit the workspace allowBuilds approvals.
-pnpm --dir "$CONSUMER" --ignore-workspace --ignore-scripts add \
+# --ignore-scripts: a type-check needs no dependency build scripts. The
+# consumer lives outside the workspace, so it installs in isolation.
+(cd "$CONSUMER" && bun add --ignore-scripts \
   "$TARBALL" \
   "@earendil-works/pi-ai@>=0.75.0" \
   "@earendil-works/pi-coding-agent@>=0.75.0" \
-  "@earendil-works/pi-tui@>=0.75.0" \
+  "@earendil-works/pi-tui@>=0.75.0") \
   >/dev/null
 
 # Update the tsconfig to include both probe files.
@@ -144,5 +147,5 @@ JSON
 # Use the workspace TypeScript against the consumer project; module resolution
 # starts from the probe files, so the tarball and peers resolve from the consumer's
 # own node_modules via the package's exports "types" condition.
-pnpm --dir "$PKG_DIR" exec tsc -p "$CONSUMER/tsconfig.json"
-echo "OK: external consumer type-checks against the packaged @gotgenes/pi-subagents"
+(cd "$PKG_DIR" && bun x tsc -p "$CONSUMER/tsconfig.json")
+echo "OK: external consumer type-checks against the packaged ${PKG_NAME}"
