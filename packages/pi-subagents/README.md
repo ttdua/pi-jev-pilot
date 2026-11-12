@@ -69,17 +69,28 @@ The extension renders a persistent widget above the editor showing the agents wh
 
 ```text
 ● Agents
-├─ ⠹ Agent [anthropic/claude-sonnet-5]  Refactor auth module · ↻5≤30 · 5 tool uses · 33.8k token (62%) · 12.3s
+├─ ⠹ Agent [anthropic/claude-sonnet-5 · thinking: high · 🔧9 · ⊘2]  Refactor auth module · ↻5≤30 · 5 tool uses · 33.8k token (62%) · 12.3s
 │    ⎿  editing 2 files…
-├─ ⠹ Explore [anthropic/claude-haiku-5]  Find auth files · ↻3 · 3 tool uses · 12.4k token (8%) · 4.1s
+├─ ⠹ Explore [anthropic/claude-haiku-5 · thinking: low · 🔧3]  Find auth files · ↻3 · 3 tool uses · 12.4k token (8%) · 4.1s
 │    ⎿  searching…
-├─ ⠹ Agent [openai/gpt-6]  Long-running task · ↻42 · 38 tool uses · 91.0k token (84% · ⇊2) · 2m17s
+├─ ⠹ Agent [openai/gpt-6 · thinking: medium · 🔧38]  Long-running task · ↻42 · 38 tool uses · 91.0k token (84% · ⇊2) · 2m17s
 │    ⎿  reading…
 └─ 2 queued
 ```
 
 Each agent line names the provider and model the agent is running, read from its live session, so a model switched mid-run shows as the one actually in use.
 The tag is omitted until the model is known.
+
+### Run facts
+
+The bracket (and the same parts on inline results and fleet rows) reads `provider/id · thinking: <level> · 🔧N · ⊘M`:
+
+- **`thinking: <level>`** — the thinking level the run actually uses.
+- **`🔧N`** — how many tools the agent has available.
+- **`⊘M`** — how many tools were blocked for it (for example by `disallowed_tools`); shown only when `M` > 0.
+
+Each part is omitted while its value is unknown, for example `🔧` and `⊘` on a launch that is still queued.
+Only counts are kept; tool names, arguments and output are never stored for these facts.
 
 The token field is annotated with two optional signals inside parens:
 
@@ -92,8 +103,8 @@ Individual agent results render inline in the conversation:
 
 | State          | Example                                                                                      |
 | -------------- | -------------------------------------------------------------------------------------------- |
-| **Running**    | `⠹ ↻3≤30 · 3 tool uses · 12.4k token (8%)` / `⎿ searching, reading 3 files…`                 |
-| **Completed**  | `✓ ↻8 · 5 tool uses · 33.8k token (62%) · 12.3s` / `⎿ Done`                                  |
+| **Running**    | `⠹ openai/gpt-6 · thinking: medium · 🔧9 · ⊘2 · ↻3≤30 · 3 tool uses · 12.4k token (8%)` / `⎿ searching, reading 3 files…`                 |
+| **Completed**  | `✓ openai/gpt-6 · thinking: medium · 🔧9 · ↻8 · 5 tool uses · 33.8k token (62%) · 12.3s` / `⎿ Done`                                  |
 | **Wrapped up** | `✓ ↻49≤50 · 49 tool uses · 89.1k token (84% · ⇊2) · 45.2s` / `⎿ Wrapped up (budget warning)` |
 | **Stopped**    | `■ ↻3 · 3 tool uses · 12.4k token (8%)` / `⎿ Stopped`                                        |
 | **Error**      | `✗ ↻3 · 3 tool uses · 12.4k token (8%)` / `⎿ Error: timeout`                                 |
@@ -204,7 +215,7 @@ On a narrow terminal the footer drops the key hints, and the header drops the ta
 A list below the editor shows `main` and every subagent that has a transcript to open.
 A subagent gets a row while it is running or queued, for 4 seconds after it finishes, and for as long as its transcript pane is open; after that it drops out unless you are viewing it.
 The list shows whenever at least one such row exists, including while you type; only entering it needs an empty, focused prompt.
-Each row shows the agent's name, its task, elapsed time and tokens; foreground and background agents both appear.
+Each row shows the agent's name, its task, its run facts (model, thinking level, tool counts), elapsed time and tokens; foreground and background agents both appear.
 It redraws about once a second while an agent runs.
 A running background agent also appears in the above-editor agents widget; the fleet list is for navigating to its transcript.
 
