@@ -546,3 +546,118 @@ describe("createSubagentSession — MCP tool patterns", () => {
     expect(loadedBuiltinNames()).toEqual([]);
   });
 });
+
+describe("createSubagentSession — tool facts", () => {
+  /** A session whose active tools follow the allowlist and whose registry holds `registered`. */
+  function armSession(registered: string[], opts: { activeThrowsAfterGrants?: boolean } = {}) {
+    const session = createFactorySession();
+    let active: string[] = [];
+    io.createSession.mockImplementation(async (o: { tools: string[] }) => {
+      session.bindExtensions.mockImplementation(async () => {
+        active = o.tools.filter((name) => registered.includes(name));
+      });
+      return { session };
+    });
+    Object.assign(session, {
+      getAllTools: () => registered.map((name) => ({ name, exposure: "direct" })),
+    });
+    session.getActiveToolNames.mockImplementation(() => {
+      if (opts.activeThrowsAfterGrants && session.setActiveToolsByName.mock.calls.length > 0)
+        throw new Error("unreadable");
+      return [...active];
+    });
+    session.setActiveToolsByName.mockImplementation((names: string[]) => {
+      active = [...names];
+    });
+    return session;
+  }
+
+  it("reports tool facts after the grant check", async () => {
+    armSession(["read", "grep", "ask_parent", "web_search"]);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        askParent: vi.fn(),
+        tools: { toolNames: ["read", "grep"], grants: ["web_search", "parent_only"], removed: [] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read", "grep"] }),
+      }),
+    );
+
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 4, blockedToolCount: 0 });
+  });
+
+  it("does not count a tool registered after the policy as blocked", async () => {
+    armSession(["read", "bash", "mcp__srv__a"]);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        tools: { toolNames: ["mcp__srv__a"], grants: [], removed: [] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["mcp__srv__*"] }),
+        listParentToolNames: () => ["mcp__srv__a", "mcp__srv__b"],
+      }),
+    );
+
+    expect(onToolFacts).toHaveBeenCalledWith(expect.objectContaining({ blockedToolCount: 0 }));
+  });
+
+  it("counts a disallowed known tool and a policy removal", async () => {
+    armSession(["read", "bash", "mcp__srv__a"]);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        tools: { toolNames: ["read", "bash"], grants: [], removed: ["edit"] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read", "bash"], disallowedTools: ["bash"] }),
+      }),
+    );
+
+    expect(onToolFacts).toHaveBeenCalledWith(expect.objectContaining({ blockedToolCount: 2 }));
+  });
+
+  it("leaves facts unknown when the tool list is unreadable", async () => {
+    armSession(["read", "web_search"], { activeThrowsAfterGrants: true });
+    const onToolFacts = vi.fn();
+    const lifecycle = createChildLifecycleMock();
+
+    const result = await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        tools: { toolNames: ["read"], grants: ["web_search", "parent_only"], removed: [] },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({ io, exec, lifecycle, registry: createAgentLookup({ toolNames: ["read"] }) }),
+    );
+
+    expect(onToolFacts).not.toHaveBeenCalled();
+    expect(result).toBeInstanceOf(SubagentSession);
+    expect(lifecycle.bound).toHaveBeenCalled();
+  });
+});

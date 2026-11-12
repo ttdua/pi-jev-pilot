@@ -68,3 +68,12 @@ export function effectiveFacts(session: CreatedSession): EffectiveFacts {
 		facts.effectiveThinking = session.thinkingLevel;
 	return facts;
 }
+
+/**
+ * The child's callable tool count and how many tools were deliberately
+ * withheld from it. Structurally equal to `RunFactsSource.toolFacts`.
+ */
+export interface ToolFacts {
+	readonly toolCount: number;
+	readonly blockedToolCount: number;
+}

@@ -39,11 +39,21 @@ export function builtinExtensionsFor(toolNames: readonly string[]): BuiltinExten
   }));
 }
 
+const CODEMODE_TOOL = "codemode";
+const TOOL_SEARCH_TOOL = "tool_search";
+
 /** MCP's resource tools, which MCP registers alongside the server tools. */
 const MCP_RESOURCE_TOOLS: ReadonlySet<string> = new Set([
   "list_mcp_resources",
   "list_mcp_resource_templates",
   "read_mcp_resource",
+]);
+
+/** The fixed tool names Pi's built-in extensions supply (MCP's dynamic `mcp__*` names are not fixed). */
+export const BUILTIN_EXTENSION_TOOL_NAMES: ReadonlySet<string> = new Set([
+  CODEMODE_TOOL,
+  TOOL_SEARCH_TOOL,
+  ...MCP_RESOURCE_TOOLS,
 ]);
 
 /**
@@ -55,8 +65,8 @@ const BUILTINS: readonly {
   factory: ExtensionFactory;
   supplies: (toolName: string) => boolean;
 }[] = [
-  { name: "codemode", factory: createCodemodeExtension(), supplies: (tool) => tool === "codemode" },
-  { name: "tool-search", factory: createToolSearchExtension(), supplies: (tool) => tool === "tool_search" },
+  { name: "codemode", factory: createCodemodeExtension(), supplies: (tool) => tool === CODEMODE_TOOL },
+  { name: "tool-search", factory: createToolSearchExtension(), supplies: (tool) => tool === TOOL_SEARCH_TOOL },
   {
     name: "mcp",
     factory: createMcpExtension(),

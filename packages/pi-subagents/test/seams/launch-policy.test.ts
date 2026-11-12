@@ -10,7 +10,9 @@ import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
 import { SubagentManager } from "#src/lifecycle/subagent-manager";
+import { applyAdjustment } from "#src/seams/launch-plan";
 import { LaunchPolicySlot, validAdjustment } from "#src/seams/launch-policy";
+import { buildLaunchRequest } from "#src/seams/launch-request";
 import { AgentTypeCatalog } from "#src/seams/registry";
 import type {
 	LaunchAdjustment,
@@ -506,6 +508,15 @@ describe("applying the adjustment", () => {
 		expect(h.sessionOpts().thinkingLevel).toBe("low");
 	});
 
+	it("policy-changed thinking is the record's thinking", async () => {
+		const h = harness();
+		register(h, () => ({ thinking: "low" }));
+
+		await h.call("call_1", { ...explore, thinking: "high" });
+
+		expect(h.manager.listAgents()[0]!.thinkingLevel).toBe("low");
+	});
+
 	it("a locked field is kept, with a debug note", async () => {
 		const h = harness({ agent: { thinking: "high", locked: ["thinking"] } });
 		register(h, () => ({ thinking: "max" }));
@@ -597,6 +608,46 @@ describe("applying the adjustment", () => {
 		await h.call("call_1", explore);
 
 		expect(h.sessionOpts().tools).not.toContain("web_search");
+	});
+});
+
+describe("the plan's accepted removals", () => {
+	function planFor(config: Partial<AgentConfig>, removeTools: string[]) {
+		const request = buildLaunchRequest({
+			agentId: "a1",
+			agentType: "Explore",
+			config: makeAgentConfig({ name: "Explore", ...config }),
+			origin: { kind: "service" },
+			prompt: "p",
+			description: "d",
+			requested: {},
+			inheritContext: false,
+			isBackground: false,
+			parentTools: ["read", "edit", "web_search"].map(topLevel),
+			excludedPackages: [],
+		});
+		return applyAdjustment(request, { removeTools });
+	}
+
+	it("lists an accepted removal of a default", () => {
+		const plan = planFor(
+			{ toolNames: undefined, toolsDeclared: false },
+			["edit"],
+		);
+		expect(plan.removed).toEqual(["edit"]);
+	});
+
+	it("does not list a refused removal", () => {
+		const plan = planFor({ toolNames: ["read", "edit"] }, ["edit"]);
+		expect(plan.removed).toEqual([]);
+	});
+
+	it("does not list a removal outside the defaults", () => {
+		const plan = planFor(
+			{ toolNames: undefined, toolsDeclared: false },
+			["web_search"],
+		);
+		expect(plan.removed).toEqual([]);
 	});
 });
 

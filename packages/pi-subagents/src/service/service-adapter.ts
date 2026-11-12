@@ -227,6 +227,10 @@ export function toSubagentRecord(record: Subagent): SubagentRecord {
   const { effectiveModel, effectiveThinking } = record.effective;
   if (effectiveModel !== undefined) out.effectiveModel = effectiveModel;
   if (effectiveThinking !== undefined) out.effectiveThinking = effectiveThinking;
+  if (record.toolFacts !== undefined) {
+    out.toolCount = record.toolFacts.toolCount;
+    out.blockedToolCount = record.toolFacts.blockedToolCount;
+  }
 
   return out;
 }

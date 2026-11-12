@@ -328,3 +328,48 @@ describe("effective model and thinking", () => {
 		expect(record).not.toHaveProperty("effectiveThinking");
 	});
 });
+
+describe("tool facts", () => {
+	const withBash = { disallowedTools: ["bash"], toolNames: ["read", "bash"] };
+
+	it("bound record carries tool facts", async () => {
+		const h = harness({
+			agent: withBash,
+			bind: (session) => {
+				session.getActiveToolNames.mockReturnValue(["read", "grep", "edit"]);
+			},
+		});
+
+		await h.call("call_1", explore);
+
+		const record = toSubagentRecord(h.manager.listAgents()[0]!);
+		expect(record.toolCount).toBe(3);
+		expect(record.blockedToolCount).toBe(1);
+	});
+
+	it("queued record has none", () => {
+		const h = harness({ maxConcurrent: 0 });
+		const id = h.manager.spawn(snapshot, "Explore", "go", {
+			origin: { kind: "service" },
+			description: "d",
+			background: { kind: "explicit", isBackground: true },
+		});
+		const record = toSubagentRecord(h.manager.getRecord(id)!);
+
+		expect(record.status).toBe("queued");
+		expect(record).not.toHaveProperty("toolCount");
+		expect(record).not.toHaveProperty("blockedToolCount");
+	});
+
+	it("facts survive release", async () => {
+		const h = harness({ agent: withBash });
+		await h.call("call_1", explore);
+		const record = h.manager.listAgents()[0]!;
+		const before = record.toolFacts;
+
+		await record.releaseSession();
+
+		expect(before).toEqual({ toolCount: 1, blockedToolCount: 1 });
+		expect(record.toolFacts).toEqual(before);
+	});
+});

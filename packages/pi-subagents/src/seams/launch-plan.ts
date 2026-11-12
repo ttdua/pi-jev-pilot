@@ -20,6 +20,8 @@ export interface LaunchPlan {
 	toolNames: string[];
 	/** Granted names, checked in the child after its extensions bind. */
 	grants: string[];
+	/** Accepted removals that were in the defaults; refused ones never appear. */
+	removed: string[];
 }
 
 /** Apply `adjustment` to `request` under the executor's precedence rules. */
@@ -35,7 +37,10 @@ export function applyAdjustment(
 	const grants = allowedGrants(request, adjustment.addTools ?? []).filter(
 		(name) => !toolNames.includes(name),
 	);
-	const plan: LaunchPlan = { toolNames, grants };
+	const removed = request.toolSet.defaults.filter((name) =>
+		removals.has(name),
+	);
+	const plan: LaunchPlan = { toolNames, grants, removed };
 	const model = unlockedValue(request, "model", adjustment.model);
 	if (model !== undefined) plan.model = model;
 	const thinking = unlockedValue(request, "thinking", adjustment.thinking);

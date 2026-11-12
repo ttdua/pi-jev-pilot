@@ -56,7 +56,7 @@ export interface LaunchOverrides {
 	model: Model<any> | undefined;
 	thinkingLevel: ThinkingLevel | undefined;
 	/** The child's base tool names, and the grants among them to check after bind. */
-	tools?: { toolNames: string[]; grants: string[] };
+	tools?: { toolNames: string[]; grants: string[]; removed: readonly string[] };
 }
 
 export class LaunchPolicyGate {
@@ -127,7 +127,11 @@ function overridesOf(
 	return {
 		model: model ?? base.model,
 		thinkingLevel: plan.thinking ?? base.thinkingLevel,
-		tools: { toolNames: plan.toolNames, grants: plan.grants },
+		tools: {
+			toolNames: plan.toolNames,
+			grants: plan.grants,
+			removed: plan.removed,
+		},
 	};
 }
 
