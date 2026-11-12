@@ -21,7 +21,6 @@ import {
 	finalToolNames,
 } from "#src/seams/registry";
 import {
-	BUILTIN_EXTENSION_TOOL_NAMES,
 	builtinExtensionsFor,
 } from "#src/session/builtin-extensions";
 import type { AgentTypeSnapshot } from "#src/service/service";
@@ -512,15 +511,8 @@ describe("blocked tool count", () => {
 	});
 });
 
-describe("BUILTIN_EXTENSION_TOOL_NAMES", () => {
-	it("holds the fixed tool names the built-in extensions supply", () => {
-		for (const name of ["codemode", "tool_search", "read_mcp_resource"])
-			expect(BUILTIN_EXTENSION_TOOL_NAMES.has(name)).toBe(true);
-		for (const name of ["mcp__srv__x", "ghost"])
-			expect(BUILTIN_EXTENSION_TOOL_NAMES.has(name)).toBe(false);
-	});
-
-	it("leaves the extension selection unchanged", () => {
+describe("builtinExtensionsFor", () => {
+	it("selects codemode by its tool name", () => {
 		expect(builtinExtensionsFor(["codemode"]).map((e) => e.name)).toEqual([
 			"codemode",
 		]);
