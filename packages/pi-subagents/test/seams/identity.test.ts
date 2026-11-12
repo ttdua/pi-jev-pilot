@@ -372,4 +372,21 @@ describe("tool facts", () => {
 		expect(before).toEqual({ toolCount: 1, blockedToolCount: 1 });
 		expect(record.toolFacts).toEqual(before);
 	});
+
+	it("facts stay unchanged across a resume that reuses the session", async () => {
+		const h = harness({ agent: withBash });
+		await h.call("call_1", explore);
+		const record = h.manager.listAgents()[0]!;
+		const before = record.toolFacts;
+
+		await h.call("call_2", {
+			prompt: "more",
+			description: "d",
+			subagent_type: "Explore",
+			resume: record.id,
+		});
+
+		expect(h.on("subagents:resumed")).toHaveLength(1);
+		expect(record.toolFacts).toEqual(before);
+	});
 });
