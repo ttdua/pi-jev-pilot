@@ -89,6 +89,19 @@ export default function (pi: ExtensionAPI): void {
     report("child:bound", { data: { granted: granted.includes("probe_tool") } });
   });
 
+  pi.events.on("subagents:completed", (payload) => {
+    const id = (payload as { id?: string }).id;
+    if (id === undefined) return;
+    const record = service()?.getRecord(id);
+    report("record:facts", {
+      data: {
+        agentId: id,
+        toolCount: record?.toolCount ?? -1,
+        blockedToolCount: record?.blockedToolCount ?? -1,
+      },
+    });
+  });
+
   pi.registerTool({
     name: "probe_tool",
     label: "probe_tool",
