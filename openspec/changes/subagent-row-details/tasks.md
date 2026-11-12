@@ -36,11 +36,11 @@ Blocked by: 1, 2
 
 Blocked by: 3, 4
 
-- [ ] 5.1 Regenerate `packages/pi-subagents/dist/public.d.ts` with `bun run --cwd packages/pi-subagents build:types` and run `verify:public-types`
-- [ ] 5.2 Add or update `VENDORED.md` rows for every new and edited file under `packages/pi-subagents/`; `tests/vendoring.test.ts` passes
-- [ ] 5.3 Update `packages/pi-subagents/README.md` (widget, inline result and fleet list examples), `docs/usage-guide.md` (subagent list row) and `CHANGELOG.md` (Unreleased)
-- [ ] 5.4 Host test `tests/host/run-facts-offline.test.ts` (executor-only install, `policy` probe reporting record counts): one subagent against the loopback provider fixture; the record carries `toolCount` and `blockedToolCount`, and the fixture sees only the run's provider requests (spec "Run facts make no outside calls")
-- [ ] 5.5 Run `bun run test:executor`, `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test` from the root; all pass
+- [x] 5.1 Regenerate `packages/pi-subagents/dist/public.d.ts` with `bun run --cwd packages/pi-subagents build:types` and run `verify:public-types`
+- [x] 5.2 Add or update `VENDORED.md` rows for every new and edited file under `packages/pi-subagents/`; `tests/vendoring.test.ts` passes
+- [x] 5.3 Update `packages/pi-subagents/README.md` (widget, inline result and fleet list examples), `docs/usage-guide.md` (subagent list row) and `CHANGELOG.md` (Unreleased)
+- [x] 5.4 Host test `tests/host/run-facts-offline.test.ts` (executor-only install, `policy` probe reporting record counts): one subagent against the loopback provider fixture; the record carries `toolCount` and `blockedToolCount`, and the fixture sees only the run's provider requests (spec "Run facts make no outside calls")
+- [x] 5.5 Run `bun run test:executor`, `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test` from the root; all pass
 
 ## 6. End-to-end check
 
