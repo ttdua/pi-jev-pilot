@@ -29,8 +29,8 @@ Blocked by: 1, 2
 
 Blocked by: 1, 2
 
-- [ ] 4.1 `WidgetAgent` gains the run-facts fields; `AgentWidget.toWidgetAgent` (`src/ui/agent-widget.ts`) fills them; `modelTag` in `src/ui/widget-renderer.ts` becomes the bracket run-facts tag, used for both running and finished lines. Tests in `test/widget-renderer.test.ts` and `test/ui/agent-widget.test.ts`
-- [ ] 4.2 `FleetAgent` and `renderAgentRow` in `src/ui/fleet-roster.ts` append the run-facts parts after the description (design D7). Tests in `test/ui/fleet-roster.test.ts` for "Row with run facts" and "Narrow row keeps stats" (width 40); the existing "Row text" and "Narrow terminal" tests stay green
+- [x] 4.1 `WidgetAgent` gains the run-facts fields; `AgentWidget.toWidgetAgent` (`src/ui/agent-widget.ts`) fills them; `modelTag` in `src/ui/widget-renderer.ts` becomes the bracket run-facts tag, used for both running and finished lines. Tests in `test/widget-renderer.test.ts` and `test/ui/agent-widget.test.ts`
+- [x] 4.2 `FleetAgent` and `renderAgentRow` in `src/ui/fleet-roster.ts` append the run-facts parts after the description (design D7). Tests in `test/ui/fleet-roster.test.ts` for "Row with run facts" and "Narrow row keeps stats" (width 40); the existing "Row text" and "Narrow terminal" tests stay green
 
 ## 5. Public types, provenance and docs
 
