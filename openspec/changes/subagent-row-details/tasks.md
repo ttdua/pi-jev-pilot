@@ -2,9 +2,9 @@
 
 Blocked by: none
 
-- [ ] 1.1 Add `tools: "🔧"` and `blocked: "⊘"` to `GLYPHS` in `packages/pi-subagents/src/ui/glyphs.ts`, with their coverage noted in the header comment (design D6)
-- [ ] 1.2 Create `packages/pi-subagents/src/ui/run-facts.ts`: `RunFacts`, `runFactsOf(source)`, `formatRunFacts(facts)` (named parts) and `runFactParts(facts)` (ordered list) per design D1 and spec "Run facts format"
-- [ ] 1.3 Unit tests `packages/pi-subagents/test/ui/run-facts.test.ts`: all facts, `⊘` hidden at 0, unknown facts omitted, no parts when nothing is known
+- [x] 1.1 Add `tools: "🔧"` and `blocked: "⊘"` to `GLYPHS` in `packages/pi-subagents/src/ui/glyphs.ts`, with their coverage noted in the header comment (design D6)
+- [x] 1.2 Create `packages/pi-subagents/src/ui/run-facts.ts`: `RunFacts`, `runFactsOf(source)`, `formatRunFacts(facts)` (named parts) and `runFactParts(facts)` (ordered list) per design D1 and spec "Run facts format"
+- [x] 1.3 Unit tests `packages/pi-subagents/test/ui/run-facts.test.ts`: all facts, `⊘` hidden at 0, unknown facts omitted, no parts when nothing is known
 
 ## 2. Tool facts captured on the record
 
