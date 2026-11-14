@@ -1,0 +1,8 @@
+{"type":"session","version":3,"id":"s-size","timestamp":"2026-03-01T00:00:00Z","cwd":"/work/size"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-03-01T00:00:01Z","message":{"role":"user","content":"Size prompt one"}}
+{"type":"custom","id":"t1","parentId":"u1","timestamp":"2026-03-01T00:00:02Z","customType":"jev-turn","data":{"turnId":"turn-s1"}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2026-03-01T00:00:03Z","message":{"role":"assistant","content":[{"type":"text","text":"Done."}]}}
+{"type":"message","id":"u2","parentId":"a1","timestamp":"2026-03-01T00:00:04Z","message":{"role":"user","content":"Size prompt two"}}
+{"type":"custom","id":"t2","parentId":"u2","timestamp":"2026-03-01T00:00:05Z","customType":"jev-turn","data":{"turnId":"turn-s2"}}
+{"type":"message","id":"u3","parentId":null,"timestamp":"2026-03-01T00:00:06Z","message":{"role":"user","content":"Size sibling prompt"}}
+{"type":"custom","id":"t3","parentId":"u3","timestamp":"2026-03-01T00:00:07Z","customType":"jev-turn","data":{"turnId":"turn-s3"}}

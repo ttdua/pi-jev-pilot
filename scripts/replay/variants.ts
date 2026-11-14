@@ -2,7 +2,7 @@
 import type { QuestionSpec } from "../../src/policy/answers.ts";
 import { buildWorkerState, mainState, pickRich, type RichGroup } from "../../src/jev/state.ts";
 import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
-import type { WireQuestion } from "../../src/jev/rubrics.ts";
+import { MAIN_EFFORT_INSTRUCTION, type WireQuestion } from "../../src/jev/rubrics.ts";
 import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
 import type { ModeName } from "../../src/policy/worker/index.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
@@ -35,7 +35,26 @@ const WORKER_PREFIX = "worker:";
 /** What a `variantKey` stands for: its kind and the key of the variant it is compared with. */
 export function baseOfKey(key: string): { kind: "main" | "worker"; base: string } {
   if (key.startsWith(WORKER_PREFIX)) return { kind: "worker", base: variantKey("worker", "base") };
-  return { kind: "main", base: key.startsWith("full-") ? "full" : "minimal" };
+  const onFull = key.startsWith("full-") || isNewFull(key);
+  return { kind: "main", base: onFull ? "full" : "minimal" };
+}
+
+/** Variants that change one thing against `full`. Their ids are always valid for `--only`. */
+export const NEW_FULL_VARIANTS = ["role-rule", "no-prompt-chars"] as const;
+
+const isNewFull = (id: string): boolean => (NEW_FULL_VARIANTS as readonly string[]).includes(id);
+
+/** The candidate sentence for replies to the assistant's own question, by role rather than length. */
+export const ROLE_RULE_SENTENCE =
+  "A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.";
+
+const SHORT_REPLY = "A short reply";
+
+/** The shipped instruction cut before its short-reply sentence, plus the role rule. */
+export function roleRuleInstruction(shipped: string): string {
+  const at = shipped.indexOf(SHORT_REPLY);
+  if (at < 0) throw new Error("the effort instruction has no short-reply sentence");
+  return `${shipped.slice(0, at)}${ROLE_RULE_SENTENCE}`;
 }
 
 export type Plan = {
@@ -59,8 +78,8 @@ const ALWAYS = new Set(["minimal", "rerun-a", "rerun-b", "base"]);
 
 function selected(id: string, only: readonly string[] | undefined): boolean {
   if (only === undefined || ALWAYS.has(id) || only.includes(id)) return true;
-  // `full` is the base of every `full-G`.
-  return id === "full" && only.some((o) => o.startsWith("full-"));
+  // `full` is the base of every `full-G` and of the new full-based variants.
+  return id === "full" && only.some((o) => o.startsWith("full-") || isNewFull(o));
 }
 
 const GROUPS: readonly RichGroup[] = ["last_decision", "capabilities"];
@@ -72,6 +91,7 @@ type MainVariant = {
   /** Groups a sample must have; a sample missing one is excluded from this variant. */
   needs: readonly RichGroup[];
   order?: "reversed";
+  edit?: (typeof NEW_FULL_VARIANTS)[number];
 };
 
 function mainVariants(input: PlanInput): MainVariant[] {
@@ -87,12 +107,15 @@ function mainVariants(input: PlanInput): MainVariant[] {
     needs: candidates, // the same sample set as `full`, so each request has a `full` pair
   }));
   const tail: MainVariant[] = [{ ...plain("effort-reversed"), order: "reversed" }];
-  return [...head, full, ...addOne, ...leaveOne, ...tail];
+  const onFull: MainVariant[] = input.hasSnapshot
+    ? NEW_FULL_VARIANTS.map((id) => ({ ...full, id, base: "full", edit: id }))
+    : [];
+  return [...head, full, ...addOne, ...leaveOne, ...tail, ...onFull];
 }
 
 /** Every variant id a pass can plan, main and worker, for validating `--only`. */
 export function variantIds(input: PlanInput): string[] {
-  const main = mainVariants(input).map((v) => v.id);
+  const main = [...mainVariants(input).map((v) => v.id), ...NEW_FULL_VARIANTS];
   const workers = WORKER_VARIANTS.map((v) => v.id);
   return [...new Set([...main, ...workers])];
 }
@@ -127,11 +150,27 @@ const reversedOrder = (q: Questions): readonly string[] => {
   return spec?.type === "choice" ? [...spec.options].reverse() : [];
 };
 
+/** The questions with the effort instruction replaced and nothing else changed. */
+function withRoleRule(q: Questions): Questions {
+  const effort = q.wire["effort"];
+  if (effort === undefined) return q;
+  const instructions = roleRuleInstruction(MAIN_EFFORT_INSTRUCTION);
+  return { ...q, wire: { ...q.wire, effort: { ...effort, instructions } } };
+}
+
+/** A copy of the built state without `request.prompt_chars`. */
+function withoutPromptChars(state: ReturnType<typeof mainState>): unknown {
+  const copy = structuredClone(state) as { request: Record<string, unknown> };
+  delete copy.request["prompt_chars"];
+  return copy;
+}
+
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
   const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
   const reversed = deepFreeze(withEffortOrder(base, reversedOrder(base)));
+  const roleRule = deepFreeze(withRoleRule(base));
   for (const v of variants) {
-    const q = v.order === undefined ? base : reversed;
+    const q = v.order !== undefined ? reversed : v.edit === "role-rule" ? roleRule : base;
     main.forEach((m, sample) => {
       if (v.needs.some((g) => m.missing.includes(g))) {
         const key = variantKey("main", v.id);
@@ -139,12 +178,18 @@ function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): voi
         return;
       }
       const rich = pickRich(m.rich, v.groups);
+      const built = mainState({
+        prompt: m.sample.prompt,
+        items: m.items,
+        platforms: m.platforms,
+        rich,
+      });
       plan.requests.push({
         variant: v.id,
         base: v.base,
         sample,
         kind: "main",
-        state: mainState({ prompt: m.sample.prompt, items: m.items, platforms: m.platforms, rich }),
+        state: v.edit === "no-prompt-chars" ? withoutPromptChars(built) : built,
         questions: q.wire,
         specs: q.specs,
       });
@@ -240,7 +285,7 @@ function planWorkers(
 
 export function planPass(input: PlanInput): Plan {
   const plan: Plan = { requests: [], skipped: [], excluded: {} };
-  if (!input.hasSnapshot) plan.skipped.push("capabilities", "workers");
+  if (!input.hasSnapshot) plan.skipped.push("capabilities", "workers", ...NEW_FULL_VARIANTS);
   const variants = mainVariants(input).filter((v) => selected(v.id, input.only));
   planMain(variants, input.main, plan);
   if (input.hasSnapshot) planWorkers(input.workers, input.config, plan, input.only);

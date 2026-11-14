@@ -89,9 +89,12 @@ function setupOf(args: Args, env: Env): Setup | number {
 }
 
 function sampleInputs(args: Args, setup: Setup, workerCount: number) {
-  const main = sample(mainSamples(setup.sessionsDir), args.main, args.seed, mainStratum).map((s) =>
-    rebuildMain(s, setup.ctx),
-  );
+  const main = sample(
+    mainSamples(setup.sessionsDir, setup.ctx.ledger),
+    args.main,
+    args.seed,
+    mainStratum,
+  ).map((s) => rebuildMain(s, setup.ctx));
   const workers = sample(workerSamples(setup.sessionsDir), workerCount, args.seed, workerKind).map(
     (w) => {
       const agent = agentFacts(setup.snapshot, w.agent);
@@ -132,6 +135,7 @@ async function replayPass1(args: Args, setup: Setup): Promise<number> {
     pass: 1,
     samples: counts,
     config: config.plain,
+    toolCalls: main.map((m) => m.sample.toolCalls),
   });
   const cases = diffCases(plan, results, config.plain, (kind, i) =>
     kind === "main" ? (main[i]?.sample.prompt ?? "") : (workers[i]?.sample.brief ?? ""),

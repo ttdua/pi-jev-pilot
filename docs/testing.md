@@ -80,6 +80,13 @@ A manual procedure (not in CI) that sends real prompts to real Jev with and with
 
 Options: `--pass 1|report` (pass 2 was removed), `--seed N` (1), `--main N` (100), `--workers N` (46 for pass 1, 200 for report), `--sessions DIR` (`<agentDir>/sessions`), `--url URL` (must be https or loopback http), `--only a,b` (run only the bases, the reruns and the listed variants, for example `--only effort-reversed`). `--models FILE` is still accepted but does nothing: the context percentage it served was removed.
 
+Two variants change one thing against `full`, so their base is `full` and not `minimal`; `--only role-rule` or `--only no-prompt-chars` also plans `full`, `minimal`, `rerun-a` and `rerun-b`. Both need `--capabilities`: without it they are listed on the `skipped:` line. Their noise is the `minimal` rerun flips, a bound that is only an approximation for a pair against `full`.
+
+- `role-rule` replaces the short-reply sentence of the effort instruction with a rule by role (a reply to the assistant's own question or proposal takes the size of the work it approves), and changes nothing else.
+- `no-prompt-chars` removes `request.prompt_chars` from the state and changes nothing else.
+
+Each main variant except the bases also gets `size` in `aggregates.json`: how its effort moved against its base (`raised`, `same`, `lowered`) on `large` turns (15 or more tool calls) and `small` turns, plus `unknown` when the turn has no tool-call count. The count comes from the `toolCalls` field of the turn's line in the Jev ledger, read from `<agentDir>/jev` (not from `--sessions`). It holds counts only, never text.
+
 Outputs go under `<agentDir>/jev/replay/<run-id>/`: `aggregates.json` (counts only) and `cases.md` (the differing prompts and briefs). They are private and owner-only. Copy only aggregates into evidence, and delete the directory after the decision.
 
 ### Release report

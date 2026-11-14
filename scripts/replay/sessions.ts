@@ -5,7 +5,12 @@ import type { SessionEntryLike } from "../../src/jev/branch.ts";
 
 export type SessionEntry = SessionEntryLike & { parentId?: string | null };
 export type SessionHeader = { id: string; cwd: string; parentSession?: string };
-export type LedgerMain = { effective?: string; strategy?: string; from?: string };
+export type LedgerMain = {
+  effective?: string;
+  strategy?: string;
+  from?: string;
+  toolCalls?: number;
+};
 
 function parseLine(line: string): Record<string, unknown> | undefined {
   try {
@@ -83,10 +88,14 @@ export function readLedgerLines(dir: string): Map<string, LedgerMain> {
       const effective = str(line.effective);
       const strategy = str(line.strategy);
       const from = str(line.from);
+      const toolCalls = line.toolCalls;
       out.set(turnId, {
         ...(effective ? { effective } : {}),
         ...(strategy ? { strategy } : {}),
         ...(from ? { from } : {}),
+        ...(typeof toolCalls === "number" && Number.isInteger(toolCalls) && toolCalls >= 0
+          ? { toolCalls }
+          : {}),
       });
     }
   }

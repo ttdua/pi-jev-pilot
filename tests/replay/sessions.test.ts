@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { branchTo, readLedgerLines, readSessionFile } from "../../scripts/replay/sessions.ts";
-
 const dir = join(import.meta.dir, "../fixtures/replay/sessions");
 
 describe("sessions", () => {
@@ -43,6 +44,32 @@ describe("sessions", () => {
   test("ledger lines parsed, bad lines skipped", () => {
     const ledger = readLedgerLines(dir);
     expect([...ledger.keys()].sort()).toEqual(["turn-1", "turn-2"]);
-    expect(ledger.get("turn-2")).toEqual({ effective: "medium", strategy: "auto", from: "low" });
+    expect(ledger.get("turn-2")).toEqual({
+      effective: "medium",
+      strategy: "auto",
+      from: "low",
+      toolCalls: 20,
+    });
+  });
+});
+
+describe("ledger toolCalls", () => {
+  test("keeps toolCalls only as a non-negative integer", () => {
+    const d = mkdtempSync(join(tmpdir(), "replay-ledger-"));
+    try {
+      const values = [20, 0, -1, 2.5, '"7"'];
+      const lines = values.map((v, i) => `{"kind":"main","turnId":"t${i}","toolCalls":${v}}`);
+      writeFileSync(join(d, "ledger.jsonl"), `${lines.join("\n")}\n`);
+      const ledger = readLedgerLines(d);
+      expect([0, 1, 2, 3, 4].map((i) => ledger.get(`t${i}`)?.toolCalls)).toEqual([
+        20,
+        0,
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 });

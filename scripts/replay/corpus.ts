@@ -10,6 +10,8 @@ export type MainSample = {
   prompt: string;
   branch: SessionEntry[];
   startEffort?: string;
+  /** The own turn's ledger `toolCalls`. */
+  toolCalls?: number;
 };
 
 export type WorkerSample = {
@@ -109,8 +111,21 @@ function startEffortOf(
   });
 }
 
-export function mainSamples(dir: string): MainSample[] {
-  const ledger = readLedgerLines(dir);
+/** Tool calls of this prompt's own turn: the ledger line of its own `jev-turn` entry, if any. */
+function turnToolCallsOf(
+  entries: readonly SessionEntry[],
+  index: number,
+  ledger: ReturnType<typeof readLedgerLines>,
+): number | undefined {
+  return walkBranch(entries, index, (e) => {
+    const data = isRec(e.data) ? e.data : undefined;
+    if (e.type !== "custom" || e.customType !== "jev-turn" || !data) return undefined;
+    const turnId = str(data.turnId);
+    return turnId ? ledger.get(turnId)?.toolCalls : undefined;
+  });
+}
+
+export function mainSamples(dir: string, ledger: ReturnType<typeof readLedgerLines>): MainSample[] {
   const seen = new Set<string>();
   const out: MainSample[] = [];
   for (const path of sessionFiles(dir)) {
@@ -122,6 +137,7 @@ export function mainSamples(dir: string): MainSample[] {
       if (prompt === undefined || !entry.id || isExcludedPrompt(prompt) || seen.has(prompt)) return;
       seen.add(prompt);
       const startEffort = startEffortOf(entries, index, ledger);
+      const toolCalls = turnToolCallsOf(entries, index, ledger);
       out.push({
         session: header.id,
         cwd: header.cwd,
@@ -129,6 +145,7 @@ export function mainSamples(dir: string): MainSample[] {
         prompt,
         branch: branchTo(entries, entry.id),
         ...(startEffort ? { startEffort } : {}),
+        ...(toolCalls === undefined ? {} : { toolCalls }),
       });
     });
   }
