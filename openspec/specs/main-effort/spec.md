@@ -53,7 +53,7 @@ A main decision SHALL be attempted only when every condition holds: the run was 
 - **THEN** no Jev request is sent and no ledger line is written
 
 ### Requirement: Main questions
-A main request SHALL ask `corrects` (a noul). When the `effort` feature is on, the selected model supports at least two levels from `low` upward, and the prompt is not held (see `effort-hold`), it MUST also ask `effort` (a choice over `low`, `medium`, `high`, `xhigh`, `max`, in that order) and `risky` (a noul). When the `strategy` feature is on, it MUST also ask `tier` and `strategy` as the `strategy-advice` capability defines, held or not. When skills apply, the first batch's skill questions follow `corrects`, as `skill-pick` defines. A hold applies only while `effort` is on. Wording follows `docs/jev-questions.md`. No other question MUST be asked.
+A main request SHALL ask `corrects` (a noul). When the `effort` feature is on, the selected model supports at least two levels from `low` upward, and the prompt is not held (see `effort-hold`), it MUST also ask `effort` (a choice over the levels `low` to `max`, sent in the option order `high`, `medium`, `xhigh`, `low`, `max`, which the 2026-11-07 replay decided; policy still ranks `low` to `max`) and `risky` (a noul). When the `strategy` feature is on, it MUST also ask `tier` and `strategy` as the `strategy-advice` capability defines, held or not. When skills apply, the first batch's skill questions follow `corrects`, as `skill-pick` defines. A hold applies only while `effort` is on. Wording follows `docs/jev-questions.md`. No other question MUST be asked.
 
 #### Scenario: Reasoning model
 - **WHEN** `effort` is on, `strategy` is off, skills do not apply, and the selected model is a reasoning model supporting `low` to `high`
