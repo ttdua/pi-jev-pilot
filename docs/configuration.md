@@ -88,7 +88,7 @@ Error messages name the field and what was expected, never the value found, so a
 | Key | Default | Notes |
 |---|---|---|
 | `url` | `https://api.typesafe.ai/v1/systemone` | HTTPS, or HTTP only to loopback (`localhost`, an address in `127.0.0.0/8`, `[::1]`). No username or password. Redirects are rejected |
-| `model` | `jev-latest` | `^[A-Za-z0-9._-]{1,64}$`. Pin a version with `jev-1.14.0` |
+| `model` | `jev-latest` | `^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$`. Pin a version with `jev-1.14.0`. A Jev-compatible proxy may need a routed id such as `openrouter/perplexity/pplx-decider-v1.3:free` |
 | `apiKeyEnv` | `TYPESAFE_API_KEY` | The variable's name, `^[A-Z_][A-Z0-9_]{0,63}$`, so a pasted key is rejected. Never put the key in this file |
 | `timeoutMs` | `1500` | Range 300–5000. Tuning may change it |
 
