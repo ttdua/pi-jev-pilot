@@ -2,13 +2,13 @@
 
 Blocked by: none
 
-- [ ] 1.1 Keep `toolCalls` (non-negative integer only) in `readLedgerLines` (`scripts/replay/sessions.ts`); make `mainSamples` take the ledger as a parameter with the CLI passing the `<agentDir>/jev` ledger; carry the sample's own turn size on `MainSample` (`scripts/replay/corpus.ts`), found through the first `jev-turn` entry after the prompt as `startEffortOf` does
-- [ ] 1.2 Add the `role-rule` variant in `scripts/replay/variants.ts`: base `full`, needs the `full` groups, `effort.instructions` replaced by the candidate text from design D2, criteria and order unchanged
-- [ ] 1.3 Add the `no-prompt-chars` variant: base `full`, the `full` state with `request.prompt_chars` removed
-- [ ] 1.4 Make `baseOfKey` map both new ids to `full`, make `--only` with either name also plan `full`, keep both ids valid for `--only` without a snapshot, and list both as skipped without a snapshot
-- [ ] 1.5 Add `size` (`large`/`small` × `raised`/`same`/`lowered`, plus `unknown`) to every main variant other than `minimal` and the reruns in `scripts/replay/compare.ts`, counts only, misses and undecided effort excluded
-- [ ] 1.6 Extend fixtures under `tests/fixtures/replay/sessions/` with `toolCalls` and cover every new scenario in `tests/replay/` (variants, corpus/sessions, compare, cli `--only`)
-- [ ] 1.7 Document both variants and `size` in `docs/testing.md`
+- [x] 1.1 Keep `toolCalls` (non-negative integer only) in `readLedgerLines` (`scripts/replay/sessions.ts`); make `mainSamples` take the ledger as a parameter with the CLI passing the `<agentDir>/jev` ledger; carry the sample's own turn size on `MainSample` (`scripts/replay/corpus.ts`), found through the first `jev-turn` entry after the prompt as `startEffortOf` does
+- [x] 1.2 Add the `role-rule` variant in `scripts/replay/variants.ts`: base `full`, needs the `full` groups, `effort.instructions` replaced by the candidate text from design D2, criteria and order unchanged
+- [x] 1.3 Add the `no-prompt-chars` variant: base `full`, the `full` state with `request.prompt_chars` removed
+- [x] 1.4 Make `baseOfKey` map both new ids to `full`, make `--only` with either name also plan `full`, keep both ids valid for `--only` without a snapshot, and list both as skipped without a snapshot
+- [x] 1.5 Add `size` (`large`/`small` × `raised`/`same`/`lowered`, plus `unknown`) to every main variant other than `minimal` and the reruns in `scripts/replay/compare.ts`, counts only, misses and undecided effort excluded
+- [x] 1.6 Extend fixtures under `tests/fixtures/replay/sessions/` with `toolCalls` and cover every new scenario in `tests/replay/` (variants, corpus/sessions, compare, cli `--only`)
+- [x] 1.7 Document both variants and `size` in `docs/testing.md`
 
 ## 2. Replay run and evidence
 
