@@ -4,6 +4,23 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-15
+
+Tag: v0.4.0
+
+### Changed
+
+- Main-session effort now rates a reply to the assistant's own question, proposal, review or approval request by the work it approves or starts, read from the recent conversation, whatever the reply's length. Before, only a "short" reply got this treatment, so long replies (such as inbox answers) were rated by their own text and often started at `low`. Measured on 300 real prompts before shipping ([evidence](docs/evidence/2026-11-15-effort-reply-replay.md), [#75](https://github.com/ttdua/pi-jev-pilot/pull/75)). Effort is raised for some turns, so token use may rise slightly.
+
+### Fixed
+
+- The replay tool read the decision ledger from the sessions directory instead of `<agentDir>/jev`, so samples lost their recorded start effort ([#75](https://github.com/ttdua/pi-jev-pilot/pull/75)).
+- The `main-effort` spec now states the shipped `effort` option order (`high`, `medium`, `xhigh`, `low`, `max`) ([#76](https://github.com/ttdua/pi-jev-pilot/pull/76)).
+
+### Added
+
+- Replay pass 1: a `no-prompt-chars` variant on the shipped state, and a counts-only `size` measure that compares effort with the real tool calls of each turn ([#75](https://github.com/ttdua/pi-jev-pilot/pull/75)).
+
 ## [0.3.1] - 2026-11-12
 
 Tag: v0.3.1
