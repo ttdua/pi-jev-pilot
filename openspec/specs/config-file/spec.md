@@ -67,7 +67,7 @@ Every key that `docs/configuration.md` does not define SHALL be a problem at its
 - **THEN** the read is invalid with a problem at `__proto__`, and no object prototype is changed
 
 ### Requirement: Classifier field rules
-Every `classifier` field SHALL be optional and MUST follow these rules: `url` is accepted exactly when the Jev client's URL rule `isAllowedJevUrl` accepts it (`https:`, or `http:` whose parsed hostname is `localhost`, an IPv4 address in `127.0.0.0/8` or `[::1]`, with no username or password), and the validator MUST use that same function rather than a copy; `model` is 1–64 characters of letters, digits, `.`, `_`, `-`; `apiKeyEnv` matches `^[A-Z_][A-Z0-9_]{0,63}$`; `timeoutMs` is an integer from 300 to 5000.
+Every `classifier` field SHALL be optional and MUST follow these rules: `url` is accepted exactly when the Jev client's URL rule `isAllowedJevUrl` accepts it (`https:`, or `http:` whose parsed hostname is `localhost`, an IPv4 address in `127.0.0.0/8` or `[::1]`, with no username or password), and the validator MUST use that same function rather than a copy; `model` is 1–128 characters of letters, digits, `.`, `_`, `-`, `:`, `/`, not starting with `-`, `:` or `/` (the classifier's own rule, independent of the other model fields); `apiKeyEnv` matches `^[A-Z_][A-Z0-9_]{0,63}$`; `timeoutMs` is an integer from 300 to 5000.
 
 #### Scenario: Remote http URL rejected
 - **WHEN** `classifier.url` is `http://example.com/v1`
@@ -100,6 +100,18 @@ Every `classifier` field SHALL be optional and MUST follow these rules: `url` is
 #### Scenario: Key-shaped apiKeyEnv rejected
 - **WHEN** `classifier.apiKeyEnv` is `"sk-test-0123456789abcdef"`
 - **THEN** the read is invalid with a problem at `classifier.apiKeyEnv`
+
+#### Scenario: Router-style model accepted
+- **WHEN** `classifier.model` is each of `jev-latest`, `jev-1.14.0`, `openrouter/perplexity/pplx-decider-v1.3:free`, `.`, `_` and `default` in separate reads
+- **THEN** every read is valid and keeps the id unchanged
+
+#### Scenario: Model length bound
+- **WHEN** `classifier.model` is 128 `a` characters in one read and 129 `a` characters in another
+- **THEN** the first read is valid and the second is invalid with a problem at `classifier.model`
+
+#### Scenario: Malformed model rejected
+- **WHEN** `classifier.model` is each of `""`, `/jev`, `-jev`, `:jev`, `jev latest`, `jev` followed by a tab and `latest`, `jev-latest` followed by a newline, `key=abc` and `jev"x` in separate reads
+- **THEN** each read is invalid with a problem at `classifier.model`
 
 ### Requirement: Tier and slot field rules
 Each of `tiers.fast`, `tiers.balanced`, `tiers.deep` and `tiers.expert` SHALL be optional and, when set, MUST be an exact `provider/id` of at most 128 characters with no whitespace. `crew.slots` MUST have at most 8 entries; each needs a unique `name` matching `^[a-z][a-z0-9-]{0,23}$` that is not a reserved word from `docs/configuration.md`, a `model` as an exact `provider/id`, and a `when` of 1–500 characters after trimming. A slot without `when` MUST be invalid; there is no default `when`.
