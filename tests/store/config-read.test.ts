@@ -197,6 +197,50 @@ describe("readConfig", () => {
     ]);
   });
 
+  test("Router-style model accepted", () => {
+    for (const model of [
+      "jev-latest",
+      "jev-1.14.0",
+      "openrouter/perplexity/pplx-decider-v1.3:free",
+      ".",
+      "_",
+      "default",
+    ]) {
+      const r = readJson({ classifier: { model } });
+      expectValid(r);
+      if (r.kind === "ok") expect(r.config.classifier?.model).toBe(model);
+    }
+  });
+
+  test("Model length bound", () => {
+    expectValid(readJson({ classifier: { model: "a".repeat(128) } }));
+    expect(paths(readJson({ classifier: { model: "a".repeat(129) } }))).toEqual([
+      "classifier.model",
+    ]);
+  });
+
+  test("Malformed model rejected", () => {
+    for (const model of [
+      "",
+      "/jev",
+      "-jev",
+      ":jev",
+      "jev latest",
+      "jev\tlatest",
+      "jev-latest\n",
+      "key=abc",
+      'jev"x',
+    ]) {
+      expect(paths(readJson({ classifier: { model } }))).toEqual(["classifier.model"]);
+    }
+  });
+
+  test("Router-style model keeps the other sections", () => {
+    const full = JSON.parse(FULL);
+    full.classifier.model = "openrouter/perplexity/pplx-decider-v1.3:free";
+    expect(readJson(full)).toEqual({ kind: "ok", present: true, config: full });
+  });
+
   test("Tier without provider rejected", () => {
     expect(paths(readJson({ tiers: { fast: "claude-haiku-5-5" } }))).toEqual(["tiers.fast"]);
   });

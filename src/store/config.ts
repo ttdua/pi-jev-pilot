@@ -78,11 +78,14 @@ export const slotsValidator: V<Slot[]> = (value, path, issues) => {
 
 const providerName = string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ });
 
+/** The Jev classifier's model id; its own rule, so router ids like `provider/vendor/model:tag` fit. */
+const classifierModel = string({ pattern: /^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$/ });
+
 function configValidator(): V<Config> {
   return object({
     classifier: object({
       url,
-      model: string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ }),
+      model: classifierModel,
       apiKeyEnv: string({ pattern: /^[A-Z_][A-Z0-9_]{0,63}$/ }),
       timeoutMs: integer({ min: 300, max: 5000 }),
     }),
