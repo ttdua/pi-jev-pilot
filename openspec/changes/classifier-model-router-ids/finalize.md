@@ -10,8 +10,8 @@
 
 - **Branch**: `fix/classifier-model-router-ids`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` (local merge done; push and PR pending explicit user approval, per project AGENTS.md: no push or PR without approval in chat)
-- **PR URL**: `N/A` (no PR yet)
+- **Final state**: `pr-updated` (PR opened after the user approved push and PR in chat)
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/79`
 
 ---
 
@@ -24,7 +24,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted`
 
 ---
 
@@ -44,4 +44,4 @@
 
 ## Next step
 
-Push `fix/classifier-model-router-ids` and open a PR once the user approves. After PR review, run `/opsx-archive` on this feature branch, push the archive commits, then merge the PR.
+Wait for PR code review. After approval, run `/opsx-archive` on this feature branch, push the archive commits, then merge the PR.
