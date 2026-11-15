@@ -7,7 +7,7 @@
 
 **Change**: `effort-reply-by-context`
 **Finalized at**: `2026-11-15 02:15` (UTC)
-**Outcome**: `pr-updated` (git-side closeout; push and PR pending operator approval, see Deviations)
+**Outcome**: `pr-created` (git-side closeout; no PR existed before finalize, so one was opened after operator approval)
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `feat/effort-reply-by-context`
 - **Base branch**: `main`
-- **Final state**: `pr-updated`. The worktree branch was fast-forwarded into the feature branch locally at `54351a3c`. The feature branch is not pushed yet.
-- **PR URL**: `N/A` (no PR yet)
+- **Final state**: `pr-open`. The worktree branch was fast-forwarded into the feature branch at `54351a3c`, and the branch was pushed to `origin`.
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/75`
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/75#issuecomment-6887841047)
 
 ---
 
@@ -51,7 +51,7 @@
 
 ## Deviations
 
-- **Steps 10–11 (push, PR) not run yet.** The user's `AGENTS.md` overrides finalize here: no push, merge or PR without explicit approval in chat. The push of `feat/effort-reply-by-context` and the PR offer wait for that approval.
+- **Steps 10–11 (push, PR) waited for explicit operator approval,** as the user's `AGENTS.md` requires. The operator approved "push and open the PR" in the Inbox. `gh` was checked to run as `ttdua`, the remote owner.
 - **Step 3 `git pull` skipped.** The feature branch has no upstream yet: it was created locally at apply step 0.
 - **Step 6 provenance guard replaced by `wt remove`,** following the user's `AGENTS.md` rule that worktrees are created, listed and removed only through Worktrunk.
 
@@ -59,5 +59,4 @@
 
 ## Next step
 
-- **If the operator approves the push and PR:** push `feat/effort-reply-by-context`, open the PR, and post the orientation comment. Then wait for the PR code review.
-- **After PR approval:** run `/opsx-archive` on this feature branch, push the archive commits, and merge the PR. That single merge lands the implementation and the archive into `main`.
+Wait for the PR code review. After approval, run `/opsx-archive` on this feature branch (the commits land here), push the archive commits to update the PR, then merge the PR. That single merge lands the implementation and the archive into `main`.
