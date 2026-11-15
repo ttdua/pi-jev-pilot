@@ -25,6 +25,13 @@ The figures are aggregates from one operator's data. Prompts and cases are not i
 | Turn size | 70 of 300 samples have the tool calls of their own turn in the ledger (15 large, at least 15 calls; 55 small). The other 230 predate the ledger |
 | Workers | 46 sampled, 21 with an agent in the snapshot. Unchanged by this change; reruns only |
 
+**Request accounting:**
+
+| Variant | Requests | Misses | Excluded |
+|---|---|---|---|
+| `minimal`, `rerun-a`, `rerun-b`, `full`, `role-rule`, `no-prompt-chars` | 300 each | 0 | 0 |
+| worker `base`, `rerun-a`, `rerun-b` | 21 each | 0 | 25 each (agent not in the snapshot) |
+
 ## Noise
 
 Two plain reruns of `minimal` flipped effort in 16 and 13 of 300, tier in 15 and 14, strategy in 1 and 2. Noise is the larger rerun of each key. `full`-based variants are measured against the same noise.
