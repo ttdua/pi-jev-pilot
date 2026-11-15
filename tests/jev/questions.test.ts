@@ -71,6 +71,15 @@ describe("mainQuestions", () => {
   test("main effort criteria unchanged", () => {
     const effort = mainQuestions({ askEffort: true, askStrategy: false }).wire["effort"]!;
     expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
+    expect(effort.criteria).toEqual({
+      low: "Answered from what is already known, or mechanical work with nothing to work out: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, a one-line change.",
+      medium:
+        "An ordinary, well-specified change to one or a few files, or a direct question about code already in view.",
+      high: "A change across several files that needs working out, a bug whose cause is described but has to be traced, writing tests, or reviewing a diff with care.",
+      xhigh:
+        "Design across several components, a bug whose cause is unknown, a refactor with many dependents, or careful reasoning about concurrency, performance or failure modes.",
+      max: "Novel architecture, a security or data-integrity question, a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo.",
+    });
     expect(effort.criteria).toEqual(WORKER_EFFORT_QUESTION.criteria);
   });
 
