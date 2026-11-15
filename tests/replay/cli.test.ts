@@ -274,13 +274,11 @@ describe("main", () => {
 
   test("new variants without a snapshot are skipped", async () => {
     const dir = agentDir();
-    const r = await run(
-      ["--pass", "1", "--sessions", sessions, "--only", "role-rule,no-prompt-chars"],
-      { PI_CODING_AGENT_DIR: dir },
-    );
+    const r = await run(["--pass", "1", "--sessions", sessions, "--only", "no-prompt-chars"], {
+      PI_CODING_AGENT_DIR: dir,
+    });
     expect(r.code).toBe(0);
     const line = r.out.split("\n").find((l) => l.startsWith("skipped:"));
-    expect(line).toContain("role-rule");
     expect(line).toContain("no-prompt-chars");
   });
 });

@@ -43,12 +43,12 @@
 | `mainSamples` (`scripts/replay/corpus.ts`) | modified | `mainSamples(dir: string, ledger: ReturnType<typeof readLedgerLines>): MainSample[]`. The ledger is passed in, no longer read from `dir`. The CLI passes `setup.ctx.ledger`, read from `<agentDir>/jev` | no |
 | `turnToolCallsOf` (`scripts/replay/corpus.ts`, module-private) | new | `turnToolCallsOf(entries: readonly SessionEntry[], index: number, ledger: ReturnType<typeof readLedgerLines>): number \| undefined`, built on `walkBranch` like `startEffortOf` | no |
 | `MainSample` (`scripts/replay/corpus.ts`) | modified | adds `toolCalls?: number`, the own turn's ledger `toolCalls` | no |
-| `ROLE_RULE_SENTENCE` (`scripts/replay/variants.ts`, exported) | new | `string`, exactly: `A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.` | no |
-| `roleRuleInstruction(shipped: string): string` (`scripts/replay/variants.ts`, exported) | new | returns `shipped` cut before its `A short reply` sentence, plus `ROLE_RULE_SENTENCE`. Throws `Error` when `A short reply` is absent | no |
-| `MainVariant` (`scripts/replay/variants.ts`) | modified | adds `edit?: "role-rule" \| "no-prompt-chars"` | no |
-| `NEW_FULL_VARIANTS` (`scripts/replay/variants.ts`) | new | `readonly ["role-rule", "no-prompt-chars"]`. The ids are always valid for `--only`; they are planned only with a snapshot | no |
-| `Plan.skipped` content | modified | without a snapshot, it holds `"capabilities"`, `"workers"`, `"role-rule"` and `"no-prompt-chars"`, printed on the existing `skipped:` line | no |
-| `--only role-rule`, `--only no-prompt-chars` | new | operator CLI names for pass 1 that also plan `full`, `minimal`, `rerun-a` and `rerun-b` | yes (operator-facing CLI, documented in `docs/testing.md`) |
+| `ROLE_RULE_SENTENCE` (`scripts/replay/variants.ts`, exported) | new, removed in Task 3 (`role-rule` won and shipped into `MAIN_EFFORT_INSTRUCTION`) | `string`, exactly: `A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.` | no |
+| `roleRuleInstruction(shipped: string): string` (`scripts/replay/variants.ts`, exported) | new, removed in Task 3 | returns `shipped` cut before its `A short reply` sentence, plus `ROLE_RULE_SENTENCE`. Throws `Error` when `A short reply` is absent | no |
+| `MainVariant` (`scripts/replay/variants.ts`) | modified | adds `edit?: "no-prompt-chars"` (Task 3: `role-rule` removed) | no |
+| `NEW_FULL_VARIANTS` (`scripts/replay/variants.ts`) | new | `readonly ["no-prompt-chars"]` after Task 3 (`role-rule` won and shipped, so it left the replay; it was `["role-rule", "no-prompt-chars"]` in Task 1). The ids are always valid for `--only`; they are planned only with a snapshot | no |
+| `Plan.skipped` content | modified | without a snapshot, it holds `"capabilities"`, `"workers"` and `"no-prompt-chars"` (Task 3 removed `"role-rule"`), printed on the existing `skipped:` line | no |
+| `--only no-prompt-chars` (`--only role-rule` removed in Task 3) | new | operator CLI names for pass 1 that also plan `full`, `minimal`, `rerun-a` and `rerun-b` | yes (operator-facing CLI, documented in `docs/testing.md`) |
 | `SizeAggregate` (`scripts/replay/compare.ts`, exported) | new | `{ large: { raised: number; same: number; lowered: number }; small: { raised: number; same: number; lowered: number }; unknown: number }` | no |
 | `VariantAggregate.size` | modified | `size?: SizeAggregate`, present for main variants other than `minimal`, `rerun-a` and `rerun-b` | no |
 | `CompareMeta.toolCalls` | new | `toolCalls?: readonly (number \| undefined)[]`, indexed by main sample index | no |
@@ -310,7 +310,6 @@
 **state-replay**
 - One change per variant / Add-one variant → `tests/replay/variants.test.ts` "add-one" (existing)
 - One change per variant / Reversed options → `tests/replay/variants.test.ts` "reversed options" (existing)
-- One change per variant / Role rule variant → `tests/replay/variants.test.ts` "role-rule variant" (Task 1)
 - One change per variant / No prompt length variant → `tests/replay/variants.test.ts` "no-prompt-chars variant" (Task 1)
 - One change per variant / New variants need the snapshot → `tests/replay/variants.test.ts` "new variants need the snapshot" and "new ids are valid without a snapshot", plus `tests/replay/cli.test.ts` "new variants without a snapshot are skipped" (Task 1)
 - One change per variant / Only a new variant → `tests/replay/variants.test.ts` "only a new variant" (Task 1)

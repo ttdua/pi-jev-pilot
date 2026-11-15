@@ -4,11 +4,10 @@
 In pass 1, each variant SHALL differ from its base in exactly one thing:
 - one rich group added to minimal, or removed from full;
 - the reversed order of the `effort` options;
-- `role-rule`: the main `effort` instruction replaced by the candidate role-based follow-up rule, on the full state;
 - `no-prompt-chars`: `request.prompt_chars` removed from the full state;
 - for workers: `parent_request` added, the agent `description` emptied, or `instructions_excerpt` emptied.
 
-`role-rule` and `no-prompt-chars` MUST have base `full` and MUST need the same groups as `full`. A sample missing one of them MUST be excluded and counted. Without `--capabilities`, both variants MUST be skipped and reported, like the capabilities variants. `--only` with either name MUST also plan `full`.
+`no-prompt-chars` MUST have base `full` and MUST need the same groups as `full`. A sample missing one of them MUST be excluded and counted. Without `--capabilities`, the variant MUST be skipped and reported, like the capabilities variants. `--only no-prompt-chars` MUST also plan `full`.
 
 Every pass 1 run MUST include two plain reruns: `rerun-a` and `rerun-b` of `minimal` for the main side, and of `base` for the worker side. Every main variant, including those based on `full`, takes its noise from the two `minimal` reruns. The report pass follows its own requirement, *Report pass plan*.
 
@@ -20,25 +19,21 @@ Every pass 1 run MUST include two plain reruns: `rerun-a` and `rerun-b` of `mini
 - **WHEN** the replay builds the `effort-reversed` variant
 - **THEN** its `effort` options are the shipped option order reversed (`max`, `low`, `xhigh`, `medium`, `high` for the shipped `high`, `medium`, `xhigh`, `low`, `max`), and the state is minimal
 
-#### Scenario: Role rule variant
-- **WHEN** the replay builds the `role-rule` variant for a sample with a snapshot
-- **THEN** its state equals the `full` state of that sample, its base is `full`, every question other than `effort` and the `effort` criteria and option order equal those of `full`, and its `effort.instructions` equals the candidate text of this change's `design.md` (D2)
-
 #### Scenario: No prompt length variant
 - **WHEN** the replay builds the `no-prompt-chars` variant for a sample with a snapshot
 - **THEN** its base is `full`, its questions equal those of `full`, and its state equals the `full` state with `request.prompt_chars` removed and nothing else changed
 
 #### Scenario: New variants need the snapshot
-- **WHEN** the replay runs pass 1 without `--capabilities`, with or without `--only role-rule,no-prompt-chars`
-- **THEN** it exits 0, no `role-rule` or `no-prompt-chars` request is planned, and the printed `skipped:` line names `role-rule` and `no-prompt-chars`
+- **WHEN** the replay runs pass 1 without `--capabilities`, with or without `--only no-prompt-chars`
+- **THEN** it exits 0, no `no-prompt-chars` request is planned, and the printed `skipped:` line names `no-prompt-chars`
 
 #### Scenario: Only a new variant
-- **WHEN** the replay plans pass 1 with a snapshot and `--only role-rule`
-- **THEN** the plan holds `minimal`, `rerun-a`, `rerun-b`, `full` and `role-rule` main requests, every `role-rule` request has a `full` request for the same sample, and no `no-prompt-chars` request is planned
+- **WHEN** the replay plans pass 1 with a snapshot and `--only no-prompt-chars`
+- **THEN** the plan holds `minimal`, `rerun-a`, `rerun-b`, `full` and `no-prompt-chars` main requests, and every `no-prompt-chars` request has a `full` request for the same sample
 
 #### Scenario: Full-based noise
-- **WHEN** a `role-rule` run flips 3 effort decisions against `full`, and the `minimal` reruns flip 2 and 4
-- **THEN** the aggregate shows flips 3, noise 4, and does not mark `role-rule` beyond noise for effort
+- **WHEN** a `no-prompt-chars` run flips 3 effort decisions against `full`, and the `minimal` reruns flip 2 and 4
+- **THEN** the aggregate shows flips 3, noise 4, and does not mark `no-prompt-chars` beyond noise for effort
 
 #### Scenario: Reruns present
 - **WHEN** a run plan is built for pass 1

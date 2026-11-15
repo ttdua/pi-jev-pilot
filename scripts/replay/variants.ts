@@ -2,7 +2,7 @@
 import type { QuestionSpec } from "../../src/policy/answers.ts";
 import { buildWorkerState, mainState, pickRich, type RichGroup } from "../../src/jev/state.ts";
 import { buildWorkerQuestions, mainQuestions, offeredTiers } from "../../src/jev/questions.ts";
-import { MAIN_EFFORT_INSTRUCTION, type WireQuestion } from "../../src/jev/rubrics.ts";
+import type { WireQuestion } from "../../src/jev/rubrics.ts";
 import type { AgentFacts, TierName } from "../../src/policy/launch.ts";
 import type { ModeName } from "../../src/policy/worker/index.ts";
 import type { RebuiltMain, RebuiltWorker } from "./inputs.ts";
@@ -40,22 +40,9 @@ export function baseOfKey(key: string): { kind: "main" | "worker"; base: string 
 }
 
 /** Variants that change one thing against `full`. Their ids are always valid for `--only`. */
-export const NEW_FULL_VARIANTS = ["role-rule", "no-prompt-chars"] as const;
+export const NEW_FULL_VARIANTS = ["no-prompt-chars"] as const;
 
 const isNewFull = (id: string): boolean => (NEW_FULL_VARIANTS as readonly string[]).includes(id);
-
-/** The candidate sentence for replies to the assistant's own question, by role rather than length. */
-export const ROLE_RULE_SENTENCE =
-  "A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.";
-
-const SHORT_REPLY = "A short reply";
-
-/** The shipped instruction cut before its short-reply sentence, plus the role rule. */
-export function roleRuleInstruction(shipped: string): string {
-  const at = shipped.indexOf(SHORT_REPLY);
-  if (at < 0) throw new Error("the effort instruction has no short-reply sentence");
-  return `${shipped.slice(0, at)}${ROLE_RULE_SENTENCE}`;
-}
 
 export type Plan = {
   requests: PlannedRequest[];
@@ -150,14 +137,6 @@ const reversedOrder = (q: Questions): readonly string[] => {
   return spec?.type === "choice" ? [...spec.options].reverse() : [];
 };
 
-/** The questions with the effort instruction replaced and nothing else changed. */
-function withRoleRule(q: Questions): Questions {
-  const effort = q.wire["effort"];
-  if (effort === undefined) return q;
-  const instructions = roleRuleInstruction(MAIN_EFFORT_INSTRUCTION);
-  return { ...q, wire: { ...q.wire, effort: { ...effort, instructions } } };
-}
-
 /** A copy of the built state without `request.prompt_chars`. */
 function withoutPromptChars(state: ReturnType<typeof mainState>): unknown {
   const copy = structuredClone(state) as { request: Record<string, unknown> };
@@ -168,9 +147,8 @@ function withoutPromptChars(state: ReturnType<typeof mainState>): unknown {
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
   const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
   const reversed = deepFreeze(withEffortOrder(base, reversedOrder(base)));
-  const roleRule = deepFreeze(withRoleRule(base));
   for (const v of variants) {
-    const q = v.order !== undefined ? reversed : v.edit === "role-rule" ? roleRule : base;
+    const q = v.order !== undefined ? reversed : base;
     main.forEach((m, sample) => {
       if (v.needs.some((g) => m.missing.includes(g))) {
         const key = variantKey("main", v.id);

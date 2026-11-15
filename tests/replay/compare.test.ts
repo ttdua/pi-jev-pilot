@@ -300,17 +300,17 @@ describe("size", () => {
     for (let s = 0; s < 15; s++) {
       const min = mainReq("minimal", "minimal", s);
       const full = mainReq("full", "minimal", s);
-      const role = mainReq("role-rule", "full", s);
-      requests.push(min, full, role);
+      const npc = mainReq("no-prompt-chars", "full", s);
+      requests.push(min, full, npc);
       results.push(ok(min, mainBody({ effort: "low" })), ok(full, mainBody({ effort: "low" })));
-      results.push(ok(role, mainBody({ effort: s < 3 ? "high" : "low" })));
+      results.push(ok(npc, mainBody({ effort: s < 3 ? "high" : "low" })));
       for (const [v, n] of Object.entries(flips)) {
         const r = mainReq(v, "minimal", s);
         requests.push(r);
         results.push(ok(r, mainBody({ effort: s < n ? "high" : "low" })));
       }
     }
-    const v = compare(planOf(requests), results, meta).variants["role-rule"];
+    const v = compare(planOf(requests), results, meta).variants["no-prompt-chars"];
     expect(v?.base).toBe("full");
     expect(v?.flips["effort"]).toBe(3);
     expect(v?.noise["effort"]).toBe(4);

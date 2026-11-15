@@ -7,11 +7,8 @@ import {
   NEW_FULL_VARIANTS,
   type PlainConfig,
   planPass,
-  ROLE_RULE_SENTENCE,
-  roleRuleInstruction,
   variantIds,
 } from "../../scripts/replay/variants.ts";
-import { MAIN_EFFORT_INSTRUCTION } from "../../src/jev/rubrics.ts";
 import { config as helperConfig } from "./helpers.ts";
 
 const main = (missing: RichGroup[] = []): RebuiltMain => ({
@@ -110,7 +107,7 @@ describe("planPass", () => {
           .map((r) => r.variant),
       ),
     ];
-    expect(ids.slice(-3)).toEqual(["effort-reversed", "role-rule", "no-prompt-chars"]);
+    expect(ids.slice(-2)).toEqual(["effort-reversed", "no-prompt-chars"]);
   });
 
   test("--only keeps the bases, reruns and listed variants", () => {
@@ -154,7 +151,7 @@ describe("planPass", () => {
     expect(find(p, "full-capabilities")).toEqual([]);
     expect(p.requests.some((r) => r.kind === "worker")).toBe(false);
     expect(JSON.stringify(find(p, "full")[0]?.state)).not.toContain("capabilities");
-    expect(p.skipped).toEqual(["capabilities", "workers", "role-rule", "no-prompt-chars"]);
+    expect(p.skipped).toEqual(["capabilities", "workers", "no-prompt-chars"]);
   });
 
   test("missing inputs excluded", () => {
@@ -232,29 +229,6 @@ describe("planPass", () => {
 });
 
 describe("new full-based variants", () => {
-  const questionsOf = (r: { questions: unknown } | undefined) =>
-    r?.questions as Record<string, { instructions?: string; criteria: unknown }>;
-
-  test("role-rule variant", () => {
-    const p = plan1();
-    const [full] = find(p, "full");
-    const [role] = find(p, "role-rule");
-    expect(role?.base).toBe("full");
-    expect(role?.state).toEqual(full?.state);
-    const q = questionsOf(role);
-    const f = questionsOf(full);
-    for (const key of Object.keys(f).filter((k) => k !== "effort")) expect(q[key]).toEqual(f[key]);
-    expect(q["effort"]?.criteria).toEqual(f["effort"]?.criteria);
-    const text = roleRuleInstruction(MAIN_EFFORT_INSTRUCTION);
-    expect(q["effort"]?.instructions).toBe(text);
-    expect(text.endsWith(ROLE_RULE_SENTENCE)).toBe(true);
-    expect(text).not.toMatch(/\bshort\b/);
-  });
-
-  test("roleRuleInstruction throws without the short-reply sentence", () => {
-    expect(() => roleRuleInstruction("x")).toThrow();
-  });
-
   test("no-prompt-chars variant", () => {
     const p = plan1();
     const [full] = find(p, "full");
@@ -272,9 +246,7 @@ describe("new full-based variants", () => {
     for (const only of [undefined, [...NEW_FULL_VARIANTS]]) {
       const p = plan1({ hasSnapshot: false, ...(only ? { only } : {}) });
       const ids = new Set(p.requests.map((r) => r.variant));
-      expect(ids.has("role-rule")).toBe(false);
       expect(ids.has("no-prompt-chars")).toBe(false);
-      expect(p.skipped).toContain("role-rule");
       expect(p.skipped).toContain("no-prompt-chars");
     }
   });
@@ -286,15 +258,16 @@ describe("new full-based variants", () => {
       config,
       hasSnapshot: false,
     });
-    expect(ids).toContain("role-rule");
     expect(ids).toContain("no-prompt-chars");
   });
 
   test("only a new variant", () => {
-    const p = plan1({ only: ["role-rule"] });
+    const p = plan1({ only: ["no-prompt-chars"] });
     const ids = [...new Set(p.requests.filter((r) => r.kind === "main").map((r) => r.variant))];
-    expect(ids).toEqual(["minimal", "rerun-a", "rerun-b", "full", "role-rule"]);
-    expect(find(p, "full").map((r) => r.sample)).toEqual(find(p, "role-rule").map((r) => r.sample));
+    expect(ids).toEqual(["minimal", "rerun-a", "rerun-b", "full", "no-prompt-chars"]);
+    expect(find(p, "full").map((r) => r.sample)).toEqual(
+      find(p, "no-prompt-chars").map((r) => r.sample),
+    );
   });
 
   test("excluded new variant names full as base", () => {

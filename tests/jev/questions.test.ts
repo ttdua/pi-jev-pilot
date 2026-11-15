@@ -55,6 +55,31 @@ describe("mainQuestions", () => {
     expect(specs["corrects"]).toEqual({ type: "noul" });
   });
 
+  test("main effort instruction rates replies by context", () => {
+    const text = MAIN_EFFORT_INSTRUCTION;
+    expect(
+      text.startsWith("How much step-by-step reasoning does the work this request asks for need?"),
+    ).toBe(true);
+    expect(
+      text.endsWith(
+        "A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.",
+      ),
+    ).toBe(true);
+    expect(text).not.toMatch(/\bshort\b/);
+  });
+
+  test("main effort criteria unchanged", () => {
+    const effort = mainQuestions({ askEffort: true, askStrategy: false }).wire["effort"]!;
+    expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
+    expect(effort.criteria).toEqual(WORKER_EFFORT_QUESTION.criteria);
+  });
+
+  test("worker effort instruction unchanged", () => {
+    expect(WORKER_EFFORT_QUESTION.instructions).toBe(
+      "How much step-by-step reasoning does a subagent need to carry out this brief? A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, an unknown cause, or reasoning that is not already written out. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
+    );
+  });
+
   test("main tier uses the main criteria with no prefix and no expert", () => {
     const tier = mainQuestions({ askEffort: false, askStrategy: true }).wire["tier"]!;
     expect(tier.instructions).toBe(TIER_INSTRUCTION);
