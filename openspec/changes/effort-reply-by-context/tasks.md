@@ -23,10 +23,10 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 Replace the last sentence of `MAIN_EFFORT_INSTRUCTION` in `src/jev/rubrics.ts` with the measured candidate text, and update the main instruction in `docs/jev-questions.md` to match
-- [ ] 3.2 Update `tests/jev/questions.test.ts` for the new text, no `short`, and the worker instruction unchanged; keep the Jev-500 host test green
-- [ ] 3.3 Remove the `role-rule` variant and its candidate constant from `scripts/replay/variants.ts` and its tests, since it now equals `full`, and remove every normative reference to `role-rule` from `specs/state-replay/spec.md` and `docs/testing.md` as design D6 lists
-- [ ] 3.4 If `role-rule` lost: ship nothing and keep the variant; close this group unticked with a note in `tasks.md`, and delete `specs/main-effort/spec.md` from the change before verify
+- [x] 3.1 Replace the last sentence of `MAIN_EFFORT_INSTRUCTION` in `src/jev/rubrics.ts` with the measured candidate text, and update the main instruction in `docs/jev-questions.md` to match
+- [x] 3.2 Update `tests/jev/questions.test.ts` for the new text, no `short`, and the worker instruction unchanged; keep the Jev-500 host test green
+- [x] 3.3 Remove the `role-rule` variant and its candidate constant from `scripts/replay/variants.ts` and its tests, since it now equals `full`, and remove every normative reference to `role-rule` from `specs/state-replay/spec.md` and `docs/testing.md` as design D6 lists
+- [x] 3.4 Not applicable: `role-rule` won (see docs/evidence/2026-11-15-effort-reply-replay.md). If `role-rule` lost: ship nothing and keep the variant; close this group unticked with a note in `tasks.md`, and delete `specs/main-effort/spec.md` from the change before verify
 
 ## 4. Drop `prompt_chars` (only if `no-prompt-chars` won)
 
