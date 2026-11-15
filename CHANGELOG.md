@@ -4,6 +4,14 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-16
+
+Tag: v0.4.1
+
+### Fixed
+
+- `classifier.model` in `config.json` now accepts router-style model ids such as `openrouter/perplexity/pplx-decider-v1.3:free`, which a Jev-compatible proxy like 9router needs. The rule is now 1–128 characters of letters, digits, `.`, `_`, `-`, `:`, `/`, not starting with `-`, `:` or `/`. Before, such an id made the whole `config.json` invalid, which also disabled `tiers`, `crew` and every other setting. A value starting with `-`, accepted before, is now rejected ([#78](https://github.com/ttdua/pi-jev-pilot/issues/78), [#79](https://github.com/ttdua/pi-jev-pilot/pull/79)).
+
 ## [0.4.0] - 2026-11-15
 
 Tag: v0.4.0
