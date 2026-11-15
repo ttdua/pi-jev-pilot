@@ -215,3 +215,105 @@ describe("writeOutputs", () => {
     expect(Array.from(c?.text ?? "").length).toBe(300);
   });
 });
+
+describe("size", () => {
+  type Pick = { toolCalls: number | undefined; base: string; own: string };
+  const sizeOf = (p: Pick, ownBody?: unknown) => {
+    const b = mainReq("minimal", "minimal", 0);
+    const v = mainReq("full", "minimal", 0);
+    const plan = planOf([b, v]);
+    const results = [
+      ok(b, mainBody({ effort: p.base })),
+      ok(v, ownBody ?? mainBody({ effort: p.own })),
+    ];
+    return compare(plan, results, { ...meta, toolCalls: [p.toolCalls] }).variants["full"]?.size;
+  };
+
+  test("raised on a large turn", () => {
+    expect(sizeOf({ toolCalls: 20, base: "low", own: "high" })?.large.raised).toBe(1);
+  });
+
+  test("lowered on a small turn", () => {
+    expect(sizeOf({ toolCalls: 3, base: "high", own: "medium" })?.small.lowered).toBe(1);
+  });
+
+  test("same level", () => {
+    expect(sizeOf({ toolCalls: 3, base: "medium", own: "medium" })?.small.same).toBe(1);
+  });
+
+  test("boundary 14 is small, 15 is large", () => {
+    expect(sizeOf({ toolCalls: 14, base: "low", own: "high" })?.small.raised).toBe(1);
+    expect(sizeOf({ toolCalls: 15, base: "low", own: "high" })?.large.raised).toBe(1);
+  });
+
+  test("unknown size", () => {
+    const size = sizeOf({ toolCalls: undefined, base: "low", own: "high" });
+    expect(size?.unknown).toBe(1);
+    expect(size?.large).toEqual({ raised: 0, same: 0, lowered: 0 });
+    expect(size?.small).toEqual({ raised: 0, same: 0, lowered: 0 });
+  });
+
+  test("miss not counted", () => {
+    const zero = {
+      large: { raised: 0, same: 0, lowered: 0 },
+      small: { raised: 0, same: 0, lowered: 0 },
+      unknown: 0,
+    };
+    const b = mainReq("minimal", "minimal", 0);
+    const v = mainReq("full", "minimal", 0);
+    const missed = compare(planOf([b, v]), [ok(b, mainBody({ effort: "low" })), miss(v)], {
+      ...meta,
+      toolCalls: [20],
+    });
+    expect(missed.variants["full"]?.size).toEqual(zero);
+    expect(sizeOf({ toolCalls: 20, base: "low", own: "high" }, { answers: {} })).toEqual(zero);
+  });
+
+  test("bases carry no size", () => {
+    const { plan, results } = flipPlan({ "rerun-a": 1, "rerun-b": 1, full: 1 });
+    const agg = compare(plan, results, meta);
+    for (const id of ["minimal", "rerun-a", "rerun-b"]) {
+      expect(agg.variants[id] !== undefined && "size" in agg.variants[id]!).toBe(false);
+    }
+    expect(agg.variants["full"]?.size).toBeDefined();
+  });
+
+  test("size holds no text", () => {
+    const b = mainReq("minimal", "minimal", 0);
+    const v = mainReq("full", "minimal", 0);
+    const agg = compare(
+      planOf([b, v]),
+      [ok(b, mainBody({ effort: "low" })), ok(v, mainBody({ effort: "high" }))],
+      { ...meta, toolCalls: [20] },
+    );
+    const leaves = (x: unknown): unknown[] =>
+      typeof x === "object" && x !== null ? Object.values(x).flatMap(leaves) : [x];
+    const size = agg.variants["full"]?.size;
+    expect(leaves(size).every((n) => Number.isInteger(n) && (n as number) >= 0)).toBe(true);
+    expect(JSON.stringify(agg)).not.toContain(MARKER);
+  });
+
+  test("full-based noise", () => {
+    const requests: PlannedRequest[] = [];
+    const results: Result[] = [];
+    const flips = { "rerun-a": 2, "rerun-b": 4 };
+    for (let s = 0; s < 15; s++) {
+      const min = mainReq("minimal", "minimal", s);
+      const full = mainReq("full", "minimal", s);
+      const npc = mainReq("no-prompt-chars", "full", s);
+      requests.push(min, full, npc);
+      results.push(ok(min, mainBody({ effort: "low" })), ok(full, mainBody({ effort: "low" })));
+      results.push(ok(npc, mainBody({ effort: s < 3 ? "high" : "low" })));
+      for (const [v, n] of Object.entries(flips)) {
+        const r = mainReq(v, "minimal", s);
+        requests.push(r);
+        results.push(ok(r, mainBody({ effort: s < n ? "high" : "low" })));
+      }
+    }
+    const v = compare(planOf(requests), results, meta).variants["no-prompt-chars"];
+    expect(v?.base).toBe("full");
+    expect(v?.flips["effort"]).toBe(3);
+    expect(v?.noise["effort"]).toBe(4);
+    expect(v?.beyond).not.toContain("effort");
+  });
+});

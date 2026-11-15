@@ -40,7 +40,17 @@ export type VariantAggregate = {
   incomparable: Record<string, number>;
   noise: Record<string, number>;
   beyond: string[];
+  /** Effort moves against the base, by turn size. Counts only; absent on the bases. */
+  size?: SizeAggregate;
 };
+
+type Moves = { raised: number; same: number; lowered: number };
+
+export type SizeAggregate = { large: Moves; small: Moves; unknown: number };
+
+/** A turn with at least this many tool calls is `large`. */
+const LARGE_TURN_CALLS = 15;
+const SIZE_BASES = new Set(["minimal", "rerun-a", "rerun-b"]);
 
 export type Aggregates = {
   v: 1;
@@ -56,6 +66,8 @@ export type CompareMeta = {
   pass: 1;
   samples: { main: number; workers: number };
   config: PlainConfig;
+  /** Tool calls of each main sample's own turn, by sample index. */
+  toolCalls?: readonly (number | undefined)[];
 };
 
 /** One differing pair on one key. Answers are raw, so `cases.md` can show the probabilities. */
@@ -271,8 +283,42 @@ function countPair(entry: VariantAggregate, pair: Pair & { own: Decided; base: D
   }
 }
 
+const zeroMoves = (): Moves => ({ raised: 0, same: 0, lowered: 0 });
+const zeroSize = (): SizeAggregate => ({ large: zeroMoves(), small: zeroMoves(), unknown: 0 });
+
+/** Counts the effort move of one decided pair under its turn size. */
+function countSize(
+  size: SizeAggregate,
+  own: Decided,
+  base: Decided,
+  toolCalls: number | undefined,
+): void {
+  const mine = EFFORT_LEVELS.indexOf(own.keys["effort"] as EffortLevel);
+  const theirs = EFFORT_LEVELS.indexOf(base.keys["effort"] as EffortLevel);
+  if (toolCalls === undefined) {
+    size.unknown++;
+    return;
+  }
+  const moves = toolCalls >= LARGE_TURN_CALLS ? size.large : size.small;
+  const move = mine > theirs ? "raised" : mine < theirs ? "lowered" : "same";
+  moves[move]++;
+}
+
+function addSize(
+  entry: VariantAggregate,
+  pair: Pair & { own: Decided; base: Decided },
+  meta: CompareMeta,
+): void {
+  if (entry.size === undefined) return;
+  if (pair.own.keys["effort"] === undefined || pair.base.keys["effort"] === undefined) return;
+  countSize(entry.size, pair.own, pair.base, meta.toolCalls?.[pair.req.sample]);
+}
+
 export function compare(plan: Plan, results: readonly Result[], meta: CompareMeta): Aggregates {
   const variants = tally(plan);
+  for (const [id, v] of Object.entries(variants)) {
+    if (v.kind === "main" && !SIZE_BASES.has(id)) v.size = zeroSize();
+  }
   countBaseMisses(plan, results, meta.config, variants);
   for (const pair of pairsOf(plan, results, meta.config)) {
     const entry = variants[variantKey(pair.req.kind, pair.req.variant)];
@@ -280,7 +326,9 @@ export function compare(plan: Plan, results: readonly Result[], meta: CompareMet
     if (pair.own === undefined || pair.base === undefined) {
       entry.misses++;
     } else {
-      countPair(entry, { ...pair, own: pair.own, base: pair.base });
+      const decided = { ...pair, own: pair.own, base: pair.base };
+      countPair(entry, decided);
+      if (pair.req.kind === "main") addSize(entry, decided, meta);
     }
   }
   addNoise(variants, "main");

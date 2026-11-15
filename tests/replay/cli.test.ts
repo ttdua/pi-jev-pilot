@@ -18,6 +18,10 @@ import { mainBody } from "./helpers.ts";
 const sessions = join(import.meta.dir, "../fixtures/replay/sessions");
 const SECRET = "sk-secret-value-123";
 
+type Moves = { raised: number; same: number; lowered: number };
+const zero: Moves = { raised: 0, same: 0, lowered: 0 };
+const sum = (m: Moves): number => m.raised + m.same + m.lowered;
+
 let fixture: JevFixture | undefined;
 const dirs: string[] = [];
 afterEach(async () => {
@@ -243,6 +247,39 @@ describe("main", () => {
     const agg = JSON.parse(readFileSync(file, "utf8")) as { pass: number };
     expect(agg.pass).toBe(1);
     expect(r.out).toContain(join(dir, "jev", "replay", runId!));
+  });
+
+  test("pass 1 joins turn size from the jev ledger", async () => {
+    fixture = await startJevFixture({ "/": { json: mainBody() } });
+    const dir = agentDir();
+    const sizeDir = join(import.meta.dir, "../fixtures/replay/size");
+    cpSync(join(sizeDir, "size.jsonl"), join(dir, "sessions", "size.jsonl"), { recursive: true });
+    cpSync(join(sizeDir, "ledger.jsonl"), join(dir, "jev", "ledger.jsonl"));
+    const r = await run(
+      ["--pass", "1", "--sessions", join(dir, "sessions"), "--url", fixture.url("/"), "--send"],
+      { PI_CODING_AGENT_DIR: dir, TYPESAFE_API_KEY: "fake-key" },
+    );
+    expect(r.code).toBe(0);
+    const [runId] = readdirSync(join(dir, "jev", "replay"));
+    const file = join(dir, "jev", "replay", runId!, "aggregates.json");
+    const agg = JSON.parse(readFileSync(file, "utf8")) as {
+      variants: Record<string, { size?: { large: Moves; small: Moves } }>;
+    };
+    const total = Object.values(agg.variants).reduce((n, v) => {
+      const { large, small } = v.size ?? { large: zero, small: zero };
+      return n + sum(large) + sum(small);
+    }, 0);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  test("new variants without a snapshot are skipped", async () => {
+    const dir = agentDir();
+    const r = await run(["--pass", "1", "--sessions", sessions, "--only", "no-prompt-chars"], {
+      PI_CODING_AGENT_DIR: dir,
+    });
+    expect(r.code).toBe(0);
+    const line = r.out.split("\n").find((l) => l.startsWith("skipped:"));
+    expect(line).toContain("no-prompt-chars");
   });
 });
 

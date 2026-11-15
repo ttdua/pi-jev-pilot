@@ -1,0 +1,3 @@
+{"kind":"main","turnId":"turn-s1","effective":"medium","strategy":"auto","from":"low","toolCalls":15}
+{"kind":"main","turnId":"turn-s2","effective":"medium","strategy":"auto","from":"low","toolCalls":14}
+{"kind":"main","turnId":"turn-s3","effective":"medium","strategy":"auto","from":"low","toolCalls":30}

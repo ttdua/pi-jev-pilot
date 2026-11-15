@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -9,6 +9,7 @@ import {
   workerKind,
   workerSamples,
 } from "../../scripts/replay/corpus.ts";
+import { readLedgerLines } from "../../scripts/replay/sessions.ts";
 
 const dir = join(import.meta.dir, "../fixtures/replay/sessions");
 const items = Array.from({ length: 60 }, (_, i) => ({ i, g: i < 40 ? "a" : i < 55 ? "b" : "c" }));
@@ -16,7 +17,7 @@ const pick = (seed: number) => sample(items, 20, seed, (t) => t.g).map((t) => t.
 
 describe("mainSamples", () => {
   test("exclusions", () => {
-    const prompts = mainSamples(dir).map((s) => s.prompt);
+    const prompts = mainSamples(dir, readLedgerLines(dir)).map((s) => s.prompt);
     expect(prompts).toEqual([
       "Fix the widget parser",
       "Add gadget tests",
@@ -29,7 +30,7 @@ describe("mainSamples", () => {
   });
 
   test("start effort from the effort entry or the ledger", () => {
-    const s = mainSamples(dir);
+    const s = mainSamples(dir, readLedgerLines(dir));
     expect(s.map((x) => x.startEffort)).toEqual([
       "high",
       "low",
@@ -45,16 +46,18 @@ describe("mainSamples", () => {
 
 describe("mainSamples robustness", () => {
   test("headerless session file is skipped, not thrown", () => {
-    expect(mainSamples(dir).map((s) => s.prompt)).not.toContain("headerless prompt");
+    expect(mainSamples(dir, readLedgerLines(dir)).map((s) => s.prompt)).not.toContain(
+      "headerless prompt",
+    );
     expect(workerSamples(dir).length).toBeGreaterThan(0);
   });
 
   test("any slash prompt is excluded", () => {
-    expect(mainSamples(dir).map((s) => s.prompt)).not.toContain("/other cmd");
+    expect(mainSamples(dir, readLedgerLines(dir)).map((s) => s.prompt)).not.toContain("/other cmd");
   });
 
   test("start effort follows the prompt's branch, not file order", () => {
-    const fork = mainSamples(dir).filter((s) => s.session === "s-fork");
+    const fork = mainSamples(dir, readLedgerLines(dir)).filter((s) => s.session === "s-fork");
     expect(fork.map((s) => [s.prompt, s.startEffort])).toEqual([
       ["Fork branch one", "xhigh"],
       ["Fork branch two", "low"],
@@ -62,7 +65,10 @@ describe("mainSamples robustness", () => {
   });
 
   test("mainStratum is cwd plus start effort", () => {
-    const [a, b] = [mainSamples(dir)[0]!, mainSamples(dir)[2]!];
+    const [a, b] = [
+      mainSamples(dir, readLedgerLines(dir))[0]!,
+      mainSamples(dir, readLedgerLines(dir))[2]!,
+    ];
     expect(mainStratum(a)).toBe("/work/alpha|high");
     expect(mainStratum(b)).toBe("/work/alpha|unknown");
   });
@@ -124,9 +130,58 @@ describe("nested session layout", () => {
   afterAll(() => rmSync(root, { recursive: true, force: true }));
 
   test("finds nested top-level sessions and excludes the child", () => {
-    const prompts = mainSamples(root).map((s) => s.prompt);
+    const prompts = mainSamples(root, readLedgerLines(root)).map((s) => s.prompt);
     expect(prompts).toContain("Fix the widget parser");
     expect(prompts).not.toContain("Child only prompt");
     expect(workerSamples(root).length).toBeGreaterThan(0);
+  });
+});
+
+describe("turn size", () => {
+  const sizeDir = join(import.meta.dir, "../fixtures/replay/size");
+
+  test("turn size joins the own turn's ledger line", () => {
+    const s = mainSamples(sizeDir, readLedgerLines(sizeDir));
+    expect(s.map((x) => x.toolCalls)).toEqual([15, 14, 30]);
+  });
+
+  test("next turn not borrowed", () => {
+    const ledger = new Map([
+      ["turn-s2", { toolCalls: 20 }],
+      ["turn-s3", { toolCalls: 30 }],
+    ]);
+    const s = mainSamples(sizeDir, ledger);
+    expect(s[0]!.toolCalls).toBeUndefined();
+    expect(s[1]!.toolCalls).toBe(20);
+  });
+});
+
+describe("turn size, first jev-turn only", () => {
+  test("a later jev-turn is not borrowed when the first has no count", () => {
+    const dir = mkdtempSync(join(tmpdir(), "replay-first-turn-"));
+    try {
+      const lines = [
+        {
+          type: "session",
+          version: 3,
+          id: "s-first",
+          timestamp: "2026-03-01T00:00:00Z",
+          cwd: "/w",
+        },
+        {
+          type: "message",
+          id: "u1",
+          parentId: null,
+          message: { role: "user", content: "First turn prompt" },
+        },
+        { type: "custom", id: "t1", parentId: "u1", customType: "jev-turn", data: { turnId: "a" } },
+        { type: "custom", id: "t2", parentId: "t1", customType: "jev-turn", data: { turnId: "b" } },
+      ];
+      writeFileSync(join(dir, "s.jsonl"), `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`);
+      const ledger = new Map([["b", { toolCalls: 20 }]]);
+      expect(mainSamples(dir, ledger)[0]!.toolCalls).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -308,6 +308,29 @@ describe("main effort through the real CLI", () => {
   );
 
   test(
+    "jev down 500 on a reply changes nothing",
+    async () => {
+      const script: ScriptEntry[] = [
+        {
+          name: "question",
+          match: (r) => r.model === "fixture-main",
+          reply: { text: "Shall I fix all of them and continue?" },
+        },
+      ];
+      const { s, fixture, jev } = await setup({ status: 500 }, { thinking: "high", script });
+      await s.prompt("review the diff");
+      await s.prompt("go ahead");
+      await s.waitFor(() => fixture.requests.length >= 2, "reply provider request");
+      expect(jev.requests.length).toBe(2);
+      expect(fixture.requests.map((r) => r.reasoningEffort)).toEqual(["high", "high"]);
+      expect(await thinkingLevel(s)).toBe("high");
+      await s.waitFor(() => mainLines(s).length >= 2, "main lines");
+      expect(mainLines(s)[1]).toMatchObject({ answered: false, miss: "error" });
+    },
+    TIMEOUT,
+  );
+
+  test(
     "correction line points at the previous turn",
     async () => {
       const { s, routes } = await setup(answers("high", 0.1, 0.05));

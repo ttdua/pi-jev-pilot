@@ -233,7 +233,7 @@ Not committed. Each needs evidence or a decision first.
 
 | Item | Why | Needs |
 |---|---|---|
-| Effort rubric revision | `high` is about 57% of worker decisions | Replay with a rewritten rubric |
+| Effort rubric revision | `high` is about 57% of worker decisions. The main follow-up rule is done: a reply is rated by the work it approves, not by its length ([replay](evidence/2026-11-15-effort-reply-replay.md)). Dropping `prompt_chars` was measured and not shipped | Replay with a rewritten worker rubric |
 | Quality check of `budget` | Unknown whether Haiku does this work well | Ledger comparison after real use, or a fixture benchmark |
 | Quality check of the reviewer slot | Routing is proven, review quality is not | Real findings compared |
 | Decision on threshold tuning | Upstream's rules never fired on real data | About 200 decisions per signal, then keep or drop |
