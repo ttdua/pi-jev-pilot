@@ -14,10 +14,10 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Save the capabilities snapshot and do the dry run `bun scripts/replay/cli.ts --pass 1 --capabilities <scratch>/capabilities.json --only role-rule,no-prompt-chars`; report sample counts, exclusions, request count and cost to the operator
-- [ ] 2.2 After the operator approves data and cost, run the same command with `--send`
-- [ ] 2.3 Write `docs/evidence/<date>-effort-reply-replay.md` with aggregates only: flips against noise, `size` per variant, misses and exclusions; then the operator reads `cases.md` and gives a verdict per variant (ships / does not ship)
-- [ ] 2.4 Delete the private run directory under `<agentDir>/jev/replay/` after the verdict, and record each verdict in the evidence and in `docs/roadmap.md` (the "Effort rubric revision" row)
+- [x] 2.1 Save the capabilities snapshot and do the dry run `bun scripts/replay/cli.ts --pass 1 --capabilities <scratch>/capabilities.json --only role-rule,no-prompt-chars`; report sample counts, exclusions, request count and cost to the operator
+- [x] 2.2 After the operator approves data and cost, run the same command with `--send`
+- [x] 2.3 Write `docs/evidence/<date>-effort-reply-replay.md` with aggregates only: flips against noise, `size` per variant, misses and exclusions; then the operator reads `cases.md` and gives a verdict per variant (ships / does not ship)
+- [x] 2.4 Delete the private run directory under `<agentDir>/jev/replay/` after the verdict, and record each verdict in the evidence and in `docs/roadmap.md` (the "Effort rubric revision" row)
 
 ## 3. Ship the role-based reply rule (only if `role-rule` won)
 
