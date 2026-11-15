@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -153,5 +153,35 @@ describe("turn size", () => {
     const s = mainSamples(sizeDir, ledger);
     expect(s[0]!.toolCalls).toBeUndefined();
     expect(s[1]!.toolCalls).toBe(20);
+  });
+});
+
+describe("turn size, first jev-turn only", () => {
+  test("a later jev-turn is not borrowed when the first has no count", () => {
+    const dir = mkdtempSync(join(tmpdir(), "replay-first-turn-"));
+    try {
+      const lines = [
+        {
+          type: "session",
+          version: 3,
+          id: "s-first",
+          timestamp: "2026-03-01T00:00:00Z",
+          cwd: "/w",
+        },
+        {
+          type: "message",
+          id: "u1",
+          parentId: null,
+          message: { role: "user", content: "First turn prompt" },
+        },
+        { type: "custom", id: "t1", parentId: "u1", customType: "jev-turn", data: { turnId: "a" } },
+        { type: "custom", id: "t2", parentId: "t1", customType: "jev-turn", data: { turnId: "b" } },
+      ];
+      writeFileSync(join(dir, "s.jsonl"), `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`);
+      const ledger = new Map([["b", { toolCalls: 20 }]]);
+      expect(mainSamples(dir, ledger)[0]!.toolCalls).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -302,21 +302,18 @@ describe("size", () => {
       const full = mainReq("full", "minimal", s);
       const role = mainReq("role-rule", "full", s);
       requests.push(min, full, role);
-      results.push(
-        ok(min, mainBody({ strategy: "direct" })),
-        ok(full, mainBody({ strategy: "direct" })),
-      );
-      results.push(ok(role, mainBody({ strategy: s < 3 ? "graph" : "direct" })));
+      results.push(ok(min, mainBody({ effort: "low" })), ok(full, mainBody({ effort: "low" })));
+      results.push(ok(role, mainBody({ effort: s < 3 ? "high" : "low" })));
       for (const [v, n] of Object.entries(flips)) {
         const r = mainReq(v, "minimal", s);
         requests.push(r);
-        results.push(ok(r, mainBody({ strategy: s < n ? "graph" : "direct" })));
+        results.push(ok(r, mainBody({ effort: s < n ? "high" : "low" })));
       }
     }
     const v = compare(planOf(requests), results, meta).variants["role-rule"];
     expect(v?.base).toBe("full");
-    expect(v?.flips["strategy"]).toBe(3);
-    expect(v?.noise["strategy"]).toBe(4);
-    expect(v?.beyond).not.toContain("strategy");
+    expect(v?.flips["effort"]).toBe(3);
+    expect(v?.noise["effort"]).toBe(4);
+    expect(v?.beyond).not.toContain("effort");
   });
 });

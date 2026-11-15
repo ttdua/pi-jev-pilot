@@ -111,18 +111,20 @@ function startEffortOf(
   });
 }
 
-/** Tool calls of this prompt's own turn: the ledger line of its own `jev-turn` entry, if any. */
+/** Tool calls of this prompt's own turn: the ledger line of its FIRST `jev-turn` entry, if it has a count. */
 function turnToolCallsOf(
   entries: readonly SessionEntry[],
   index: number,
   ledger: ReturnType<typeof readLedgerLines>,
 ): number | undefined {
-  return walkBranch(entries, index, (e) => {
+  // The wrapper marks "found the entry", so a missing count ends the walk instead of continuing.
+  const found = walkBranch(entries, index, (e) => {
     const data = isRec(e.data) ? e.data : undefined;
-    if (e.type !== "custom" || e.customType !== "jev-turn" || !data) return undefined;
-    const turnId = str(data.turnId);
-    return turnId ? ledger.get(turnId)?.toolCalls : undefined;
+    if (e.type !== "custom" || e.customType !== "jev-turn") return undefined;
+    const turnId = data ? str(data.turnId) : undefined;
+    return { toolCalls: turnId ? ledger.get(turnId)?.toolCalls : undefined };
   });
+  return found?.toolCalls;
 }
 
 export function mainSamples(dir: string, ledger: ReturnType<typeof readLedgerLines>): MainSample[] {
