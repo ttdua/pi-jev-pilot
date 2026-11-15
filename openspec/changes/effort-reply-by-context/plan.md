@@ -334,9 +334,4 @@
 - Reply rule leaves the rest unchanged / Worker instruction unchanged → `tests/jev/questions.test.ts` "worker instruction unchanged"
 - Reply rule leaves the rest unchanged / Jev fails on a reply → `tests/host/main-effort.test.ts` "jev down 500 on a reply changes nothing" (Task 3)
 
-**main-state** (only if `no-prompt-chars` ships)
-- Request signals / Question with a file → `tests/jev/state.test.ts` requestSignals test (Task 4)
-- Request signals / Error text → `tests/jev/state.test.ts` existing
-- Request signals / Same file twice → `tests/jev/state.test.ts` existing
-- Request signals / Plain instruction → `tests/jev/state.test.ts` existing
-- Request signals / No length sent → `tests/host/main-effort.test.ts` "default request state" (Task 4)
+**main-state**: not shipped (`no-prompt-chars` lost), so its delta was removed from the change and no scenario remains.

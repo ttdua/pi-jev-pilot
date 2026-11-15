@@ -32,6 +32,8 @@ Blocked by: 2
 
 Blocked by: 2, 3
 
+Not shipped: `no-prompt-chars` moved effort within noise (14 flips, noise 16) and changed only tier beyond noise; the operator chose not to ship it. The variant stays in the replay. See docs/evidence/2026-11-15-effort-reply-replay.md.
+
 - [ ] 4.1 Remove `prompt_chars` from `RequestSignals` and `requestSignals` in `src/jev/state.ts`, and update `tests/jev/state.test.ts`
 - [ ] 4.2 Assert in `tests/host/main-effort.test.ts` ("default request state") that `state.request` has no `prompt_chars` key for an 800-character prompt
 - [ ] 4.3 Update `docs/jev-contract.md` (main state example and the `request` table)
