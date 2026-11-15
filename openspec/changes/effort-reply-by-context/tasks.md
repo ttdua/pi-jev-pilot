@@ -38,4 +38,4 @@ Not shipped: `no-prompt-chars` moved effort within noise (14 flips, noise 16) an
 - [ ] 4.2 Assert in `tests/host/main-effort.test.ts` ("default request state") that `state.request` has no `prompt_chars` key for an 800-character prompt
 - [ ] 4.3 Update `docs/jev-contract.md` (main state example and the `request` table)
 - [ ] 4.4 Remove the `no-prompt-chars` variant from `scripts/replay/variants.ts` and its tests, since it now equals `full`, and remove every normative reference to `no-prompt-chars` from `specs/state-replay/spec.md` and `docs/testing.md` as design D6 lists
-- [ ] 4.5 If `no-prompt-chars` lost: ship nothing and keep the variant; close this group unticked with a note in `tasks.md`, and delete `specs/main-state/spec.md` from the change before verify
+- [x] 4.5 Done (`no-prompt-chars` lost; 4.1–4.4 intentionally not done). If `no-prompt-chars` lost: ship nothing and keep the variant; close this group unticked with a note in `tasks.md`, and delete `specs/main-state/spec.md` from the change before verify
