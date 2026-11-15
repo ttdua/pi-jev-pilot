@@ -22,6 +22,8 @@ Main effort is meant to follow the work a prompt sets in motion, read from the c
 - Reason: no part of the main request should invite a length-based judgement.
 - Impact: changes the main state sent to Jev. No stored format changes.
 
+**Outcome (2026-11-15 replay, [evidence](../../../docs/evidence/2026-11-15-effort-reply-replay.md)):** `role-rule` won and ships. `no-prompt-chars` stayed within noise and does not ship: `prompt_chars` is still sent, and the variant stays in the replay.
+
 A variant that does not win is recorded in the evidence and stays in the replay. Its product delta (`main-effort` or `main-state`) and its shipping task are dropped before verify. A variant that wins ships and is removed from the replay, together with its bullet in the `state-replay` delta.
 
 ## Capabilities
@@ -32,7 +34,7 @@ None.
 ### Modified Capabilities
 - `state-replay`: pass 1 gains the `role-rule` and `no-prompt-chars` variants, based on the shipped state. A new requirement adds the turn-size side measure.
 - `main-effort`: adds a requirement that the main `effort` instruction rates a reply by the work it approves, with no length wording.
-- `main-state`: the **Request signals** requirement drops `prompt_chars`.
+- ~~`main-state`: the **Request signals** requirement drops `prompt_chars`.~~ Dropped after the replay: `no-prompt-chars` did not win, so this change modifies no `main-state` requirement.
 
 ## Impact
 
