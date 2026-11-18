@@ -109,20 +109,19 @@ export function buildTypeListText(registry: TypeListRegistry, agentDir: string):
 
 /** True when an agent config is present and not explicitly disabled. */
 function isEnabledAgent(registry: AgentConfigLookup, name: string): boolean {
-  return registry.resolveAgentConfig(name).enabled !== false;
+  return registry.findAgentConfig(name)?.enabled !== false;
 }
 
 /**
  * Collect the per-agent usage guidelines for the subagent tool's Guidelines: block.
- * Sourced from each enabled default agent's `toolGuideline`, in registry order,
- * so a disabled built-in drops its guideline automatically.
+ * One line per enabled built-in agent, in load order,
+ * so a disabled or overridden built-in drops its guideline automatically.
  */
 export function buildAgentGuidelines(registry: TypeListRegistry): string[] {
   return registry
     .getDefaultAgentNames()
     .filter((name) => isEnabledAgent(registry, name))
-    .map((name) => registry.resolveAgentConfig(name).toolGuideline)
-    .filter((line): line is string => line !== undefined);
+    .map((name) => `- Use ${name} for ${registry.resolveAgentConfig(name).description}`);
 }
 
 /** Derive a short model label from a model string. */

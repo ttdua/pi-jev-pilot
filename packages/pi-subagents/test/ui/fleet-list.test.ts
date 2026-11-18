@@ -22,6 +22,7 @@ const WIDTH = 120;
 const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text } as unknown as Theme;
 const registry = {
   resolveAgentConfig: () => ({ name: "Explore", displayName: "Explore" }),
+  findAgentConfig: () => ({ name: "Explore", displayName: "Explore" }),
 } as unknown as AgentConfigLookup;
 
 type InputResult = { consume?: boolean; data?: string } | undefined;

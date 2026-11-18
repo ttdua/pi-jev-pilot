@@ -1,9 +1,13 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"; // vi: console.warn spy
 import { BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
 import { loadCustomAgents } from "#src/config/custom-agents";
+import type { PackageAgentDir } from "#src/config/package-agents";
+
+/** No built-in or package directories: these tests exercise the global and project sources only. */
+const NO_DIRS = { builtinDirs: [], packageDirs: [] };
 
 describe("loadCustomAgents", () => {
   let tmpDir: string;
@@ -28,7 +32,7 @@ describe("loadCustomAgents", () => {
   }
 
   it("returns empty map when .pi/agents/ does not exist", () => {
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.size).toBe(0);
   });
 
@@ -46,7 +50,7 @@ run_in_background: true
 
 You are a security auditor.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.size).toBe(1);
 
     const agent = result.get("auditor")!;
@@ -67,7 +71,7 @@ You are a security auditor.`);
 
 Just a prompt.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     const agent = result.get("minimal")!;
 
     expect(agent.name).toBe("minimal");
@@ -84,7 +88,7 @@ Just a prompt.`);
   it("uses sensible defaults when no frontmatter at all", () => {
     writeAgent("bare", "Just a system prompt, no frontmatter.");
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     const agent = result.get("bare")!;
 
     expect(agent.name).toBe("bare");
@@ -101,7 +105,7 @@ tools: none
 
 No tools.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.get("notool")!.toolNames).toEqual([]);
   });
 
@@ -112,7 +116,7 @@ tools: read, my_custom_tool, grep
 
 Custom tools.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     // An extension-registered tool name is a supported `tools:` entry: the child's
     // allowlist admits it when the extension registers it during bind (#725).
     expect(result.get("custom-tools")!.toolNames).toEqual(["read", "my_custom_tool", "grep"]);
@@ -125,7 +129,7 @@ tools: read, mcp__github__*
 
 GitHub tools.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     // The child expands the pattern against the parent's tools when it is created.
     expect(result.get("mcp-tools")!.toolNames).toEqual(["read", "mcp__github__*"]);
   });
@@ -141,7 +145,7 @@ tools:
 
 Block sequence.`);
 
-      const result = loadCustomAgents(tmpDir);
+      const result = loadCustomAgents(tmpDir, NO_DIRS);
       expect(result.get("block-seq")!.toolNames).toEqual(["read", "my_custom_tool", "grep"]);
     });
 
@@ -152,7 +156,7 @@ tools: [read, grep]
 
 Flow sequence.`);
 
-      const result = loadCustomAgents(tmpDir);
+      const result = loadCustomAgents(tmpDir, NO_DIRS);
       expect(result.get("flow-seq")!.toolNames).toEqual(["read", "grep"]);
     });
 
@@ -163,7 +167,7 @@ tools: [none]
 
 No tools.`);
 
-      const result = loadCustomAgents(tmpDir);
+      const result = loadCustomAgents(tmpDir, NO_DIRS);
       expect(result.get("seq-none")!.toolNames).toEqual([]);
     });
 
@@ -174,7 +178,7 @@ tools: []
 
 No tools.`);
 
-      const result = loadCustomAgents(tmpDir);
+      const result = loadCustomAgents(tmpDir, NO_DIRS);
       expect(result.get("seq-empty")!.toolNames).toEqual([]);
     });
 
@@ -185,7 +189,7 @@ tools: ["read", "weird,name"]
 
 Comma entry.`);
 
-      const result = loadCustomAgents(tmpDir);
+      const result = loadCustomAgents(tmpDir, NO_DIRS);
       expect(result.get("seq-comma")!.toolNames).toEqual(["read", "weird,name"]);
     });
   });
@@ -194,37 +198,37 @@ Comma entry.`);
     it("is undefined when the key is absent", () => {
       writeAgent("open", `---\nmodel: haiku\n---\n\nOpen.`);
 
-      expect(loadCustomAgents(tmpDir).get("open")!.locked).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("open")!.locked).toBeUndefined();
     });
 
     it("reads `true` as locking every field the file sets", () => {
       writeAgent("pinned", `---\nmodel: haiku\nlocked: true\n---\n\nPinned.`);
 
-      expect(loadCustomAgents(tmpDir).get("pinned")!.locked).toBe(true);
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("pinned")!.locked).toBe(true);
     });
 
     it("reads `false` as no lock at all", () => {
       writeAgent("unpinned", `---\nmodel: haiku\nlocked: false\n---\n\nUnpinned.`);
 
-      expect(loadCustomAgents(tmpDir).get("unpinned")!.locked).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("unpinned")!.locked).toBeUndefined();
     });
 
     it("reads a comma-separated scalar", () => {
       writeAgent("scalar", `---\nlocked: model, thinking\n---\n\nScalar.`);
 
-      expect(loadCustomAgents(tmpDir).get("scalar")!.locked).toEqual(["model", "thinking"]);
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("scalar")!.locked).toEqual(["model", "thinking"]);
     });
 
     it("reads a YAML flow sequence", () => {
       writeAgent("seq", `---\nlocked: [model, max_turns]\n---\n\nSequence.`);
 
-      expect(loadCustomAgents(tmpDir).get("seq")!.locked).toEqual(["model", "max_turns"]);
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("seq")!.locked).toEqual(["model", "max_turns"]);
     });
 
     it("reads every lockable field name", () => {
       writeAgent("all", `---\nlocked: [model, thinking, max_turns, context, run_in_background]\n---\n\nAll.`);
 
-      expect(loadCustomAgents(tmpDir).get("all")!.locked).toEqual([
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("all")!.locked).toEqual([
         "model",
         "thinking",
         "max_turns",
@@ -236,19 +240,19 @@ Comma entry.`);
     it("drops an entry that is not a lockable field", () => {
       writeAgent("typo", `---\nlocked: [model, tools]\n---\n\nTypo.`);
 
-      expect(loadCustomAgents(tmpDir).get("typo")!.locked).toEqual(["model"]);
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("typo")!.locked).toEqual(["model"]);
     });
 
     it("is undefined when every entry is dropped", () => {
       writeAgent("alltypo", `---\nlocked: [tools]\n---\n\nAll typo.`);
 
-      expect(loadCustomAgents(tmpDir).get("alltypo")!.locked).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("alltypo")!.locked).toBeUndefined();
     });
 
     it("reads `none` as no lock", () => {
       writeAgent("nolock", `---\nlocked: none\n---\n\nNo lock.`);
 
-      expect(loadCustomAgents(tmpDir).get("nolock")!.locked).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("nolock")!.locked).toBeUndefined();
     });
   });
 
@@ -258,7 +262,7 @@ Comma entry.`);
       (level) => {
         writeAgent("thinker", `---\nthinking: ${level}\n---\n\nA thinker.`);
 
-        expect(loadCustomAgents(tmpDir).get("thinker")!.thinking).toBe(level);
+        expect(loadCustomAgents(tmpDir, NO_DIRS).get("thinker")!.thinking).toBe(level);
       },
     );
 
@@ -272,13 +276,13 @@ Comma entry.`);
     it("drops an unrecognized level rather than letting the SDK clamp it to off", () => {
       writeAgent("anythink", `---\nthinking: turbo\n---\n\nAny thinking.`);
 
-      expect(loadCustomAgents(tmpDir).get("anythink")!.thinking).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("anythink")!.thinking).toBeUndefined();
     });
 
     it("drops a level that differs only in case", () => {
       writeAgent("shouty", `---\nthinking: HIGH\n---\n\nShouting.`);
 
-      expect(loadCustomAgents(tmpDir).get("shouty")!.thinking).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("shouty")!.thinking).toBeUndefined();
     });
   });
 
@@ -289,7 +293,7 @@ max_turns: 0
 
 Unlimited turns.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.get("unlimited")!.maxTurns).toBe(0);
   });
 
@@ -300,7 +304,7 @@ max_turns: 1
 
 Terse.`);
 
-    expect(loadCustomAgents(tmpDir).get("terse")!.maxTurns).toBe(1);
+    expect(loadCustomAgents(tmpDir, NO_DIRS).get("terse")!.maxTurns).toBe(1);
   });
 
   it("rejects negative max_turns", () => {
@@ -310,7 +314,7 @@ max_turns: -5
 
 Negative turns.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.get("negturns")!.maxTurns).toBeUndefined();
   });
 
@@ -321,7 +325,7 @@ prompt_mode: append
 
 Extra instructions.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.get("appender")!.context).toBeUndefined();
   });
 
@@ -339,31 +343,31 @@ Extra instructions.`);
 
     it("parses context: fork", () => {
       writeAgent("forker", "---\ncontext: fork\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("forker")!.context).toBe("fork");
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("forker")!.context).toBe("fork");
       expect(warnings()).toEqual([]);
     });
 
     it("declares nothing and warns for an invalid value", () => {
       writeAgent("nested", "---\ncontext: nested\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("nested")!.context).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("nested")!.context).toBeUndefined();
       const found = warnings().filter((w: string) => w.includes("nested.md") && w.includes("context"));
       expect(found).toHaveLength(1);
     });
 
     it("reads inherit_context: true as fork and warns", () => {
       writeAgent("old", "---\ninherit_context: true\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("old")!.context).toBe("fork");
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("old")!.context).toBe("fork");
       expect(warnings().filter((w: string) => w.includes("old.md") && w.includes("context"))).toHaveLength(1);
     });
 
     it("lets context win over inherit_context", () => {
       writeAgent("both", "---\ncontext: fresh\ninherit_context: true\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("both")!.context).toBe("fresh");
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("both")!.context).toBe("fresh");
     });
 
     it("ignores prompt_mode and warns", () => {
       writeAgent("modal", "---\nprompt_mode: append\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("modal")!.context).toBeUndefined();
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("modal")!.context).toBeUndefined();
       expect(warnings().filter((w: string) => w.includes("modal.md") && w.includes("prompt_mode"))).toHaveLength(1);
       expect(warnings().find((w: string) => w.includes("prompt_mode"))).toContain("use context: fresh | fork");
     });
@@ -372,7 +376,7 @@ Extra instructions.`);
       // The global dir resolves to the project dir, so one file loads twice.
       vi.stubEnv("PI_CODING_AGENT_DIR", join(tmpDir, ".pi"));
       writeAgent("twice", "---\ninherit_context: true\nprompt_mode: append\n---\n\nBody.");
-      loadCustomAgents(tmpDir);
+      loadCustomAgents(tmpDir, NO_DIRS);
       expect(warnings().filter((w: string) => w.includes("twice.md") && w.includes("inherit_context"))).toHaveLength(1);
       expect(warnings().filter((w: string) => w.includes("twice.md") && w.includes("prompt_mode"))).toHaveLength(1);
     });
@@ -381,15 +385,15 @@ Extra instructions.`);
       vi.stubEnv("PI_CODING_AGENT_DIR", join(tmpDir, ".pi"));
       writeAgent("lkw", "---\nlocked: [inherit_context]\n---\n\nBody.");
       const count = () => warnings().filter((w: string) => w.includes("lkw.md") && w.includes("locked")).length;
-      loadCustomAgents(tmpDir);
+      loadCustomAgents(tmpDir, NO_DIRS);
       expect(count()).toBe(1);
-      loadCustomAgents(tmpDir);
+      loadCustomAgents(tmpDir, NO_DIRS);
       expect(count()).toBe(2);
     });
 
     it("reads locked: inherit_context as context", () => {
       writeAgent("lk", "---\nlocked: [inherit_context]\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("lk")!.locked).toEqual(["context"]);
+      expect(loadCustomAgents(tmpDir, NO_DIRS).get("lk")!.locked).toEqual(["context"]);
     });
   });
 
@@ -405,7 +409,7 @@ description: Second
 
 Second agent.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.size).toBe(2);
     expect(result.has("agent1")).toBe(true);
     expect(result.has("agent2")).toBe(true);
@@ -421,7 +425,7 @@ description: Real Agent
 
 Real.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.size).toBe(1);
     expect(result.has("real")).toBe(true);
   });
@@ -438,7 +442,7 @@ description: Custom Agent
 
 Should be loaded.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.has("Explore")).toBe(true);
     expect(result.get("Explore")!.description).toBe("Custom Explore");
     expect(result.has("custom")).toBe(true);
@@ -451,7 +455,7 @@ tools: read
 ---
 `);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.get("nobody")!.systemPrompt).toBe("");
   });
 
@@ -461,7 +465,7 @@ enabled: false
 ---
 `);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     const agent = result.get("disabled")!;
     expect(agent.enabled).toBe(false);
   });
@@ -474,7 +478,7 @@ display_name: MyAgent
 
 Agent prompt.`);
 
-    const result = loadCustomAgents(tmpDir);
+    const result = loadCustomAgents(tmpDir, NO_DIRS);
     expect(result.get("myagent")!.displayName).toBe("MyAgent");
   });
 
@@ -490,7 +494,7 @@ Agent prompt.`);
         "---\ndescription: Discovered via env var\n---\n\nTest body.",
       );
 
-      const result = loadCustomAgents(tmpDir);
+      const result = loadCustomAgents(tmpDir, NO_DIRS);
 
       // Agent is found at $PI_CODING_AGENT_DIR/agents, not at $HOME/.pi/agent/agents
       expect(result.has("via-env")).toBe(true);
@@ -500,5 +504,116 @@ Agent prompt.`);
       else process.env.PI_CODING_AGENT_DIR = originalEnv;
       rmSync(altAgentDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("loadCustomAgents — sources and overrides", () => {
+  let root: string;
+  let originalAgentDir: string | undefined;
+
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "pi-sources-")));
+    originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+    process.env.PI_CODING_AGENT_DIR = join(root, "global-home");
+  });
+
+  afterEach(() => {
+    if (originalAgentDir == null) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function dirWith(rel: string, files: Record<string, string>): PackageAgentDir {
+    const pkg = join(root, rel.split("/")[0]!);
+    const dir = join(root, rel);
+    mkdirSync(dir, { recursive: true });
+    for (const [file, content] of Object.entries(files)) writeFileSync(join(dir, file), content);
+    return { dir: realpathSync(dir), root: realpathSync(pkg) };
+  }
+
+  const agent = (description: string, extra = "") => `---\n${extra}description: ${description}\n---\nBody of ${description}.`;
+  const project = (name: string, content: string) => {
+    const dir = join(root, "project", ".pi", "agents");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${name}.md`), content);
+  };
+  const load = (opts: { builtinDirs?: PackageAgentDir[]; packageDirs?: PackageAgentDir[] }) =>
+    loadCustomAgents(join(root, "project"), { builtinDirs: [], packageDirs: [], ...opts });
+
+  it("tags each source and lets later sources win in order", () => {
+    const builtinDirs = [dirWith("b/agents", { "x.md": agent("builtin"), "y.md": agent("only builtin") })];
+    const packageDirs = [dirWith("p/agents", { "x.md": agent("package") })];
+    expect(load({ builtinDirs }).get("x")?.source).toBe("builtin");
+    expect(load({ builtinDirs, packageDirs }).get("x")?.source).toBe("package");
+
+    const globalDir = join(root, "global-home", "agents");
+    mkdirSync(globalDir, { recursive: true });
+    writeFileSync(join(globalDir, "x.md"), agent("global"));
+    expect(load({ builtinDirs, packageDirs }).get("x")?.source).toBe("global");
+
+    project("x", agent("project"));
+    const agents = load({ builtinDirs, packageDirs });
+    expect(agents.get("x")?.source).toBe("project");
+    expect(agents.get("y")?.source).toBe("builtin");
+  });
+
+  it("skips an agent file with malformed frontmatter and keeps loading the rest", () => {
+    const bad = "---\ndescription: [unclosed\n  : : :\n---\nbody";
+    const builtinDirs = [dirWith("b/agents", { "ok-builtin.md": agent("builtin") })];
+    const packageDirs = [dirWith("p/agents", { "bad.md": bad, "good.md": agent("good") })];
+    const globalDir = join(root, "global-home", "agents");
+    mkdirSync(globalDir, { recursive: true });
+    writeFileSync(join(globalDir, "bad-global.md"), bad);
+    writeFileSync(join(globalDir, "ok-global.md"), agent("global"));
+    let agents: ReturnType<typeof load> | undefined;
+    expect(() => {
+      agents = load({ builtinDirs, packageDirs });
+    }).not.toThrow();
+    expect([...agents!.keys()].sort()).toEqual(["good", "ok-builtin", "ok-global"]);
+  });
+
+  it("replaces case-insensitively and keeps one entry", () => {
+    const builtinDirs = [dirWith("b/agents", { "explore.md": agent("builtin") })];
+    project("Explore", agent("project"));
+    const agents = load({ builtinDirs });
+    expect([...agents.keys()]).toEqual(["Explore"]);
+    expect(agents.get("Explore")?.description).toBe("project");
+  });
+
+  it("names an agent by its frontmatter name over its file name", () => {
+    const builtinDirs = [dirWith("b/agents", { "explore.md": agent("builtin"), "scout.md": agent("scout") })];
+    project("my-explorer", agent("override", "name: EXPLORE\n"));
+    project("Other", agent("added", "name: other\n"));
+    const agents = load({ builtinDirs });
+    expect([...agents.keys()].sort()).toEqual(["EXPLORE", "other", "scout"]);
+  });
+
+  it("falls back to the file name when name is not a non-empty string", () => {
+    const packageDirs = [dirWith("p/agents", { "numeric.md": agent("n", "name: 3\n"), "blank.md": agent("b", "name: \"  \"\n") })];
+    expect([...load({ packageDirs }).keys()].sort()).toEqual(["blank", "numeric"]);
+  });
+
+  it("keeps the later package when two packages define the same name", () => {
+    const packageDirs = [
+      dirWith("p1/agents", { "dup.md": agent("first") }),
+      dirWith("p2/agents", { "dup.md": agent("second") }),
+    ];
+    const agents = load({ packageDirs });
+    expect(agents.size).toBe(1);
+    expect(agents.get("dup")?.description).toBe("second");
+  });
+
+  it("loads only top-level markdown files of a package directory", () => {
+    const packageDirs = [dirWith("p/agents", { "top.md": agent("top"), "note.txt": "x" })];
+    mkdirSync(join(root, "p", "agents", "nested"));
+    writeFileSync(join(root, "p", "agents", "nested", "deep.md"), agent("deep"));
+    expect([...load({ packageDirs }).keys()]).toEqual(["top"]);
+  });
+
+  it("skips a package file symlinked out of the package", () => {
+    const packageDirs = [dirWith("p/agents", { "ok.md": agent("ok") })];
+    writeFileSync(join(root, "secret.md"), agent("leak"));
+    symlinkSync(join(root, "secret.md"), join(root, "p", "agents", "leak.md"));
+    expect([...load({ packageDirs }).keys()]).toEqual(["ok"]);
   });
 });

@@ -7,7 +7,7 @@
  */
 
 import type { Model } from "@earendil-works/pi-ai";
-import type { AgentTypeRegistry } from "#src/config/agent-types";
+import { type AgentTypeRegistry, FALLBACK_AGENT, MissingFallbackAgentError } from "#src/config/agent-types";
 import type { DeprecationWarnings } from "#src/config/deprecations";
 import { type LockableField, resolveAgentInvocationConfig } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
@@ -105,12 +105,14 @@ export function resolveSpawnConfig(
 
   // A disabled type is rejected by SubagentManager.resolveSpawn, the choke point
   // every front door shares.
-  const subagentType = resolved ?? "general-purpose";
+  const subagentType = resolved ?? FALLBACK_AGENT;
   const fellBack = resolved === undefined;
 
   const displayName = getDisplayName(subagentType, registry);
 
   // Merge agent config defaults with tool-call params
+  // A fallback launch needs an enabled `general`; a named but disabled agent is rejected later.
+  if (fellBack && !registry.isValidType(FALLBACK_AGENT)) return { error: new MissingFallbackAgentError().message };
   const customConfig = registry.resolveAgentConfig(subagentType);
   const resolvedConfig = resolveAgentInvocationConfig(customConfig, {
     ...params,
@@ -190,9 +192,9 @@ export function resolveSpawnConfig(
   };
 }
 
-/** Advise that the named type does not exist, so general-purpose ran instead. */
+/** Advise that the named type does not exist, so the fallback agent ran instead. */
 export function buildFallbackNote(rawType: SubagentType, fellBack: boolean): string[] {
-  return fellBack ? [`Note: Unknown agent type "${rawType}" — using general-purpose.`] : [];
+  return fellBack ? [`Note: Unknown agent type "${rawType}" — using ${FALLBACK_AGENT}.`] : [];
 }
 
 /**

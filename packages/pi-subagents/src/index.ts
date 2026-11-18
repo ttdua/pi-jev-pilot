@@ -24,6 +24,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import { loadCustomAgents } from "#src/config/custom-agents";
+import { seedProjectTrust, setProjectTrusted } from "#src/config/package-agents";
 import { InterruptHandler, SessionLifecycleHandler, WidgetEventsHandler } from "#src/handlers/index";
 import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
@@ -72,6 +73,9 @@ export default function (pi: ExtensionAPI) {
     createWorkspaceNoticeRenderer(),
   );
 
+  // Pi's saved trust decision, so the tool description built below already sees
+  // trusted project packages; session_start replaces it with the session's answer.
+  seedProjectTrust(process.cwd());
   const registry = new AgentTypeRegistry(() => loadCustomAgents(process.cwd()));
 
   // ---- Runtime: all mutable extension state in one place ----
@@ -241,6 +245,8 @@ export default function (pi: ExtensionAPI) {
   // registrations rather than sharing a lambda with an unrelated concern.
   const widgetEvents = new WidgetEventsHandler(widget);
 
+  // First, before anything queries the registry: the session's trust answer.
+  pi.on("session_start", (_event, ctx) => setProjectTrusted(ctx.isProjectTrusted()));
   pi.on("session_start", () => deprecations.reset());
   pi.on("session_start", (_event, ctx) => {
     service.bindSession(ctx.sessionManager.getSessionId());

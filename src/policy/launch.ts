@@ -38,7 +38,7 @@ export type LockableField = (typeof LOCKABLE_FIELDS)[number];
 
 export type AgentFacts = {
   name: string;
-  source: "project" | "global" | "builtin";
+  source: "project" | "global" | "builtin" | "package";
   description: string;
   instructionsExcerpt: string;
   declaredTools: string[] | null;

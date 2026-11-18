@@ -17,6 +17,7 @@ import { createBlockingFactory, createSessionFactory } from "#test/helpers/manag
 import { createMockSession, createSubagentSessionStub, emitResumeUsageAndCompaction, toSubagentSession } from "#test/helpers/mock-session";
 import { STUB_CTX, STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import { turnLoopResult } from "#test/helpers/turn-loop-result";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 /** Default max concurrent background agents (matches production default). */
 const DEFAULT_MAX_CONCURRENT = 4;
@@ -30,12 +31,12 @@ function defaultFactory(): SessionFactory {
 
 /** Registry with default agents only. */
 function defaultRegistry(): AgentTypeRegistry {
-  return new AgentTypeRegistry(() => new Map());
+  return registryWithGeneral(() => new Map());
 }
 
 /** Registry with a single custom agent override, keyed by its canonical name. */
 function registryWith(name: string, overrides: Partial<AgentConfig>): AgentTypeRegistry {
-  return new AgentTypeRegistry(() => new Map([[name, makeAgentConfig({ name, ...overrides })]]));
+  return registryWithGeneral(() => new Map([[name, makeAgentConfig({ name, ...overrides })]]));
 }
 
 /** Test helper: construct an SubagentManager with injected stubs. */
@@ -152,7 +153,7 @@ describe("SubagentManager", () => {
 
     describe("type resolution", () => {
       it("stores the canonical type for case-variant input", () => {
-        ({ manager } = createManager());
+        ({ manager } = createManager({ registry: registryWith("Explore", {}) }));
 
         const id = manager.spawn(STUB_SNAPSHOT, "explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "d",
@@ -162,7 +163,7 @@ describe("SubagentManager", () => {
         expect(manager.getRecord(id)!.type).toBe("Explore");
       });
 
-      it("falls back to general-purpose for an unknown type", () => {
+      it("falls back to general for an unknown type", () => {
         ({ manager } = createManager());
 
         const id = manager.spawn(STUB_SNAPSHOT, "no-such-agent", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
@@ -170,7 +171,20 @@ describe("SubagentManager", () => {
           background: { kind: "explicit", isBackground: true },
         });
 
-        expect(manager.getRecord(id)!.type).toBe("general-purpose");
+        expect(manager.getRecord(id)!.type).toBe("general");
+      });
+
+      it("refuses a fallback launch when general is disabled, creating no session", () => {
+        const factory = defaultFactory();
+        ({ manager } = createManager({ createSubagentSession: factory, registry: registryWith("general", { enabled: false }) }));
+
+        expect(() =>
+          manager.spawn(STUB_SNAPSHOT, "no-such-agent", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
+            description: "d",
+            background: { kind: "explicit", isBackground: true },
+          }),
+        ).toThrow(/Agent type "general" is not available/);
+        expect(factory).not.toHaveBeenCalled();
       });
 
       it("throws for a known-but-disabled type", () => {
@@ -291,7 +305,7 @@ describe("SubagentManager", () => {
 
     describe("type resolution", () => {
       it("stores the canonical type for case-variant input", async () => {
-        ({ manager } = createManager());
+        ({ manager } = createManager({ registry: registryWith("Explore", {}) }));
 
         const record = await manager.spawnAndWait(STUB_SNAPSHOT, "explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" });
 
@@ -846,7 +860,7 @@ describe("SubagentManager", () => {
         });
 
         expect(received.agent).toBeDefined();
-        expect(received.agent!.type).toBe("general-purpose");
+        expect(received.agent!.type).toBe("general");
       });
     });
 

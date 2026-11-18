@@ -18,7 +18,7 @@ Run them in foreground or background, steer them mid-run, resume completed sessi
 - **Live widget UI** — persistent above-editor widget with animated spinners, live tool activity, token counts, and colored status icons
 - **Session transcripts** — open any subagent's full session transcript (running or with its session released) in pi's native read-only viewer via `/subagents:sessions`
 - **Fleet list** — a below-editor list of `main` and the subagents with a transcript; `↓` or `←` on an empty prompt enters it, `Enter` opens an agent's transcript
-- **Custom agent types** — define agents in `.pi/agents/<name>.md` with YAML frontmatter: custom system prompts, model selection, thinking levels, tool restrictions
+- **Custom agent types** — define agents in `.pi/agents/<name>.md` with YAML frontmatter: custom system prompts, model selection, thinking levels, tool restrictions. Six built-in role agents ship with the package; installed packages can add agents through `pi.subagents.agents`
 - **Mid-run steering** — inject messages into running agents to redirect their work without restarting
 - **Session resume** — pick up where an agent left off, preserving full conversation context.
   An agent given an isolated workspace by a `WorkspaceProvider` is resumable while that workspace is live — which, for an agent that ended its turn with a question, lasts until you answer it
@@ -26,7 +26,7 @@ Run them in foreground or background, steer them mid-run, resume completed sessi
 - **Mid-run updates** — an agent that finds something material calls `notify_parent` and keeps working; the message arrives on its own while you are idle and that agent is still running, and otherwise rides that agent's own result, so you hear it exactly once and never as a stale prompt to steer an agent that has finished
 - **Turn budgets** — `max_turns` is a hard ceiling, and an agent is told how many turns it has left while it still has room to wrap up, so it answers instead of being cut off
 - **Case-insensitive agent types** — `"explore"`, `"Explore"`, `"EXPLORE"` all work.
-  Unknown types fall back to general-purpose with a note
+  Unknown types fall back to `general` with a note; `general-purpose` is accepted as an alias
 - **Fuzzy model selection** — specify models by name (`"haiku"`, `"sonnet"`) instead of full IDs, with automatic filtering to only available/configured models
 - **Fresh or fork context** — a sub-agent starts `fresh` by default; `context: "fork"` clones the parent conversation so it knows what's been discussed and can reuse the parent's prompt cache
 - **Styled completion notifications** — background agent results render as themed, compact notification boxes (icon, stats, result preview) instead of raw XML.
@@ -401,14 +401,15 @@ See `src/service/service.ts` for the full `SubagentsService` interface and the `
 Use `getRecord(id)` to poll, `steer` to send a message, and the `subagents:completed` event to learn when it finished.
 
 The agent type is canonicalized, so `"explore"` and `"Explore"` reach the same agent.
-An unrecognized type falls back to `general-purpose` rather than throwing, matching the `subagent` tool's behavior.
+An unrecognized type falls back to `general`, matching the `subagent` tool's behavior, as long as `general` exists and is enabled.
 
-It throws in four cases:
+It throws in these cases:
 
 - there is no active session, so there is no parent to spawn from;
 - a `model` string does not resolve against the session's model registry;
 - a `thinkingLevel` is not one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`;
-- the named agent type exists but is disabled (`enabled: false`).
+- the named agent type exists but is disabled (`enabled: false`);
+- the type is unknown and `general` is missing or disabled, so there is no fallback.
 
 Agent frontmatter never overrides an option you pass.
 It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `context` is resolved like the tool does: your option wins, then the agent file's `context`, then `fresh`; an agent file that [locks](./docs/configuration.md#locking-fields-against-callers) `context` wins over your option.

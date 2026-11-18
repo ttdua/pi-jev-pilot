@@ -108,7 +108,7 @@ function subLine(text: string, color: Parameters<Theme["fg"]>[0], theme: Theme):
 	return theme.fg(color, `  ${GLYPHS.subLine}  ${text}`);
 }
 
-/** Build the stats string: "Explore · anthropic/claude-haiku-4-5 · 44 tool uses · 95.9k token · 9% · ⇊3 · 213.0s". */
+/** Build the stats string: "explore · anthropic/claude-haiku-4-5 · 44 tool uses · 95.9k token · 9% · ⇊3 · 213.0s". */
 function renderStats(details: GetResultDetails, theme: Theme): string {
 	const parts = [details.displayName];
 	if (details.modelName) parts.push(details.modelName);

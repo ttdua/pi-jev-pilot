@@ -69,8 +69,8 @@ The display names for the `tier` criteria of tiers and slots (see `worker-reques
 - **THEN** the request asks exactly `effort` and `risky`
 
 #### Scenario: Service launch content
-- **WHEN** an extension calls `spawn("Plan", brief, { description: "probe" })`
-- **THEN** the worker request's agent is `Plan` and its state is built from `brief` and `probe`
+- **WHEN** an extension calls `spawn("implementer", brief, { description: "probe" })`
+- **THEN** the worker request's agent is `implementer` and its state is built from `brief` and `probe`
 
 ### Requirement: Target check before writing
 For a launch whose route can write a model (its request asks the `tier` question and `model` is not locked), routing SHALL check the model of every offered tier and slot: the `provider/id` MUST name a model in Pi's model registry, and that model MUST have configured credentials. A target failing either check SHALL count as unable to run for the fallback choice. Other launches MUST NOT be checked or warned about.
@@ -275,11 +275,11 @@ The policy SHALL return nothing, and ask Jev nothing, for a launch whose `parent
 - **THEN** the policy returns nothing and no worker request is sent
 
 #### Scenario: Service launch with an explicit model
-- **WHEN** an extension calls `spawn("Plan", brief, { model: "fixture/fixture-deep" })`, and Jev answers `tier` `fast` and `effort` `high`
+- **WHEN** an extension calls `spawn("implementer", brief, { model: "fixture/fixture-deep" })`, and Jev answers `tier` `fast` and `effort` `high`
 - **THEN** the child runs on `fixture/fixture-deep` with reasoning effort `high`, and the ledger line has `locked` true
 
 #### Scenario: Service launch without a model
-- **WHEN** an extension calls `spawn("Plan", brief)` and Jev's answers cut to `fast` with effort `medium`
+- **WHEN** an extension calls `spawn("implementer", brief)` and Jev's answers cut to `fast` with effort `medium`
 - **THEN** the child runs on `tiers.fast` with reasoning effort `medium`
 
 ### Requirement: Launch policy slot taken

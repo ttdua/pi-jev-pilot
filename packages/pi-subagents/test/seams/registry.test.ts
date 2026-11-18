@@ -4,13 +4,12 @@
  * global agent directories. Allowlist scenarios run the real
  * `createSubagentSession` with only the SDK session factory stubbed.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentTypeRegistry, BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
 import { loadCustomAgents } from "#src/config/custom-agents";
-import { DEFAULT_AGENTS } from "#src/config/default-agents";
 import {
 	type CreateSessionOptions,
 	createSubagentSession,
@@ -78,9 +77,10 @@ describe("agent registry query", () => {
 			"---\ndescription: Project explorer\n---\nExplore the project.",
 		);
 
-		const snapshot = catalog.get("Explore");
+		const snapshot = catalog.get("explore");
 
 		expect(snapshot?.source).toBe("project");
+		expect(names(catalog.list()).filter((n) => n.toLowerCase() === "explore")).toEqual(["Explore"]);
 		expect(snapshot?.description).toBe("Project explorer");
 	});
 
@@ -90,10 +90,10 @@ describe("agent registry query", () => {
 		expect(makeCatalog().get("worker")?.name).toBe("Worker");
 	});
 
-	it("falls back to general-purpose for an unknown name", () => {
+	it("falls back to general for an unknown name", () => {
 		const snapshot = makeCatalog().get("does-not-exist");
 
-		expect(snapshot?.name).toBe("general-purpose");
+		expect(snapshot?.name).toBe("general");
 		expect(snapshot?.source).toBe("builtin");
 	});
 
@@ -121,21 +121,25 @@ describe("agent registry query", () => {
 		writeProjectAgent("worker", "---\ndescription: Worker\n---\nWork.");
 
 		expect(names(makeCatalog().list()).sort()).toEqual(
-			["Explore", "Plan", "general-purpose", "worker"].sort(),
+			["general", "implementer", "explore", "scout", "reviewer", "verifier", "worker"].sort(),
 		);
 	});
 });
 
 describe("agent snapshot fields", () => {
-	it("describes the built-in Explore", () => {
-		const snapshot = makeCatalog().get("Explore")!;
+	it("describes the built-in explore", () => {
+		const snapshot = makeCatalog().get("explore")!;
 
 		expect(snapshot.source).toBe("builtin");
-		expect(snapshot.tools).toEqual(["read", "bash", "grep", "find", "ls"]);
-		expect(snapshot.disallowedTools).toEqual([]);
+		expect(snapshot.tools).toEqual(["read", "grep", "find", "ls"]);
+		expect(snapshot.disallowedTools).toEqual(["bash", "edit", "write"]);
+		expect(snapshot).not.toHaveProperty("model");
+		expect(snapshot).not.toHaveProperty("thinking");
 		expect(snapshot).not.toHaveProperty("locked");
 		expect(snapshot.instructions).toBe(
-			DEFAULT_AGENTS.get("Explore")!.systemPrompt,
+			readFileSync(new URL("../../agents/explore.md", import.meta.url), "utf-8")
+				.replace(/^---[\s\S]*?---\n/, "")
+				.trim(),
 		);
 		expect(snapshot.instructions.length).toBeGreaterThan(0);
 	});
@@ -146,7 +150,7 @@ describe("agent snapshot fields", () => {
 			"---\ntools: read\nlocked: [model]\n---\nBody.",
 		);
 		const catalog = makeCatalog();
-		const snapshot = catalog.get("Explore")!;
+		const snapshot = catalog.get("explore")!;
 		const lockedSnapshot = catalog.get("locked")!;
 
 		expect(Object.isFrozen(snapshot)).toBe(true);
@@ -155,20 +159,7 @@ describe("agent snapshot fields", () => {
 		expect(Object.isFrozen(snapshot.disallowedTools)).toBe(true);
 		expect(Object.isFrozen(lockedSnapshot.locked)).toBe(true);
 		expect(() => (snapshot.tools as string[]).push("edit")).toThrow(TypeError);
-		expect(catalog.get("Explore")!.tools).toEqual([
-			"read",
-			"bash",
-			"grep",
-			"find",
-			"ls",
-		]);
-		expect(DEFAULT_AGENTS.get("Explore")!.toolNames).toEqual([
-			"read",
-			"bash",
-			"grep",
-			"find",
-			"ls",
-		]);
+		expect(catalog.get("explore")!.tools).toEqual(["read", "grep", "find", "ls"]);
 	});
 
 	it("keeps absent tools distinct from the defaults", () => {
@@ -199,7 +190,7 @@ describe("agent snapshot fields", () => {
 	});
 
 	it("a built-in with no declared context has none in its snapshot", () => {
-		expect(makeCatalog().get("Explore")).not.toHaveProperty("context");
+		expect(makeCatalog().get("explore")).not.toHaveProperty("context");
 	});
 
 	it("carries declared fields and omits undeclared ones", () => {
@@ -236,7 +227,7 @@ describe("agent snapshot fields", () => {
 			runInBackground: true,
 			context: "fresh",
 		});
-		expect(Object.keys(catalog.get("general-purpose")!).sort()).toEqual(
+		expect(Object.keys(catalog.get("general")!).sort()).toEqual(
 			[
 				"name",
 				"source",
@@ -529,5 +520,50 @@ describe("builtinExtensionsFor", () => {
 		expect(builtinExtensionsFor(["codemode"]).map((e) => e.name)).toEqual([
 			"codemode",
 		]);
+	});
+});
+
+describe("missing fallback agent", () => {
+	it("returns nothing from get when general is disabled and the name falls back", () => {
+		writeProjectAgent("general", "---\ndescription: Off\nenabled: false\n---\nOff.");
+
+		expect(makeCatalog().get("does-not-exist")).toBeUndefined();
+	});
+
+	it("keeps resolving a named agent when general is disabled", () => {
+		writeProjectAgent("general", "---\ndescription: Off\nenabled: false\n---\nOff.");
+
+		expect(makeCatalog().get("explore")?.name).toBe("explore");
+	});
+});
+
+describe("agent name resolution", () => {
+	it("maps the legacy general-purpose name to general", () => {
+		expect(makeCatalog().get("general-purpose")?.name).toBe("general");
+		expect(makeCatalog().get("GENERAL-PURPOSE")?.name).toBe("general");
+	});
+
+	it("lets a real general-purpose file win over the alias", () => {
+		writeProjectAgent("general-purpose", "---\ndescription: Real\n---\nReal.");
+
+		const snapshot = makeCatalog().get("general-purpose");
+		expect(snapshot?.name).toBe("general-purpose");
+		expect(snapshot?.description).toBe("Real");
+	});
+
+	it("overrides a built-in by frontmatter name, case-insensitively", () => {
+		writeProjectAgent("my-explorer", "---\nname: EXPLORE\ndescription: Mine\n---\nMine.");
+		const catalog = makeCatalog();
+
+		expect(catalog.get("explore")?.description).toBe("Mine");
+		expect(names(catalog.list()).filter((n) => n.toLowerCase() === "explore")).toHaveLength(1);
+	});
+
+	it("adds a frontmatter-named agent beside the built-in of its file name", () => {
+		writeProjectAgent("Explore", "---\nname: other\ndescription: Other\n---\nOther.");
+		const catalog = makeCatalog();
+
+		expect(catalog.get("other")?.description).toBe("Other");
+		expect(catalog.get("explore")?.source).toBe("builtin");
 	});
 });

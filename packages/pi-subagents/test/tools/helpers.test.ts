@@ -12,13 +12,14 @@ function makeRegistry(opts: {
     description: string;
     model: string | undefined;
     enabled?: boolean;
-    toolGuideline?: string;
   };
 }): TypeListRegistry {
   return {
     getDefaultAgentNames: () => opts.defaults ?? [],
     getUserAgentNames: () => opts.users ?? [],
     resolveAgentConfig: (name: string) =>
+      ({ ...opts.resolve?.(name) ?? { description: "", model: undefined } }) as ReturnType<TypeListRegistry["resolveAgentConfig"]>,
+    findAgentConfig: (name: string) =>
       ({ ...opts.resolve?.(name) ?? { description: "", model: undefined } }) as ReturnType<TypeListRegistry["resolveAgentConfig"]>,
     getToolNamesForType: () => [],
   };
@@ -179,13 +180,12 @@ describe("buildAgentGuidelines", () => {
       resolve: (name) => ({
         description: `${name} agent`,
         model: undefined,
-        toolGuideline: `- Use ${name} for stuff.`,
       }),
     });
     expect(buildAgentGuidelines(registry)).toEqual([
-      "- Use general-purpose for stuff.",
-      "- Use Explore for stuff.",
-      "- Use Plan for stuff.",
+      "- Use general-purpose for general-purpose agent",
+      "- Use Explore for Explore agent",
+      "- Use Plan for Plan agent",
     ]);
   });
 
@@ -196,22 +196,17 @@ describe("buildAgentGuidelines", () => {
         description: `${name} agent`,
         model: undefined,
         enabled: name === "Explore" ? false : undefined,
-        toolGuideline: `- Use ${name} for stuff.`,
       }),
     });
-    expect(buildAgentGuidelines(registry)).toEqual(["- Use general-purpose for stuff."]);
+    expect(buildAgentGuidelines(registry)).toEqual(["- Use general-purpose for general-purpose agent"]);
   });
 
-  it("omits default agents that declare no guideline", () => {
+  it("derives each line from the agent description", () => {
     const registry = makeRegistry({
-      defaults: ["general-purpose", "custom-default"],
-      resolve: (name) => ({
-        description: `${name} agent`,
-        model: undefined,
-        toolGuideline: name === "general-purpose" ? "- Use general-purpose for stuff." : undefined,
-      }),
+      defaults: ["custom-default"],
+      resolve: () => ({ description: "doing things", model: undefined }),
     });
-    expect(buildAgentGuidelines(registry)).toEqual(["- Use general-purpose for stuff."]);
+    expect(buildAgentGuidelines(registry)).toEqual(["- Use custom-default for doing things"]);
   });
 
   it("returns an empty array when all default agents are disabled", () => {
@@ -221,7 +216,6 @@ describe("buildAgentGuidelines", () => {
         description: `${name} agent`,
         model: undefined,
         enabled: false,
-        toolGuideline: `- Use ${name} for stuff.`,
       }),
     });
     expect(buildAgentGuidelines(registry)).toEqual([]);
@@ -310,5 +304,38 @@ describe("buildDetails", () => {
       const details = buildDetails(spawnBase, record);
       expect(details.modelName).toBe("anthropic/claude-sonnet-5-5");
     });
+  });
+});
+
+describe("tool description lists effective agents", () => {
+  const cfg = (source: "builtin" | "package", description: string, enabled?: boolean) => ({ description, model: undefined, source, enabled });
+
+  it("lists a package override under custom agents with no built-in guideline", () => {
+    const registry = makeRegistry({
+      defaults: [],
+      users: ["reviewer"],
+      resolve: () => cfg("package", "package reviewer"),
+    });
+    const text = buildTypeListText(registry, "/agent");
+    expect(text).toContain("Custom agents:\n- reviewer: package reviewer");
+    expect(text).not.toContain("Default agents:");
+    expect(buildAgentGuidelines(registry)).toEqual([]);
+  });
+
+  it("drops a disabled built-in from both lists", () => {
+    const registry = makeRegistry({
+      defaults: ["scout"],
+      resolve: () => cfg("builtin", "scouting", false),
+    });
+    expect(buildTypeListText(registry, "/agent")).not.toContain("scout");
+    expect(buildAgentGuidelines(registry)).toEqual([]);
+  });
+
+  it("derives one guideline line per enabled built-in, in order", () => {
+    const registry = makeRegistry({
+      defaults: ["general", "explore"],
+      resolve: (name) => cfg("builtin", `${name} work`),
+    });
+    expect(buildAgentGuidelines(registry)).toEqual(["- Use general for general work", "- Use explore for explore work"]);
   });
 });

@@ -13,6 +13,7 @@ import {
   type ForkGuardState,
 } from "#src/lifecycle/fork-guard";
 import { enforceForkGrants } from "#src/seams/grant-check";
+import { builtinConfig } from "#test/helpers/builtin-config";
 import { STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import {
   createAgentLookup,
@@ -349,5 +350,26 @@ describe("createSubagentSession: fork model and thinking without a policy", () =
     const opts = await forkWith({ model: "a/agent-model", thinking: "low" }, { model: agentModel, thinkingLevel: "minimal" });
     expect(opts.model).toBe(agentModel);
     expect(opts.thinkingLevel).toBe("minimal");
+  });
+});
+
+describe("createSubagentSession: built-in verifier fork", () => {
+  it("declares the parent's tools but refuses edit and write", async () => {
+    const verifier = builtinConfig("verifier");
+    const { io, result } = await launchFork({
+      agentTools: verifier.toolNames!,
+      disallowed: verifier.disallowedTools,
+    });
+    expect(io.createSession.mock.calls[0]![0].tools).toEqual(PARENT);
+    expect(result.forkGuard?.callable.has("bash")).toBe(true);
+    expect(result.forkGuard?.callable.has("edit")).toBe(false);
+
+    const toolCall = handlersOf(forkGuardExtension(result.forkGuard!)).get("tool_call")!;
+    for (const toolName of ["edit", "write"]) {
+      expect(toolCall({ toolName })).toEqual({
+        block: true,
+        reason: `Tool "${toolName}" is not available to this subagent.`,
+      });
+    }
   });
 });

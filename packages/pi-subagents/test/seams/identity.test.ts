@@ -6,7 +6,6 @@
  * given, as `createAgentSession` does.
  */
 import { describe, expect, it } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
@@ -24,6 +23,7 @@ import {
 	createSubagentSessionDeps,
 	createSubagentSessionIO,
 } from "#test/helpers/subagent-session-io";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 const FAST = makeModel({ provider: "fixture", id: "fixture-fast" });
 const DEEP = makeModel({ provider: "fixture", id: "fixture-deep" });
@@ -39,7 +39,7 @@ const snapshot = { ...STUB_SNAPSHOT, model: MAIN, modelRegistry };
 type Event = { channel: string; data: Record<string, any> };
 
 function agents(extra: Partial<AgentConfig> = {}) {
-	return new AgentTypeRegistry(
+	return registryWithGeneral(
 		() =>
 			new Map([
 				[

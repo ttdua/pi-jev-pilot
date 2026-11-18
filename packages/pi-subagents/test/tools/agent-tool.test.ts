@@ -1,7 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Value } from "typebox/value";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import { DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
 import { AgentTool } from "#src/tools/agent-tool";
 import {
@@ -12,6 +11,7 @@ import {
 } from "#test/helpers/make-deps";
 import { createTestSubagent } from "#test/helpers/make-subagent";
 import { textOf } from "#test/helpers/text-of";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 function makeCtx(overrides: Record<string, unknown> = {}) {
 	return {
@@ -52,26 +52,17 @@ describe("AgentTool", () => {
 		);
 	});
 
-	it("derives type list from registry — includes default agents in description", () => {
+	it("derives type list from registry — includes the built-in agents in description", () => {
 		const def = makeTool(createToolDeps()).toToolDefinition();
-		// testRegistry loads default agents: general-purpose, Explore, Plan
-		expect(def.description).toContain("- general-purpose: General-purpose agent");
-		expect(def.description).toContain("- Explore: Fast codebase exploration agent");
+		expect(def.description).toContain("- general: general-purpose work on complex, multi-step tasks, including file edits");
 	});
 
-	it("lists the built-in agent guidelines in registry order", () => {
+	it("lists a built-in agent guideline line per enabled built-in", () => {
 		const def = makeTool(createToolDeps()).toToolDefinition();
-		const guidelines = [
-			"- Use general-purpose for complex tasks that need file editing.",
-			"- Use Explore for codebase searches and code understanding.",
-			"- Use Plan for architecture and implementation planning.",
-		];
-		for (const line of guidelines) expect(def.description).toContain(line);
-		const positions = guidelines.map((line) => def.description.indexOf(line));
-		expect(positions).toEqual([...positions].sort((a, b) => a - b));
+		expect(def.description).toContain("- Use general for general-purpose work on complex, multi-step tasks, including file edits");
 	});
 
-	it.for(["Explore", "Plan", "general-purpose"])(
+	it.for(["explore", "scout", "general"])(
 		"omits the type-list entry and guideline for a disabled built-in %s",
 		(name) => {
 			const def = makeTool(createToolDepsWithDisabledBuiltInAgents(name)).toToolDefinition();
@@ -549,7 +540,7 @@ describe("AgentTool — resume path", () => {
 			expect(textOf(result)).toBe(
 				"Agent resumed in background.\n" +
 					"Agent ID: agent-1\n" +
-					"Type: Agent\n" +
+					"Type: general\n" +
 					"Description: answer\n" +
 					"\nYou will be notified when this agent completes.\n" +
 					"Use get_subagent_result to retrieve full results, or steer_subagent to send it messages.\n" +
@@ -567,7 +558,7 @@ describe("AgentTool — resume path", () => {
 			expect(textOf(result)).toBe(
 				"Agent resume queued in background.\n" +
 					"Agent ID: agent-1\n" +
-					"Type: Agent\n" +
+					"Type: general\n" +
 					"Description: answer\n" +
 					"Position: queued (max 4 concurrent)\n" +
 					"\nYou will be notified when this agent completes.\n" +
@@ -610,7 +601,7 @@ describe("AgentTool — resume path", () => {
 
 		it("ignores an agent file's run_in_background default, resuming in the foreground", async () => {
 			const deps = createToolDeps({
-				registry: new AgentTypeRegistry(
+				registry: registryWithGeneral(
 					() =>
 						new Map([
 							[

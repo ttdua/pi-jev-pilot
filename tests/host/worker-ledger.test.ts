@@ -198,7 +198,10 @@ describe("Decision fields", () => {
   test("Routed fields", async () => {
     const h = harness();
     h.setScript(() => ok(body("balanced", "high")));
-    await foreground(h, { requested: { model: "fixture/fixture-main" } });
+    await foreground(h, {
+      requested: { model: "fixture/fixture-main" },
+      agent: { name: "general-purpose" },
+    });
     expect(h.lines[0]).toMatchObject({
       v: 1,
       at: 1_700_000_000_000,

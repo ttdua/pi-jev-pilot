@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { PersistedRunSummary } from "#src/persisted-record";
-import type { AgentSessionEvent, SessionMessage } from "#src/types";
+import type { AgentConfig, AgentSessionEvent, SessionMessage } from "#src/types";
 import { fileSnapshotSource, listNavigableAgents, liveSource, navigationEntryFor, type NavigableSubagent, type TranscriptSource } from "#src/ui/session-navigation";
+import { makeAgentConfig } from "#test/helpers/make-agent-config";
 import { makeNavigable } from "#test/helpers/make-navigable";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
-const registry = new AgentTypeRegistry(() => new Map());
+const registry = registryWithGeneral(() => new Map());
 
 describe("listNavigableAgents", () => {
   it("returns an empty list for no agents", () => {
@@ -32,7 +34,7 @@ describe("listNavigableAgents", () => {
     const [entry] = listNavigableAgents([released], registry, []);
     expect(entry.kind).toBe("snapshot");
     expect(entry.kind === "snapshot" && entry.outputFile).toBe("/tasks/released-1.jsonl");
-    expect(entry.label).toBe("Agent (Investigate the bug) · 3 tools · completed · 3.0s · session released (snapshot)");
+    expect(entry.label).toBe("general-purpose (Investigate the bug) · 3 tools · completed · 3.0s · session released (snapshot)");
   });
 
   it("drops a record with neither a live session nor an outputFile", () => {
@@ -51,14 +53,14 @@ describe("listNavigableAgents", () => {
     });
     const [entry] = listNavigableAgents([record], registry, []);
     // getDisplayName resolves "general-purpose" against the empty registry to its fallback display name.
-    expect(entry.label).toBe("Agent (Investigate the bug) · 3 tools · completed · 3.0s");
+    expect(entry.label).toBe("general-purpose (Investigate the bug) · 3 tools · completed · 3.0s");
   });
 
   describe("heading", () => {
     it("names a live entry's agent, mode, and task", () => {
       const record = makeNavigable({ type: "general-purpose", description: "Investigate the bug" });
       const [entry] = listNavigableAgents([record], registry, []);
-      expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
+      expect(entry.heading).toEqual({ name: "general-purpose", description: "Investigate the bug" });
     });
 
     it("names a snapshot entry's agent, mode, and task", () => {
@@ -68,7 +70,7 @@ describe("listNavigableAgents", () => {
         description: "Investigate the bug",
       });
       const [entry] = listNavigableAgents([released], registry, []);
-      expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
+      expect(entry.heading).toEqual({ name: "general-purpose", description: "Investigate the bug" });
     });
 
     it("labels a fork's heading 'fork' and a fallen-back run 'fork → fresh'", () => {
@@ -116,8 +118,8 @@ describe("listNavigableAgents", () => {
         {
           kind: "snapshot",
           outputFile: "/tasks/earlier.jsonl",
-          heading: { name: "Agent", description: "Earlier task" },
-          label: "Agent (Earlier task) · 7 tools · completed · 3.0s · session released (snapshot)",
+          heading: { name: "general-purpose", description: "Earlier task" },
+          label: "general-purpose (Earlier task) · 7 tools · completed · 3.0s · session released (snapshot)",
         },
       ]);
     });
@@ -162,24 +164,24 @@ describe("listNavigableAgents", () => {
         completedAt: undefined,
       });
       const [entry] = listNavigableAgents([queued], registry, []);
-      expect(entry.label).toBe("Agent (Investigate the bug) · 3 tools · queued · queued 3.0s");
+      expect(entry.label).toBe("general-purpose (Investigate the bug) · 3 tools · queued · queued 3.0s");
     });
 
     it("labels a resume stopped while queued with the time it waited, frozen at the stop", () => {
       const [entry] = listNavigableAgents([makeNavigable(stoppedWhileQueued)], registry, []);
-      expect(entry.label).toBe("Agent (Investigate the bug) · 3 tools · stopped · queued 1.0s");
+      expect(entry.label).toBe("general-purpose (Investigate the bug) · 3 tools · stopped · queued 1.0s");
     });
 
     it("labels a released resume stopped while queued with the time it waited", () => {
       const released = makeNavigable({ ...stoppedWhileQueued, isSessionReady: () => false, outputFile: "/tasks/q.jsonl" });
       const [entry] = listNavigableAgents([released], registry, []);
-      expect(entry.label).toBe("Agent (Investigate the bug) · 3 tools · stopped · queued 1.0s · session released (snapshot)");
+      expect(entry.label).toBe("general-purpose (Investigate the bug) · 3 tools · stopped · queued 1.0s · session released (snapshot)");
     });
 
     it("labels a persisted resume stopped while queued with the time it waited", () => {
       const persisted = persistedRun({ status: "stopped", stoppedWhileQueued: true, startedAt: 1000, completedAt: 2000 });
       const [entry] = listNavigableAgents([], registry, [persisted]);
-      expect(entry.label).toBe("Agent (Earlier task) · 7 tools · stopped · queued 1.0s · session released (snapshot)");
+      expect(entry.label).toBe("general-purpose (Earlier task) · 7 tools · stopped · queued 1.0s · session released (snapshot)");
     });
   });
 });
@@ -336,5 +338,28 @@ describe("navigationEntryFor", () => {
 
   it("returns undefined with neither", () => {
     expect(navigationEntryFor(makeNavigable({ isSessionReady: () => false, outputFile: undefined }), registry)).toBeUndefined();
+  });
+});
+
+describe("listNavigableAgents — history without the fallback agent", () => {
+  const noGeneral = (agents: Map<string, AgentConfig> = new Map()) => new AgentTypeRegistry(() => agents);
+  const released = (type: string) =>
+    makeNavigable({ id: "r", type, isSessionReady: () => false, outputFile: "/tasks/r.jsonl", description: "Old run", toolUses: 2 });
+
+  it.each(["Plan", "Explore", "general-purpose"])("lists a legacy %s run under its recorded type when general is missing", (type) => {
+    const [entry] = listNavigableAgents([released(type)], noGeneral(), []);
+    expect(entry.heading.name).toBe(type);
+    expect(entry.label.startsWith(`${type} (Old run)`)).toBe(true);
+  });
+
+  it("lists it under its recorded type when general is disabled", () => {
+    const registry = noGeneral(new Map([["general", makeAgentConfig({ name: "general", enabled: false })]]));
+    const [entry] = listNavigableAgents([released("Plan")], registry, []);
+    expect(entry.heading.name).toBe("Plan");
+  });
+
+  it("lists it under its recorded type when general is present", () => {
+    const [entry] = listNavigableAgents([released("Plan")], registry, []);
+    expect(entry.heading.name).toBe("Plan");
   });
 });

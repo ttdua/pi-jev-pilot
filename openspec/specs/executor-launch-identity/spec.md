@@ -9,12 +9,12 @@ Executor lifecycle and record events name their launch (agent id, type, tool cal
 The executor's `subagents:child:spawning`, `subagents:child:session-created` and `subagents:child:bound` events SHALL carry `agentId` (the record id `spawn()` returns) and `agentType` (the resolved agent type), in addition to their existing fields. When the launch came from a `subagent` tool call, they SHALL also carry `toolCallId`. A launch from `SubagentsService.spawn()` MUST omit `toolCallId`.
 
 #### Scenario: Tool-call launch
-- **WHEN** the main model's `subagent` call with id `call_1` launches agent type `Explore`
-- **THEN** `subagents:child:session-created` carries the child's `sessionId`, the record's `agentId`, `agentType` `Explore` and `toolCallId` `call_1`
+- **WHEN** the main model's `subagent` call with id `call_1` launches agent type `explore`
+- **THEN** `subagents:child:session-created` carries the child's `sessionId`, the record's `agentId`, `agentType` `explore` and `toolCallId` `call_1`
 
 #### Scenario: Service launch
-- **WHEN** an extension calls `spawn("Plan", ...)` and receives id `a1`
-- **THEN** `subagents:child:session-created` carries `agentId` `a1`, `agentType` `Plan` and no `toolCallId`
+- **WHEN** an extension calls `spawn("implementer", ...)` and receives id `a1`
+- **THEN** `subagents:child:session-created` carries `agentId` `a1`, `agentType` `implementer` and no `toolCallId`
 
 ### Requirement: Record events carry the tool call id
 The executor's `subagents:created`, `subagents:started`, `subagents:completed`, `subagents:failed`, `subagents:resuming` and `subagents:resumed` events SHALL carry `toolCallId` when the record was launched, or resumed, from a `subagent` tool call, in addition to their existing fields. Events of service launches MUST omit it.

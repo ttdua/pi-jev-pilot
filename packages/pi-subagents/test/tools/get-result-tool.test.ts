@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { TurnLoopResult } from "#src/lifecycle/subagent-session";
 import { MAX_EXPANDED_LINES, PREVIEW_CHARS } from "#src/tools/get-result-renderer";
 import {
@@ -16,8 +15,9 @@ import { createMockSession, createSubagentSessionStub, toSubagentSession } from 
 import { STUB_CTX } from "#test/helpers/stub-ctx";
 import { textOf } from "#test/helpers/text-of";
 import { turnLoopResult } from "#test/helpers/turn-loop-result";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
-const testRegistry = new AgentTypeRegistry(() => new Map());
+const testRegistry = registryWithGeneral(() => new Map());
 
 /** A result body long enough to overflow the expanded cap, with a recognisable last line. */
 function longResult(lines: number): string {

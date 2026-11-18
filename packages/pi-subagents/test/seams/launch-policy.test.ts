@@ -5,7 +5,6 @@
  * faked; it echoes the model, thinking level and tools it is given.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
@@ -35,6 +34,7 @@ import {
 	createSubagentSessionDeps,
 	createSubagentSessionIO,
 } from "#test/helpers/subagent-session-io";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 const FAST = makeModel({ provider: "fixture", id: "fixture-fast" });
 const DEEP = makeModel({ provider: "fixture", id: "fixture-deep" });
@@ -83,7 +83,7 @@ interface Options {
 
 function harness(options: Options = {}) {
 	const events: Event[] = [];
-	const registry = new AgentTypeRegistry(
+	const registry = registryWithGeneral(
 		() =>
 			new Map([
 				[

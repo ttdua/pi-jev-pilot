@@ -12,9 +12,10 @@ import {
 import { makeModel } from "./make-model";
 import { createTestSubagent, type TestSubagentOptions } from "./make-subagent";
 import { STUB_SNAPSHOT } from "./stub-ctx";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 /** Minimal registry with no user agents — sufficient for tool tests that don't exercise agent-type lookup. */
-const defaultRegistry = new AgentTypeRegistry(() => new Map());
+const defaultRegistry = registryWithGeneral(() => new Map());
 
 /**
  * Fixture shape returned by `createToolDeps`.
@@ -98,7 +99,7 @@ export function mockResumeRefusal(deps: AgentToolFixture, reason: ResumeRefusalR
  * so the registry keeps the name but excludes it from the enabled surface.
  */
 export function createToolDepsWithDisabledBuiltInAgents(...names: string[]): AgentToolFixture {
-	const registry = new AgentTypeRegistry(
+	const registry = registryWithGeneral(
 		() =>
 			new Map(
 				names.map((name) => [
@@ -109,7 +110,7 @@ export function createToolDepsWithDisabledBuiltInAgents(...names: string[]): Age
 						toolsDeclared: false,
 						disallowedTools: [],
 						systemPrompt: "",
-						isDefault: true,
+						source: "builtin",
 						enabled: false,
 					},
 				]),

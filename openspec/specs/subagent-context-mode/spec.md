@@ -16,7 +16,7 @@ Every subagent launch SHALL resolve exactly one context: `fresh` or `fork`. Thre
 - **THEN** the tool call is rejected by its parameter schema and no child starts
 
 #### Scenario: Invalid service value
-- **WHEN** an extension calls `spawn("Explore", brief, { context: "twin" })`
+- **WHEN** an extension calls `spawn("explore", brief, { context: "twin" })`
 - **THEN** `spawn` throws an error naming `context` and no child starts
 
 #### Scenario: Invalid frontmatter value
@@ -45,7 +45,7 @@ The resolved context SHALL be carried on the launch request and the subagent rec
 - **THEN** the launch runs `fork`
 
 #### Scenario: Service option
-- **WHEN** an extension calls `spawn("Explore", brief, { context: "fork" })` from a session with history
+- **WHEN** an extension calls `spawn("explore", brief, { context: "fork" })` from a session with history
 - **THEN** the launch runs `fork`
 
 ### Requirement: Deprecated context fields
@@ -65,7 +65,7 @@ A deprecated field given by the caller SHALL count as a caller value.
 - **THEN** the launch runs `fresh`
 
 #### Scenario: Old service option
-- **WHEN** an extension calls `spawn("Explore", brief, { inheritContext: false })`
+- **WHEN** an extension calls `spawn("explore", brief, { inheritContext: false })`
 - **THEN** the launch runs `fresh` and a deprecation warning naming `context` is emitted
 
 #### Scenario: Old prompt mode ignored

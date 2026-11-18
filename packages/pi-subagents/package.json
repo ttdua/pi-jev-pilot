@@ -14,6 +14,7 @@
   },
   "files": [
     "src",
+    "agents",
     "dist",
     "docs/*.md",
     "docs/architecture",
@@ -82,6 +83,11 @@
     "extensions": [
       "./src/index.ts"
     ],
+    "subagents": {
+      "agents": [
+        "./agents"
+      ]
+    },
     "image": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-subagents/docs/assets/demo.webp"
   },
   "private": true

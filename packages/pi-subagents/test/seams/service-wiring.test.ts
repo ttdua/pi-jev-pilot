@@ -4,7 +4,10 @@
  * announces a child through the extension's own lifecycle publisher, as the
  * real factory does before it binds the child's extensions.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("#src/lifecycle/create-subagent-session", async () => {
 	const actual = await vi.importActual<
@@ -71,6 +74,7 @@ function instance() {
 					getAll: () => [],
 					getAvailable: () => [],
 				},
+				isProjectTrusted: () => false,
 				sessionManager: {
 					getSessionId: () => sessionId,
 					getSessionFile: () => `/sessions/${sessionId}.jsonl`,
@@ -81,6 +85,11 @@ function instance() {
 		);
 	return { start, shutdown: () => fire("session_shutdown", {}, {}) };
 }
+
+// Package discovery reads pi settings under a file lock; an empty agent dir keeps the operator's out of it.
+const emptyAgentDir = mkdtempSync(join(tmpdir(), "pi-agent-home-"));
+process.env.PI_CODING_AGENT_DIR = emptyAgentDir;
+afterAll(() => rmSync(emptyAgentDir, { recursive: true, force: true }));
 
 afterEach(() => {
 	unpublishSubagentsService();

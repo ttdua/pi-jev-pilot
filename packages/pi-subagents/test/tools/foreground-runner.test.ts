@@ -463,7 +463,7 @@ describe("runForeground", () => {
 				undefined,
 			);
 			const text = textOf(result);
-			expect(text.startsWith('Note: Unknown agent type "unknown-type" — using general-purpose.')).toBe(true);
+			expect(text.startsWith('Note: Unknown agent type "unknown-type" — using general.')).toBe(true);
 			expect(text.indexOf("Agent ID: agent-1")).toBeGreaterThan(0);
 		});
 	});

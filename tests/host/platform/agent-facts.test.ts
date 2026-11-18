@@ -21,25 +21,29 @@ function snapshot(over: Partial<AgentTypeSnapshot> = {}): AgentTypeSnapshot {
 
 const explore = (): AgentTypeSnapshot =>
   snapshot({
-    name: "Explore",
+    name: "explore",
     source: "builtin",
-    description: "Fast codebase exploration agent (read-only)",
+    description: "fast read-only codebase search and code understanding",
     instructions: EXPLORE_INSTRUCTIONS,
     tools: READ_ONLY,
-    model: "anthropic/claude-haiku-4-5-20251001",
+    disallowedTools: ["bash", "edit", "write"],
   });
 
 describe("agentFacts", () => {
-  test("Built-in Explore", () => {
+  test("Built-in explore", () => {
     const facts = agentFacts(explore());
-    expect(facts.name).toBe("Explore");
+    expect(facts.name).toBe("explore");
     expect(facts.source).toBe("builtin");
-    expect(facts.description).toBe("Fast codebase exploration agent (read-only)");
+    expect(facts.description).toBe("fast read-only codebase search and code understanding");
     expect(facts.declaredTools).toEqual(READ_ONLY);
     expect(facts.instructionsExcerpt).toBe(Array.from(EXPLORE_INSTRUCTIONS).slice(0, 500).join(""));
-    expect(facts.disallowedTools).toEqual([]);
-    expect(facts.sets).toEqual({ model: true, thinking: false });
+    expect(facts.disallowedTools).toEqual(["bash", "edit", "write"]);
+    expect(facts.sets).toEqual({ model: false, thinking: false });
     expect(facts.maxTurns).toBeNull();
+  });
+
+  test("Package source carried", () => {
+    expect(agentFacts(snapshot({ source: "package" })).source).toBe("package");
   });
 
   test("Long instructions", () => {
@@ -66,7 +70,7 @@ describe("agentFacts", () => {
     expect(facts.sets).toEqual({ model: true, thinking: true });
   });
 
-  test("Invalid thinking is not set", () => {
+  test("Unknown thinking not set", () => {
     expect(agentFacts(snapshot({ thinking: "banana" })).sets.thinking).toBe(false);
   });
 

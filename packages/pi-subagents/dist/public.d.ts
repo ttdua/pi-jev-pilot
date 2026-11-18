@@ -260,7 +260,7 @@ type ResumeRefusalReason = ResumeRefusal | "unknown-agent";
  *
  *   const { getSubagentsService } = await import("@gotgenes/pi-subagents");
  *   const svc = getSubagentsService();
- *   svc?.spawn("Explore", "Check for stale TODOs");
+ *   svc?.spawn("explore", "Check for stale TODOs");
  */
 
 /**
@@ -326,7 +326,7 @@ interface SubagentRecord {
  */
 interface AgentTypeSnapshot {
     name: string;
-    source: "builtin" | "global" | "project";
+    source: "builtin" | "package" | "global" | "project";
     description: string;
     /** The agent file's body (a built-in's prompt for built-ins). */
     instructions: string;
@@ -357,7 +357,7 @@ type LaunchOrigin = {
  */
 interface LaunchRequest {
     agentId: string;
-    /** The agent type as resolved (canonical name, or `general-purpose`). */
+    /** The agent type as resolved (canonical name, or `general`). */
     agentType: string;
     agent: AgentTypeSnapshot;
     origin: LaunchOrigin;
@@ -486,7 +486,7 @@ interface SubagentsService {
     listAgentTypes(): readonly AgentTypeSnapshot[];
     /**
      * The agent a launch of `name` would run (exact, case-insensitive, then
-     * `general-purpose`); `undefined` when it resolves to a disabled agent.
+     * `general`); `undefined` when it resolves to a disabled agent.
      */
     getAgentType(name: string): AgentTypeSnapshot | undefined;
     /** Wait for all running and queued agents to complete. */

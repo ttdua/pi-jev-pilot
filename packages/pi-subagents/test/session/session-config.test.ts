@@ -22,6 +22,7 @@ const mockBuildAgentPrompt: Mock<AssemblerIO["buildAgentPrompt"]> = vi.fn(
 /** Mock registry injected into assembleSessionConfig instead of module-level free functions. */
 const mockAgentLookup: AgentConfigLookup = {
   resolveAgentConfig: mockResolveAgentConfig,
+  findAgentConfig: mockResolveAgentConfig,
   getToolNamesForType: mockGetToolNamesForType,
 };
 

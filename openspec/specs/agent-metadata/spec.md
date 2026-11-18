@@ -16,20 +16,23 @@ The agent's declared `model` and `thinking` values MUST NOT be copied into the a
 - **WHEN** the snapshot's `thinking` is `banana`
 - **THEN** thinking is recorded as not set
 
-### Requirement: Agent facts from the executor
-Agent facts SHALL be built by a pure function from the agent snapshot the executor supplies (see `executor-agent-registry`), never by reading agent files. The facts SHALL hold:
-- `name`, `source` and `description` as in the snapshot;
-- `instructionsExcerpt`: the first 500 Unicode code points of the trimmed `instructions`;
-- `declaredTools`: the snapshot's `tools`, or `null`;
-- `disallowedTools`;
-- `maxTurns`, `runInBackground` and `context`;
-- `sets`: whether `model` and `thinking` are set.
+### Requirement: Agent facts from the snapshot
+Agent facts SHALL be built by a pure function from the executor's agent snapshot (see `executor-agent-registry`), never by reading agent files. They SHALL hold `name`, `source` (any snapshot source, including `package`), `description`, `instructionsExcerpt` (first 500 code points of the trimmed body), `declaredTools` (the snapshot's `tools`, or `null`), `disallowedTools`, `maxTurns`, `runInBackground`, `context`, and `sets`.
 
-`thinking` counts as set only when it is one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`.
+#### Scenario: Built-in explore
+- **WHEN** the snapshot is the built-in `explore`
+- **THEN** the facts have source `builtin`, the snapshot's description, declared tools `read`, `grep`, `find`, `ls`, disallowed tools `bash`, `edit`, `write`, and the first 500 code points of its instructions as the excerpt
 
-#### Scenario: Built-in Explore
-- **WHEN** the snapshot is the built-in `Explore`
-- **THEN** the facts have source `builtin`, description `Fast codebase exploration agent (read-only)`, declared tools `read`, `bash`, `grep`, `find`, `ls`, the first 500 code points of the built-in instructions as the excerpt, and no disallowed tools
+#### Scenario: Package source carried
+- **WHEN** the snapshot's `source` is `package`
+- **THEN** the facts' `source` is `package`
+
+### Requirement: Thinking counts as set only when known
+`sets.thinking` SHALL be true only when the snapshot's `thinking` is one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`.
+
+#### Scenario: Unknown thinking not set
+- **WHEN** the snapshot's `thinking` is `banana`
+- **THEN** `sets.thinking` is false
 
 #### Scenario: Long instructions
 - **WHEN** the snapshot's `instructions` are 2000 characters long

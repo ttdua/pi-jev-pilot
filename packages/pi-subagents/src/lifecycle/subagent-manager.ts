@@ -9,6 +9,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Model } from "@earendil-works/pi-ai";
+import { FALLBACK_AGENT, MissingFallbackAgentError } from "#src/config/agent-types";
 import { type BackgroundRequest, resolveBackgroundMode } from "#src/config/invocation-config";
 import { debugLog } from "#src/debug";
 import type { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
@@ -386,7 +387,9 @@ export class SubagentManager {
     if (canonical !== undefined && !this.registry.isValidType(canonical)) {
       throw new Error(`Agent type "${canonical}" is disabled`);
     }
-    const resolvedType = canonical ?? "general-purpose";
+    const resolvedType = canonical ?? FALLBACK_AGENT;
+    // The fallback must be enabled too: a disabled `general` refuses the launch.
+    if (canonical === undefined && !this.registry.isValidType(FALLBACK_AGENT)) throw new MissingFallbackAgentError();
     const agentConfig = this.registry.resolveAgentConfig(resolvedType);
     return { type: resolvedType, isBackground: resolveBackgroundMode(agentConfig, background) };
   }
