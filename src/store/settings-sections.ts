@@ -51,13 +51,6 @@ export function resolveSkills(config: Config): Settings["skills"] {
   return { inject: config.skills?.inject ?? (DEFAULTS.skills.inject as "content" | "suggest") };
 }
 
-export function resolveTools(config: Config): Settings["tools"] {
-  return {
-    mode: config.tools?.mode ?? (DEFAULTS.tools.mode as "observe" | "enforce"),
-    grantAt: config.tools?.grantAt ?? DEFAULTS.tools.grantAt,
-  };
-}
-
 export function resolveStateSection(config: Config): Settings["state"] {
   return { parentRequest: config.state?.parentRequest ?? DEFAULTS.state.parentRequest };
 }

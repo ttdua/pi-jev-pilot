@@ -5,7 +5,6 @@ export { decisionFields } from "./ledger-line.ts";
 export {
   type EffectiveValues,
   type ExecutorOutcome,
-  type ToolCounts,
   type WorkerLineInput,
   workerLine,
   type WorkerReply,

@@ -12,7 +12,6 @@ const OFF_SWITCHES = [
   "/jev subagents off",
   "/jev skills off",
   "/jev strategy off",
-  "/jev tools off",
   "/jev expert off",
   "/jev cli-review off",
 ];
@@ -78,6 +77,15 @@ function checkOffSwitches(docs: Record<string, string>): string[] {
   );
 }
 
+function checkNoToolAssessment(docs: Record<string, string>): string[] {
+  const readme = docs["README.md"] ?? "";
+  const lower = readme.toLowerCase();
+  const problems: string[] = [];
+  if (readme.includes("/jev tools")) problems.push("README.md: mentions /jev tools");
+  if (lower.includes("tool assessment")) problems.push("README.md: mentions tool assessment");
+  return problems;
+}
+
 /** Returns release problems, empty when package, changelog and docs agree. */
 export function checkRelease(files: ReleaseFiles): string[] {
   const version = String(JSON.parse(files.pkg).version);
@@ -87,5 +95,6 @@ export function checkRelease(files: ReleaseFiles): string[] {
     ...checkBanners(files.docs),
     ...checkNoFigures(files.docs),
     ...checkOffSwitches(files.docs),
+    ...checkNoToolAssessment(files.docs),
   ];
 }

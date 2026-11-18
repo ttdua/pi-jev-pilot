@@ -17,7 +17,7 @@ test("a status command draws and notifies before its first await yields", async 
     dir: `${cwd}/jev`,
     load: () =>
       buildSnapshot({
-        configRead: { kind: "ok", present: false, config: {}, notices: [] },
+        configRead: { kind: "ok", present: false, notices: [], deprecated: [], config: {} },
         stateRead: { kind: "missing", state: {} },
         env: { TYPESAFE_API_KEY: "k" },
         toolNames: [],

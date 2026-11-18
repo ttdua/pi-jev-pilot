@@ -75,7 +75,6 @@ Error messages name the field and what was expected, never the value found, so a
   "effort": { "holdProviders": ["9router"] },
   "skills": { "inject": "content" },
   "subagents": { "forkLaunch": "untouched" },
-  "tools": { "mode": "observe", "grantAt": 0.8 },
   "state": { "parentRequest": false },
   "review": { "cli": "codex" }
 }
@@ -139,14 +138,7 @@ Check for yourself by watching for cache misses after thinking-level changes on 
 
 `subagents.forkedLaunch` is the old name of `forkLaunch`. It is read as an alias, with a notice in `/jev` status, and removed in the next minor release. A file that sets both keys is invalid.
 
-### `tools`
-
-| Key | Default | Values |
-|---|---|---|
-| `mode` | `observe` | `observe` records what would be blocked or granted; `enforce` applies it |
-| `grantAt` | `0.8` | Range 0.5–1. A tool the worker would not have is granted at this `grant::` probability or more. Blocks use a fixed cut of 0.5 on `tool::` |
-
-Assessment runs at launch for every agent and shares the launch deadline `classifier.timeoutMs`. Declared `tools` are always kept, and `disallowed_tools` in an agent file are never added back. Each launch with candidates costs one extra Jev request while `/jev tools` is on.
+`tools`: removed; accepted and ignored, and `/jev` reports it as deprecated.
 
 ### `state`
 
@@ -180,7 +172,6 @@ Content that leaves the machine with its own switch.
 | `fast`, slot threshold | Probability .6 | Not yet calibrated; change through code and evidence |
 | Mode targets | See the [domain model](domain-model.md#mode) | Operator's choice; never change automatically |
 | Cut-point window | Latest 200 eligible lines; seed below 100 | Not yet calibrated |
-| Tool removal score | .5 | Not yet calibrated |
 | Skill thresholds | .5, .3, .3 | From upstream |
 | Strategy thresholds | .6, .8 | From upstream |
 

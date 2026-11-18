@@ -172,7 +172,7 @@ describe("duplicate executor through the real CLI", () => {
     async () => {
       const text = await status(await start([JEV_ONLY, standInInsideVendoredPath()]));
       expect(text).toContain("duplicate executor");
-      expect(text).toContain("worker routing and tool assessment are off");
+      expect(text).toContain("worker routing is off");
     },
     TIMEOUT,
   );

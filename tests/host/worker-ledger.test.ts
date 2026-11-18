@@ -4,11 +4,9 @@ import {
   body,
   effort,
   harness,
-  isToolRequest,
   ok,
   runToCompletion,
   TIERS_X,
-  toolBody,
   type LaunchOver,
 } from "./worker-fakes.ts";
 
@@ -397,45 +395,21 @@ describe("Mode recorded", () => {
   });
 });
 
-describe("Tool counts on the worker line", () => {
-  const assessed = { switches: { tools: true } };
-  const answer = (req: Parameters<Parameters<H["setScript"]>[0]>[0]) =>
-    isToolRequest(req)
-      ? ok(toolBody({ "tool::edit": 0.9, "grant::web": 0.9, "grant::codemode": 0.9 }))
-      : ok(body("fast"));
-  const six = {
-    toolSet: { defaults: ["read", "bash", "edit", "write"], parentTools: ["web", "codemode"] },
-  };
-
-  test("Tool counts recorded", async () => {
-    const h = harness(assessed);
-    h.setScript(answer);
-    await foreground(h, six);
-    expect(h.lines[0]).toMatchObject({ toolsScored: 6, toolsFlagged: 1, toolsGranted: 2 });
+describe("No tool counts on the worker line", () => {
+  test("No tool counts", async () => {
+    const h = harness();
+    await foreground(h, {
+      toolSet: { defaults: ["read", "edit"], parentTools: ["web", "codemode"] },
+    });
+    for (const k of ["toolsScored", "toolsFlagged", "toolsGranted"]) {
+      expect(h.lines[0]).not.toHaveProperty(k);
+    }
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
   });
 
-  test("No assessment, no counts", async () => {
-    for (const o of [{}, assessed]) {
-      const h = harness(o);
-      if (o === assessed) {
-        h.setScript((req) =>
-          isToolRequest(req)
-            ? { kind: "miss", miss: "error", reason: "x", ms: 1 }
-            : ok(body("fast")),
-        );
-      }
-      await foreground(h, o === assessed ? six : { toolSet: { defaults: [], parentTools: [] } });
-      for (const k of ["toolsScored", "toolsFlagged", "toolsGranted"]) {
-        expect(h.lines[0]).not.toHaveProperty(k);
-      }
-    }
-  });
-
-  test("Resumed launch carries no counts", async () => {
-    const h = harness(assessed);
-    h.setScript(answer);
-    const { request } = await foreground(h, six);
+  test("Resumed launch writes no line", async () => {
+    const h = harness();
+    const { request } = await foreground(h);
     h.resumed(request.agentId);
     expect(h.lines).toHaveLength(1);
   });

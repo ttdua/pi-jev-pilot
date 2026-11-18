@@ -26,7 +26,7 @@ flowchart LR
     H --> C --> J
     C --> P --> H
     H -- "thinking level, context message" --> Pi
-    H -- "launch policy: model, thinking,<br/>tool grants and blocks" --> X
+    H -- "launch policy: model and thinking" --> X
     H --> U
     H --> S
     H -- "only when asked" --> CLI
@@ -62,9 +62,6 @@ src/
     review/
       index.ts              Entry point for other folders
       cli.ts                CLI commands, model catalogs, tier names, result text, details
-    tools/
-      index.ts              Entry point for other folders
-      assess.ts             Block and grant candidates, the 32 cap, both thresholds, the tool plan
     tuning/
       index.ts              Entry point for other folders
       rules.ts              Tuning rules: step, revert, undo, reset, off
@@ -125,12 +122,6 @@ src/
       index.ts              Entry point for other folders
       line.ts               Status line, tally, log entries
       tally.ts              In-memory session observer fed by validated ledger lines
-    tools/
-      index.ts              Entry point for other folders
-      assessment.ts         Tool assessment at launch: request, answers, block and grant lists
-      counts.ts             Hands the counts (scored, flagged, granted) to the worker ledger line
-      facts.ts              Maps Pi tool info to plain tool facts
-      plan.ts               Which candidates a launch scores: the switch, the prompt, the request's tool set
     tuning/
       index.ts              Entry point for other folders
       command.ts            /jev tune: report, undo, reset, on, off
@@ -147,7 +138,7 @@ src/
       index.ts              Entry point for other folders
       cutpoint-window.ts    In-memory window of the latest eligible worker lines
       routing.ts            registerWorkerRouting: registers the launch policy and the event handlers, owns no logic
-      policy.ts             The launch policy: scope checks, concurrent worker and tool asks, the adjustment
+      policy.ts             The launch policy: scope checks, worker ask, the adjustment
       request.ts            What the policy reads from the main session it was registered in
       outcomes.ts           Executor lifecycle and outcome events, joined by agentId
       classify.ts           Builds the questions for a launch and starts the Jev ask
@@ -253,14 +244,13 @@ Each row is a contract the package relies on: a public Pi API, or a seam of the 
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
 | Skill catalog | `pi.getCommands()` with `sourceInfo.path`, `parseFrontmatter` / `stripFrontmatter` | Documented |
 | Skills already in context | `ctx.sessionManager.buildSessionProjection()` | Documented |
-| Decide every worker launch | Executor `registerLaunchPolicy`: one slot, 10 s watchdog, fails open. Returns `model`, `thinking`, `addTools`, `removeTools` | Executor contract. Verified by `tests/host/launch-policy-evidence.test.ts`. Supersedes Q1, Q2 and Q7 ([evidence](evidence/2026-11-05-host-seams.md)) |
+| Decide every worker launch | Executor `registerLaunchPolicy`: one slot, 10 s watchdog, fails open. Returns `model`, `thinking`, `addTools`, `removeTools` (jev-pilot uses model and thinking only) | Executor contract. Verified by `tests/host/launch-policy-evidence.test.ts`. Supersedes Q1, Q2 and Q7 ([evidence](evidence/2026-11-05-host-seams.md)) |
 | Join a launch to its child and outcome | `agentId`, `agentType`, `toolCallId` on `subagents:*` events; effective model and thinking on `session-created` | Executor contract; `tests/host/worker-ledger.test.ts` |
 | Agent facts | Service `listAgentTypes()` / `getAgentType()` (declared `tools`, `disallowed_tools`, locks) | Executor contract; `tests/host/platform/agent-facts.test.ts` |
-| Grant a tool to a worker | `addTools` in the policy adjustment, checked by the executor against the parent's tools and, after the child binds, against what the child registered (`grantedTools` on `subagents:child:bound`) | Executor contract; host test `launch-policy-evidence` |
-| Detect a child session | `subagents:child:session-created` on `pi.events` | Verified: yes ([Q4](evidence/2026-11-05-host-seams.md#q4)) |
 | Remove tools in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` | Verified: yes ([Q3](evidence/2026-11-05-host-seams.md#q3)) |
-| Worker outcome | `subagents:completed`, `subagents:failed` | Documented by the executor |
 | Tool metadata | `pi.getAllTools()` | Documented |
+| Detect a child session | `subagents:child:session-created` on `pi.events` | Verified: yes ([Q4](evidence/2026-11-05-host-seams.md#q4)) |
+| Worker outcome | `subagents:completed`, `subagents:failed` | Documented by the executor |
 | Model existence and credentials | `ctx.modelRegistry` | Documented |
 | Know whether a provider request started | `pi.on("before_provider_request")` | Documented. A run that settles aborted with no request restores the replaced thinking level on Esc ([evidence](evidence/2026-11-05-host-seams.md#before_agent_start-signal-wg-07)) |
 | Idle moment for tuning; end of a turn (ledger line, Esc restore) | `pi.on("agent_settled")` | Documented |
@@ -278,7 +268,6 @@ A child session binds the parent's extension set and runs in the same process, s
 |---|---|---|
 | Effort, skill, advice | Yes | No |
 | Worker routing (launch policy) | Yes: the policy is registered here and decides every launch | Not possible: the executor removes `subagent`. A launch whose parent is a child session is left untouched |
-| Tool assessment | Yes, at launch, in the same policy call | No |
 | Status line, tally | Yes | No |
 | Review tool | Yes | Not offered: removed from `selectedTools` in `before_agent_start`, and refused if called. This is the only guard the child keeps |
 
@@ -286,7 +275,7 @@ A child session binds the parent's extension set and runs in the same process, s
 
 **Policy registration.** The main-session instance captures the executor service at `session_start`, registers the launch policy and unregisters it at `session_shutdown`. Workers still running at a reload or session switch get no ledger line.
 
-**Executor states.** `/jev` reports one of three. `present`: the vendored service is captured. `absent`: no `subagent` provider, so worker routing and tool assessment are off with a note. `duplicate executor`: jev-pilot's extension runs with the original `@gotgenes/pi-subagents` but without the vendored executor. Pi refuses to start when two extensions register `subagent`, so installing this package next to the original fails at startup; uninstall the original first. A provider that loses both load races cannot be detected.
+**Executor states.** `/jev` reports one of three. `present`: the vendored service is captured. `absent`: no `subagent` provider, so worker routing is off with a note. `duplicate executor`: jev-pilot's extension runs with the original `@gotgenes/pi-subagents` but without the vendored executor. Pi refuses to start when two extensions register `subagent`, so installing this package next to the original fails at startup; uninstall the original first. A provider that loses both load races cannot be detected.
 
 ## Display surfaces
 
@@ -295,7 +284,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Status line | `ctx.ui.setWidget` above the editor, right-aligned in the terminal UI, only when `ctx.hasUI`. Separate from the executor's agents widget | `Jev · standard · high · parallel 72% · 2 workers` |
 | Base states | Drawn from WG-06 as `Jev · <mode>` (`Jev · <mode> (local)` under a directory mode), `Jev · no key`, `Jev · config error` or `Jev · off`. First that applies: config error > no key > off > mode. `/jev status off` clears the line. Nothing is drawn in print or JSON mode | `Jev · standard` |
 | `/jev` output | `ctx.ui.notify` only, so nothing is printed without a UI | Status, features, key, executor, problems |
-| Tally | At the end of `/jev`, and on the status line every 10th prompt (replaces the level and advice suffixes for that prompt) | Prompts, workers by model, tokens on workers, fallbacks. Counts only, no dollars. Tools flagged arrives with WG-14 |
+| Tally | At the end of `/jev`, and on the status line every 10th prompt (replaces the level and advice suffixes for that prompt) | Prompts, workers by model, tokens on workers, fallbacks. Counts only, no dollars |
 | Log | Only while `verbose` is on. `pi.appendEntry("jev-log")` with `registerEntryRenderer`, not sent to the model | `jev · general-purpose → balanced · high · 0.5s` |
 | Verbose | Turns the log on. Lines carry raw probabilities, and why something was skipped | Errors always show |
 | Effort difference | Shown when clamping changed a level | `requested → effective`, such as `xhigh → high` |
@@ -318,9 +307,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Nothing can run | Input unchanged | Warning |
 | Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
 | Launch policy throws, is slow or returns nonsense | Launch proceeds unchanged (the executor falls open after 10 s) | Debug note in the executor |
-| Tool assessment fails | Worker keeps its default tools; nothing is granted or blocked | Nothing (counts omitted) |
-| A grant the child cannot take | Dropped by the executor | `toolsGranted` counts only what took effect |
-| Original executor present without the vendored one | Worker routing and tool assessment off | `duplicate executor` in `/jev` |
+| Original executor present without the vendored one | Worker routing off | `duplicate executor` in `/jev` |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
 | CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |
 | Ledger write fails | Decision still applied | Verbose log |
@@ -337,8 +324,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Moment | Added wait |
 |---|---|
 | Each main prompt | Typically about 0.5 s, at most `timeoutMs` (1500 ms) |
-| Each worker launch | The launch waits for the policy, at most `classifier.timeoutMs` (the policy watchdog is 10 s). The worker request and, with the `tools` switch on and candidates present, one extra tool-assessment request run concurrently under that one deadline |
-| Tool assessment | No separate wait: it shares the launch deadline. Background launches return their id at once |
+| Each worker launch | The launch waits for the policy, at most `classifier.timeoutMs` (the policy watchdog is 10 s). The worker request is the only Jev request for a launch. Background launches return their id at once |
 | Everything else | None. Commands never call Jev |
 
 ## Not in the architecture

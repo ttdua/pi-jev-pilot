@@ -56,9 +56,7 @@ const lastIsUser = (r: RecordedRequest, text: string): boolean => {
   const last = messages(r).at(-1);
   return last?.role === "user" && JSON.stringify(last).includes(text);
 };
-const hasTool = (r: RecordedRequest): boolean => messages(r).some((m) => m.role === "tool");
 const isChild = (r: RecordedRequest): boolean => lastIsUser(r, "CHILD-TASK");
-const isResumeChild = (r: RecordedRequest): boolean => lastIsUser(r, "RESUME-TASK");
 /** A child request after a tool result: its first user message is the brief (the main's is not). */
 const isChildAfterTool = (r: RecordedRequest): boolean =>
   messages(r).at(-1)?.role === "tool" &&
@@ -164,77 +162,22 @@ const records = (s: HostSession, event: string) =>
 
 // ---- Jev fixture ----
 
-type JevBody = { state?: { task?: unknown }; questions?: Record<string, unknown> };
-const parse = (body: string): JevBody => {
-  try {
-    return JSON.parse(body) as JevBody;
-  } catch {
-    return {};
-  }
-};
-const isToolKey = (k: string): boolean => k.startsWith("tool::") || k.startsWith("grant::");
-const isToolRequest = (body: string): boolean =>
-  Object.keys(parse(body).questions ?? {}).some(isToolKey);
-const toolRequests = (j: JevFixture) => j.requests.filter((r) => isToolRequest(r.body));
-
 function choice(pick: string, options: string[]): object {
   const probabilities: Record<string, number> = {};
   for (const o of options) probabilities[o] = o === pick ? 0.9 : 0.1 / (options.length - 1);
   return { type: "choice", choice: pick, probabilities, confidence: 0.9 };
 }
 
-/** Answers every asked question: route `fast`/`medium`, flag `flag`, grant `grant`. */
-function answersFor(body: string, opts: { flag?: string; grant?: string }): FixtureRoute {
-  const answers: Record<string, object> = {
-    effort: choice("medium", ["low", "medium", "high", "xhigh", "max"]),
-    risky: { type: "noul", noul: 0.2 },
-    tier: choice("fast", ["fast", "balanced"]),
-  };
-  for (const key of Object.keys(parse(body).questions ?? {})) {
-    if (key.startsWith("tool::")) {
-      answers[key] = { type: "noul", noul: key === `tool::${opts.flag}` ? 0.9 : 0.1 };
-    } else if (key.startsWith("grant::")) {
-      answers[key] = { type: "noul", noul: key === `grant::${opts.grant}` ? 0.9 : 0.1 };
-    }
-  }
-  return { json: { answers } };
-}
-
-/** One shared timeline of fixture events, in the order the fixtures saw them. */
-type Timeline = string[];
-
-type Gate = { release(): void; route: FixtureRoute };
-
-/**
- * Holds every tool assessment request until `release`; other requests are answered at once.
- * `jev:tool-answered` is logged when the held answer is handed to the server, before it is sent.
- */
-function heldToolRoute(opts: { flag?: string }, log: Timeline): Gate {
-  let release = (): void => undefined;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const route: FixtureRoute = {
-    each: (body) => {
-      if (!isToolRequest(body)) return answersFor(body, opts);
-      log.push("jev:tool-request");
-      return {
-        held: gate.then(() => {
-          log.push("jev:tool-answered");
-          return answersFor(body, opts);
-        }),
-      };
-    },
-  };
-  return { release: () => release(), route };
-}
-
-/** Logs `provider:child` when the provider fixture sees the child's first request. */
-function loggedChild(log: Timeline): ScriptEntry {
+/** Answers every asked question: route `fast`/`medium`. */
+function answersFor(): FixtureRoute {
   return {
-    name: "child-logged",
-    match: (r) => isChild(r) && (log.push("provider:child"), false),
-    reply: { text: "never" },
+    json: {
+      answers: {
+        effort: choice("medium", ["low", "medium", "high", "xhigh", "max"]),
+        risky: { type: "noul", noul: 0.2 },
+        tier: choice("fast", ["fast", "balanced"]),
+      },
+    },
   };
 }
 
@@ -243,15 +186,12 @@ async function newJev(route: FixtureRoute): Promise<JevFixture> {
   jevs.push(j);
   return j;
 }
-const answering = (opts: { flag?: string; grant?: string } = {}): FixtureRoute => ({
-  each: (body) => answersFor(body, opts),
-});
+const answering = (): FixtureRoute => answersFor();
 
-function jevConfig(jev: JevFixture, enforce: boolean): Record<string, unknown> {
+function jevConfig(jev: JevFixture): Record<string, unknown> {
   return {
     classifier: { url: jev.url("/classify"), timeoutMs: 5000 },
     tiers: { fast: "fixture/fixture-fast", balanced: "fixture/fixture-balanced" },
-    ...(enforce ? { tools: { mode: "enforce" } } : {}),
   };
 }
 
@@ -600,7 +540,7 @@ describe("jev-pilot launch policy through the installed checkout", () => {
     async () => {
       const jev = await newJev(answering());
       const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, false),
+        config: jevConfig(jev),
         env: probePolicy(POLICY_EXPERT),
         script: [
           ...childScript([]),
@@ -638,7 +578,7 @@ describe("jev-pilot launch policy through the installed checkout", () => {
       const jev = await newJev(answering());
       const extra = { model: "fixture/fixture-main", run_in_background: background };
       const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, false),
+        config: jevConfig(jev),
         script: [...childScript([]), ...mainScript("START-MAIN", [launch(WORKER, extra)])],
       });
       await s.prompt("START-MAIN");
@@ -659,10 +599,10 @@ describe("jev-pilot launch policy through the installed checkout", () => {
   test(
     "Foreground completion: one completed line with toolUses 3",
     async () => {
-      const jev = await newJev(answering({ grant: PROBE_TOOL }));
-      const probe = { name: PROBE_TOOL, arguments: {} };
+      const jev = await newJev(answering());
+      const probe = { name: "ls", arguments: {} };
       const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, true),
+        config: jevConfig(jev),
         script: [
           ...childScript([probe, probe, probe]),
           ...mainScript("START-MAIN", [launch(OPEN)]),
@@ -670,167 +610,10 @@ describe("jev-pilot launch policy through the installed checkout", () => {
       });
       await s.prompt("START-MAIN");
       await s.waitFor(() => workerLines(s).length >= 1, "worker line");
-      expect(records(s, "tool:executed")).toHaveLength(3);
       const lines = strictLedger(s).filter((e) => e["kind"] === "worker");
       expect(lines).toHaveLength(1);
       expect(lines[0]).toMatchObject({ status: "completed", toolUses: 3 });
       expect(fixture.unmatched).toEqual([]);
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Enforce removes",
-    async () => {
-      const jev = await newJev(answering({ flag: "edit" }));
-      const edit = { name: "edit", arguments: { path: "x.txt", edits: [] } };
-      const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, true),
-        script: [...childScript([edit]), ...mainScript("START-MAIN", [launch(OPEN)])],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => workerLines(s).length >= 1, "worker line");
-      const child = fixture.requests.filter((r) => isChild(r) || isChildAfterTool(r));
-      expect(child.length).toBe(2);
-      for (const r of child) expect(r.toolNames).not.toContain("edit");
-      expect(toolResult(child[1])).toMatch(/not found/i);
-      expect(workerLines(s)[0]).toMatchObject({ toolsFlagged: 1 });
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Enforce grants",
-    async () => {
-      const jev = await newJev(answering({ grant: PROBE_TOOL }));
-      const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, true),
-        script: [
-          ...childScript([{ name: PROBE_TOOL, arguments: {} }]),
-          ...mainScript("START-MAIN", [launch(OPEN)]),
-        ],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => workerLines(s).length >= 1, "worker line");
-      expect(Object.keys(parse(toolRequests(jev)[0]?.body ?? "").questions ?? {})).toContain(
-        `grant::${PROBE_TOOL}`,
-      );
-      expect(childOf(fixture)?.toolNames).toContain(PROBE_TOOL);
-      expect(toolResult(fixture.requests.find(isChildAfterTool))).toContain(PROBE_TOOL_TEXT);
-      expect(workerLines(s)[0]).toMatchObject({ toolsGranted: 1 });
-    },
-    TIMEOUT,
-  );
-
-  test.each([
-    ["observe", false],
-    ["enforce", true],
-  ] as const)(
-    "Slow answer in %s: the child's first request follows the tool answer",
-    async (_mode, enforce) => {
-      const log: Timeline = [];
-      const gate = heldToolRoute({ flag: "edit" }, log);
-      const jev = await newJev(gate.route);
-      const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, enforce),
-        script: [loggedChild(log), ...childScript([]), ...mainScript("START-MAIN", [launch(OPEN)])],
-      });
-      const prompted = s.prompt("START-MAIN");
-      await s.waitFor(() => log.includes("jev:tool-request"), "tool request");
-      gate.release();
-      await prompted;
-      await s.waitFor(() => log.includes("provider:child"), "child request");
-      expect(log).toEqual(["jev:tool-request", "jev:tool-answered", "provider:child"]);
-      if (enforce) expect(childOf(fixture)?.toolNames).not.toContain("edit");
-      else expect(childOf(fixture)?.toolNames).toContain("edit");
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Ordering control: with tool assessment off, the child starts while a held answer waits",
-    async () => {
-      // Positive control for the timeline: the same held route, but nothing awaits it, so the
-      // child request is logged before the release. Shows the timeline can record either order.
-      const log: Timeline = [];
-      const gate = heldToolRoute({ flag: "edit" }, log);
-      const jev = await newJev(gate.route);
-      const { session: s } = await jevSession({
-        config: jevConfig(jev, false),
-        state: { version: 1, switches: { tools: false } },
-        script: [loggedChild(log), ...childScript([]), ...mainScript("START-MAIN", [launch(OPEN)])],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => log.includes("provider:child"), "child request");
-      gate.release();
-      log.push("test:released");
-      expect(log).toEqual(["provider:child", "test:released"]);
-      expect(toolRequests(jev)).toHaveLength(0);
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Resumed worker is not reassessed",
-    async () => {
-      const jev = await newJev(answering({ flag: "edit" }));
-      const resume: ScriptEntry = {
-        name: "main-resume",
-        match: (r) => r.model === "fixture-main" && hasTool(r),
-        reply: (r) => {
-          const id = /Agent ID: (\S+)/.exec(toolResult(r))?.[1] ?? "missing";
-          return {
-            toolCalls: [
-              subagent({
-                prompt: "RESUME-TASK go on",
-                description: "resume",
-                subagent_type: OPEN,
-                resume: id,
-              }),
-            ],
-          };
-        },
-        times: 1,
-      };
-      const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, true),
-        script: [
-          { name: "resume-child", match: isResumeChild, reply: { text: "resumed done" } },
-          ...childScript([]),
-          ...mainScript("START-MAIN", [launch(OPEN)]),
-          resume,
-        ],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => fixture.requests.some(isResumeChild), "resumed child request");
-      expect(toolRequests(jev)).toHaveLength(1);
-      expect(fixture.requests.find(isResumeChild)?.toolNames).not.toContain("edit");
-      expect(childOf(fixture)?.toolNames).not.toContain("edit");
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Jev down in enforce keeps the default tools",
-    async () => {
-      const script = [...childScript([]), ...mainScript("START-MAIN", [launch(OPEN)])];
-      const off = await newJev(answering());
-      const reference = await jevSession({
-        config: jevConfig(off, true),
-        state: { version: 1, switches: { tools: false } },
-        script,
-      });
-      await reference.session.prompt("START-MAIN");
-      await reference.session.waitFor(() => childOf(reference.fixture) !== undefined, "child");
-      const down = await newJev({ status: 500 });
-      const run = await jevSession({ config: jevConfig(down, true), script });
-      await run.session.prompt("START-MAIN");
-      await run.session.waitFor(() => childOf(run.fixture) !== undefined, "child");
-      expect(toolRequests(down)).toHaveLength(1);
-      const tools = (f: Fixture): string[] => [...(childOf(f)?.toolNames ?? [])].sort();
-      expect(tools(run.fixture).length).toBeGreaterThan(0);
-      expect(tools(run.fixture)).toEqual(tools(reference.fixture));
-      expect(tools(run.fixture)).not.toContain(PROBE_TOOL);
     },
     TIMEOUT,
   );
@@ -840,14 +623,14 @@ describe("jev-pilot launch policy through the installed checkout", () => {
 
 describe("e2e", () => {
   test(
-    "one session: routed tool launch, service spawn, enforce grant, /jev and a clean ledger",
+    "one session: routed tool launch, service spawn, /jev and a clean ledger",
     async () => {
-      const jev = await newJev(answering({ grant: PROBE_TOOL }));
+      const jev = await newJev(answering());
       const { fixture, session: s } = await jevSession({
-        config: jevConfig(jev, true),
+        config: jevConfig(jev),
         env: probePolicy(POLICY_EXPERT),
         script: [
-          ...childScript([{ name: PROBE_TOOL, arguments: {} }]),
+          ...childScript([]),
           ...mainScript("START-MAIN", [launch(OPEN, { model: "fixture/fixture-main" })]),
         ],
       });
@@ -861,8 +644,6 @@ describe("e2e", () => {
 
       const children = fixture.requests.filter(isChild);
       expect(children.map((c) => c.model)).toEqual(["fixture-fast", "fixture-fast"]);
-      for (const c of children) expect(c.toolNames).toContain(PROBE_TOOL);
-      expect(records(s, "tool:executed")).toHaveLength(2);
 
       const all = strictLedger(s);
       const lines = all.filter((e) => e["kind"] === "worker");
@@ -871,7 +652,6 @@ describe("e2e", () => {
         expect(line).toMatchObject({
           tier: "fast",
           status: "completed",
-          toolsGranted: 1,
           effectiveModel: "fixture/fixture-fast",
         });
       }

@@ -46,19 +46,12 @@ const isMainFirst = (r: RecordedRequest): boolean =>
   !hasTool(r) &&
   JSON.stringify(r.body.messages).includes("START-MAIN");
 
-/** A tool assessment request: every question is a `tool::` or `grant::` noul. */
-function isToolAssessment(questions: unknown): boolean {
-  const keys = Object.keys((questions ?? {}) as object);
-  return keys.length > 0 && keys.every((k) => k.startsWith("tool::") || k.startsWith("grant::"));
-}
-
-// Main-session effort (WG-07) asks Jev on every prompt, and tool assessment once per launch;
-// count worker requests only.
+// Main-session effort (WG-07) asks Jev on every prompt; count worker requests only.
 const workerRequests = (j: JevFixture): JevFixture["requests"] =>
   j.requests.filter((r) => {
     try {
-      const parsed = JSON.parse(r.body) as { state?: { task?: unknown }; questions?: unknown };
-      return parsed.state?.task !== undefined && !isToolAssessment(parsed.questions);
+      const parsed = JSON.parse(r.body) as { state?: { task?: unknown } };
+      return parsed.state?.task !== undefined;
     } catch {
       // Counted, so a malformed body can never make a "no request" assertion pass.
       return true;

@@ -169,7 +169,7 @@ describe("same state as live", () => {
   async function liveState(entries: SessionEntry[], cwd: string, rich?: MainDeps["rich"]) {
     const requests: JevRequest[] = [];
     const snapshot = buildSnapshot({
-      configRead: { kind: "ok", present: true, config: {}, notices: [] },
+      configRead: { kind: "ok", present: true, notices: [], deprecated: [], config: {} },
       stateRead: { kind: "ok", state: {} },
       env: { TYPESAFE_API_KEY: "k" },
       toolNames: [],

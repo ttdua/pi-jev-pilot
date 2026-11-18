@@ -38,7 +38,13 @@ function snap(
   } = {},
 ): Snapshot {
   return buildSnapshot({
-    configRead: o.config ?? { kind: "ok", present: true, config: {} as Config, notices: [] },
+    configRead: o.config ?? {
+      kind: "ok",
+      present: true,
+      notices: [],
+      deprecated: [],
+      config: {} as Config,
+    },
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
@@ -161,6 +167,10 @@ describe("usageText", () => {
     for (const f of ["/jev", "/jev <feature> on|off", "/jev all on|off", "/jev reset", ...FEATURES])
       expect(text).toContain(f);
   });
+  test("states the decision feature count", () => {
+    expect(text).toContain("five decision features");
+    expect(text).not.toContain("six");
+  });
   test("Usage lists the tune form", () => {
     expect(text).toContain("/jev tune [undo|reset|on|off]");
   });
@@ -187,7 +197,13 @@ describe("formatStatus", () => {
     const issues = [{ path: "", message: "jev-mode.json is not valid JSON" }];
     const text = formatStatus(
       buildSnapshot({
-        configRead: { kind: "ok", present: true, config: {} as Config, notices: [] },
+        configRead: {
+          kind: "ok",
+          present: true,
+          notices: [],
+          deprecated: [],
+          config: {} as Config,
+        },
         stateRead: { kind: "ok", state: {} },
         env: { TYPESAFE_API_KEY: "k" },
         toolNames: ["subagent"],
@@ -241,7 +257,7 @@ describe("formatStatus", () => {
   test("no executor", () => {
     const text = formatStatus(snap({ tools: [] }));
     expect(text).toContain("no executor");
-    expect(text).toContain("worker routing and tool assessment are off");
+    expect(text).toContain("worker routing is off");
   });
   describe("mix", () => {
     const entries = (n: number, fast: number, balanced: number, deep: number): WindowEntry[] => {
@@ -518,20 +534,19 @@ describe("runJev", () => {
     expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(before);
   });
 
-  test("status lists exactly eight features", async () => {
+  test("status lists seven features", async () => {
     const dir = jevDir();
     const rec = await run("", dir);
     const text = rec.notes[0]![0];
     const lines = text.split("\n");
     const start = lines.indexOf("features:") + 1;
-    const names = lines.slice(start, start + 8).map((l) => l.trim().split(":")[0]);
-    expect(lines[start + 8]).toMatch(/^cli review:/);
+    const names = lines.slice(start, start + 7).map((l) => l.trim().split(":")[0]);
+    expect(lines[start + 7]).toMatch(/^cli review:/);
     expect(names).toEqual([
       "effort",
       "subagents",
       "skills",
       "strategy",
-      "tools",
       "expert",
       "status",
       "verbose",
@@ -539,11 +554,44 @@ describe("runJev", () => {
     expect(text).not.toContain("  review:");
   });
 
+  test("tools is not a feature", async () => {
+    const dir = jevDir();
+    await run("skills off", dir);
+    const before = readFileSync(join(dir, "state.json"), "utf8");
+    const rec = await run("tools off", dir);
+    expect(rec.notes).toEqual([[usageText(), "warning"]]);
+    expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(before);
+  });
+
+  test("deprecated tools section reported", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ tools: { anything: 1 } }));
+    const text = (await run("", dir)).notes[0]![0];
+    expect(text).toContain("problems:\n  deprecated: config tools is ignored");
+    expect(text).not.toContain("config error");
+    writeFileSync(join(dir, "config.json"), JSON.stringify({}));
+    const clean = (await run("", dir)).notes[0]![0];
+    expect(text.split("\n")[0]).toBe(clean.split("\n")[0]);
+    expect(clean).not.toContain("deprecated:");
+  });
+
+  test("invalid config with tools lists no deprecation", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ tools: {}, effort: 5 }));
+    const text = (await run("", dir)).notes[0]![0];
+    expect(text).toContain("Jev · config error");
+    expect(text).toContain("problems:");
+    expect(text).toContain("  config effort: expected an object");
+    expect(text).not.toContain("deprecated:");
+  });
+
   test("all off then all on", async () => {
     const dir = jevDir();
     await run("all off", dir);
     const sw = switches(dir)!;
-    expect(DECISION_FEATURES).toHaveLength(6);
+    expect(DECISION_FEATURES).toHaveLength(5);
     for (const f of DECISION_FEATURES) expect(sw[f]).toBe(false);
     expect("status" in sw).toBe(false);
     expect("verbose" in sw).toBe(false);
@@ -1442,6 +1490,6 @@ describe("duplicate executor status", () => {
     expect(text).toContain("duplicate executor");
     expect(text).toContain("/other/pi-subagents/index.ts");
     expect(text).toContain("uninstall @gotgenes/pi-subagents");
-    expect(text).toContain("worker routing and tool assessment are off");
+    expect(text).toContain("worker routing is off");
   });
 });

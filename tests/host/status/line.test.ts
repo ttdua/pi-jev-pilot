@@ -28,7 +28,13 @@ type Over = {
 
 function snap(o: Over = {}) {
   return buildSnapshot({
-    configRead: o.config ?? { kind: "ok", present: true, config: {} as Config, notices: [] },
+    configRead: o.config ?? {
+      kind: "ok",
+      present: true,
+      notices: [],
+      deprecated: [],
+      config: {} as Config,
+    },
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],

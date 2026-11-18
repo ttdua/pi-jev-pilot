@@ -11,7 +11,7 @@ import type { VendoredService } from "../../src/host/platform/service.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker/routing.ts";
 import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
 import type { Mode } from "../../src/store/defaults.ts";
-import type { Slot } from "../../src/store/config.ts";
+import type { Config, Slot } from "../../src/store/config.ts";
 import { resolveSettings } from "../../src/store/settings.ts";
 
 export type Handler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown;
@@ -38,29 +38,32 @@ export type Opts = {
   forkLaunch?: "untouched" | "thinking";
   slots?: Slot[];
   window?: () => readonly WindowEntry[];
-  toolsMode?: "observe" | "enforce";
-  grantAt?: number;
+  /** A config read from a file, for tests that need legacy keys to pass through the reader. */
+  config?: Config;
   timeoutMs?: number;
 };
 
-/** A snapshot; the `tools` switch is off unless asked for, so routing tests send one request. */
+/** A snapshot with routing on. */
 export function snap(o: Opts = {}): Snapshot {
   const settings = resolveSettings({
     config: {
+      ...o.config,
       tiers: o.tiers ?? TIERS,
       state: { parentRequest: o.parentRequest ?? false },
       subagents: { forkLaunch: o.forkLaunch ?? "untouched" },
-      tools: { mode: o.toolsMode ?? "observe", grantAt: o.grantAt ?? 0.8 },
       ...(o.timeoutMs === undefined ? {} : { classifier: { timeoutMs: o.timeoutMs } }),
       ...(o.slots === undefined ? {} : { crew: { slots: o.slots } }),
     } as never,
     state: {
-      switches: { subagents: true, tools: false, ...o.switches },
+      switches: { subagents: true, ...o.switches },
       ...(o.mode === undefined ? {} : { mode: o.mode }),
     } as never,
   });
   return {
-    config: o.valid === false ? { valid: false, issues: [] } : { valid: true, notices: [] },
+    config:
+      o.valid === false
+        ? { valid: false, issues: [] }
+        : { valid: true, notices: [], deprecated: [] },
     state: { kind: "ok", issues: [] },
     localMode: { kind: "missing", issues: [] },
     settings,
@@ -123,19 +126,7 @@ export function bodyWith(tier: string, probabilities: Record<string, number>, ef
     },
   };
 }
-/** A tool answer body: one noul per key, e.g. `{ "tool::edit": 0.9, "grant::web": 0.85 }`. */
-export function toolBody(nouls: Record<string, number>) {
-  const answers: Record<string, unknown> = {};
-  for (const [key, noul] of Object.entries(nouls)) answers[key] = { type: "noul", noul };
-  return { answers };
-}
 export const ok = (b: unknown): JevOutcome => ({ kind: "ok", body: b, ms: 1 });
-
-/** Whether a Jev request is a tool assessment (its questions are `tool::`/`grant::` nouls). */
-export function isToolRequest(req: JevRequest): boolean {
-  const keys = Object.keys(req.questions as object);
-  return keys.length > 0 && keys.every((k) => k.startsWith("tool::") || k.startsWith("grant::"));
-}
 
 /** An agent snapshot as the executor's registry returns it; `general-purpose` by default. */
 export function agentSnapshot(over: Partial<AgentTypeSnapshot> = {}): AgentTypeSnapshot {
@@ -295,7 +286,7 @@ export function harness(
   const asks: JevRequest[] = [];
   const lines: Record<string, unknown>[] = [];
   let appendFails = false;
-  let script: Script = (req) => (isToolRequest(req) ? ok(toolBody({})) : ok(body("fast")));
+  let script: Script = () => ok(body("fast"));
   let current = snap(opts);
   let clock = 1_700_000_000_000;
   const executor = fakeService({ taken: opts.taken });
@@ -352,9 +343,6 @@ export function harness(
     /** The executor's `session-created` event for a launch. */
     created: (agentId: string, extra: object = {}) =>
       emit("subagents:child:session-created", { sessionId: `s-${agentId}`, agentId, ...extra }),
-    /** The executor's `bound` event, with the grants that took effect in the child. */
-    bound: (agentId: string, grantedTools: string[]) =>
-      emit("subagents:child:bound", { sessionId: `s-${agentId}`, agentId, grantedTools }),
     completed: (agentId: string, extra: object = {}) =>
       emit("subagents:completed", outcome(agentId, extra)),
     failed: (agentId: string, extra: object = {}) =>

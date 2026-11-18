@@ -40,14 +40,14 @@ A successful response:
 }
 ```
 
-## Three request kinds
+## Two request kinds
 
-| | Main | Worker | Tool assessment |
-|---|---|---|---|
-| **When** | Eligible main prompt | Each launch | Each launch with candidates, `tools` switch on |
-| **Where** | Main session | Main session (launch policy) | Main session (launch policy), concurrent with the worker request |
-| **Usual size** | 7 KB, plus skills (about 60 KB with 78 skills) | 5–6 KB | 6 KB |
-| **Cost** | About $0.0006 with 78 skills | About $0.00006 | About $0.00006 |
+| | Main | Worker |
+|---|---|---|
+| **When** | Eligible main prompt | Each launch |
+| **Where** | Main session | Main session (launch policy) |
+| **Usual size** | 7 KB, plus skills (about 60 KB with 78 skills) | 5–6 KB |
+| **Cost** | About $0.0006 with 78 skills | About $0.00006 |
 
 Cost is estimated from $0.042 per million input tokens at about 4 bytes per token. Output is free.
 
@@ -205,33 +205,6 @@ The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.
 | `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max`, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
 
-## Tool assessment
-
-```json
-{
-  "task": { "brief": "…", "description": "…" },
-  "agent": { "name": "general-purpose", "source": "builtin", "description": "…" },
-  "tools": {
-    "bash": {
-      "description": "<from pi.getAllTools()>",
-      "source": "builtin",
-      "parameters": { "command": "Shell command to execute" }
-    }
-  }
-}
-```
-
-- `task.brief` is the last 4000 code points of the worker's first prompt; `task.description` is the launch description.
-- `agent` holds the name, source and description of the worker's agent.
-- `tools` is keyed by candidate. Each entry has the tool's description, its source (`sourceInfo.source`, or `unknown`) and the descriptions of its top-level parameters. Every text is cut to 500 code points.
-- Candidates are `(default set ∪ parent session tools) − declared tools − disallowed tools − never-candidates`. Never-candidates are `jev_review` and the executor's own tools. Default-set tools are block candidates, the rest grant candidates. At most 32 are scored, block candidates first; the rest are left as they are.
-
-One noul per candidate. A block candidate gets `tool::<name>`, asking whether the entry is dangerous or clearly inappropriate for this agent doing this task; ≥ .5 blocks. A grant candidate gets `grant::<name>`, asking whether the task needs it; ≥ `tools.grantAt` (default .8) grants. The wording is in [Jev questions](jev-questions.md); it is provisional until replay. `RUBRIC_VERSION` stays 2: it versions only the worker `tier` wording.
-
-The request is built from the launch policy's request: the brief is the launch prompt (its last 4000 code points) and the agent comes from the executor's registry. Neither the brief nor any tool text is stored (see [Privacy](privacy.md)). The request is sent concurrently with the worker request and shares its `classifier.timeoutMs` deadline, so with the `tools` switch on each launch with candidates costs one extra request.
-
-It is a separate request because tool descriptions are irrelevant to the tier question, and TypeSafe documents that unrelated state lowers accuracy. A [replay of one merged request](evidence/2026-11-11-merged-request.md) kept the tier mix in range but saved about 6% of the bytes and no latency, so the requests stay separate.
-
 ## Skill pick
 
 Catalog: `pi.getCommands()` entries with `source: "skill"`, read through `sourceInfo.path`. Skills with `disable-model-invocation: true`, unreadable files, and names not matching `^[a-z0-9][a-z0-9-]{0,63}$` are excluded. The catalog is read on each eligible prompt, with the body as Pi builds it.
@@ -264,7 +237,6 @@ If the same name with the same body fingerprint is still in the context Pi sends
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |
-| `tool::*` | ≥ .5 | Flag; `enforce` removes it, `observe` only counts it |
 
 Strategy gates:
 

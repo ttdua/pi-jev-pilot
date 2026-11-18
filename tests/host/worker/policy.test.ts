@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { askJev, type JevOutcome } from "../../../src/jev/client.ts";
 import { WORKER_TIER_CRITERIA } from "../../../src/jev/rubrics.ts";
 import { CHILDREN_KEY } from "../../../src/host/platform/child.ts";
@@ -9,7 +11,9 @@ import {
 } from "../../../src/host/worker/routing.ts";
 import type { WindowEntry } from "../../../src/policy/worker/cutpoints.ts";
 import { validateLedgerEntry } from "../../../src/store/ledger-schema.ts";
+import { readConfig } from "../../../src/store/config.ts";
 import { startJevFixture } from "../../jev/fixture.ts";
+import { tempDir } from "../../helpers.ts";
 import {
   body,
   bodyWith,
@@ -115,7 +119,7 @@ describe("Launches routing acts on", () => {
   });
 
   test("Child session", async () => {
-    const h = harness({ switches: { tools: true } });
+    const h = harness();
     (globalThis as Record<symbol, unknown>)[CHILDREN_KEY] = new Set(["child-1"]);
     await h.launch({ parentSessionId: "child-1" });
     expect(h.asks).toHaveLength(0);
@@ -245,6 +249,53 @@ describe("When routing runs", () => {
   test("Nested launch with the switch off", async () => {
     const h = harness({ switches: { subagents: false } });
     const { adjustment } = await h.launch({ origin: { kind: "tool", toolCallId: "p/1" } });
+    expect(h.asks).toHaveLength(0);
+    expect(adjustment).toBeUndefined();
+  });
+});
+
+describe("No tool assessment", () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+
+  /** The settings of a config file that still holds the retired `tools` section. */
+  function legacyConfig() {
+    const dir = tempDir("jev-legacy-");
+    dirs.push(dir);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ tools: { mode: "enforce" } }));
+    const read = readConfig(dir);
+    if (read.kind !== "ok") throw new Error("legacy config must stay valid");
+    return read.config;
+  }
+
+  test("No tool questions or tool adjustment", async () => {
+    const h = harness({ config: legacyConfig() });
+    h.setScript(() =>
+      ok({
+        ...body("fast"),
+        answers: { ...body("fast").answers, "tool::edit": { type: "noul", noul: 0.9 } },
+      }),
+    );
+    const { adjustment } = await h.launch({
+      agent: { tools: [] },
+      toolSet: { declared: [], defaults: [], parentTools: ["edit", "web"] },
+    });
+    expect(h.asks).toHaveLength(1);
+    const keys = Object.keys(questionsOf(h));
+    expect(keys.some((k) => k.startsWith("tool::") || k.startsWith("grant::"))).toBe(false);
+    expect(adjustment).toBeDefined();
+    expect(adjustment).not.toHaveProperty("addTools");
+    expect(adjustment).not.toHaveProperty("removeTools");
+  });
+
+  test("Routing off sends nothing about tools", async () => {
+    const h = harness({ config: legacyConfig(), switches: { subagents: false } });
+    const { adjustment } = await h.launch({
+      toolSet: { declared: [], defaults: [], parentTools: ["edit", "web"] },
+    });
     expect(h.asks).toHaveLength(0);
     expect(adjustment).toBeUndefined();
   });

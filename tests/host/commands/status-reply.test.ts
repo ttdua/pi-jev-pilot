@@ -7,7 +7,7 @@ import type { Config } from "../../../src/store/config.ts";
 
 const snap = (localMode?: "budget") =>
   buildSnapshot({
-    configRead: { kind: "ok", present: true, config: {} as Config, notices: [] },
+    configRead: { kind: "ok", present: true, notices: [], deprecated: [], config: {} as Config },
     stateRead: { kind: "ok", state: {} },
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
@@ -22,6 +22,7 @@ describe("config notices", () => {
         present: true,
         config: {} as Config,
         notices: ["subagents.forkedLaunch is deprecated; rename it to subagents.forkLaunch"],
+        deprecated: [],
       },
       stateRead: { kind: "ok", state: {} },
       env: { TYPESAFE_API_KEY: "k" },

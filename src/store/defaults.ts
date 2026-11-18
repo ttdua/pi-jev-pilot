@@ -3,7 +3,6 @@ export const FEATURES = [
   "subagents",
   "skills",
   "strategy",
-  "tools",
   "expert",
   "status",
   "verbose",
@@ -49,7 +48,6 @@ export const DEFAULTS = {
   },
   effort: { holdProviders: ["9router"] as readonly string[] },
   skills: { inject: "content" },
-  tools: { mode: "observe", grantAt: 0.8 },
   state: { parentRequest: false },
   subagents: { forkLaunch: "untouched" },
   review: { cli: "codex", enabled: false },
@@ -59,19 +57,17 @@ export const DEFAULTS = {
     subagents: true,
     skills: true,
     strategy: true,
-    tools: true,
     expert: true,
     status: true,
     verbose: false,
   } as Readonly<Record<Feature, boolean>>,
 } as const;
 
-/** The six decision features, in display order; excludes `status` and `verbose`. */
+/** The five decision features, in display order; excludes `status` and `verbose`. */
 export const DECISION_FEATURES: readonly Feature[] = [
   "effort",
   "subagents",
   "skills",
   "strategy",
-  "tools",
   "expert",
 ];

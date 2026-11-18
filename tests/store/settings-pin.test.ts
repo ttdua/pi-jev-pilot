@@ -8,7 +8,6 @@ const TOP_KEYS = [
   "crew",
   "effort",
   "skills",
-  "tools",
   "state",
   "subagents",
   "review",
@@ -60,7 +59,6 @@ describe("resolveSettings precedence", () => {
         tiers: { fast: "x" },
         effort: { holdProviders: ["a"] },
         skills: { inject: "suggest" },
-        tools: { mode: "enforce" },
         state: { parentRequest: true },
         subagents: { forkLaunch: "thinking" },
         review: { cli: "opencode", enabled: true },
@@ -76,7 +74,6 @@ describe("resolveSettings precedence", () => {
     expect(s.tiers).toEqual({ fast: "x" });
     expect(s.effort.holdProviders).toEqual(["a"]);
     expect(s.skills.inject).toBe("suggest");
-    expect(s.tools.mode).toBe("enforce");
     expect(s.state.parentRequest).toBe(true);
     expect(s.subagents.forkLaunch).toBe("thinking");
     expect(s.review).toEqual({ cli: "opencode", enabled: true });

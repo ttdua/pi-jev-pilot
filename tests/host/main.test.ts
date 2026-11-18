@@ -126,6 +126,7 @@ function setup(
       configRead: o.config ?? {
         kind: "ok",
         present: true,
+        deprecated: [],
         config: {
           ...(o.holdProviders === undefined ? {} : { effort: { holdProviders: o.holdProviders } }),
           ...(o.inject === undefined ? {} : { skills: { inject: o.inject } }),

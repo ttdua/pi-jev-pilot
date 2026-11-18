@@ -6,7 +6,6 @@ import { RESERVED_SLOT_NAMES, TIERS } from "./defaults.ts";
 import {
   array,
   boolean,
-  finiteNumber,
   integer,
   object,
   oneOf,
@@ -25,14 +24,19 @@ export type Config = {
   crew?: { slots?: Slot[] };
   effort?: { holdProviders?: string[] };
   skills?: { inject?: "content" | "suggest" };
-  tools?: { mode?: "observe" | "enforce"; grantAt?: number };
   state?: { parentRequest?: boolean };
   subagents?: { forkLaunch?: "untouched" | "thinking"; forkedLaunch?: "untouched" | "thinking" };
   review?: { cli?: "codex" | "opencode"; enabled?: boolean };
 };
 
 export type ConfigRead =
-  | { kind: "ok"; present: boolean; config: Config; notices: string[] }
+  | {
+      kind: "ok";
+      present: boolean;
+      config: Config;
+      notices: string[];
+      deprecated: readonly "tools"[];
+    }
   | { kind: "invalid"; issues: Issue[] };
 
 const modelId = string({ pattern: /^[A-Za-z0-9._-]+\/[^\s]+$/, max: 128 });
@@ -81,6 +85,9 @@ const providerName = string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ });
 /** The Jev classifier's model id; its own rule, so router ids like `provider/vendor/model:tag` fit. */
 const classifierModel = string({ pattern: /^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$/ });
 
+/** The retired `tools` section: any value is accepted and ignored. */
+const retiredSection: V<undefined> = () => undefined;
+
 function configValidator(): V<Config> {
   return object({
     classifier: object({
@@ -93,10 +100,7 @@ function configValidator(): V<Config> {
     crew: object({ slots: slotsValidator }),
     effort: object({ holdProviders: array(providerName, { max: 32, uniqueBy: (s) => s }) }),
     skills: object({ inject: oneOf(["content", "suggest"] as const) }),
-    tools: object({
-      mode: oneOf(["observe", "enforce"] as const),
-      grantAt: finiteNumber({ min: 0.5, max: 1 }),
-    }),
+    tools: retiredSection,
     state: object({ parentRequest: boolean() }),
     subagents: object({
       forkLaunch: oneOf(["untouched", "thinking"] as const),
@@ -169,7 +173,14 @@ function applyDeprecatedAlias(config: Config): string[] {
 export function readConfig(dir: string): ConfigRead {
   const loaded = load(dir);
   if (loaded.kind === "invalid") return loaded;
-  return { kind: "ok", present: loaded.present, config: loaded.config, notices: loaded.notices };
+  const deprecated = Object.hasOwn(loaded.raw, "tools") ? (["tools"] as const) : ([] as const);
+  return {
+    kind: "ok",
+    present: loaded.present,
+    config: loaded.config,
+    notices: loaded.notices,
+    deprecated,
+  };
 }
 
 /** Replaces only `crew.slots` in config.json, keeping every other key and its order. Never throws. */

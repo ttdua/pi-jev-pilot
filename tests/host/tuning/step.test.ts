@@ -165,7 +165,7 @@ function realDeps(dir: string, spy?: () => void): TuningDeps {
     now: () => 5000,
     load: () =>
       buildSnapshot({
-        configRead: { kind: "ok", present: false, config: {}, notices: [] },
+        configRead: { kind: "ok", present: false, notices: [], deprecated: [], config: {} },
         stateRead: { kind: "missing", state: {} },
         tuningRead: readTuning(dir),
         env: {},

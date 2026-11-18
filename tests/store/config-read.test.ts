@@ -71,7 +71,48 @@ const slot = (name: string) => ({ name, model: "9router/gpt-6.1-sol", when: "Cho
 describe("readConfig", () => {
   test("Valid full example", () => {
     const r = readText(FULL);
-    expect(r).toEqual({ kind: "ok", present: true, config: JSON.parse(FULL), notices: [] });
+    const { tools: _tools, ...expected } = JSON.parse(FULL);
+    expect(r).toEqual({
+      kind: "ok",
+      present: true,
+      config: expected,
+      notices: [],
+      deprecated: ["tools"],
+    });
+  });
+
+  test("Deprecated tools section ignored", () => {
+    const r = readJson({ tools: { mode: "enforce", grantAt: 0.9 } });
+    expect(r).toEqual({
+      kind: "ok",
+      present: true,
+      config: {},
+      notices: [],
+      deprecated: ["tools"],
+    });
+    if (r.kind === "ok") expect("tools" in r.config).toBe(false);
+  });
+
+  test("Deprecated tools section of any shape", () => {
+    for (const tools of [{ mode: "remove", grantAt: "high" }, { grantAt: 0.3 }, true, null]) {
+      expect(readJson({ tools })).toEqual({
+        kind: "ok",
+        present: true,
+        config: {},
+        notices: [],
+        deprecated: ["tools"],
+      });
+    }
+  });
+
+  test("No tools section, nothing deprecated", () => {
+    expect(readJson({})).toEqual({
+      kind: "ok",
+      present: true,
+      config: {},
+      notices: [],
+      deprecated: [],
+    });
   });
 
   test("Several problems reported together", () => {
@@ -126,7 +167,13 @@ describe("readConfig", () => {
 
   test("No file", () => {
     withDir((dir) => {
-      expect(readConfig(dir)).toEqual({ kind: "ok", present: false, config: {}, notices: [] });
+      expect(readConfig(dir)).toEqual({
+        kind: "ok",
+        present: false,
+        config: {},
+        notices: [],
+        deprecated: [],
+      });
     });
   });
 
@@ -138,6 +185,7 @@ describe("readConfig", () => {
       present: true,
       config: { review: { cli: "opencode", enabled: true } },
       notices: [],
+      deprecated: [],
     });
   });
 
@@ -239,7 +287,14 @@ describe("readConfig", () => {
   test("Router-style model keeps the other sections", () => {
     const full = JSON.parse(FULL);
     full.classifier.model = "openrouter/perplexity/pplx-decider-v1.3:free";
-    expect(readJson(full)).toEqual({ kind: "ok", present: true, config: full, notices: [] });
+    const { tools: _tools, ...expected } = full;
+    expect(readJson(full)).toEqual({
+      kind: "ok",
+      present: true,
+      config: expected,
+      notices: [],
+      deprecated: ["tools"],
+    });
   });
 
   test("Tier without provider rejected", () => {
@@ -310,10 +365,9 @@ describe("readConfig", () => {
   test("Enum values", () => {
     const r = readJson({
       skills: { inject: "full" },
-      tools: { mode: "remove" },
       review: { cli: "claude" },
     });
-    expect(paths(r).sort()).toEqual(["review.cli", "skills.inject", "tools.mode"]);
+    expect(paths(r).sort()).toEqual(["review.cli", "skills.inject"]);
   });
 
   test("Forked launch setting accepted", () => {
@@ -350,10 +404,10 @@ describe("readConfig", () => {
   test("Both keys present with another field invalid", () => {
     const r = readJson({
       subagents: { forkLaunch: "thinking", forkedLaunch: "untouched" },
-      tools: { mode: "remove" },
+      review: { cli: "claude" },
     });
     expect(r.kind).toBe("invalid");
-    expect(paths(r).sort()).toEqual(["subagents.forkedLaunch", "tools.mode"]);
+    expect(paths(r).sort()).toEqual(["review.cli", "subagents.forkedLaunch"]);
     expect("config" in r).toBe(false);
   });
 
@@ -364,23 +418,6 @@ describe("readConfig", () => {
     expect(paths(readJson({ subagents: { inheritContext: "skip" } }))).toEqual([
       "subagents.inheritContext",
     ]);
-  });
-
-  test("Grant cut accepted", () => {
-    const r = readJson({ tools: { grantAt: 0.9 } });
-    expectValid(r);
-    if (r.kind === "ok") expect(r.config.tools?.grantAt).toBe(0.9);
-  });
-
-  test("Grant cut bounds are inclusive", () => {
-    expectValid(readJson({ tools: { grantAt: 0.5 } }));
-    expectValid(readJson({ tools: { grantAt: 1 } }));
-  });
-
-  test("Grant cut out of range", () => {
-    expect(paths(readJson({ tools: { grantAt: 0.3 } }))).toEqual(["tools.grantAt"]);
-    expect(paths(readJson({ tools: { grantAt: "high" } }))).toEqual(["tools.grantAt"]);
-    expect(paths(readJson({ tools: { grantAt: 1.01 } }))).toEqual(["tools.grantAt"]);
   });
 
   test("Read leaves the file untouched", () => {
