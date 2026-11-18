@@ -17,8 +17,8 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 `src/policy/launch.ts` `AgentFacts.source` gains `package`; `src/host/platform/agents.ts` passes it (spec `agent-metadata`).
-- [ ] 2.2 Update the jev-pilot tests listed in plan Task 2 that name `Explore`, `Plan` or `general-purpose` as built-ins; add "Package source carried" and "Unknown thinking not set".
+- [x] 2.1 `src/policy/launch.ts` `AgentFacts.source` gains `package`; `src/host/platform/agents.ts` passes it (spec `agent-metadata`).
+- [x] 2.2 Update the jev-pilot tests listed in plan Task 2 that name `Explore`, `Plan` or `general-purpose` as built-ins; add "Package source carried" and "Unknown thinking not set".
 
 ## 3. Docs, changelog and gates
 
