@@ -55,7 +55,7 @@ Use these words consistently in code, docs and the user interface.
 | **Worker** | A subagent. Runs in a child session. |
 | **Child session** | A full Pi session in the same process, created by the executor. |
 | **Executor** | The package that runs workers: the vendored `@ttdua/pi-subagents` in `packages/pi-subagents/`, derived from `@gotgenes/pi-subagents` ([ADR 0009](decisions/0009-vendored-executor.md)). |
-| **Launch policy** | The one provider the executor consults for every new launch. jev-pilot registers it and answers with model, thinking, and tools to add or remove. |
+| **Launch policy** | The one provider the executor consults for every new launch. jev-pilot registers it and answers with model and thinking only. The executor's contract still supports `addTools` and `removeTools`, but Jev no longer uses them. |
 | **Agent** | A worker's definition: built-in, or a Markdown file with frontmatter. |
 | **Brief** | The prompt a worker is launched with. |
 | **Launch** | A new worker start, through a `subagent` tool call or a service `spawn()`. A `resume` is not a launch. |

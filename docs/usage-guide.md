@@ -218,7 +218,7 @@ disallowed_tools: bash, write
 ---
 ```
 
-It takes the same forms as `tools` (a list or a comma string), and is applied by the executor itself.
+It takes the same forms as `tools` (a list or a comma string), wins over `tools` and over any grant from the executor's launch policy, and is applied by the executor itself.
 
 ## Tuning
 
