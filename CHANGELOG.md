@@ -4,6 +4,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+### Removed
+
+- Tool assessment: Jev no longer removes or grants worker tools; a worker's tools come from its agent definition. The `tools` switch and `/jev tools` are gone. A `tools` section in `config.json` and `switches.tools` in `state.json` are ignored, and existing ledger lines with tool counts remain readable ([#81](https://github.com/ttdua/pi-jev-pilot/issues/81)).
+
 ## [0.4.1] - 2026-11-16
 
 Tag: v0.4.1

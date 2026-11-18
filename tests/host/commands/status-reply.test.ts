@@ -7,7 +7,7 @@ import type { Config } from "../../../src/store/config.ts";
 
 const snap = (localMode?: "budget") =>
   buildSnapshot({
-    configRead: { kind: "ok", present: true, config: {} as Config },
+    configRead: { kind: "ok", present: true, deprecated: [], config: {} as Config },
     stateRead: { kind: "ok", state: {} },
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],

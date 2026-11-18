@@ -137,7 +137,7 @@ describe("setup", () => {
   test("session_shutdown removes routing subscriptions", async () => {
     const f = fakePi();
     setup(f.pi);
-    expect(f.subs.filter((s) => s.live)).toHaveLength(6);
+    expect(f.subs.filter((s) => s.live)).toHaveLength(5);
     await f.handlers.get("session_shutdown")![0]!({}, {});
     expect(f.subs.filter((s) => s.live)).toHaveLength(0);
   });
@@ -161,10 +161,7 @@ describe("setup", () => {
     expect(f.subs.filter((s) => s.channel.startsWith("subagents:c")).length).toBeGreaterThan(0);
     expect(
       f.subs.filter(
-        (s) =>
-          ["subagents:completed", "subagents:failed", "subagents:child:bound"].includes(
-            s.channel,
-          ) && s.live,
+        (s) => ["subagents:completed", "subagents:failed"].includes(s.channel) && s.live,
       ),
     ).toHaveLength(0);
     throwing = false;
@@ -377,7 +374,6 @@ describe("setup", () => {
     ]);
     expect(f.subs.map((s) => s.channel).slice(2)).toEqual([
       CREATED,
-      "subagents:child:bound",
       "subagents:completed",
       "subagents:failed",
     ]);
@@ -490,7 +486,7 @@ describe("setup", () => {
 
     const b = fakePi();
     setup(b.pi);
-    expect(b.subs.filter((s) => s.live)).toHaveLength(6);
+    expect(b.subs.filter((s) => s.live)).toHaveLength(5);
     let calls = 0;
     await b.handlers.get("session_start")![0]!(
       {},

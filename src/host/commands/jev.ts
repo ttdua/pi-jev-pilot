@@ -23,7 +23,7 @@ export function usageText(): string {
     "  /jev                      show the status",
     "  /jev <feature> on|off     switch one feature",
     `      features: ${FEATURES.join(", ")}`,
-    "  /jev all on|off           switch the six decision features",
+    "  /jev all on|off           switch the five decision features",
     "  /jev mode budget|standard|premium [global]  choose the mode for this directory, or for all",
     "  /jev mode clear           drop this directory's mode",
     "  /jev reset                reset switches, mode and CLI review default",

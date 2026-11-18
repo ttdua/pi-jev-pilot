@@ -11,14 +11,7 @@ import {
   type VendoredService,
 } from "../platform/index.ts";
 import { LaunchBook } from "./launches.ts";
-import {
-  BOUND,
-  OUTCOME_EVENTS,
-  onBound,
-  onOutcome,
-  onSessionCreated,
-  SESSION_CREATED,
-} from "./outcomes.ts";
+import { OUTCOME_EVENTS, onOutcome, onSessionCreated, SESSION_CREATED } from "./outcomes.ts";
 import { createWorkerPolicy, type Decided, type WorkerHost } from "./policy.ts";
 import type { MainContext } from "./request.ts";
 import { LaunchWarnings } from "./warnings.ts";
@@ -66,7 +59,6 @@ function workerHost(
     book: new LaunchBook<Decided>(),
     warnings: new LaunchWarnings(() => join(jevDir(), "config.json")),
     classify: { ask, window: deps.window ?? ((): readonly WindowEntry[] => []), apiKey },
-    assess: { ask, pi, apiKey },
     snapshot: deps.snapshot ?? (() => loadSnapshot(pi)),
     append: deps.append ?? ((entry: unknown): void => void appendLedger(jevDir(), entry)),
     now: deps.now ?? Date.now,
@@ -92,7 +84,6 @@ function subscribe(pi: ExtensionAPI, name: string, handle: (data: unknown) => vo
 function subscribeExecutor(pi: ExtensionAPI, host: WorkerHost): (() => void)[] {
   return [
     subscribe(pi, SESSION_CREATED, (d) => onSessionCreated(host, d)),
-    subscribe(pi, BOUND, (d) => onBound(host, d)),
     ...OUTCOME_EVENTS.map((name) => subscribe(pi, name, (d) => onOutcome(host, d))),
   ];
 }
@@ -135,8 +126,8 @@ class Registration {
 }
 
 /**
- * Worker routing: the main session's executor launch policy routes each worker and assesses its
- * tools, and one `worker` ledger line is written per decided launch when its outcome arrives.
+ * Worker routing: the main session's executor launch policy routes each worker.
+ * One `worker` ledger line is written per decided launch when its outcome arrives.
  */
 export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
   let main: MainContext | undefined;

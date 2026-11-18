@@ -11,7 +11,6 @@ const SWITCHES = [
   "/jev subagents off",
   "/jev skills off",
   "/jev strategy off",
-  "/jev tools off",
   "/jev expert off",
   "/jev cli-review off",
 ];
@@ -68,6 +67,24 @@ function readDocs(): Record<string, string> {
   }
   return docs;
 }
+
+describe("README carries no tool assessment", () => {
+  test("/jev tools detected", () => {
+    const problems = checkRelease({
+      ...BASE,
+      docs: { "README.md": `${README_OK}Run /jev tools off to stop it.\n` },
+    });
+    expect(problems).toContain("README.md: mentions /jev tools");
+  });
+
+  test("mixed-case tool assessment detected", () => {
+    const problems = checkRelease({
+      ...BASE,
+      docs: { "README.md": `${README_OK}| Tool Assessment | scores tools |\n` },
+    });
+    expect(problems).toContain("README.md: mentions tool assessment");
+  });
+});
 
 describe("user-facing docs carry no usage figures", () => {
   test("figure detected", () => {

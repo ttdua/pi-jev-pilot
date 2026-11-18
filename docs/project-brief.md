@@ -28,7 +28,7 @@ It is a clean rewrite. It takes selected behavior from [jev-pilot 0.12.1](https:
 
 ## Non-goals
 
-- Rewriting prompts, enforcing process, or acting as a permission system. Everything except model, effort and the optional tool removal is advice.
+- Rewriting prompts, enforcing process, or acting as a permission system. Everything except model and effort is advice.
 - Automatic main-model routing. The main model stays the one the operator selected.
 - Mid-turn effort escalation. See [ADR 0007](decisions/0007-no-mid-turn-raise.md).
 - `/jev report`, an animated pet, proactive worker health checks, upstream's `budget`, `junior-lead`, `second-opinion` and `quality` modes, suppressing Pi's skill listing, OpenRouter and Vercel backends, OpenRouter model lookup, and upstream's local proxy.
@@ -75,7 +75,7 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 | H1 | `expert` tier | WG-12 |
 | F1 | Custom model slots, checked against Pi's registry | WG-13 |
 | H3 | Pre-launch fallback to a lower tier | WG-11 (tiers), WG-13 (slots) |
-| H2 | Tool assessment at launch, through the vendored executor's launch policy | WG-14 |
+| H2 | ~~Tool assessment at launch, through the vendored executor's launch policy~~. Removed in [#81](https://github.com/ttdua/pi-jev-pilot/issues/81) | WG-14 |
 | F4 | On-demand CLI review with Codex or OpenCode | WG-15 |
 | G1 | Decision ledger | WG-05 |
 | G3 | Automatic tuning | WG-18 |
@@ -121,6 +121,5 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 - Exact file layout within the [module boundaries](architecture.md#module-layout).
 - Language and tooling details: TypeScript run by Pi directly, Bun for tests, matching the Pi ecosystem.
 - Ledger concurrency and trimming, provided lines are never silently lost to a parallel Pi process.
-- Exact wording of the tool assessment criteria, verified by replay.
 - ~~How agent files are parsed, and the table of the executor's built-in agents~~. Removed: the vendored executor's registry supplies agent facts ([ADR 0009](decisions/0009-vendored-executor.md)).
 - ~~How `workspace.languages` is detected~~. Removed: the [WG-16 replay](evidence/2026-11-07-state-replay.md) found it within noise.

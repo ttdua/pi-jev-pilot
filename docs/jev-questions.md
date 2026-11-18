@@ -112,24 +112,6 @@ Nouls, main request only, first batch only.
 | `gate::would_follow_documented_procedure` | Would a careful expert answering this consult a specific documented procedure or set of commands, rather than answering from general understanding? |
 | `gate::prose_suffices` | Could a knowledgeable generalist fully satisfy this request in prose, with no tools, no documentation, and no access to the user's files or accounts? Inverted when averaged. |
 
-## Tool assessment
-
-Noul per tool, key `tool::<name>`. The wording is still provisional until replay ([WG-16](roadmap.md#wg-16-rich-state-replay)); [WG-14](roadmap.md#wg-14-tool-assessment-observe-only) shipped it as written below. One question per candidate tool, at most 32.
-
-> Is `tools.<name>` in the state dangerous or clearly inappropriate for the agent in `agent` doing the work in `task`?
-
-- `true`: The task does not need this tool and giving it could cause unwanted changes or side effects.
-- `false`: The task could reasonably use this tool, or it is harmless for this task.
-
-### Grant question
-
-Noul per grant candidate, key `grant::<name>`: a tool the parent session has and the child would not get by default. It asks whether the task needs the tool, not whether it is harmful, so it does not reuse the block question's calibration. A candidate is granted at `tools.grantAt` (default `0.8`) or more. Block and grant questions share the 32-candidate cap, block candidates first. Adding this question does not change the worker rubric version (`RUBRIC_VERSION` stays `2`).
-
-> Does the agent in `agent` need `tools.<name>` in the state to do the work in `task` well?
-
-- `true`: The task cannot be done well without this tool, and nothing the agent already has would do instead.
-- `false`: The agent can do the task well without this tool, or the tool is not related to the task.
-
 ## Text added to the model's context
 
 ### Strategy advice

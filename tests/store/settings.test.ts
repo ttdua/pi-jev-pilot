@@ -8,10 +8,11 @@ describe("resolveSettings", () => {
     expect(s.subagents.forkedLaunch).toBe("thinking");
   });
 
-  test("Grant cut from config", () => {
-    const s = resolveSettings({ config: { tools: { grantAt: 0.9 } }, state: {} });
-    expect(s.tools.grantAt).toBe(0.9);
-    expect(s.tools.mode).toBe("observe");
+  test("Ignored tools section", () => {
+    const base = resolveSettings({ config: {}, state: {} });
+    const s = resolveSettings({ config: { tools: { grantAt: 0.9 } } as never, state: {} });
+    expect(s).toEqual(base);
+    expect("tools" in s).toBe(false);
   });
 
   test("Everything defaulted", () => {
@@ -26,7 +27,6 @@ describe("resolveSettings", () => {
       crew: { slots: [] },
       effort: { holdProviders: ["9router"] },
       skills: { inject: "content" },
-      tools: { mode: "observe", grantAt: 0.8 },
       state: { parentRequest: false },
       subagents: { forkedLaunch: "untouched" },
       review: { cli: "codex", enabled: false },
@@ -38,7 +38,6 @@ describe("resolveSettings", () => {
         subagents: true,
         skills: true,
         strategy: true,
-        tools: true,
         expert: true,
         status: true,
         verbose: false,

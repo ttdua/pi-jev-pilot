@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { tempDir } from "../helpers";
 import { toolNames } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
-import { runOnce, startHostSession, type HostSession } from "./harness";
-import { command, notifies, uiRequests, type UiRequest } from "./rpc-helpers";
+import { DEFAULT_JEV_CONFIG, runOnce, startHostSession, type HostSession } from "./harness";
+import { command, notifies, uiRequests, writeConfigFile, type UiRequest } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -103,7 +103,7 @@ describe("status line and /jev through the real CLI", () => {
     "all decision features off shows off",
     async () => {
       const s = await host(await fixtureWith());
-      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert"]) {
+      for (const f of ["effort", "subagents", "skills", "strategy", "expert"]) {
         await command(s, `/jev ${f} off`);
       }
       await s.waitFor(() => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off", "off widget");
@@ -338,42 +338,50 @@ describe("print and JSON mode", () => {
   );
 });
 
+type WorkerScript = { isChild: (r: RecordedRequest) => boolean; script: ScriptEntry[] };
+
+function workerScript(): WorkerScript {
+  const msgs = (r: RecordedRequest): { role?: string }[] =>
+    Array.isArray(r.body.messages) ? (r.body.messages as { role?: string }[]) : [];
+  const text = (r: RecordedRequest): string => JSON.stringify(r.body.messages);
+  const isChild = (r: RecordedRequest): boolean =>
+    JSON.stringify(msgs(r).at(-1)).includes("CHILD-TASK") && msgs(r).at(-1)?.role === "user";
+  const script: ScriptEntry[] = [
+    { name: "child", match: isChild, reply: { text: "child done" } },
+    {
+      name: "main-call",
+      match: (r) =>
+        r.model === "fixture-main" &&
+        !isChild(r) &&
+        !msgs(r).some((m) => m.role === "tool") &&
+        text(r).includes("START-MAIN"),
+      reply: {
+        toolCalls: [
+          {
+            name: "subagent",
+            arguments: {
+              prompt: "CHILD-TASK do the work",
+              description: "smoke",
+              subagent_type: "smoke-worker",
+            },
+          },
+        ],
+      },
+      times: 1,
+    },
+    {
+      name: "main-after",
+      match: (r) => r.model === "fixture-main",
+      reply: { text: "done" },
+    },
+  ];
+  return { isChild, script };
+}
+
 describe("executor child", () => {
   test("a child session draws no second jev widget", async () => {
-    const msgs = (r: RecordedRequest): { role?: string }[] =>
-      Array.isArray(r.body.messages) ? (r.body.messages as { role?: string }[]) : [];
-    const text = (r: RecordedRequest): string => JSON.stringify(r.body.messages);
-    const isChild = (r: RecordedRequest): boolean =>
-      JSON.stringify(msgs(r).at(-1)).includes("CHILD-TASK") && msgs(r).at(-1)?.role === "user";
-    const fixture = await fixtureWith([
-      { name: "child", match: isChild, reply: { text: "child done" } },
-      {
-        name: "main-call",
-        match: (r) =>
-          r.model === "fixture-main" &&
-          !isChild(r) &&
-          !msgs(r).some((m) => m.role === "tool") &&
-          text(r).includes("START-MAIN"),
-        reply: {
-          toolCalls: [
-            {
-              name: "subagent",
-              arguments: {
-                prompt: "CHILD-TASK do the work",
-                description: "smoke",
-                subagent_type: "smoke-worker",
-              },
-            },
-          ],
-        },
-        times: 1,
-      },
-      {
-        name: "main-after",
-        match: (r) => r.model === "fixture-main",
-        reply: { text: "done" },
-      },
-    ]);
+    const { isChild, script } = workerScript();
+    const fixture = await fixtureWith(script);
     const s = await host(fixture, {
       executor: true,
       agents: {
@@ -390,5 +398,29 @@ describe("executor child", () => {
     const lines = jevWidgets(s).map((w) => w.widgetLines);
     expect(lines).toEqual([["Jev · standard"], ["Jev · standard · no answer"]]);
     expect(fixture.unmatched).toEqual([]);
+  }, 120_000);
+  test("deprecated tools config is never notified over a worker lifecycle", async () => {
+    const agentDir = tempDir("jev-host-agent-");
+    dirs.push(agentDir);
+    writeConfigFile(agentDir, {
+      classifier: DEFAULT_JEV_CONFIG,
+      tools: { threshold: 3 },
+    });
+    const { isChild, script } = workerScript();
+    const fixture = await fixtureWith(script);
+    const s = await host(fixture, {
+      agentDir,
+      executor: true,
+      agents: {
+        "smoke-worker": "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
+      },
+    });
+    await s.prompt("START-MAIN");
+    await s.waitFor(() => fixture.requests.some(isChild), "child request");
+    await s.waitFor(
+      () => fixture.requests.some((r) => r.matched === "main-after"),
+      "main resumes after child",
+    );
+    expect(notifies(s).some((n) => /tools/.test(n.message ?? ""))).toBe(false);
   }, 120_000);
 });

@@ -38,7 +38,6 @@ const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
   tierQuestion: true,
   rubric: 2,
   callerModel: undefined,
-  toolCounts: () => undefined,
   outcome: { status: "completed", durationMs: 1200.6, toolUses: 3, tokens: { total: 11 } },
   ...over,
 });
@@ -48,7 +47,6 @@ describe("workerLine", () => {
     const line = workerLine(
       input({
         callerModel: "caller/m",
-        toolCounts: () => ({ toolsScored: 4, toolsFlagged: 1, toolsGranted: 2 }),
         effective: { model: "fx/fast", thinking: "medium" },
       }),
     );
@@ -73,9 +71,6 @@ describe("workerLine", () => {
       "effort",
       "model",
       "callerModel",
-      "toolsScored",
-      "toolsFlagged",
-      "toolsGranted",
       "status",
       "durationMs",
       "toolUses",
@@ -91,19 +86,11 @@ describe("workerLine", () => {
     expect(line?.["effortP"]).toEqual({ low: 0.1, medium: 0.8, high: 0.1 });
   });
 
-  test("takes the tool counts only after the fields before them are built", () => {
-    let taken = false;
-    const broken = {
-      kind: "ok",
-      get ms(): number {
-        throw new Error("ms unavailable");
-      },
-    } as unknown as WorkerLineInput["jev"];
-
-    expect(() =>
-      workerLine(input({ jev: broken, toolCounts: () => ((taken = true), undefined) })),
-    ).toThrow();
-    expect(taken).toBe(false);
+  test("writes no tool count fields", () => {
+    const line = workerLine(input());
+    for (const k of ["toolsScored", "toolsFlagged", "toolsGranted"]) {
+      expect(line).not.toHaveProperty(k);
+    }
   });
 
   test("returns undefined for a skipped or missing route", () => {
@@ -152,19 +139,15 @@ describe("workerLine", () => {
     expect(line).not.toHaveProperty("toolUses");
   });
 
-  test("Effective values written with tool counts", () => {
+  test("Effective values written", () => {
     const line = workerLine(
       input({
         effective: { model: "fixture/fixture-deep", thinking: "high" },
-        toolCounts: () => ({ toolsScored: 6, toolsFlagged: 1, toolsGranted: 2 }),
       }),
     );
     expect(line).toMatchObject({
       effectiveModel: "fixture/fixture-deep",
       effectiveThinking: "high",
-      toolsScored: 6,
-      toolsFlagged: 1,
-      toolsGranted: 2,
     });
   });
 

@@ -1,6 +1,5 @@
 import type { Answer } from "../answers.ts";
 import type { TierName } from "../launch.ts";
-import type { ToolCounts } from "../tools/index.ts";
 import type { WorkerAnswers } from "./answers.ts";
 import { decisionFields } from "./ledger-line.ts";
 import type { Route } from "./route.ts";
@@ -19,8 +18,6 @@ export type ExecutorOutcome = {
   tokens?: unknown;
 };
 
-export type { ToolCounts };
-
 /** The model and thinking the executor reports the child session was created with. */
 export type EffectiveValues = { model?: string; thinking?: string };
 
@@ -38,11 +35,6 @@ export type WorkerLineInput = {
   tierQuestion: boolean;
   rubric: number;
   callerModel: string | undefined;
-  /**
-   * Takes this launch's tool counts; undefined when it got no assessment answer. Called after the
-   * fields before it are built, so a line that fails earlier leaves the counts in place.
-   */
-  toolCounts: () => ToolCounts | undefined;
   outcome: ExecutorOutcome | undefined;
   /** From the executor's `session-created` event; absent when no session was created. */
   effective?: EffectiveValues | undefined;
@@ -153,12 +145,6 @@ export function workerLine(input: WorkerLineInput): Line | undefined {
   );
   routeFields(line, route);
   put(line, "callerModel", input.callerModel);
-  const counts = input.toolCounts();
-  if (counts !== undefined) {
-    line["toolsScored"] = counts.toolsScored;
-    line["toolsFlagged"] = counts.toolsFlagged;
-    line["toolsGranted"] = counts.toolsGranted;
-  }
   executorFields(line, input.outcome);
   put(line, "effectiveModel", input.effective?.model);
   put(line, "effectiveThinking", input.effective?.thinking);

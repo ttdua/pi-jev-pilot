@@ -38,10 +38,10 @@ function modeLine(s: Snapshot): string {
 function executorLine(e: Snapshot["executor"]): string {
   if (e.kind === "present") return "executor: present";
   if (e.kind === "absent") {
-    return "executor: no executor; worker routing and tool assessment are off";
+    return "executor: no executor; worker routing is off";
   }
   const other = e.path === undefined ? "" : ` (${e.path})`;
-  return `executor: duplicate executor${other}; uninstall @gotgenes/pi-subagents; worker routing and tool assessment are off`;
+  return `executor: duplicate executor${other}; uninstall @gotgenes/pi-subagents; worker routing is off`;
 }
 
 /** `extra` holds problems the snapshot cannot see, such as a launch policy slot held elsewhere. */
@@ -58,6 +58,8 @@ export function formatStatus(
   lines.push(executorLine(s.executor));
   const problems: string[] = [];
   if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
+  if (s.config.valid && s.config.deprecated.includes("tools"))
+    problems.push("  deprecated: config tools is ignored");
   problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
   problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
   problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));

@@ -6,7 +6,7 @@ import type { State } from "../../../src/store/state-file.ts";
 
 const snapshot = (state: State = {}, env = { TYPESAFE_API_KEY: "k" }): Snapshot =>
   buildSnapshot({
-    configRead: { kind: "ok", present: true, config: {} as never },
+    configRead: { kind: "ok", present: true, deprecated: [], config: {} as never },
     stateRead: { kind: "ok", state },
     env,
     toolNames: [],
@@ -102,6 +102,7 @@ describe("gateTurn: decided turns", () => {
       configRead: {
         kind: "ok",
         present: true,
+        deprecated: [],
         config: { effort: { holdProviders: ["p"] } } as never,
       },
       stateRead: { kind: "ok", state: { switches: { strategy: false, skills: false } } },

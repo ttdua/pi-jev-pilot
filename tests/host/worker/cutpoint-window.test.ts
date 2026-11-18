@@ -62,6 +62,12 @@ describe("cut-point window", () => {
     expect(w.entries()).toHaveLength(1);
   });
 
+  test("a legacy worker line with toolsScored is read into the window", () => {
+    const w = createCutpointWindow();
+    w.load([worker(1, { toolsScored: 6, toolsFlagged: 1, toolsGranted: 2 })]);
+    expect(w.entries()).toHaveLength(1);
+  });
+
   test("clear empties the window", () => {
     const w = createCutpointWindow();
     w.load(many(3));

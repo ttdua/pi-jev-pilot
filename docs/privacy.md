@@ -16,7 +16,6 @@ To TypeSafe, on every eligible prompt and launch:
 | Worker briefs | First 4000 characters | `/jev subagents off` |
 | Agent details | Name, description, first 500 characters of instructions, tool names | `/jev subagents off` |
 | Slot details | Model id and your `when` text | Remove the slot |
-| Tool descriptions | For workers under assessment | `/jev tools off` |
 | Your latest prompt with worker requests | Up to 500 characters; **off by default** | `state.parentRequest` |
 
 **Never sent:** tool arguments and results, file contents, diffs, thinking blocks, images, your API keys, the full transcript, an agent's `model` or `thinking`.
