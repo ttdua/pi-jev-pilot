@@ -52,10 +52,10 @@ Blocked by: 4
 
 Blocked by: 2, 4
 
-- [ ] 6.1 `subagents.forkLaunch` with the `forkedLaunch` alias, deprecation notice, both-keys problem, and the `/jev` status notice (`src/store/config.ts`, `settings.ts`, `settings-sections.ts`, `defaults.ts`, status rendering).
-- [ ] 6.2 Launch mapping and routing on `context === "fork"` (`src/policy/launch.ts`, `src/policy/worker/route.ts`, `src/host/worker/request.ts`, `src/host/worker/route.ts`, `src/host/platform/agents.ts`).
-- [ ] 6.3 Child registry keeps the context; `hideReviewInChild` skips forks; `jev_review` still refuses in any child (`src/host/platform/*`, `src/host/wiring/turn.ts`, `src/host/review/tool.ts`).
-- [ ] 6.4 Unit tests for config, settings, route, request and agent facts; update scenarios named "Forked …".
+- [x] 6.1 `subagents.forkLaunch` with the `forkedLaunch` alias, deprecation notice, both-keys problem, and the `/jev` status notice (`src/store/config.ts`, `settings.ts`, `settings-sections.ts`, `defaults.ts`, status rendering).
+- [x] 6.2 Launch mapping and routing on `context === "fork"` (`src/policy/launch.ts`, `src/policy/worker/route.ts`, `src/host/worker/request.ts`, `src/host/worker/route.ts`, `src/host/platform/agents.ts`).
+- [x] 6.3 Child registry keeps the context; `hideReviewInChild` skips forks; `jev_review` still refuses in any child (`src/host/platform/*`, `src/host/wiring/turn.ts`, `src/host/review/tool.ts`).
+- [x] 6.4 Unit tests for config, settings, route, request and agent facts; update scenarios named "Forked …".
 
 ## 7. Host evidence and cache evidence
 
