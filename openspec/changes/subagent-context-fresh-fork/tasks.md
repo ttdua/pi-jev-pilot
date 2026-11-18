@@ -32,13 +32,13 @@ Blocked by: 2
 
 Blocked by: 2, 3
 
-- [ ] 4.1 Parent snapshot: live branch entries, effective system prompt, tool names, model, thinking and session id; remove `parentContext` and `buildParentContext` (`lifecycle/parent-snapshot.ts`, `session/context.ts`, `lifecycle/subagent-session.ts`, `runtime.ts`).
-- [ ] 4.2 `lifecycle/fork-session.ts`: copy the entries into the fork's own session, add synthetic results for every pending call, and build the instructions message (active agent, cwd, body, agent-only tools, boundary).
-- [ ] 4.3 Fork prompt and tools: parent system prompt override, parent tool names, no protocol tools; callable set from the existing tool pipeline intersected with the parent's tools; `tool_call` refusal extension.
-- [ ] 4.4 Cache-routing key rewrite via `before_provider_headers` / `before_provider_request`, per the spike's field list.
-- [ ] 4.5 Model and thinking precedence for forks (locked, policy, caller, parent), and the policy's requested value (`session/model-resolver.ts` or `config/invocation-config.ts`, `seams/launch-gate.ts`).
-- [ ] 4.6 No-parent-session handling: an explicit fork fails before session creation; an agent-file fork falls back to fresh with `contextFallback`.
-- [ ] 4.7 Fork tool facts: callable count as tools, the rest blocked; `context` on `subagents:child:session-created`.
+- [x] 4.1 Parent snapshot: live branch entries, effective system prompt, tool names, model, thinking and session id; remove `parentContext` and `buildParentContext` (`lifecycle/parent-snapshot.ts`, `session/context.ts`, `lifecycle/subagent-session.ts`, `runtime.ts`).
+- [x] 4.2 `lifecycle/fork-session.ts`: copy the entries into the fork's own session, add synthetic results for every pending call, and build the instructions message (active agent, cwd, body, agent-only tools, boundary).
+- [x] 4.3 Fork prompt and tools: parent system prompt override, parent tool names, no protocol tools; callable set from the existing tool pipeline intersected with the parent's tools; `tool_call` refusal extension.
+- [x] 4.4 Cache-routing key rewrite via `before_provider_headers` / `before_provider_request`, per the spike's field list.
+- [x] 4.5 Model and thinking precedence for forks (locked, policy, caller, parent), and the policy's requested value (`session/model-resolver.ts` or `config/invocation-config.ts`, `seams/launch-gate.ts`).
+- [x] 4.6 No-parent-session handling: an explicit fork fails before session creation; an agent-file fork falls back to fresh with `contextFallback`.
+- [x] 4.7 Fork tool facts: callable count as tools, the rest blocked; `context` on `subagents:child:session-created`.
 
 ## 5. Executor: display
 
