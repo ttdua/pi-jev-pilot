@@ -44,9 +44,9 @@ Blocked by: 2, 3
 
 Blocked by: 4
 
-- [ ] 5.1 `getContextLabel(context, fallback)` returns `fork` / `fork → fresh` / nothing; remove `getPromptModeLabel` and the `inherit context` tag (`ui/display.ts`).
-- [ ] 5.2 Take the label from the run in `tools/spawn-config.ts`, `tools/result-renderer.ts`, `ui/widget-renderer.ts`, `ui/session-navigation.ts`, `ui/session-navigator.ts`.
-- [ ] 5.3 Update tests that assert `twin` / `inherit context` (`test/ui/*`, `test/tools/*`, `test/widget-renderer.test.ts`, `test/display.test.ts`).
+- [x] 5.1 `getContextLabel(context, fallback)` returns `fork` / `fork → fresh` / nothing; remove `getPromptModeLabel` and the `inherit context` tag (`ui/display.ts`).
+- [x] 5.2 Take the label from the run in `tools/spawn-config.ts`, `tools/result-renderer.ts`, `ui/widget-renderer.ts`, `ui/session-navigation.ts`, `ui/session-navigator.ts`.
+- [x] 5.3 Update tests that assert `twin` / `inherit context` (`test/ui/*`, `test/tools/*`, `test/widget-renderer.test.ts`, `test/display.test.ts`).
 
 ## 6. jev root: rename and fork-aware wiring
 
