@@ -99,6 +99,8 @@ export interface AgentInvocation {
   thinking?: ThinkingLevel;
   maxTurns?: number;
   context: ContextMode;
+  /** Set when a `fork` ran `fresh` because the parent had no session to copy. */
+  contextFallback?: "no-parent-session";
   runInBackground?: boolean;
 }
 

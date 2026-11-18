@@ -75,7 +75,7 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
       systemPrompt: body.trim(),
       context: contextField(fm, join(dir, file), warned),
       runInBackground: fm.run_in_background != null ? fm.run_in_background === true : undefined,
-      locked: lockDeclaration(fm.locked, name),
+      locked: lockDeclaration(fm.locked, name, join(dir, file), warned),
       enabled: fm.enabled !== false,  // default true; explicitly false disables
       source,
     });
@@ -120,12 +120,15 @@ function str(val: unknown): string | undefined {
  * spellings `tools:` accepts work here too. An entry naming no lockable field is
  * dropped rather than failing the agent's load.
  */
-function lockDeclaration(val: unknown, agentName: string): LockDeclaration | undefined {
+function lockDeclaration(val: unknown, agentName: string, path: string, warned: Set<string>): LockDeclaration | undefined {
   if (typeof val === "boolean") return val ? true : undefined;
 
   const entries = parseListField(val);
   if (entries === undefined) return undefined;
 
+  if (entries.includes("inherit_context")) {
+    warnDeprecatedIn(warned, `${path}:locked:inherit_context`, `${path}: locked: inherit_context is deprecated; use locked: context`);
+  }
   const names = entries.map(lockedFieldName);
   const fields = names.filter(isLockableField);
   const unknownEntries = names.filter((entry) => !isLockableField(entry));

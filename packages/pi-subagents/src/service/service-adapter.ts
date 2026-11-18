@@ -6,7 +6,8 @@
  */
 
 import type { Model } from "@earendil-works/pi-ai";
-import { warnDeprecatedOnce } from "#src/config/deprecations";
+import { type DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
+import { resolveContext } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig, ResumeCallOptions, ResumeOutcome } from "#src/lifecycle/subagent-manager";
@@ -49,22 +50,20 @@ export interface ServiceRuntimeLike {
 }
 
 /**
- * The context a `spawn` call asks for: `context` wins over the deprecated
- * `inheritContext`, and neither means `fresh`. An unknown `context` throws.
+ * The context a `spawn` call itself asks for: `context` wins over the deprecated
+ * `inheritContext`. An unknown `context` throws.
  */
-function resolveSpawnContext(options: SpawnOptions | undefined): ContextMode {
+function callerContext(options: SpawnOptions | undefined, warnings: DeprecationWarnings): ContextMode | undefined {
   const context: unknown = options?.context;
   if (options?.inheritContext !== undefined) {
-    warnDeprecatedOnce("inheritContext", 'SpawnOptions.inheritContext is deprecated; use context: "fork" | "fresh"');
+    warnings.warnOnce("inheritContext", 'SpawnOptions.inheritContext is deprecated; use context: "fork" | "fresh"');
   }
-  if (context === undefined) return options?.inheritContext ? "fork" : "fresh";
+  if (context === undefined) {
+    if (options?.inheritContext === undefined) return undefined;
+    return options.inheritContext ? "fork" : "fresh";
+  }
   if (context === "fresh" || context === "fork") return context;
   throw new Error(`Invalid context "${String(context)}": expected "fresh" or "fork".`);
-}
-
-/** Which input decided the context of a `spawn` call. */
-function contextSourceOf(options: SpawnOptions | undefined): "call" | "default" {
-  return options?.context !== undefined || options?.inheritContext !== undefined ? "call" : "default";
 }
 
 /** Adapter that wraps SubagentManager to satisfy SubagentsService. */
@@ -76,6 +75,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
     private readonly resolveModel: (input: string, registry: ModelRegistry) => Model<any> | string,
     private readonly runtime: ServiceRuntimeLike,
     private readonly agentTypes: Pick<AgentTypeCatalog, "list" | "get">,
+    private readonly warnings: DeprecationWarnings = defaultDeprecationWarnings,
   ) {}
 
   private session = "";
@@ -98,7 +98,10 @@ export class SubagentsServiceAdapter implements SubagentsService {
     const model = this.resolveModelOption(options?.model);
     const description = options?.description ?? prompt.slice(0, 80);
 
-    const context = resolveSpawnContext(options);
+    const { context, contextSource } = resolveContext(
+      this.agentTypes.get(type) ?? {},
+      callerContext(options, this.warnings),
+    );
     const snapshot = this.runtime.buildSnapshot(context);
     const { parentSessionFile, parentSessionId } = this.runtime.getSessionInfo();
     return this.manager.spawn(snapshot, type, prompt, {
@@ -111,7 +114,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
       maxTurns: options?.maxTurns,
       thinkingLevel: this.resolveThinkingLevel(options?.thinkingLevel),
       context,
-      contextSource: contextSourceOf(options),
+      contextSource,
       bypassQueue: options?.bypassQueue,
       // A caller that names `foreground` has committed; one that omits it has
       // not, so the agent's own frontmatter decides and background is the

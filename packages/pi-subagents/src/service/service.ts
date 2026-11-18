@@ -130,7 +130,7 @@ export interface AgentTypeSnapshot {
   context?: ContextMode;
 }
 
-export type { LockableField };
+export type { ContextMode, LockableField };
 
 /** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
 export type LaunchOrigin = { kind: "tool"; toolCallId: string } | { kind: "service" };

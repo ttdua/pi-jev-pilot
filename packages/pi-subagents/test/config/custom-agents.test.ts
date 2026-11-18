@@ -376,6 +376,16 @@ Extra instructions.`);
       expect(warnings().filter((w: string) => w.includes("twice.md") && w.includes("prompt_mode"))).toHaveLength(1);
     });
 
+    it("warns about locked: inherit_context once per file per load, and again on a later load", () => {
+      vi.stubEnv("PI_CODING_AGENT_DIR", join(tmpDir, ".pi"));
+      writeAgent("lkw", "---\nlocked: [inherit_context]\n---\n\nBody.");
+      const count = () => warnings().filter((w: string) => w.includes("lkw.md") && w.includes("locked")).length;
+      loadCustomAgents(tmpDir);
+      expect(count()).toBe(1);
+      loadCustomAgents(tmpDir);
+      expect(count()).toBe(2);
+    });
+
     it("reads locked: inherit_context as context", () => {
       writeAgent("lk", "---\nlocked: [inherit_context]\n---\n\nBody.");
       expect(loadCustomAgents(tmpDir).get("lk")!.locked).toEqual(["context"]);

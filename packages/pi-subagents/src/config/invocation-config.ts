@@ -1,4 +1,4 @@
-import { warnDeprecatedOnce } from "#src/config/deprecations";
+import { type DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
 import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /**
@@ -109,12 +109,13 @@ export interface AgentInvocationConfig {
 export function resolveAgentInvocationConfig(
   agentConfig: AgentConfig,
   params: AgentInvocationParams,
+  warnings: DeprecationWarnings = defaultDeprecationWarnings,
 ): AgentInvocationConfig {
   const locked = agentConfig.locked;
   const model = resolveField("model", agentConfig.model, params.model, locked);
   const thinking = resolveField("thinking", agentConfig.thinking, params.thinking, locked);
   const maxTurns = resolveField("max_turns", agentConfig.maxTurns, params.max_turns, locked);
-  const context = resolveField("context", agentConfig.context, callerContext(params), locked);
+  const context = resolveField("context", agentConfig.context, callerContext(params, warnings), locked);
   const runInBackground = resolveField(
     "run_in_background",
     agentConfig.runInBackground,
@@ -137,9 +138,9 @@ export function resolveAgentInvocationConfig(
 }
 
 /** The caller's context: `context` wins over the deprecated `inherit_context`. */
-function callerContext(params: AgentInvocationParams): ContextMode | undefined {
+function callerContext(params: AgentInvocationParams, warnings: DeprecationWarnings): ContextMode | undefined {
   if (params.inherit_context !== undefined) {
-    warnDeprecatedOnce("inherit_context", 'inherit_context is deprecated; use context: "fork" or "fresh"');
+    warnings.warnOnce("inherit_context", 'inherit_context is deprecated; use context: "fork" or "fresh"');
   }
   if (params.context !== undefined) return params.context;
   if (params.inherit_context === undefined) return undefined;
@@ -149,6 +150,31 @@ function callerContext(params: AgentInvocationParams): ContextMode | undefined {
 function contextSource(source: FieldResolution<ContextMode>["source"]): "call" | "agent" | "default" {
   if (source === "caller") return "call";
   return source === "agent" ? "agent" : "default";
+}
+
+/** The context a launch runs with and which input decided it. */
+export interface ContextResolution {
+  context: ContextMode;
+  contextSource: "call" | "agent" | "default";
+  /** True when a lock threw away a differing caller value. */
+  discarded: boolean;
+}
+
+/**
+ * Resolve one launch's context: locked agent, then caller, then agent, then `fresh`.
+ * The service door uses this with the agent snapshot; the tool door goes through
+ * `resolveAgentInvocationConfig`, which applies the same rule.
+ */
+export function resolveContext(
+  agent: { context?: ContextMode; locked?: LockDeclaration },
+  caller: ContextMode | undefined,
+): ContextResolution {
+  const field = resolveField("context", agent.context, caller, agent.locked);
+  return {
+    context: field.value ?? "fresh",
+    contextSource: contextSource(field.source),
+    discarded: field.discarded,
+  };
 }
 
 /** One field's precedence outcome; `source` names the side that supplied the value. */

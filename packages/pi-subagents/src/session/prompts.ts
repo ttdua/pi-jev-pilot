@@ -70,23 +70,9 @@ export function buildAgentPrompt(
   const identity = inherited ? adoptedIdentity(inherited, cwd) : genericBase;
   const projectContext = ownProjectContext(inherited, cwd, loadProjectContext);
 
-  // TODO(subagent-context-fresh-fork task 3): the fresh prompt replaces both branches.
-  if (false as boolean) {
-    const customSection = config.systemPrompt.trim()
-      ? `\n\n<agent_instructions>\n${config.systemPrompt}\n</agent_instructions>`
-      : "";
-
-    // Place the inherited identity first so it forms a shared leading prefix
-    // with the parent session, which prefix-reusing inference engines reuse
-    // instead of reprocessing. The <active_agent> tag and env block vary per
-    // call and are placed after that prefix.
-    return identity + projectContext + "\n\n" + header + customSection;
-  }
-
-  // "replace" mode — identity prefix first, then the active_agent tag, env
-  // block, and the config's full system prompt. Unlike append mode, no
-  // <agent_instructions> wrapper is injected — the custom prompt retains full
-  // control.
+  // TODO(subagent-context-fresh-fork task 3): the fresh prompt replaces this body.
+  // Identity prefix first, then the active_agent tag, env block, and the
+  // config's full system prompt, with no <agent_instructions> wrapper.
   return identity + projectContext + "\n\n" + header + "\n\n" + config.systemPrompt;
 }
 

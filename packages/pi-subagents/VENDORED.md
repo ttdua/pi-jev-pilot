@@ -119,3 +119,4 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/lifecycle/subagent.test.ts` | edit | Execution carries `context`/`contextSource`. |
 | `test/runtime.test.ts` | edit | `buildSnapshot(context)`. |
 | `test/session/prompts.test.ts` | edit | Follows the `promptMode` removal. |
+| `test/types/public-context.test.ts` | seam | Type check that the public entry exports `ContextMode` and the `context` fields. |

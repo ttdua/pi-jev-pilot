@@ -2,6 +2,7 @@ import type { AgentToolResult, ExtensionContext, ToolRenderResultOptions } from 
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import type { DeprecationWarnings } from "#src/config/deprecations";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type {
@@ -66,6 +67,7 @@ export class AgentTool {
 		private readonly settings: AgentToolSettings,
 		private readonly registry: AgentTypeRegistry,
 		private readonly agentDir: string,
+		private readonly warnings?: DeprecationWarnings,
 	) {
 		this.typeListText = buildTypeListText(registry, agentDir);
 		this.availableTypesText = registry.getAvailableTypes().join(", ");
@@ -88,6 +90,7 @@ export class AgentTool {
 			this.registry,
 			this.runtime.getModelInfo(),
 			this.settings,
+			this.warnings,
 		);
 		if ("error" in config) return textResult(config.error);
 

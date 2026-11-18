@@ -38,6 +38,7 @@ import {
   type WorkspaceNoticeDetails,
 } from "#src/observation/notification";
 import { SubagentEventsObserver } from "#src/observation/subagent-events-observer";
+import { DeprecationWarnings } from "#src/config/deprecations";
 import { createSubagentRuntime } from "#src/runtime";
 import { AgentTypeCatalog } from "#src/seams/registry";
 import { SubagentsServiceAdapter } from "#src/service/service-adapter";
@@ -210,7 +211,8 @@ export default function (pi: ExtensionAPI) {
   // Consumers: const { getSubagentsService } = await import("@gotgenes/pi-subagents");
   // Published at load, as upstream does, unless this implementation's service
   // already holds the slot (children load after the main session).
-  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime, new AgentTypeCatalog(registry));
+  const deprecations = new DeprecationWarnings();
+  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime, new AgentTypeCatalog(registry), deprecations);
   const publication = new ServicePublication(service);
   publication.publish();
 
@@ -245,6 +247,7 @@ export default function (pi: ExtensionAPI) {
   // registrations rather than sharing a lambda with an unrelated concern.
   const widgetEvents = new WidgetEventsHandler(widget);
 
+  pi.on("session_start", () => deprecations.reset());
   pi.on("session_start", (_event, ctx) => {
     service.bindSession(ctx.sessionManager.getSessionId());
   });
@@ -282,7 +285,7 @@ export default function (pi: ExtensionAPI) {
 
   // ---- Agent tool ----
 
-  pi.registerTool(new AgentTool(manager, runtime, settings, registry, getAgentDir()).toToolDefinition());
+  pi.registerTool(new AgentTool(manager, runtime, settings, registry, getAgentDir(), deprecations).toToolDefinition());
 
   // ---- get_subagent_result tool ----
 

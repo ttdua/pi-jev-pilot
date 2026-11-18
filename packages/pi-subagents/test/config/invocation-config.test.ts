@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetDeprecationWarnings } from "#src/config/deprecations";
+import { defaultDeprecationWarnings } from "#src/config/deprecations";
 import { lockedFieldName, resolveAgentInvocationConfig } from "#src/config/invocation-config";
 import type { AgentConfig } from "#src/types";
 import { makeAgentConfig } from "#test/helpers/make-agent-config";
@@ -271,7 +271,7 @@ describe("resolveAgentInvocationConfig", () => {
   describe("context", () => {
     afterEach(() => {
       vi.unstubAllEnvs();
-      resetDeprecationWarnings();
+      defaultDeprecationWarnings.reset();
     });
 
     it("default is fresh", () => {
