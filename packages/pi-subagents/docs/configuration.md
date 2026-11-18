@@ -5,17 +5,40 @@ Neither is required — every field has a default.
 
 For the tools, commands, events, and service API, see the [README](../README.md).
 
-## Default Agent Types
+## Built-in Agent Types
 
-| Type              | Tools                      | Model                         | Description                                                    |
-| ----------------- | -------------------------- | ----------------------------- | -------------------------------------------------------------- |
-| `general-purpose` | all 7                      | inherit                       | General-purpose agent for complex, multi-step tasks            |
-| `Explore`         | read, bash, grep, find, ls | haiku (falls back to inherit) | Fast codebase exploration (read-only)                          |
-| `Plan`            | read, bash, grep, find, ls | inherit                       | Software architect for implementation planning (read-only)     |
+The executor ships six role agents as Markdown files in `agents/`:
+
+| Type          | Tools                                     | Description                                              |
+| ------------- | ----------------------------------------- | -------------------------------------------------------- |
+| `general`     | default tools (read, bash, edit, write, grep, find, ls) | General work on complex, multi-step tasks, including file edits |
+| `implementer` | read, grep, find, ls, bash, edit, write   | Implements one scoped task and reports what changed      |
+| `explore`     | read, grep, find, ls                      | Read-only codebase search and understanding              |
+| `scout`       | read, grep, find, ls                      | Read-only reconnaissance of an area before work starts   |
+| `reviewer`    | read, grep, find, ls                      | Read-only review against stated requirements             |
+| `verifier`    | read, grep, find, ls, bash                | Checks that work meets its requirements by running commands |
+
+A role agent's body states its role, tools, escalation and report. It names no skill, slash command or workflow: the process and the task come from the launch (the `subagent` call or the service `spawn`).
 
 No built-in agent sets a `context`, so each runs `fresh` unless the call asks for `fork`.
+The tool description lists the built-in and custom agents (`Default` and `Custom agents`) and is built at activation.
 
-Default agents can be **overridden** by creating a `.md` file with the same name (e.g. `.pi/agents/general-purpose.md`), or **disabled** per-project with `enabled: false` frontmatter.
+`general` is the fallback. An unknown type runs as `general` with the note `Note: Unknown agent type "<name>" — using general.`, and `general-purpose` is accepted as an alias while no agent has that name. If `general` is missing or disabled, the launch is refused.
+
+## Agent sources
+
+Agents load from four sources. A later source overrides an earlier one with the same name, and names match case-insensitively:
+
+| Order | Source     | Location                                                                 |
+| ----- | ---------- | ------------------------------------------------------------------------ |
+| 1     | builtin    | The `agents/` directory of the executor                                  |
+| 2     | package    | `*.md` files from installed Pi packages whose `package.json` declares `"pi": { "subagents": { "agents": ["./agents"] } }`. Only packages in Pi's configured package list are read; `node_modules` is never scanned, and paths must stay inside the package. A project-scope package needs project trust. |
+| 3     | global     | `$PI_CODING_AGENT_DIR/agents/<name>.md` (default `~/.pi/agent/agents/`) |
+| 4     | project    | `.pi/agents/<name>.md`                                                   |
+
+An agent's name is its frontmatter `name:` if set, otherwise the file name.
+
+Built-in agents can be **overridden** by a file with the same name in a later source (e.g. `.pi/agents/general.md`), or **disabled** per-project with `enabled: false` frontmatter.
 
 ## Context: fresh or fork
 
@@ -57,16 +80,9 @@ The decision is recorded in [ADR 0014](decisions/0014-subagent-context-is-fresh-
 
 ## Custom Agents
 
-Define custom agent types by creating `.md` files.
-The filename becomes the agent type name.
-Any name is allowed — using a default agent's name overrides it.
-
-Agents are discovered from two locations (higher priority wins):
-
-| Priority    | Location                                                                         | Scope                         |
-| ----------- | -------------------------------------------------------------------------------- | ----------------------------- |
-| 1 (highest) | `.pi/agents/<name>.md`                                                           | Project — per-repo agents     |
-| 2           | `$PI_CODING_AGENT_DIR/agents/<name>.md` (default `~/.pi/agent/agents/<name>.md`) | Global — available everywhere |
+Define custom agent types by creating `.md` files in one of the sources listed under [Agent sources](#agent-sources).
+The frontmatter `name:` is the agent type name; without it, the filename is used.
+Any name is allowed — using a built-in agent's name overrides it.
 
 Project-level agents override global ones with the same name, so you can customize a global agent for a specific project.
 The global location follows the upstream `PI_CODING_AGENT_DIR` env var — set it to relocate all pi-coding-agent state (agents, skills, settings) to a custom directory.

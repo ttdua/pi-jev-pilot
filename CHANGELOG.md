@@ -4,8 +4,20 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+### Added
+
+- Six built-in role agents (`general`, `implementer`, `explore`, `scout`, `reviewer`, `verifier`) in the vendored executor, loaded from Markdown files. Each body states the role only; the process and task come from the launch ([#82](https://github.com/ttdua/pi-jev-pilot/issues/82), [#87](https://github.com/ttdua/pi-jev-pilot/issues/87), [#91](https://github.com/ttdua/pi-jev-pilot/issues/91)).
+- Package agents: an installed Pi package can add agents through `pi.subagents.agents` in its `package.json`. Only packages in the configured package list are read, and paths must stay inside the package ([#91](https://github.com/ttdua/pi-jev-pilot/issues/91)).
+
+### Changed
+
+- Agent names match case-insensitively, and a later source overrides an earlier one: built-in, package, global, then project ([#87](https://github.com/ttdua/pi-jev-pilot/issues/87)).
+- An agent's name is its frontmatter `name:`, falling back to the file name ([#87](https://github.com/ttdua/pi-jev-pilot/issues/87)).
+- Unknown agent types fall back to `general`, and `general-purpose` is accepted as an alias while no agent has that name. A missing or disabled `general` refuses the launch ([#82](https://github.com/ttdua/pi-jev-pilot/issues/82)).
+
 ### Removed
 
+- Built-in agents `Plan` and `Explore`'s pinned model, and the TypeScript built-in agent definitions. Built-ins are now the Markdown role agents above ([#82](https://github.com/ttdua/pi-jev-pilot/issues/82)).
 - Tool assessment: Jev no longer removes or grants worker tools; a worker's tools come from its agent definition. The `tools` switch and `/jev tools` are gone. A `tools` section in `config.json` and `switches.tools` in `state.json` are ignored, and existing ledger lines with tool counts remain readable ([#81](https://github.com/ttdua/pi-jev-pilot/issues/81)).
 
 ## [0.4.1] - 2026-11-16

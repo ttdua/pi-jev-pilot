@@ -27,7 +27,7 @@ The peer-dep migration that prompted the original fork has since landed upstream
 Both extensions provide the same core experience:
 
 - Foreground/background subagents with a live above-editor widget and a conversation viewer.
-- Custom agent types defined in `.pi/agents/<name>.md` with YAML frontmatter (system prompt, model, thinking, tools).
+- Custom agent types defined in `.pi/agents/<name>.md` with YAML frontmatter (system prompt, model, thinking, tools), and six built-in role agents from `agents/`, extendable by installed packages through `pi.subagents.agents`.
 - Fuzzy model selection, context inheritance, mid-run steering, session resume, and turn limits.
 - A `pi.events` lifecycle bus (`subagents:created`, `started`, `completed`, `failed`, `steered`, `compacted`).
 

@@ -176,7 +176,7 @@ A catalog over 254 skills is split into batches sent in parallel. The first batc
   "task": { "brief": "<first 4000 characters>", "description": "<short description>" },
   "agent": {
     "name": "worker",
-    "source": "project | global | builtin",
+    "source": "project | global | package | builtin",
     "description": "…",
     "instructions_excerpt": "<first 500 characters of the agent file body>",
     "declared_tools": ["read", "edit"],
@@ -193,7 +193,7 @@ The 4000-character cap covers about 90% of real briefs. Replay at 2000 versus fu
 
 `brief` and the excerpts count code points, not UTF-16 units. Agent files are matched by listing the agents directory, so a path-like type never reaches the file system. `max_turns` is the agent's own value; `run_in_background` is the effective value of the launch. Built-in agents send an empty `instructions_excerpt`.
 
-The agent is found by name in the listing of `.pi/agents/`, then `<agentDir>/agents/`, and otherwise from a table of the executor's built-in agents (`general-purpose`, `Explore`, `Plan`).
+The agent is found by name across the executor's sources, later wins: built-in, installed package (`pi.subagents.agents`), `<agentDir>/agents/`, then `.pi/agents/`. Names match case-insensitively. Unknown names fall back to `general`, and `general-purpose` is an alias.
 
 The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.md), because Jev leans toward the first option. Policy still ranks `low` to `max`.
 
