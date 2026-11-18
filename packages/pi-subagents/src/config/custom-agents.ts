@@ -92,7 +92,7 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
  */
 function contextField(fm: Record<string, unknown>, path: string, warned: Set<string>): ContextMode | undefined {
   if (fm.prompt_mode != null) {
-    warnDeprecatedIn(warned, `${path}:prompt_mode`, `${path}: prompt_mode is deprecated and ignored`);
+    warnDeprecatedIn(warned, `${path}:prompt_mode`, `${path}: prompt_mode is deprecated and ignored; use context: fresh | fork`);
   }
   // DEPRECATED(remove next minor): inherit_context and prompt_mode frontmatter aliases
   if (fm.inherit_context != null) {

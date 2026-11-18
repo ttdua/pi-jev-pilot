@@ -365,6 +365,7 @@ Extra instructions.`);
       writeAgent("modal", "---\nprompt_mode: append\n---\n\nBody.");
       expect(loadCustomAgents(tmpDir).get("modal")!.context).toBeUndefined();
       expect(warnings().filter((w: string) => w.includes("modal.md") && w.includes("prompt_mode"))).toHaveLength(1);
+      expect(warnings().find((w: string) => w.includes("prompt_mode"))).toContain("use context: fresh | fork");
     });
 
     it("warns once per file per load even when the file is read twice", () => {
