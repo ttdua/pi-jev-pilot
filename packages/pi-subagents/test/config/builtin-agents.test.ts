@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import { loadCustomAgents } from "#src/config/custom-agents";
 import { builtinAgentDirs } from "#src/config/package-agents";
@@ -113,5 +113,26 @@ describe("packed executor", () => {
     });
     const paths = (JSON.parse(out) as { files: { path: string }[] }[])[0]!.files.map((f) => f.path);
     for (const role of ROLES) expect(paths).toContain(`agents/${role}.md`);
+  });
+});
+
+describe("override files are not checked", () => {
+  it("lets a global implementer naming a skill replace the built-in without a warning", () => {
+    const globalAgents = join(emptyCwd, "global", "agents");
+    mkdirSync(globalAgents, { recursive: true });
+    writeFileSync(
+      join(globalAgents, "implementer.md"),
+      "---\ndescription: Mine\n---\nFollow test-driven-development and /opsx-apply.",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const snapshot = builtinOnly().get("implementer")!;
+      expect(snapshot.source).toBe("global");
+      expect(snapshot.instructions).toContain("test-driven-development");
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      rmSync(globalAgents, { recursive: true, force: true });
+    }
   });
 });

@@ -15,7 +15,7 @@ import { isBelowMinimumTurns, MIN_MAX_TURNS, normalizeMaxTurns } from "#src/life
 import type { ModelRegistry } from "#src/session/model-resolver";
 import { resolveForkThinking, resolveInvocationModel } from "#src/session/model-resolver";
 import { lockedFields } from "#src/seams/locked-launch";
-import type { AgentConfig, AgentInvocation, ContextMode, SubagentType, ThinkingLevel } from "#src/types";
+import type { AgentInvocation, ContextMode, SubagentType, ThinkingLevel } from "#src/types";
 import {
   type AgentDetails,
   buildInvocationTags,
@@ -113,13 +113,7 @@ export function resolveSpawnConfig(
   // Merge agent config defaults with tool-call params
   // A fallback launch needs an enabled `general`; a named but disabled agent is rejected later.
   if (fellBack && !registry.isValidType(FALLBACK_AGENT)) return { error: new MissingFallbackAgentError().message };
-  let customConfig: AgentConfig;
-  try {
-    customConfig = registry.resolveAgentConfig(subagentType);
-  } catch (err) {
-    if (err instanceof MissingFallbackAgentError) return { error: err.message };
-    throw err;
-  }
+  const customConfig = registry.resolveAgentConfig(subagentType);
   const resolvedConfig = resolveAgentInvocationConfig(customConfig, {
     ...params,
     thinking: thinkingFromParams,

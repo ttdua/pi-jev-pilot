@@ -2,9 +2,10 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProjectTrustStore } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   builtinAgentDirs,
+  invalidatePackageCache,
   type ConfiguredPackageRow,
   packageAgentDirs,
   readSubagentManifest,
@@ -195,6 +196,66 @@ describe("project trust seeding", () => {
     const project = trustedProject(true);
     seedProjectTrust(project);
     setProjectTrusted(false);
+    expect(packageAgentDirs(project)).toEqual([]);
+  });
+});
+
+describe("package listing cache", () => {
+  const listerFor = (root: string) =>
+    vi.fn((): ConfiguredPackageRow[] => [{ source: root, scope: "user", installedPath: root }]);
+
+  it("lists packages once across reloads", () => {
+    const root = makePackage("a", declares("./agents"), { "agents/x.md": "x" });
+    const lister = listerFor(root);
+    setProjectTrusted(false);
+    expect(packageAgentDirs(tmp, lister)).toHaveLength(1);
+    expect(packageAgentDirs(tmp, lister)).toHaveLength(1);
+    expect(lister).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists again when the trust answer changes", () => {
+    const root = makePackage("a", declares("./agents"), { "agents/x.md": "x" });
+    const lister = listerFor(root);
+    setProjectTrusted(false);
+    packageAgentDirs(tmp, lister);
+    setProjectTrusted(true);
+    packageAgentDirs(tmp, lister);
+    expect(lister).toHaveBeenCalledTimes(2);
+  });
+
+  it("lists again for another cwd or after invalidation", () => {
+    const root = makePackage("a", declares("./agents"), { "agents/x.md": "x" });
+    const lister = listerFor(root);
+    setProjectTrusted(false);
+    packageAgentDirs(tmp, lister);
+    packageAgentDirs(join(tmp, "other"), lister);
+    invalidatePackageCache();
+    packageAgentDirs(join(tmp, "other"), lister);
+    expect(lister).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("unconfigured packages (real pi package manager)", () => {
+  const saved = process.env.PI_CODING_AGENT_DIR;
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = saved;
+  });
+
+  it("ignores a declaring package in node_modules that no settings.json lists", () => {
+    const agentDir = join(tmp, "agent-home");
+    const project = join(tmp, "project");
+    mkdirSync(agentDir, { recursive: true });
+    mkdirSync(join(project, ".pi"), { recursive: true });
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    mkdirSync(join(project, "node_modules"), { recursive: true });
+    const root = join(project, "node_modules", "x");
+    mkdirSync(join(root, "agents"), { recursive: true });
+    writeFileSync(join(root, "package.json"), JSON.stringify(declares("./agents")));
+    writeFileSync(join(root, "agents", "x.md"), "x");
+    writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: [] }));
+    setProjectTrusted(true);
     expect(packageAgentDirs(project)).toEqual([]);
   });
 });

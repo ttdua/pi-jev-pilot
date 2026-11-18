@@ -57,9 +57,18 @@ export function seedProjectTrust(cwd: string): void {
   }
 }
 
-/** Record the session's project-trust answer. */
+/** The last package listing, kept so a reload re-reads agent files without re-listing packages. */
+let cached: { cwd: string; trusted: boolean; lister: PackageLister; dirs: PackageAgentDir[] } | undefined;
+
+/** Drop the cached package listing; the next `packageAgentDirs` lists packages again. */
+export function invalidatePackageCache(): void {
+  cached = undefined;
+}
+
+/** Record the session's project-trust answer. Always drops the cache: it runs at every `session_start`. */
 export function setProjectTrusted(trusted: boolean): void {
   projectTrustedState = trusted;
+  invalidatePackageCache();
 }
 
 /** The declared `pi.subagents.agents` entries, or undefined for any other shape. */
@@ -76,8 +85,21 @@ export function builtinAgentDirs(): PackageAgentDir[] {
   return agentDirsOf(dirname(manifest));
 }
 
-/** Agent directories of every configured package, never throwing. */
+/**
+ * Agent directories of every configured package, never throwing. The listing is
+ * cached per (cwd, trust, lister) because it builds pi's settings and package
+ * managers (file locks, possible `npm root -g`); callers still re-read the agent files.
+ */
 export function packageAgentDirs(cwd: string, lister: PackageLister = configuredPackages): PackageAgentDir[] {
+  if (cached && cached.cwd === cwd && cached.trusted === projectTrustedState && cached.lister === lister) {
+    return cached.dirs;
+  }
+  const dirs = listPackageAgentDirs(cwd, lister);
+  cached = { cwd, trusted: projectTrustedState, lister, dirs };
+  return dirs;
+}
+
+function listPackageAgentDirs(cwd: string, lister: PackageLister): PackageAgentDir[] {
   try {
     const dirs: PackageAgentDir[] = [];
     const seen = new Set<string>();
@@ -131,7 +153,7 @@ export function realOrSelf(path: string): string {
   }
 }
 
-/** True when canonical `candidate` is strictly inside canonical `root`. */
+/** True when `candidate` is strictly inside `root`; both are canonicalised here, so raw paths are fine. */
 export function isInside(root: string, candidate: string): boolean {
   const rel = relative(realOrSelf(root), realOrSelf(candidate));
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);

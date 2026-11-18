@@ -109,7 +109,7 @@ export function buildTypeListText(registry: TypeListRegistry, agentDir: string):
 
 /** True when an agent config is present and not explicitly disabled. */
 function isEnabledAgent(registry: AgentConfigLookup, name: string): boolean {
-  return registry.resolveAgentConfig(name).enabled !== false;
+  return registry.findAgentConfig(name)?.enabled !== false;
 }
 
 /**
