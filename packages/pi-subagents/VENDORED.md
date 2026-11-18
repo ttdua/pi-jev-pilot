@@ -90,6 +90,16 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/ui/fleet-roster.test.ts` | seam | Tests for the fleet roster filter, ordering, formats, layout, overflow windowing and width clamping. |
 | `src/ui/fleet-list.ts` | seam | Pi adapter for the below-editor fleet list: active and selection state, 1 s refresh timer, `fleet` widget, terminal-input listener with focus guard, and Enter opening the session pane. Key mechanics ported from tintinweb/pi-subagents 0.23.2. |
 | `test/ui/fleet-list.test.ts` | seam | Tests for the fleet list's visibility, activation, navigation, focus guard, open and reselect, observer hooks, and lifecycle with a fake UI and TUI. |
+| `docs/decisions/0014-subagent-context-is-fresh-or-fork.md` | seam | ADR for `context: fresh \| fork`: supersedes ADR 0008 and amends ADRs 0006, 0009, 0010 and 0011 (status lines edited). |
+| `README.md` | edit | Document `context`, the fork's tools, model and fallback rules, the cache conditions and known gaps, and the deprecated names. |
+| `docs/configuration.md` | edit | `context` fields, the fresh and fork chapters and the deprecated names replace the inherited-prompt chapters. |
+| `CHANGELOG.md` | edit | Migration section mapping each deprecated name to its replacement. |
+| `docs/decisions/0006-inherited-prompt-is-identity-only.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0008-inherited-region-is-shared-parts.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0009-portable-inheritance-is-provider-scoped.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0010-project-context-is-directory-resolved.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0011-tool-surface-sections-are-session-resolved.md` | edit | Status line points to ADR 0014. |
+| `docs/architecture/architecture.md` | edit | The `SpawnOptions` listing names `context` instead of the old fork flag. |
 | `docs/decisions/0013-fleet-list-opens-the-session-pane.md` | seam | ADR for the fleet list: it opens the read-only session pane and lists foreground runs; the ported behavior is credited to tintinweb/pi-subagents 0.23.2. |
 | `README.md` | edit | Fleet list feature bullet, the `Fleet view` row in the settings description, and a `Fleet list` section with its keys. Run facts paragraph and examples: widget bracket, inline status table and fleet rows show model, thinking and tool counts. |
 | `docs/configuration.md` | edit | `fleetView` in persistent settings, its default, and the example JSON. |
@@ -118,13 +128,13 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/tools/helpers.test.ts` | edit | `buildDetails` copies thinking and tool facts. |
 | `test/tools/progress-stream.test.ts` | edit | Streamed update uses the record's live thinking. |
 | `src/config/deprecations.ts` | seam | One-shot deprecation warnings (once per session, once per file per load) for the `context` aliases. |
-| `src/config/invocation-config.ts` | edit | `context: fresh | fork` replaces `inherit_context`; `locked: inherit_context` reads as `context`; deprecated caller alias. |
+| `src/config/invocation-config.ts` | edit | `context: fresh \| fork` replaces the boolean fork flag; the old `locked` entry and caller parameter read as `context` (deprecated aliases). |
 | `src/lifecycle/parent-snapshot.ts` | edit | Snapshot carries the parent session id, live branch (fork only), active tool names and thinking; the text parent context and portable prompt are removed. |
 | `src/runtime.ts` | edit | `buildSnapshot(context)` with the parent's active tools; no prompt-options capture. |
 | `src/session/prompts.ts` | edit | Fresh prompt: `composeAgentSection(header, body)` and the `<active_agent>`/env header; the inherited-identity machinery is removed. |
 | `test/config/agent-types.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/config/custom-agents.test.ts` | edit | Cover `context`, the deprecated aliases and their warnings. |
-| `test/config/invocation-config.test.ts` | edit | Cover `context` resolution and the deprecated `inherit_context`. |
+| `test/config/invocation-config.test.ts` | edit | Cover `context` resolution and the deprecated aliases. |
 | `test/helpers/make-spawn-config.test.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/make-spawn-config.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/make-subagent.ts` | edit | Fixture carries `context`/`contextSource`. |

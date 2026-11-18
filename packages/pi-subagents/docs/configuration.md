@@ -7,89 +7,53 @@ For the tools, commands, events, and service API, see the [README](../README.md)
 
 ## Default Agent Types
 
-| Type              | Tools                      | Model                         | Prompt Mode            | Description                                                                                      |
-| ----------------- | -------------------------- | ----------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `general-purpose` | all 7                      | inherit                       | `append` (parent twin) | Inherits the parent's prompt identity — same rules, CLAUDE.md, project conventions               |
-| `Explore`         | read, bash, grep, find, ls | haiku (falls back to inherit) | `replace`              | Fast codebase exploration (read-only); inherits the parent prompt as a base                      |
-| `Plan`            | read, bash, grep, find, ls | inherit                       | `replace`              | Software architect for implementation planning (read-only); inherits the parent prompt as a base |
+| Type              | Tools                      | Model                         | Description                                                    |
+| ----------------- | -------------------------- | ----------------------------- | -------------------------------------------------------------- |
+| `general-purpose` | all 7                      | inherit                       | General-purpose agent for complex, multi-step tasks            |
+| `Explore`         | read, bash, grep, find, ls | haiku (falls back to inherit) | Fast codebase exploration (read-only)                          |
+| `Plan`            | read, bash, grep, find, ls | inherit                       | Software architect for implementation planning (read-only)     |
 
-The `general-purpose` agent is a **parent twin** — it receives the parent's inherited identity and nothing of its own, so it follows the same rules the parent does.
-Explore and Plan use `replace` mode: the parent prompt is the cacheable base and their specialist read-only instructions are appended last, giving them the final say.
+No built-in agent sets a `context`, so each runs `fresh` unless the call asks for `fork`.
 
 Default agents can be **overridden** by creating a `.md` file with the same name (e.g. `.pi/agents/general-purpose.md`), or **disabled** per-project with `enabled: false` frontmatter.
 
-## What a child inherits from the parent's prompt
+## Context: fresh or fork
 
-Pi assembles a system prompt in layers.
-Its own preamble comes first, then its `<tools>` and `<rules>` sections, its documentation pointers, any `--append-system-prompt` addendum, your `AGENTS.md` or `CLAUDE.md` project context, the catalogue of available skills, and a `<cwd>` section naming the working directory — and finally whatever sections extensions add each turn.
+Every subagent runs with one of two contexts.
+The `context` parameter of the `subagent` tool, the `context` frontmatter field and the `context` option of `SubagentsService.spawn` take the same two values.
 
-A child inherits only the **stable identity** layers: everything up to, but not including, the skills catalogue.
-The layers after it are resolved against one session, so Pi and the child's own extensions rebuild them for the child rather than the child borrowing the parent's:
+| Value             | The child starts with                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `fresh` (default) | A new session and Pi's own system prompt for it. No parent identity and no parent conversation.                                         |
+| `fork`            | A copy of the parent's live conversation, under the parent's system prompt and tool declarations, so the provider can reuse the cache. |
 
-| Layer                        | Where a child's copy comes from                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Pi preamble                  | inherited from the parent, byte for byte                                                                     |
-| `<project_context>`          | inherited byte for byte, unless the child runs in its own directory — then resolved from that directory      |
-| `<tools>` / `<rules>`        | never inherited; stated by the child's own `@gotgenes/pi-permission-system` when installed, otherwise absent |
-| Skills catalogue             | rebuilt by Pi for the child's own directory and tool set                                                     |
-| `<cwd>`                      | rebuilt by Pi for the child's own directory                                                                  |
-| Extension-appended blocks    | rebuilt by the child's own extensions                                                                        |
+### Fresh
 
-This matters most for a child that runs somewhere other than the parent — one given an isolated workspace by a `WorkspaceProvider`.
-Its skills resolve from its own workspace, and its working-directory claim names that workspace.
-Inheriting the parent's copies instead would give such a child a catalogue of skills it may not have and a directory claim that walks it back out of its workspace.
-
-Project context is the same kind of claim, which is why such a child resolves it too: `<project_context>` names each context file by absolute path, and the parent's paths point into the parent's checkout ([#918]).
-A relocated child's block is built from its own directory — the same discovery Pi runs for a session, so an `AGENTS.md` in the workspace, in any ancestor of it, or in `~/.pi/agent/` is found.
-If **none** of those carries one, the child receives no project instructions at all rather than the parent's; run with `PI_SUBAGENTS_DEBUG=1` to see that reported.
-A `WorkspaceProvider` whose workspace is not a checkout — a bare sandbox directory — should place the instructions it wants its children to follow inside that workspace.
-
-Inheriting the identity rather than the whole prompt also gives the child a leading prefix it shares with the parent, which local inference engines reuse instead of reprocessing.
-How much that is worth depends on the host: a provider whose cache prefix covers the tool definitions ahead of the system prompt — Anthropic's does — reuses nothing for a child, because a child's tool set always differs from its parent's.
-
-Pi renders the `<tools>` and `<rules>` sections from one session's tool set, and writes neither for a child, so a child drops its parent's copies rather than presenting the parent's tools as its own.
-With `@gotgenes/pi-permission-system` installed, the child states its own after its working directory.
-Without it, a child carries no tool list or guidelines in its prompt; its tool definitions still name exactly the tools it holds ([#901]).
+Pi builds the child's prompt the way it builds any session's: preamble, tools, rules, documentation pointers, `APPEND_SYSTEM.md`, your `AGENTS.md` or `CLAUDE.md` project context for the child's own directory, skills and `<cwd>`.
+The agent's part is the **last** section, `<agent>…</agent>`: the `<active_agent name="…"/>` header and environment block, then the agent file's body.
+The body has the final say.
 
 If you write extensions that add to the system prompt, see [Extensions that append to the system prompt](../README.md#extensions-that-append-to-the-system-prompt).
-The reasoning behind the boundary is recorded in [ADR 0006](decisions/0006-inherited-prompt-is-identity-only.md), what the inherited region guarantees in [ADR 0008](decisions/0008-inherited-region-is-shared-parts.md), and why the tool sections are dropped in [ADR 0011](decisions/0011-tool-surface-sections-are-session-resolved.md).
 
-### Portable inheritance (opt-in)
+### Fork
 
-The inherited identity includes Pi's own preamble.
-That is correct when the child talks to the same API as its parent, and wrong when the child's provider **re-homes** the prompt into another harness — `pi-claude-bridge`, for example, projects it onto Claude Code's preset as an append.
-There, Pi's preamble reaches an API that already has a base prompt of its own, and Anthropic's subscription gate scores the documentation-routing line inside it as a third-party app ([#883]).
+A fork is an in-memory clone of the parent's live branch, taken when the child starts.
+It sends the provider the parent's system prompt, the parent's tool declarations and the parent's messages, then its own task, so its first request starts like the parent's last one.
+The provider also receives the **parent's** session id as its cache key; the fork's transcript, record and events keep the fork's own id.
 
-Opt such a provider into `portable`, which replaces the inherited identity with the parent's operator-authored parts only:
+- **Task message.** Every tool call still pending in the parent's last message gets the result `Forked: this branch continues as a subagent.`. A `<subagent_instructions>` block follows with the agent header, the child's working directory, the agent body and the task.
+- **Tools.** The declarations are the parent's, unchanged. The child may call a tool only if a fresh child of the same agent would have it **and** the parent has it; any other call is refused with `Tool "<name>" is not available to this subagent.` (a tool the agent's `disallowed_tools` removes is refused the same way). A fork never gets `subagent`, `get_subagent_result`, `steer_subagent` or the protocol tools, so it cannot start subagents. A tool only the agent has (not the parent) is not declared, because declaring it would change the prefix; the instructions name it as unavailable.
+- **Model and thinking.** A locked agent value wins, then the launch policy, then the call's `model` / `thinking`, then the parent's. An unlocked agent default is ignored. A different model than the parent's reads no cache, and the parent's reasoning reaches that provider as text.
+- **Fallback.** A call that asks for `fork` (including the [deprecated](#deprecated-names) fork flag, and a service `spawn` with `context: "fork"`) fails with `Cannot fork: the parent has no session to fork from.` when the parent has no session. A `fork` that came from an agent file runs `fresh` instead, and the run is labelled `fork → fresh`.
+- **Display.** A fork shows `fork` where a mode label used to be; a fallen-back run shows `fork → fresh`; a fresh run shows nothing.
 
-```json
-{
-  "promptInheritance": { "claude-bridge": "portable" }
-}
-```
+**When the cache holds.** The evidence run ([2026-11-18](../../../docs/evidence/2026-11-18-fork-cache.md)) measured a ratio of 0.92 on an OpenAI-compatible route for a same-model fork of a parent of at least 25 000 tokens, started within a minute of the parent's last request.
+A provider cache leaves about 2 150 tokens uncached even for an identical request, so a short parent cannot reach a high ratio. The Anthropic API was not measured.
+An extension that rewrites the system prompt in the child's `before_agent_start` ends the shared prefix.
 
-| Strategy         | The child's identity                                           | Shares a prefix with the parent |
-| ---------------- | -------------------------------------------------------------- | ------------------------------- |
-| `full` (default) | the parent's identity layers, byte for byte                    | yes                             |
-| `portable`       | the parent's custom prompt, append prompt, and project context | no                              |
+**Known gap.** `openai-codex-responses` overwrites the session headers after the hook, so a fork on that API does not share the parent's cache.
 
-The map keys on the **provider id of the child's resolved model**, so only children whose requests actually travel through that provider change strategy.
-That is also why the key is the provider rather than the agent: a `subagent` call may override an agent's model, which moves the child to a different transport, and the strategy follows it.
-
-Skills stay un-inherited either way — the child builds its own catalogue — and the parent's tool guidelines are never inherited under `portable`, because Pi derives them from the tools a session actually holds.
-Project context files ride along, and must: the child's loader is built with context files suppressed, so this is the only way a portable child sees your `AGENTS.md` at all.
-
-**Use `portable` only for a provider that re-homes the prompt into a harness supplying its own base.**
-It is not enforced, because Pi exposes no way to identify such a provider — but pointing it at an ordinary provider is worse than leaving the default.
-`@gotgenes/pi-anthropic-auth`, for instance, finds Pi's role line in order to shape the OAuth system prompt; a portable child has no such line, so shaping returns it unchanged and the child never receives the neutral role prompt that shaping would have substituted.
-
-If the parent has no context files, custom prompt, or append prompt, a portable child falls back to a short generic base rather than to the full parent prompt — opting in never silently re-embeds the preamble it exists to avoid.
-
-The reasoning is recorded in [ADR 0009](decisions/0009-portable-inheritance-is-provider-scoped.md).
-
-[#883]: https://github.com/gotgenes/pi-packages/issues/883
-[#901]: https://github.com/gotgenes/pi-packages/issues/901
-[#918]: https://github.com/gotgenes/pi-packages/issues/918
+The decision is recorded in [ADR 0014](decisions/0014-subagent-context-is-fresh-or-fork.md).
 
 ## Custom Agents
 
@@ -147,14 +111,13 @@ All fields are optional — sensible defaults for everything.
 | `model`             | inherit parent | Model — `provider/modelId` or fuzzy name (`"haiku"`, `"sonnet"`)                                                                                                                                                                              |
 | `thinking`          | inherit        | off, minimal, low, medium, high, xhigh, max. An unrecognized value is dropped, and the agent inherits the parent's level                                                                                                                      |
 | `max_turns`         | unlimited      | Turn ceiling: the harness stops the agent after this many turns (minimum 2). `0` or omit for unlimited                                                                                                                                        |
-| `prompt_mode`       | `append`       | `replace`: parent prompt is the cacheable base; body is appended last with full control and no `<agent_instructions>` wrapper. `append`: parent prompt is the base; body is wrapped in `<agent_instructions>` (agent acts as a "parent twin") |
-| `inherit_context`   | `false`        | Fork parent conversation into agent                                                                                                                                                                                                           |
+| `context`           | `fresh`        | `fresh` or `fork`. See [Context: fresh or fork](#context-fresh-or-fork)
 | `run_in_background` | `false`        | Run in background by default                                                                                                                                                                                                                  |
 | `enabled`           | `true`         | Set to `false` to disable an agent (useful for hiding a default agent per-project)                                                                                                                                                            |
 | `locked`            | —              | Fields a `subagent` tool caller may not override. `true` or a list of field names. See [Locking fields against callers](#locking-fields-against-callers)                                                                                      |
 
 The caller decides, and the agent file fills the gaps.
-A `subagent` tool parameter wins over the agent file's value for `model`, `thinking`, `max_turns`, `inherit_context`, and `run_in_background`; the agent file supplies whichever of those the caller left unset.
+A `subagent` tool parameter wins over the agent file's value for `model`, `thinking`, `max_turns`, `context`, and `run_in_background`; the agent file supplies whichever of those the caller left unset.
 
 ### Locking fields against callers
 
@@ -168,7 +131,7 @@ locked: true
 ---
 ```
 
-`locked: true` withholds every field this file sets — here `model` and `max_turns`, while `thinking`, `inherit_context`, and `run_in_background` stay open because the file names no value for them.
+`locked: true` withholds every field this file sets — here `model` and `max_turns`, while `thinking`, `context`, and `run_in_background` stay open because the file names no value for them.
 This is the behavior every agent file had before locking became opt-in, so it is the one-line way to keep an existing file working unchanged.
 
 A list withholds exactly the fields it names, in either YAML spelling:
@@ -179,7 +142,8 @@ locked: [model, max_turns]         # flow sequence
 ```
 
 The list form also withholds a field this file leaves unset — `locked: [model]` with no `model:` denies the caller a model override and lets the child inherit the parent's.
-An entry naming anything other than `model`, `thinking`, `max_turns`, `inherit_context`, or `run_in_background` is ignored.
+An entry naming anything other than `model`, `thinking`, `max_turns`, `context`, or `run_in_background` is ignored.
+A deprecated `locked` entry for the old fork flag is read as `context` (see [Deprecated names](#deprecated-names)).
 
 A lock is never silent: when a caller passes a value for a locked field, the tool result says which agent locked which parameters.
 
@@ -286,6 +250,23 @@ The pattern expands when the agent spawns, to the matching tools **your session*
 - A child running in another directory (a worktree) expands against your session's servers, even when that directory's `.pi/mcp.json` configures different ones.
 - Tools a server adds after the child started do not reach that child.
 
+## Deprecated names
+
+These names still work for one minor release and print a warning that names the replacement.
+They are removed in the release after.
+
+| Deprecated                       | Replacement                                   | Behaviour now                                                             |
+| -------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------- |
+| `prompt_mode` frontmatter        | none                                          | Ignored. Every fresh child gets Pi's prompt, with the agent body last.    |
+| `inherit_context` frontmatter    | `context: fork` (`false` is `context: fresh`) | Mapped to `context`.                                                      |
+| `inherit_context` tool parameter | `context: "fork"`                             | Mapped to `context`; giving both parameters is an error.                  |
+| `locked: inherit_context`        | `locked: context`                             | Read as `context`.                                                        |
+| `inheritContext` service option  | `context: "fork"`                             | Mapped to `context`; giving both is an error.                             |
+| `promptInheritance` setting      | none                                          | Kept in the file, otherwise ignored: no child inherits a cut of a prompt. |
+
+An agent that relied on `prompt_mode: replace` to have the final say keeps it: the body is the last section of a fresh child's prompt.
+A "parent twin" (an agent with no body of its own) is now an ordinary fresh agent; to reuse the parent's context, use `context: fork`.
+
 ## Persistent Settings
 
 Runtime tuning values set via `/subagents:settings` (max concurrency, default max turns, wrap-up turns, the two session-retention windows, the abort-on-interrupt policy, the mid-run update channel, and the fleet list) persist across pi restarts.
@@ -359,7 +340,7 @@ What this does and does not do:
 This key is hand-edited in the global or project `subagents.json`; `/subagents:settings` does not expose it, but it is preserved when you change other settings there.
 An absent or empty list reproduces the default behavior, in which children inherit every parent extension.
 
-The same is true of [`promptInheritance`](#portable-inheritance-opt-in): hand-edited only, preserved across other settings changes, and absent means every child inherits the full parent identity.
+A hand-edited `promptInheritance` map is preserved across other settings changes but has no effect (see [Deprecated names](#deprecated-names)).
 
 #### Excluding a permission extension
 

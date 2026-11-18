@@ -101,7 +101,7 @@ Replace assumptions with evidence before building on them. **This group may chan
   4. Is `subagents:child:session-created` visible to the extension, in time, with a usable session id?
   5. Is a hidden `before_agent_start` message sent to the model and kept across compaction as expected?
   6. Does `setThinkingLevel` in `before_agent_start` apply to that same turn's first request?
-  7. Does a mutated `model` still behave with `inherit_context`, or should it be skipped?
+  7. Does a mutated `model` still behave with `context: fork`, or should it be skipped?
   8. How do `thinking_level_change` and the prompt cache behave on `claude-code` in a controlled run?
 - **Done when:** each question has an answer from a real run, and these documents are updated where an answer contradicts them.
 
@@ -161,14 +161,14 @@ Replace assumptions with evidence before building on them. **This group may chan
 **B1, B2.** The largest group; it depends most on WG-02. It shipped as two changes, both landed:
 
 - `wg-11-worker-policy`: agent reader, worker request, pure decision, effort and fallback.
-- `wg-11-worker-host`: host wiring, `subagents.forkedLaunch`, registry and credential check, pre-launch tier cascade with a warning naming the setting, ledger outcome.
+- `wg-11-worker-host`: host wiring, `subagents.forkLaunch`, registry and credential check, pre-launch tier cascade with a warning naming the setting, ledger outcome.
 
 The pre-launch tier cascade moved here from WG-13.
 
 - **Includes:** child registry, agent metadata reader and built-in table, worker state, `standard` rubric, decision order, effort rules with the `fast` cap, batching at `message_end` ([WG-02 Q2](evidence/2026-11-05-host-seams.md#q2)), input mutation with validation, `locked` handling, worker outcome in the ledger.
-- **Decision ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** forked launches follow `subagents.forkedLaunch`, default `untouched`; `thinking` keeps the model and changes only thinking.
-- **Also includes:** launches issued by another tool (nested, `parentToolCallId`) are classified at `tool_call`; `resume` and `inherit_context` are read as effective values (launch input, else the agent file); the pre-launch tier cascade uses effort `xhigh` on every tier and warns with the failing tier, the tier used instead and the setting to fix.
-- **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` is untouched, a forked launch follows `subagents.forkedLaunch`, an unusable tier cascades down, never to `expert`, and a Jev outage leaves launches unchanged.
+- **Decision ([WG-02 Q7](evidence/2026-11-05-host-seams.md#q7)):** fork launches follow `subagents.forkLaunch` (renamed from its earlier name), default `untouched`; `thinking` keeps the model and changes only thinking.
+- **Also includes:** launches issued by another tool (nested, `parentToolCallId`) are classified at `tool_call`; `resume` and `context` are read as effective values (launch input, else the agent file); the pre-launch tier cascade uses effort `xhigh` on every tier and warns with the failing tier, the tier used instead and the setting to fix.
+- **Done when:** a real child runs on the chosen model and thinking in foreground and background, `resume` is untouched, a fork launch follows `subagents.forkLaunch`, an unusable tier cascades down, never to `expert`, and a Jev outage leaves launches unchanged.
 
 ### WG-12: Modes and expert tier
 

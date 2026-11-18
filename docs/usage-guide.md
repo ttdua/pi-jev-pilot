@@ -12,7 +12,7 @@ You need:
 
 `naicoi92/pi-jev-pilot` must be removed first: both register `/jev` and act on the same prompts. `naicoi92/pi-subagents` must also go, because it registers the same `subagent` tool as the executor this package ships.
 
-Review your agent files as well. The executor uses `prompt_mode` rather than `systemPromptMode`, ignores fork fields such as `acceptanceRole`, and fork-only tools such as `contact_supervisor` do not exist there.
+Review your agent files as well. The executor uses `context: fresh | fork` rather than `systemPromptMode`, ignores fork fields such as `acceptanceRole`, and fork-only tools such as `contact_supervisor` do not exist there.
 
 The package never edits your `settings.json` or agent files, and nothing is imported from the port's `jev-pilot.json` or `jev-pilot/` ledger. Its files are in `jev/`, so they do not collide.
 
@@ -290,7 +290,7 @@ No command calls Jev. An unknown model in a slot command gets the three closest 
 | Symptom | Likely cause | Try |
 |---|---|---|
 | Nothing happens | No key, or malformed config | `/jev` shows which |
-| Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a service `spawn()` names its own model, a forked launch has `subagents.forkedLaunch` at its default `untouched`, the launch came from another worker, or there is no executor | `/jev verbose on` |
+| Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a service `spawn()` names its own model, a fork launch has `subagents.forkLaunch` at its default `untouched`, the launch came from another worker, or there is no executor | `/jev verbose on` |
 | A worker has no ledger line | It was still running at a reload or session switch, or it was a `resume` | None; by design |
 | Almost nothing uses the fast tier | Few bounded tasks reach subagents, since the main session does its own lookups | Try `/jev mode budget`, or delegate lookups to a read-only agent |
 | Worker effort is nearly always `high` | That is how the effort rubric currently reads delegated work | Known; a rubric revision is on the [roadmap](roadmap.md) |

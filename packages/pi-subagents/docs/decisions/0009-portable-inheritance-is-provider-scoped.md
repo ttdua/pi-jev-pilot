@@ -1,5 +1,5 @@
 ---
-status: amended by 0010
+status: amended by 0010, and 0014
 date: 2026-09-08
 ---
 
@@ -7,7 +7,7 @@ date: 2026-09-08
 
 ## Status
 
-Accepted, and amended by [ADR 0010], which moves the project-context block out of the portable identity: it names each context file by absolute path, so every child resolves its own against its own directory ([#918]).
+Accepted, amended by [ADR 0014] (no child inherits a prompt identity, so there is no portable strategy to choose), and amended by [ADR 0010], which moves the project-context block out of the portable identity: it names each context file by absolute path, so every child resolves its own against its own directory ([#918]).
 Amended 2026-09-18 ([#904]): the accepted residual recorded below is resolved — the generic base no longer asserts a capability set, so a child that falls back to it receives no claim its tool set may not hold.
 The decision itself is unchanged; only that consequence is.
 Extends [ADR 0006] and [ADR 0008], both of which stand: a child still inherits the parent prompt's identity region and nothing after it, and that region still guarantees shared parts rather than shared bytes.
@@ -120,3 +120,4 @@ The capability, the capture seam, and the fail-safe fallback are @georgeharker's
 [ADR 0008]: 0008-inherited-region-is-shared-parts.md
 [its ADR 0014]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md
 [bridge#89]: https://github.com/elidickinson/pi-claude-bridge/pull/89
+[ADR 0014]: 0014-subagent-context-is-fresh-or-fork.md

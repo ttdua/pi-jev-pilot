@@ -1,5 +1,5 @@
 ---
-status: amended by 0008, 0010, and 0011
+status: amended by 0008, 0010, 0011, and 0014
 date: 2026-08-30
 ---
 
@@ -7,7 +7,9 @@ date: 2026-08-30
 
 ## Status
 
-Accepted, and amended by [ADR 0008], [ADR 0010], and [ADR 0011].
+Accepted, and amended by [ADR 0008], [ADR 0010], [ADR 0011], and [ADR 0014].
+[ADR 0014] ends the mechanism for every child: a fresh child gets Pi's own prompt and a fork gets the parent's whole prompt, so nothing is cut.
+The text below is the record of the rule while it applied.
 Supersedes the equal-cwd exception recorded in [#640] and generalizes it into one rule for every layer Pi resolves per session.
 
 The mechanism below is unchanged: a child still inherits the identity region and nothing after it.
@@ -108,3 +110,4 @@ Both anchors match whole lines, which keeps a footer naming a directory that mer
 [ADR 0011]: 0011-tool-surface-sections-are-session-resolved.md
 [#883]: https://github.com/gotgenes/pi-packages/issues/883
 [pi-claude-bridge#88]: https://github.com/elidickinson/pi-claude-bridge/issues/88
+[ADR 0014]: 0014-subagent-context-is-fresh-or-fork.md
