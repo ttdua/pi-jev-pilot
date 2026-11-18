@@ -16,7 +16,7 @@
 - **Branch**: `spec/remove-tool-assessment`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `PENDING`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/89`
 
 Deviation from the canonical closeout (per AGENTS.md): push and PR creation waited for the user's explicit approval in chat, which was given; no spec pre-review PR existed, so a new PR was opened (outcome `pr-created`).
 
@@ -31,7 +31,7 @@ Deviation from the canonical closeout (per AGENTS.md): push and PR creation wait
 
 ## PR comment
 
-- **PR comment status**: `PENDING`
+- **PR comment status**: `posted`
 
 ---
 
