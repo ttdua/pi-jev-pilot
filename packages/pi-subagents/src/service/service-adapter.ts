@@ -55,6 +55,7 @@ export interface ServiceRuntimeLike {
  */
 function callerContext(options: SpawnOptions | undefined, warnings: DeprecationWarnings): ContextMode | undefined {
   const context: unknown = options?.context;
+  // DEPRECATED(remove next minor): SpawnOptions.inheritContext alias
   if (options?.inheritContext !== undefined) {
     warnings.warnOnce("inheritContext", 'SpawnOptions.inheritContext is deprecated; use context: "fork" | "fresh"');
   }

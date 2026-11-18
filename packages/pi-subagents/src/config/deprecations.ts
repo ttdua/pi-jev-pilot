@@ -4,11 +4,14 @@
  * A `DeprecationWarnings` instance remembers which keys it has already warned
  * about. The extension owns one per runtime and resets it at each
  * `session_start`, so each alias warns once per session and runtimes never
- * share state. Warnings go through `debugNote`, the package's
- * silent-by-design channel.
+ * share state. Each warning is printed with `console.warn` so the user sees
+ * it.
  */
 
-import { debugNote } from "#src/debug";
+/** Print one deprecation warning where the user sees it. */
+function emit(message: string): void {
+  console.warn(`[pi-subagents] deprecated: ${message}`);
+}
 
 /** Warn-once memory for one runtime's session. */
 export class DeprecationWarnings {
@@ -18,7 +21,7 @@ export class DeprecationWarnings {
   warnOnce(key: string, message: string): void {
     if (this.seen.has(key)) return;
     this.seen.add(key);
-    debugNote(`deprecated: ${message}`);
+    emit(message);
   }
 
   /** Forget every warning; the next session may warn again. */
@@ -34,5 +37,5 @@ export const defaultDeprecationWarnings = new DeprecationWarnings();
 export function warnDeprecatedIn(seen: Set<string>, key: string, message: string): void {
   if (seen.has(key)) return;
   seen.add(key);
-  debugNote(`deprecated: ${message}`);
+  emit(message);
 }

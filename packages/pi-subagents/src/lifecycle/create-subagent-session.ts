@@ -26,7 +26,7 @@ import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { missingToolStubs, type RealToolLookup } from "#src/lifecycle/fork-stubs";
 import type { ParentSnapshot, ToolDeclaration } from "#src/lifecycle/parent-snapshot";
 import { buildForkSession } from "#src/lifecycle/fork-session";
-import { forkCallableTools, forkGuardExtension, type ForkGuardState } from "#src/lifecycle/fork-guard";
+import { forkCallableTools, forkGuardExtension, type ForkGuardState, ORCHESTRATION_TOOLS } from "#src/lifecycle/fork-guard";
 import { enforceForkGrants, enforceGrants, isModelCallable } from "#src/seams/grant-check";
 import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import { type EffectiveFacts, effectiveFacts, launchIdentity, type ToolFacts } from "#src/seams/identity";
@@ -57,7 +57,7 @@ import type {
  * child extension registering a tool of its own. Filtering the active set once
  * after `bindExtensions` would be undone by that rebuild (#725).
  */
-const EXCLUDED_TOOL_NAMES = ["subagent", "get_subagent_result", "steer_subagent"];
+const EXCLUDED_TOOL_NAMES = [...ORCHESTRATION_TOOLS];
 
 // ── IO boundary ───────────────────────────────────────────────────────────────
 

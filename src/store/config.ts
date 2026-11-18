@@ -156,6 +156,7 @@ function reportBothForkKeys(raw: unknown, issues: Issue[]): void {
   });
 }
 
+// DEPRECATED(remove next minor): subagents.forkedLaunch alias
 /** Moves the deprecated `subagents.forkedLaunch` onto `forkLaunch`; both keys are rejected before this runs. */
 function applyDeprecatedAlias(config: Config): string[] {
   const sub = config.subagents;

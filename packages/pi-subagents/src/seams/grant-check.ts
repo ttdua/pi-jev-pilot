@@ -10,7 +10,7 @@
 
 import type { ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { debugLog, debugNote } from "#src/debug";
-import type { ForkGuardState } from "#src/lifecycle/fork-guard";
+import { ORCHESTRATION_TOOLS, type ForkGuardState } from "#src/lifecycle/fork-guard";
 
 /** Exposures whose active tools Pi declares to the model. */
 const MODEL_CALLABLE: ReadonlySet<ToolExposure> = new Set([
@@ -95,7 +95,10 @@ export function enforceForkGrants(
 	childTools: readonly Pick<ToolInfo, "name" | "exposure">[],
 ): string[] {
 	if (granted.length === 0) return [];
-	const kept = checkGrants(granted, childTools);
+	const kept = checkGrants(
+		granted.filter((name) => !ORCHESTRATION_TOOLS.includes(name)),
+		childTools,
+	);
 	for (const name of granted.filter((name) => !kept.includes(name)))
 		debugNote(
 			`launch policy: grant ${name} is not a callable tool in the fork; dropped`,

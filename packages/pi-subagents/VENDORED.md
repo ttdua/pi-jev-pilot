@@ -135,6 +135,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/config/agent-types.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/config/custom-agents.test.ts` | edit | Cover `context`, the deprecated aliases and their warnings. |
 | `test/config/invocation-config.test.ts` | edit | Cover `context` resolution and the deprecated aliases. |
+| `test/config/deprecations.test.ts` | edit | Cover visible deprecation warnings and their dedup scopes. |
 | `test/helpers/make-spawn-config.test.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/make-spawn-config.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/make-subagent.ts` | edit | Fixture carries `context`/`contextSource`. |

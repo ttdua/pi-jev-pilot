@@ -139,6 +139,7 @@ export function resolveAgentInvocationConfig(
 
 /** The caller's context: `context` wins over the deprecated `inherit_context`. */
 function callerContext(params: AgentInvocationParams, warnings: DeprecationWarnings): ContextMode | undefined {
+  // DEPRECATED(remove next minor): inherit_context tool param alias
   if (params.inherit_context !== undefined) {
     warnings.warnOnce("inherit_context", 'inherit_context is deprecated; use context: "fork" or "fresh"');
   }

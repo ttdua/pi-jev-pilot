@@ -41,6 +41,7 @@ Rules that follow:
 
 - The inherited-identity machinery, the portable strategy and the text parent context are deleted.
 - The cache holds for a fork only under conditions the [evidence](../../../../docs/evidence/2026-11-18-fork-cache.md) records: the same model, a parent of at least 25 000 tokens, and a provider whose cache floor (about 2 150 tokens on the measured route) leaves a high ratio. A fork on `openai-codex-responses` is a known gap: the provider overwrites the session headers after the hook.
+- Limitation: `openai-codex-responses` overwrites `session-id` and `x-client-request-id` after the `before_provider_headers` hook, so a Codex fork keeps its own id in those two headers and cannot share the parent's cache route. See [the evidence](../../../../docs/evidence/2026-11-18-fork-cache.md).
 - A fresh child loses the shared identity prefix, so local-inference users see more prompt processing per fresh child; `fork` is the option when the context is worth reusing.
 - An extension in the child that rewrites the system prompt in `before_agent_start` breaks a fork's cache. This is documented, not enforced.
 

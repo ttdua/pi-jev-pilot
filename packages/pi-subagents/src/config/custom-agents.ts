@@ -94,6 +94,7 @@ function contextField(fm: Record<string, unknown>, path: string, warned: Set<str
   if (fm.prompt_mode != null) {
     warnDeprecatedIn(warned, `${path}:prompt_mode`, `${path}: prompt_mode is deprecated and ignored`);
   }
+  // DEPRECATED(remove next minor): inherit_context and prompt_mode frontmatter aliases
   if (fm.inherit_context != null) {
     warnDeprecatedIn(warned, `${path}:inherit_context`, `${path}: inherit_context is deprecated; use context: fork | fresh`);
   }

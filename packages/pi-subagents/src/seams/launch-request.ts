@@ -7,6 +7,7 @@ import {
 	LOCKABLE_FIELDS,
 	type LockableField,
 } from "#src/config/invocation-config";
+import { ORCHESTRATION_TOOLS } from "#src/lifecycle/fork-guard";
 import { lockedFields } from "#src/seams/locked-launch";
 import { finalToolNames, snapshotOf } from "#src/seams/registry";
 import type { LaunchOrigin, LaunchRequest } from "#src/service/service";
@@ -18,10 +19,8 @@ import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
  * first three are the parent's orchestration tools, the last two the child
  * protocol tools the executor adds on its own.
  */
-const ORCHESTRATION_TOOLS: ReadonlySet<string> = new Set([
-	"subagent",
-	"get_subagent_result",
-	"steer_subagent",
+const OWNED_TOOLS: ReadonlySet<string> = new Set([
+	...ORCHESTRATION_TOOLS,
 	"ask_parent",
 	"notify_parent",
 ]);
@@ -97,7 +96,7 @@ export function grantableParentTools(
 ): string[] {
 	const excluded = new Set(excludedPackages);
 	const names = tools
-		.filter((tool) => !ORCHESTRATION_TOOLS.has(tool.name))
+		.filter((tool) => !OWNED_TOOLS.has(tool.name))
 		.filter((tool) => !fromExcludedPackage(tool, excluded))
 		.map((tool) => tool.name);
 	return [...new Set(names)];
