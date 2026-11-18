@@ -6,7 +6,7 @@ import {
 	SUBAGENT_RECORD_ENTRY,
 	toPersistedRecord,
 } from "#src/persisted-record";
-import { createTestSubagent } from "#test/helpers/make-subagent";
+import { createTestSubagent, makeStubExecution } from "#test/helpers/make-subagent";
 
 function persistedRecord(overrides: Partial<PersistedSubagentRecord> = {}): PersistedSubagentRecord {
 	return {
@@ -64,6 +64,18 @@ describe("toPersistedRecord", () => {
 		});
 	});
 
+	it("writes a fork's context, and a fallback's, to the entry", () => {
+		const fork = createTestSubagent({ execution: makeStubExecution({ context: "fork" }) });
+		expect(toPersistedRecord(fork)).toMatchObject({ context: "fork" });
+		expect(toPersistedRecord(fork)).not.toHaveProperty("contextFallback");
+
+		const fallback = createTestSubagent({
+			execution: makeStubExecution({ context: "fresh", contextFallback: "no-parent-session" }),
+		});
+		expect(toPersistedRecord(fallback)).toMatchObject({ contextFallback: "no-parent-session" });
+		expect(toPersistedRecord(fallback)).not.toHaveProperty("context");
+	});
+
 	it("copies stoppedWhileQueued off a run stopped while queued", () => {
 		const record = createTestSubagent({ status: "stopped", stoppedWhileQueued: true, result: undefined });
 		expect(toPersistedRecord(record).stoppedWhileQueued).toBe(true);
@@ -81,6 +93,8 @@ describe("readPersistedRuns", () => {
 		stoppedWhileQueued: false,
 		outputFile: "/tasks/run-1.jsonl",
 		toolUses: 7,
+		context: "fresh",
+		contextFallback: undefined,
 	};
 
 	it("returns nothing for no entries", () => {
@@ -96,6 +110,25 @@ describe("readPersistedRuns", () => {
 				recordEntry(persistedRecord()),
 			];
 			expect(readPersistedRuns(entries)).toStrictEqual([summary]);
+		});
+	});
+
+	describe("context", () => {
+		it("reads an entry written before context was recorded as fresh, with no label", () => {
+			const [run] = readPersistedRuns([recordEntry(persistedRecord())]);
+			expect(run.context).toBe("fresh");
+			expect(run.contextFallback).toBeUndefined();
+		});
+
+		it("reads a fork entry as fork", () => {
+			const [run] = readPersistedRuns([recordEntry({ ...persistedRecord(), context: "fork" })]);
+			expect(run.context).toBe("fork");
+		});
+
+		it("ignores an unknown context value and a non-string fallback", () => {
+			const [run] = readPersistedRuns([recordEntry({ ...persistedRecord(), context: "nested", contextFallback: 3 })]);
+			expect(run.context).toBe("fresh");
+			expect(run.contextFallback).toBeUndefined();
 		});
 	});
 

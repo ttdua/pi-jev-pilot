@@ -70,17 +70,20 @@ export function spawnBackground(
   }
 
   const record = manager.getRecord(id);
-  const isQueued = record?.status === "queued";
+  // The record holds the resolved context and any fallback; the call's requested
+  // context is never combined with them.
+  if (!record) return textResult(`Agent ${id} was started but its record is missing.`);
+  const isQueued = record.status === "queued";
   return renderBackgroundLaunch({
     headline: `Agent ${isQueued ? "queued" : "started"} in background.`,
     id,
     displayName: identity.displayName,
     description: execution.description,
     detailBase: presentation.detailBase,
-    context: execution.context,
-    contextFallback: record?.contextFallback,
+    context: record.context,
+    contextFallback: record.contextFallback,
     notes,
-    outputFile: record?.outputFile,
+    outputFile: record.outputFile,
     queuePosition: isQueued ? { maxConcurrent: params.settings.maxConcurrent } : undefined,
   });
 }

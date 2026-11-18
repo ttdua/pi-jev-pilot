@@ -105,7 +105,9 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/tools/spawn-config.ts` | edit | `detailBase` carries `thinking`; its `tags` hold invocation tags only. The context label is set from the run, not here. |
 | `src/tools/helpers.ts` | edit | `buildDetails` copies the live thinking and tool facts and labels the run from its context. |
 | `src/tools/progress-stream.ts` | edit | The streamed details label the run from its context, read from the record. |
-| `src/tools/background-spawner.ts` | edit | A background launch labels the run from its context and fallback. |
+| `src/tools/background-spawner.ts` | edit | A background launch labels the run from its record's context and fallback, and reports a missing record as an error. |
+| `src/persisted-record.ts` | edit | The `subagents:record` entry gains optional `context` and `contextFallback`, written only when set; an entry without them reads as fresh. |
+| `test/persisted-record.test.ts` | edit | Tests the writer's context fields and the reader's fresh default for older entries. |
 | `src/tools/agent-tool.ts` | edit | A background resume passes the resumed run's context to the launch report. |
 | `src/ui/agent-widget.ts` | edit | `toWidgetAgent` carries the record's `context` and `contextFallback` into the widget snapshot. |
 | `src/ui/session-navigation.ts` | edit | The navigator heading takes its context label from the live record. Persisted runs carry no context, so their heading shows none. |
