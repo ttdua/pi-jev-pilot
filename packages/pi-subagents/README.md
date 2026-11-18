@@ -411,8 +411,8 @@ It throws in four cases:
 - the named agent type exists but is disabled (`enabled: false`).
 
 Agent frontmatter never overrides an option you pass.
-It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `context` is the exception, and defaults to `fresh` whatever the agent file declares.
-An agent file's [`locked`](./docs/configuration.md#locking-fields-against-callers) frontmatter does not apply here — it guards against a model guessing harness settings, and an SDK caller is not that.
+It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `context` is resolved like the tool does: your option wins, then the agent file's `context`, then `fresh`; an agent file that [locks](./docs/configuration.md#locking-fields-against-callers) `context` wins over your option.
+A lock does not apply to `model`, `thinkingLevel` or `maxTurns` here — it guards against a model guessing harness settings, and an SDK caller is not that.
 
 Background mode follows the caller's degree of commitment.
 Omit `foreground` and the agent's own `run_in_background` frontmatter decides, defaulting to background when the agent declares nothing.

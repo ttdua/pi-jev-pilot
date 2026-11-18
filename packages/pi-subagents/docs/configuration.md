@@ -259,9 +259,9 @@ They are removed in the release after.
 | -------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------- |
 | `prompt_mode` frontmatter        | none                                          | Ignored. Every fresh child gets Pi's prompt, with the agent body last.    |
 | `inherit_context` frontmatter    | `context: fork` (`false` is `context: fresh`) | Mapped to `context`.                                                      |
-| `inherit_context` tool parameter | `context: "fork"`                             | Mapped to `context`; giving both parameters is an error.                  |
+| `inherit_context` tool parameter | `context: "fork"`                             | Mapped to `context`; if both are given, `context` wins and the alias warns. |
 | `locked: inherit_context`        | `locked: context`                             | Read as `context`.                                                        |
-| `inheritContext` service option  | `context: "fork"`                             | Mapped to `context`; giving both is an error.                             |
+| `inheritContext` service option  | `context: "fork"`                             | Mapped to `context`; if both are given, `context` wins and the alias warns. |
 | `promptInheritance` setting      | none                                          | Kept in the file, otherwise ignored: no child inherits a cut of a prompt. |
 
 An agent that relied on `prompt_mode: replace` to have the final say keeps it: the body is the last section of a fresh child's prompt.

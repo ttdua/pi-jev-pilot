@@ -17,9 +17,9 @@ See [ADR 0014](docs/decisions/0014-subagent-context-is-fresh-or-fork.md).
 | --- | --- |
 | `prompt_mode` (frontmatter) | None; ignored. A fresh child gets Pi's own prompt with the agent body as the last section. |
 | `inherit_context` (frontmatter) | `context: fork` (`false` is `context: fresh`) |
-| `inherit_context` (`subagent` tool parameter) | `context: "fork"`; giving both is an error |
+| `inherit_context` (`subagent` tool parameter) | `context: "fork"`; if both are given, `context` wins and the alias still warns |
 | `locked: inherit_context` | `locked: context` |
-| `inheritContext` (`SubagentsService.spawn` option) | `context: "fork"`; giving both is an error |
+| `inheritContext` (`SubagentsService.spawn` option) | `context: "fork"`; if both are given, `context` wins and the alias still warns |
 | `subagents.forkedLaunch` (jev config) | `subagents.forkLaunch`; a file with both keys is invalid |
 | `promptInheritance` setting | None; kept in the file, otherwise ignored |
 

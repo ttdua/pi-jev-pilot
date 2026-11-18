@@ -5,13 +5,15 @@ import { REPO_ROOT } from "./helpers";
 
 const OLD_NAMES = /\btwin\b|prompt_mode|inherit_context|inheritContext|forkedLaunch/i;
 
-// Historical records: dated evidence, ADRs, per-change plans and retros, phase history.
+// Exactly the spec's exemptions: dated evidence, archived changes, ADRs, changelog, plans, retros, architecture history.
 const EXEMPT = [
   /^docs\/evidence\//,
-  /(^|\/)decisions\//,
-  /^packages\/pi-subagents\/docs\/(plans|retro)\//,
+  /^openspec\/changes\/archive\//,
+  /^(packages\/pi-subagents\/)?docs\/decisions\//,
+  /^packages\/pi-subagents\/CHANGELOG\.md$/,
+  /^packages\/pi-subagents\/docs\/plans\//,
+  /^packages\/pi-subagents\/docs\/retro\//,
   /^packages\/pi-subagents\/docs\/architecture\/history\//,
-  /(^|\/)CHANGELOG\.md$/,
   /node_modules/,
 ];
 

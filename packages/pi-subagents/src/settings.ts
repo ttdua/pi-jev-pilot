@@ -48,11 +48,8 @@ export interface SubagentsSettings {
    */
   excludedExtensionPackages?: string[];
   /**
-   * Prompt-inheritance strategy per provider, keyed by the provider id of the
-   * child's resolved model. Every provider not listed inherits `"full"`.
-   * The key is the provider rather than the agent because re-homing is a
-   * property of the transport, and a per-spawn `model` override moves a child
-   * between transports (ADR 0009).
+   * @deprecated Ignored: no child inherits a cut of the parent's prompt
+   * (ADR 0014). Kept so existing settings files still load and save unchanged.
    */
   promptInheritance?: Record<string, PromptInheritance>;
 }
@@ -184,19 +181,6 @@ export class SettingsManager {
 
   get excludedExtensionPackages(): readonly string[] {
     return this._excludedExtensionPackages;
-  }
-
-  // ── promptInheritance: hand-edited only; no /subagents:settings affordance ──
-
-  /**
-   * The prompt-inheritance strategy a child on `provider` adopts.
-   *
-   * Unlisted providers, and a child that resolved no model at all, inherit
-   * `"full"` — the default, which changes no existing child's prompt.
-   */
-  promptInheritanceFor(provider: string | undefined): PromptInheritance {
-    if (provider === undefined) return "full";
-    return this._promptInheritance[provider] ?? "full";
   }
 
   // ── Lifecycle methods ──
