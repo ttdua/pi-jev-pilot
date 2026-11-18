@@ -1,4 +1,5 @@
-import type { AgentConfig, ThinkingLevel } from "#src/types";
+import { type DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
+import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /**
  * The fields a `subagent` tool caller may pass, spelled as the frontmatter key an
@@ -8,7 +9,7 @@ export const LOCKABLE_FIELDS = [
   "model",
   "thinking",
   "max_turns",
-  "inherit_context",
+  "context",
   "run_in_background",
 ] as const;
 
@@ -23,6 +24,16 @@ export type LockableField = (typeof LOCKABLE_FIELDS)[number];
  * so an author can deny an override without pinning one.
  */
 export type LockDeclaration = true | readonly LockableField[];
+
+/**
+ * The lockable field a frontmatter `locked:` entry names.
+ *
+ * `inherit_context` is the deprecated spelling of `context`; any other name is
+ * returned unchanged and left to `isLockableField`.
+ */
+export function lockedFieldName(name: string): string {
+  return name === "inherit_context" ? "context" : name;
+}
 
 /** True when `name` is a field an agent file may lock. */
 export function isLockableField(name: string): name is LockableField {
@@ -51,12 +62,14 @@ export function resolveBackgroundMode(
 		: (agentConfig.runInBackground ?? request.isBackground);
 }
 
-interface AgentInvocationParams {
+export interface AgentInvocationParams {
   model?: string;
   /** Already validated by the door — see `parseThinkingLevel`. */
   thinking?: ThinkingLevel;
   max_turns?: number;
   run_in_background?: boolean;
+  context?: ContextMode;
+  /** Deprecated: `true` reads as `context: "fork"`, `false` as `"fresh"`. */
   inherit_context?: boolean;
 }
 
@@ -73,7 +86,9 @@ export interface AgentInvocationConfig {
   modelFromParams: boolean;
   thinking?: ThinkingLevel;
   maxTurns?: number;
-  inheritContext: boolean;
+  context: ContextMode;
+  /** Which input decided `context`: the caller, the agent file, or the `fresh` default. */
+  contextSource: "call" | "agent" | "default";
   runInBackground: boolean;
   /**
    * Locked fields whose caller value was thrown away, in `LOCKABLE_FIELDS` order.
@@ -94,17 +109,13 @@ export interface AgentInvocationConfig {
 export function resolveAgentInvocationConfig(
   agentConfig: AgentConfig,
   params: AgentInvocationParams,
+  warnings: DeprecationWarnings = defaultDeprecationWarnings,
 ): AgentInvocationConfig {
   const locked = agentConfig.locked;
   const model = resolveField("model", agentConfig.model, params.model, locked);
   const thinking = resolveField("thinking", agentConfig.thinking, params.thinking, locked);
   const maxTurns = resolveField("max_turns", agentConfig.maxTurns, params.max_turns, locked);
-  const inheritContext = resolveField(
-    "inherit_context",
-    agentConfig.inheritContext,
-    params.inherit_context,
-    locked,
-  );
+  const context = resolveField("context", agentConfig.context, callerContext(params, warnings), locked);
   const runInBackground = resolveField(
     "run_in_background",
     agentConfig.runInBackground,
@@ -117,11 +128,53 @@ export function resolveAgentInvocationConfig(
     modelFromParams: model.source === "caller",
     thinking: thinking.value,
     maxTurns: maxTurns.value,
-    inheritContext: inheritContext.value ?? false,
+    context: context.value ?? "fresh",
+    contextSource: contextSource(context.source),
     runInBackground: runInBackground.value ?? false,
-    discarded: [model, thinking, maxTurns, inheritContext, runInBackground]
+    discarded: [model, thinking, maxTurns, context, runInBackground]
       .filter((resolution) => resolution.discarded)
       .map((resolution) => resolution.field),
+  };
+}
+
+/** The caller's context: `context` wins over the deprecated `inherit_context`. */
+function callerContext(params: AgentInvocationParams, warnings: DeprecationWarnings): ContextMode | undefined {
+  // DEPRECATED(remove next minor): inherit_context tool param alias
+  if (params.inherit_context !== undefined) {
+    warnings.warnOnce("inherit_context", 'inherit_context is deprecated; use context: "fork" or "fresh"');
+  }
+  if (params.context !== undefined) return params.context;
+  if (params.inherit_context === undefined) return undefined;
+  return params.inherit_context ? "fork" : "fresh";
+}
+
+function contextSource(source: FieldResolution<ContextMode>["source"]): "call" | "agent" | "default" {
+  if (source === "caller") return "call";
+  return source === "agent" ? "agent" : "default";
+}
+
+/** The context a launch runs with and which input decided it. */
+export interface ContextResolution {
+  context: ContextMode;
+  contextSource: "call" | "agent" | "default";
+  /** True when a lock threw away a differing caller value. */
+  discarded: boolean;
+}
+
+/**
+ * Resolve one launch's context: locked agent, then caller, then agent, then `fresh`.
+ * The service door uses this with the agent snapshot; the tool door goes through
+ * `resolveAgentInvocationConfig`, which applies the same rule.
+ */
+export function resolveContext(
+  agent: { context?: ContextMode; locked?: LockDeclaration },
+  caller: ContextMode | undefined,
+): ContextResolution {
+  const field = resolveField("context", agent.context, caller, agent.locked);
+  return {
+    context: field.value ?? "fresh",
+    contextSource: contextSource(field.source),
+    discarded: field.discarded,
   };
 }
 

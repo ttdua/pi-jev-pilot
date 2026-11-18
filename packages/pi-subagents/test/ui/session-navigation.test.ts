@@ -58,7 +58,7 @@ describe("listNavigableAgents", () => {
     it("names a live entry's agent, mode, and task", () => {
       const record = makeNavigable({ type: "general-purpose", description: "Investigate the bug" });
       const [entry] = listNavigableAgents([record], registry, []);
-      expect(entry.heading).toEqual({ name: "Agent", modeLabel: "twin", description: "Investigate the bug" });
+      expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
     });
 
     it("names a snapshot entry's agent, mode, and task", () => {
@@ -68,7 +68,18 @@ describe("listNavigableAgents", () => {
         description: "Investigate the bug",
       });
       const [entry] = listNavigableAgents([released], registry, []);
-      expect(entry.heading).toEqual({ name: "Agent", modeLabel: "twin", description: "Investigate the bug" });
+      expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
+    });
+
+    it("labels a fork's heading 'fork' and a fallen-back run 'fork → fresh'", () => {
+      const [fork] = listNavigableAgents([makeNavigable({ context: "fork" })], registry, []);
+      expect(fork.heading.modeLabel).toBe("fork");
+      const [fallback] = listNavigableAgents(
+        [makeNavigable({ context: "fresh", contextFallback: "no-parent-session" })],
+        registry,
+        [],
+      );
+      expect(fallback.heading.modeLabel).toBe("fork → fresh");
     });
 
     it("carries no mode label for a replace-mode agent", () => {
@@ -88,13 +99,24 @@ describe("listNavigableAgents", () => {
   });
 
   describe("persisted runs", () => {
+    it("headings a released fork with '(fork)' and a released fallback with '(fork → fresh)'", () => {
+      const [fork] = listNavigableAgents([], registry, [persistedRun({ context: "fork" })]);
+      expect(fork.heading.modeLabel).toBe("fork");
+      const [fallback] = listNavigableAgents(
+        [],
+        registry,
+        [persistedRun({ context: "fresh", contextFallback: "no-parent-session" })],
+      );
+      expect(fallback.heading.modeLabel).toBe("fork → fresh");
+    });
+
     it("lists a persisted run with a transcript as a snapshot entry", () => {
       const entries = listNavigableAgents([], registry, [persistedRun()]);
       expect(entries).toEqual([
         {
           kind: "snapshot",
           outputFile: "/tasks/earlier.jsonl",
-          heading: { name: "Agent", modeLabel: "twin", description: "Earlier task" },
+          heading: { name: "Agent", description: "Earlier task" },
           label: "Agent (Earlier task) · 7 tools · completed · 3.0s · session released (snapshot)",
         },
       ]);
@@ -173,6 +195,8 @@ function persistedRun(overrides: Partial<PersistedRunSummary> = {}): PersistedRu
     stoppedWhileQueued: false,
     toolUses: 7,
     outputFile: "/tasks/earlier.jsonl",
+    context: "fresh",
+    contextFallback: undefined,
     ...overrides,
   };
 }

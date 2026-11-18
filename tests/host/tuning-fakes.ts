@@ -54,7 +54,7 @@ function snapshotOf(o: FakeOptions, record: TuningDocument): Snapshot {
     configRead:
       o.configValid === false
         ? { kind: "invalid", issues: invalidIssues }
-        : { kind: "ok", present: true, deprecated: [], config },
+        : { kind: "ok", present: true, notices: [], deprecated: [], config },
     stateRead: { kind: "missing", state: {} },
     tuningRead,
     env: {},

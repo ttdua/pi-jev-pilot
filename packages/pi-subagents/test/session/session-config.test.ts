@@ -11,7 +11,6 @@ const mockResolveAgentConfig = vi.fn((): AgentConfig => ({
   description: "Fast codebase exploration agent",
   toolNames: ["read"],
   systemPrompt: "You are Explore.",
-  promptMode: "replace",
   toolsDeclared: true,
   disallowedTools: [],
 }));
@@ -38,25 +37,18 @@ const mockRegistry = {
 
 const ctx: AssemblerContext = {
   cwd: "/tmp",
-  parentSystemPrompt: "parent prompt",
   modelRegistry: mockRegistry,
 };
-
-const mockLoadProjectContext: Mock<AssemblerIO["loadProjectContext"]> = vi.fn(
-  () => undefined,
-);
 
 /** IO stubs injected into assembleSessionConfig in place of module-level imports. */
 const mockIO = {
   buildAgentPrompt: mockBuildAgentPrompt,
-  loadProjectContext: mockLoadProjectContext,
 };
 
 beforeEach(() => {
   mockResolveAgentConfig.mockClear();
   mockGetToolNamesForType.mockClear();
   mockBuildAgentPrompt.mockClear();
-  mockLoadProjectContext.mockClear();
   mockRegistry.find.mockReset();
   mockRegistry.getAll.mockClear();
   mockRegistry.getAvailable.mockClear();
@@ -85,40 +77,18 @@ describe("assembleSessionConfig — default agent shape", () => {
     expect(result.effectiveCwd).toBe("/tmp");
   });
 
-  it("systemPrompt reflects the parentSystemPrompt passed to buildAgentPrompt", () => {
-    mockBuildAgentPrompt.mockImplementationOnce(
-      (_config, _cwd, _env, inherited) => `assembled:${inherited?.systemPrompt}`,
-    );
+  it("systemPrompt is the header the prompt builder returns", () => {
+    mockBuildAgentPrompt.mockImplementationOnce(() => "header-only");
 
     const result = assembleSessionConfig("Explore", ctx, {}, mockEnv, mockAgentLookup, mockIO);
 
-    expect(result.systemPrompt).toBe("assembled:parent prompt");
+    expect(result.systemPrompt).toBe("header-only");
   });
 
-  it("forwards the parent's cwd alongside its system prompt", () => {
-    // The prompt builder needs the parent's cwd to find the `<cwd>` section that
-    // text carries — the child's own cwd is a separate argument.
-    assembleSessionConfig(
-      "Explore",
-      ctx,
-      { cwd: "/worktree" },
-      mockEnv,
-      mockAgentLookup,
-      mockIO,
-    );
+  it("builds the header from the agent config, the child cwd and the env", () => {
+    assembleSessionConfig("Explore", ctx, { cwd: "/worktree" }, mockEnv, mockAgentLookup, mockIO);
 
-    expect(mockBuildAgentPrompt).toHaveBeenCalledWith(
-      mockResolveAgentConfig(),
-      "/worktree",
-      mockEnv,
-      {
-        systemPrompt: "parent prompt",
-        cwd: "/tmp",
-        strategy: "full",
-        portablePrompt: undefined,
-      },
-      mockLoadProjectContext,
-    );
+    expect(mockBuildAgentPrompt).toHaveBeenCalledWith(mockResolveAgentConfig(), "/worktree", mockEnv);
   });
 });
 
@@ -237,7 +207,6 @@ describe("assembleSessionConfig — unknown type fallback", () => {
       name: "general-purpose",
       description: "General-purpose",
       systemPrompt: "",
-      promptMode: "append" as const,
       toolsDeclared: false,
       disallowedTools: [],
     });
@@ -280,113 +249,5 @@ describe("assembleSessionConfig — thinking level", () => {
     const result = assembleSessionConfig("Explore", ctx, {}, mockEnv, mockAgentLookup, mockIO);
 
     expect(result.thinkingLevel).toBe("medium");
-  });
-});
-
-describe("assembleSessionConfig — prompt inheritance", () => {
-  /** The strategy `buildAgentPrompt` was told to use for this assembly. */
-  function strategyPassedToPrompt(): string | undefined {
-    return mockBuildAgentPrompt.mock.calls[0]?.[3]?.strategy;
-  }
-
-  /** The provider `resolvePromptInheritance` was asked about. */
-  const resolvePromptInheritance = vi.fn(
-    (_provider: string | undefined): "full" | "portable" => "full",
-  );
-
-  beforeEach(() => {
-    resolvePromptInheritance.mockClear();
-    resolvePromptInheritance.mockImplementation(() => "full");
-  });
-
-  it("asks about the provider of the child's own resolved model", () => {
-    const parentModel = makeModel({ provider: "anthropic", id: "sonnet" });
-    const childModel = makeModel({ provider: "claude-bridge", id: "opus" });
-
-    assembleSessionConfig(
-      "Explore",
-      { ...ctx, parentModel, resolvePromptInheritance },
-      { model: childModel },
-      mockEnv,
-      mockAgentLookup,
-      mockIO,
-    );
-
-    expect(resolvePromptInheritance).toHaveBeenCalledWith("claude-bridge");
-  });
-
-  it("asks about the provider named by the agent's own model string", () => {
-    // The third resolution path: no per-spawn override, and the agent file
-    // names a model whose provider differs from the parent's.
-    const bridgeModel = makeModel({ provider: "claude-bridge", id: "opus" });
-    mockRegistry.find.mockReturnValueOnce(bridgeModel);
-    mockRegistry.getAvailable.mockReturnValueOnce([bridgeModel]);
-    mockResolveAgentConfig.mockReturnValueOnce(
-      makeAgentConfig({ model: "claude-bridge/opus" }),
-    );
-
-    assembleSessionConfig(
-      "Explore",
-      {
-        ...ctx,
-        parentModel: makeModel({ provider: "anthropic", id: "sonnet" }),
-        resolvePromptInheritance,
-      },
-      {},
-      mockEnv,
-      mockAgentLookup,
-      mockIO,
-    );
-
-    expect(resolvePromptInheritance).toHaveBeenCalledWith("claude-bridge");
-  });
-
-  it("passes the resolved strategy to the prompt builder", () => {
-    resolvePromptInheritance.mockImplementation(() => "portable");
-
-    assembleSessionConfig(
-      "Explore",
-      {
-        ...ctx,
-        parentModel: makeModel({ provider: "claude-bridge", id: "opus" }),
-        resolvePromptInheritance,
-      },
-      {},
-      mockEnv,
-      mockAgentLookup,
-      mockIO,
-    );
-
-    expect(strategyPassedToPrompt()).toBe("portable");
-  });
-
-  it("hands the prompt builder the parent's portable parts", () => {
-    assembleSessionConfig(
-      "Explore",
-      { ...ctx, parentPortablePrompt: "<project_context>…</project_context>" },
-      {},
-      mockEnv,
-      mockAgentLookup,
-      mockIO,
-    );
-
-    expect(mockBuildAgentPrompt.mock.calls[0]?.[3]?.portablePrompt).toBe(
-      "<project_context>…</project_context>",
-    );
-  });
-
-  it("falls back to full when no resolver is supplied", () => {
-    assembleSessionConfig("Explore", ctx, {}, mockEnv, mockAgentLookup, mockIO);
-
-    expect(strategyPassedToPrompt()).toBe("full");
-  });
-
-  it("relays the project-context loader to the prompt builder", () => {
-    // The builder decides whether this child needs its own block, so the
-    // assembler must hand the loader over rather than calling it.
-    assembleSessionConfig("Explore", ctx, { cwd: "/workspace" }, mockEnv, mockAgentLookup, mockIO);
-
-    expect(mockBuildAgentPrompt.mock.calls[0]?.[4]).toBe(mockLoadProjectContext);
-    expect(mockLoadProjectContext).not.toHaveBeenCalled();
   });
 });

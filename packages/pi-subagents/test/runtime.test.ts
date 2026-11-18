@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ParentPromptOptions, ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import { createSubagentRuntime, SubagentRuntime } from "#src/runtime";
 import type { SessionContext } from "#src/types";
 import { makeModel } from "#test/helpers/make-model";
@@ -9,8 +9,8 @@ const mockBuildParentSnapshot = vi.hoisted(() =>
   vi.fn<
     (
       ctx: SessionContext,
-      inheritContext?: boolean,
-      promptOptions?: ParentPromptOptions,
+      context: string,
+      toolNames: readonly string[],
     ) => ParentSnapshot
   >(),
 );
@@ -92,52 +92,39 @@ describe("SubagentRuntime context query methods", () => {
     mockBuildParentSnapshot.mockReset();
   });
 
-  it("buildSnapshot delegates to buildParentSnapshot with the current context and inheritContext flag", () => {
+  it("buildSnapshot delegates to buildParentSnapshot with the current context and context", () => {
     const runtime = createSubagentRuntime();
     const ctx = makeSessionCtx();
     runtime.setSessionContext(ctx);
     mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
-    const result = runtime.buildSnapshot(true);
-    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, true, undefined);
+    const result = runtime.buildSnapshot("fork");
+    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, "fork", []);
     expect(result).toBe(STUB_SNAPSHOT);
   });
 
-  it("buildSnapshot passes false inheritContext correctly", () => {
+  it("buildSnapshot passes fresh context correctly", () => {
     const runtime = createSubagentRuntime();
     const ctx = makeSessionCtx();
     runtime.setSessionContext(ctx);
     mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
-    runtime.buildSnapshot(false);
-    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, false, undefined);
+    runtime.buildSnapshot("fresh");
+    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, "fresh", []);
   });
 
-  describe("prompt-options capture", () => {
-    it("passes the latest captured options to buildParentSnapshot", () => {
-      const runtime = createSubagentRuntime();
-      const ctx = makeSessionCtx();
-      runtime.setSessionContext(ctx);
-      const options: ParentPromptOptions = { customPrompt: "You are a specialist." };
-      runtime.setSystemPromptOptions(options);
-      mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
+  it("buildSnapshot passes the parent's active tools, read per snapshot", () => {
+    const decl = (name: string) => ({ name, description: name, parameters: {} });
+    let active = [decl("read")];
+    const runtime = createSubagentRuntime(() => active);
+    const ctx = makeSessionCtx();
+    runtime.setSessionContext(ctx);
+    mockBuildParentSnapshot.mockReturnValue(STUB_SNAPSHOT);
 
-      runtime.buildSnapshot(false);
+    runtime.buildSnapshot("fork");
+    active = [decl("read"), decl("edit")];
+    runtime.buildSnapshot("fork");
 
-      expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, false, options);
-    });
-
-    it("keeps only the most recent capture", () => {
-      const runtime = createSubagentRuntime();
-      const ctx = makeSessionCtx();
-      runtime.setSessionContext(ctx);
-      const latest: ParentPromptOptions = { customPrompt: "second" };
-      runtime.setSystemPromptOptions({ customPrompt: "first" });
-      runtime.setSystemPromptOptions(latest);
-      mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
-
-      runtime.buildSnapshot(false);
-
-      expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, false, latest);
-    });
+    expect(mockBuildParentSnapshot).toHaveBeenNthCalledWith(1, ctx, "fork", [decl("read")]);
+    expect(mockBuildParentSnapshot).toHaveBeenNthCalledWith(2, ctx, "fork", [decl("read"), decl("edit")]);
   });
 
   it("getModelInfo returns model and modelRegistry from current context", () => {

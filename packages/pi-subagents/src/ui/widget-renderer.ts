@@ -15,14 +15,14 @@ import { type TurnBudget, wrappedUpAtTurnLimit } from "#src/lifecycle/turn-limit
 import type { LifetimeUsage } from "#src/lifecycle/usage";
 import { getLifetimeTotal } from "#src/lifecycle/usage";
 import type { ToolFacts } from "#src/seams/identity";
-import type { SubagentType, ThinkingLevel } from "#src/types";
+import type { ContextMode, SubagentType, ThinkingLevel } from "#src/types";
 import {
 	describeActivity,
 	formatMs,
 	formatSessionTokens,
 	formatTurnBudget,
+	getContextLabel,
 	getDisplayName,
-	getPromptModeLabel,
 	type ModelIdentity,
 	type Theme,
 } from "#src/ui/display";
@@ -52,6 +52,9 @@ export interface WidgetAgent {
 	readonly contextPercent: number | null;
 	/** The model the agent runs, once known. */
 	readonly model?: ModelIdentity;
+	/** The run's resolved context and any fallback, for the context label. */
+	readonly context: ContextMode;
+	readonly contextFallback?: "no-parent-session";
 	/** The thinking level the agent runs at, once known. */
 	readonly thinkingLevel?: ThinkingLevel;
 	/** The child's tool and blocked tool counts, once it binds. */
@@ -67,7 +70,7 @@ export function renderFinishedLine(
 	theme: Theme,
 ): string {
 	const name = getDisplayName(agent.type, registry);
-	const modeLabel = getPromptModeLabel(agent.type, registry);
+	const modeLabel = getContextLabel(agent.context, agent.contextFallback);
 	const duration = formatMs((agent.completedAt ?? Date.now()) - agent.startedAt);
 
 	let icon: string;
@@ -108,7 +111,7 @@ export function renderRunningLines(
 	theme: Theme,
 ): [header: string, activity: string] {
 	const name = getDisplayName(agent.type, registry);
-	const modeLabel = getPromptModeLabel(agent.type, registry);
+	const modeLabel = getContextLabel(agent.context, agent.contextFallback);
 	const modeTag = modeLabel ? ` ${theme.fg("dim", `(${modeLabel})`)}` : "";
 	const elapsed = formatMs(Date.now() - agent.startedAt);
 

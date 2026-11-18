@@ -21,6 +21,7 @@ const okConfig = (config: Config = {}): ConfigRead => ({
   present: true,
   deprecated: [],
   config,
+  notices: [],
 });
 const okState: StateRead = { kind: "missing", state: {} };
 const KEY = { TYPESAFE_API_KEY: "test-key" };
@@ -38,12 +39,15 @@ function snap(over: Partial<Parameters<typeof buildSnapshot>[0]> = {}) {
 describe("buildSnapshot", () => {
   test("config deprecation mapped", () => {
     expect(
-      snap({ configRead: { kind: "ok", present: true, config: {}, deprecated: ["tools"] } }).config,
+      snap({
+        configRead: { kind: "ok", present: true, config: {}, notices: [], deprecated: ["tools"] },
+      }).config,
     ).toEqual({
       valid: true,
+      notices: [],
       deprecated: ["tools"],
     });
-    expect(snap().config).toEqual({ valid: true, deprecated: [] });
+    expect(snap().config).toEqual({ valid: true, notices: [], deprecated: [] });
     const issues = [{ path: "x", message: "m" }];
     expect(snap({ configRead: { kind: "invalid", issues } }).config).toEqual({
       valid: false,

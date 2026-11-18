@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import { resolveSpawnConfig } from "#src/tools/spawn-config";
+import { makeAgentConfig } from "#test/helpers/make-agent-config";
 import { makeModel } from "#test/helpers/make-model";
 
 /** Minimal registry with default agents only. */
@@ -185,7 +186,7 @@ describe("resolveSpawnConfig — invocation fields", () => {
     expect(result.execution.agentInvocation).toEqual({
       thinking: "high",
       maxTurns: undefined,
-      inheritContext: false,
+      context: "fresh",
       runInBackground: false,
     });
   });
@@ -220,8 +221,8 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
     );
     if ("error" in result) return;
     expect(result.presentation.detailBase.thinking).toBe("high");
-    expect(result.presentation.agentTags).toEqual(["twin", "thinking: high", "inherit context"]);
-    expect(result.presentation.detailBase.tags).toEqual(["inherit context"]);
+    expect(result.presentation.agentTags).toEqual(["thinking: high"]);
+    expect(result.presentation.detailBase.tags).toBeUndefined();
   });
 
   it("omits mode label for replace-mode agents", () => {
@@ -232,22 +233,21 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
       defaultSettings,
     );
     if ("error" in result) return;
-    // Explore has promptMode: "replace" → no mode label, no invocation overrides
+    // Explore is fresh → no mode label, no invocation overrides
     expect(result.presentation.agentTags).toEqual([]);
   });
 
-  it("includes twin tag for append-mode agents like general-purpose", () => {
+  it("includes fork tag for a forked launch", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general-purpose", prompt: "test", description: "d", context: "fork" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
     );
     if ("error" in result) return;
-    // general-purpose has promptMode: "append" → gets "twin" label
-    expect(result.presentation.agentTags).toContain("twin");
-    expect(result.presentation.detailBase.modeLabel).toBe("twin");
-    expect(result.presentation.detailBase.tags ?? []).not.toContain("twin");
+    // The label comes from the run's record (see buildDetails), not from the spawn config.
+    expect(result.presentation.agentTags).not.toContain("fork");
+    expect(result.presentation.detailBase.modeLabel).toBeUndefined();
   });
 
   it("sets tags to undefined on detailBase for replace-mode agents with no invocation overrides", () => {
@@ -258,7 +258,7 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
       defaultSettings,
     );
     if ("error" in result) return;
-    // Explore has promptMode: "replace" and no invocation overrides → no tags
+    // Explore is fresh and no invocation overrides → no tags
     expect(result.presentation.detailBase.tags).toBeUndefined();
   });
 });
@@ -309,7 +309,7 @@ describe("resolveSpawnConfig — minimum turns note", () => {
     const registry = new AgentTypeRegistry(
       () =>
         new Map([
-          ["terse", { name: "terse", description: "Terse", systemPrompt: "", promptMode: "append" as const, toolsDeclared: false, disallowedTools: [], maxTurns: 1 }],
+          ["terse", { name: "terse", description: "Terse", systemPrompt: "", toolsDeclared: false, disallowedTools: [], maxTurns: 1 }],
         ]),
     );
     const result = resolveSpawnConfig(
@@ -472,5 +472,98 @@ describe("resolveSpawnConfig — prompt and rawType passthrough", () => {
     if ("error" in result) return;
     expect(result.execution.prompt).toBe("search for bugs");
     expect(result.identity.rawType).toBe("Explore");
+  });
+});
+
+describe("resolveSpawnConfig — fork model and thinking", () => {
+  const parentModel = makeModel({ id: "parent-m", name: "Parent", provider: "p" });
+  const agentModel = makeModel({ id: "agent-m", name: "Agent", provider: "a" });
+  const modelRegistry = {
+    find: (provider: string, id: string) => [parentModel, agentModel].find((m) => m.provider === provider && m.id === id),
+    getAll: () => [parentModel, agentModel],
+    getAvailable: () => [parentModel, agentModel],
+  };
+  const registryOf = (locked?: true) =>
+    new AgentTypeRegistry(
+      () =>
+        new Map([
+          [
+            "Forker",
+            makeAgentConfig({ name: "Forker", model: "a/agent-m", thinking: "low", context: "fork", locked }),
+          ],
+        ]),
+    );
+
+  it("Agent default ignored: an unlocked agent model and thinking do not apply to a fork", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d" },
+      registryOf(),
+      { parentModel, modelRegistry },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.context).toBe("fork");
+    expect(result.execution.model).toBe(parentModel);
+    expect(result.execution.thinking).toBeUndefined();
+  });
+
+  it("Locked agent model applies to a fork", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d" },
+      registryOf(true),
+      { parentModel, modelRegistry },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(agentModel);
+    expect(result.execution.thinking).toBe("low");
+  });
+
+  it("an agent-file fork without a branch runs fresh on the agent default", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d" },
+      registryOf(),
+      { parentModel, modelRegistry, parentHasBranch: false },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.context).toBe("fork");
+    expect(result.execution.model).toBe(agentModel);
+    expect(result.execution.thinking).toBe("low");
+  });
+
+  it("a caller model still wins for an agent-file fork without a branch", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d", model: "p/parent-m", thinking: "high" },
+      registryOf(),
+      { parentModel, modelRegistry, parentHasBranch: false },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(parentModel);
+    expect(result.execution.thinking).toBe("high");
+  });
+
+  it("a caller fork without a branch keeps fork resolution (the manager refuses it)", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d", context: "fork" },
+      registryOf(),
+      { parentModel, modelRegistry, parentHasBranch: false },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(parentModel);
+  });
+
+  it("a fresh launch of the same agent keeps its defaults", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d", context: "fresh" },
+      registryOf(),
+      { parentModel, modelRegistry },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(agentModel);
+    expect(result.execution.thinking).toBe("low");
   });
 });

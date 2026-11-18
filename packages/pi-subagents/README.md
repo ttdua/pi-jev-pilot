@@ -28,7 +28,7 @@ Run them in foreground or background, steer them mid-run, resume completed sessi
 - **Case-insensitive agent types** — `"explore"`, `"Explore"`, `"EXPLORE"` all work.
   Unknown types fall back to general-purpose with a note
 - **Fuzzy model selection** — specify models by name (`"haiku"`, `"sonnet"`) instead of full IDs, with automatic filtering to only available/configured models
-- **Context inheritance** — optionally fork the parent conversation into a sub-agent so it knows what's been discussed
+- **Fresh or fork context** — a sub-agent starts `fresh` by default; `context: "fork"` clones the parent conversation so it knows what's been discussed and can reuse the parent's prompt cache
 - **Styled completion notifications** — background agent results render as themed, compact notification boxes (icon, stats, result preview) instead of raw XML.
   Expandable to show full output
 - **Event bus** — lifecycle events (`subagents:created`, `started`, `completed`, `failed`, `resuming`, `resumed`, `steered`, `compacted`) emitted via `pi.events`, enabling other extensions to react to sub-agent activity
@@ -139,15 +139,40 @@ Launch a sub-agent.
 | `max_turns`         | number       | no       | Turn ceiling (minimum 2). Omit for the agent's own limit         |
 | `run_in_background` | boolean      | no       | Run without blocking                                             |
 | `resume`            | string       | no       | Agent ID to resume a previous session                            |
-| `inherit_context`   | boolean      | no       | Fork parent conversation into agent                              |
+| `context`           | string       | no       | `fresh` (default) or `fork` the parent conversation. See [Context](./docs/configuration.md#context-fresh-or-fork) |
 
-These five parameters win over the agent file's own values, which fill whichever the call leaves unset.
+These parameters (`model`, `thinking`, `max_turns`, `run_in_background`, `context`) win over the agent file's own values, which fill whichever the call leaves unset.
 An agent file can withhold one with [`locked`](./docs/configuration.md#locking-fields-against-callers); the result then names the agent and the parameters it ignored.
 
 A call with `resume` and `run_in_background: true` resumes the agent without waiting: it returns the agent ID at once, and you are notified when the resumed run finishes.
 Only the call's own flag does this; an agent file's `run_in_background` default does not apply to a resume.
 A background resume shows in the widget regardless of the mode the agent was spawned in, and a foreground resume streams its progress inline.
 Like a background spawn, a background resume waits for a slot when the [concurrency limit](#concurrency) is reached, and its result says it was queued.
+
+### Context: `fresh` or `fork`
+
+- **`fresh`** (default): the child gets a new session and Pi's own prompt for it. The agent's instructions are the last section, `<agent>…</agent>`. It sees nothing of the parent's conversation.
+- **`fork`**: the child continues a copy of the parent's conversation under the parent's system prompt and tool declarations, so a provider that caches by prefix can reuse the parent's cache. It is labelled `fork` in the widget, results and session viewer; a `fork` that came from an agent file and ran `fresh` because the parent has no session is labelled `fork → fresh`.
+
+A caller sets it per call (`context: "fork"`), an agent file sets a default (`context: fork` in frontmatter, lockable with `locked: context`), and a service caller passes `spawn(..., { context })`.
+The call wins over the agent file unless the file locks it. An invalid value is an error.
+
+A fork:
+
+- declares exactly the parent's tools and may call only those that a fresh child of the same agent would also have; any other call is refused with `Tool "<name>" is not available to this subagent.`;
+- cannot start subagents, and cannot use tools only the agent has (they are not declared, since that would change the cache prefix);
+- uses the parent's model and thinking unless a locked agent value, the launch policy or the call says otherwise (an unlocked agent default is ignored);
+- fails when asked for by a call and the parent has no session, and falls back to `fresh` when only the agent file asked.
+
+The cache is shared only under conditions: the same model, a long parent (the evidence run used 25 000 tokens or more; a provider leaves about 2 150 tokens of even an identical request uncached), and no extension rewriting the child's system prompt.
+`openai-codex-responses` is a known gap, and the Anthropic API is not measured.
+See [Context: fresh or fork](./docs/configuration.md#context-fresh-or-fork) and [ADR 0014](./docs/decisions/0014-subagent-context-is-fresh-or-fork.md).
+
+#### Deprecated names
+
+`inherit_context` (tool parameter, frontmatter, `locked`) maps to `context` (`true` is `fork`) and `prompt_mode` is ignored; the service option `inheritContext` maps to `context`.
+Each prints a warning and is removed in the next minor release.
+See the [migration table](./docs/configuration.md#deprecated-names).
 
 ### `get_subagent_result`
 
@@ -200,7 +225,7 @@ Runs that finished earlier in the session stay listed after a `/reload`, and a r
 The viewer is framed by two rules in the style of pi's editor border, coloured for the agent's thinking level:
 
 ```text
-── Agent (twin)  Refactor auth module · anthropic/claude-sonnet-5 • high ───────
+── Agent (fork)  Refactor auth module · anthropic/claude-sonnet-5 • high ───────
 … transcript …
 ── 142 lines · 87% ──────── ↑↓ scroll · PageUp/PageDown · Home/End · Esc close ──
 ```
@@ -386,8 +411,8 @@ It throws in four cases:
 - the named agent type exists but is disabled (`enabled: false`).
 
 Agent frontmatter never overrides an option you pass.
-It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `inheritContext` is the exception, and defaults to `false` whatever the agent file declares.
-An agent file's [`locked`](./docs/configuration.md#locking-fields-against-callers) frontmatter does not apply here — it guards against a model guessing harness settings, and an SDK caller is not that.
+It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `context` is resolved like the tool does: your option wins, then the agent file's `context`, then `fresh`; an agent file that [locks](./docs/configuration.md#locking-fields-against-callers) `context` wins over your option.
+A lock does not apply to `model`, `thinkingLevel` or `maxTurns` here — it guards against a model guessing harness settings, and an SDK caller is not that.
 
 Background mode follows the caller's degree of commitment.
 Omit `foreground` and the agent's own `run_in_background` frontmatter decides, defaulting to background when the agent declares nothing.
@@ -475,25 +500,12 @@ It never throws — all error conditions produce a `console.warn` and return `{}
 
 ### Extensions that append to the system prompt
 
-If your extension appends to the system prompt from a `before_agent_start` handler, your parent-session block does **not** ride into child sessions.
-A child inherits only the stable part of the parent's prompt — everything Pi assembled ahead of the skills catalogue, and ahead of `<project_context>` too for a child running in its own workspace — so anything appended after that is dropped.
-See [What a child inherits from the parent's prompt](./docs/configuration.md#what-a-child-inherits-from-the-parents-prompt) for the full layer breakdown.
+A fresh child builds its prompt through Pi, so your `before_agent_start` handler runs in the child as it does in the parent, and an unconditional appender writes a block built for the child's own session.
+A handler gated on something a child lacks — an interactive UI, a terminal, or state cached at `session_start` — appends nothing in the child; derive its inputs from the event context instead.
+An extension excluded from children through [`excludedExtensionPackages`](./docs/configuration.md#excluding-package-extensions-from-children) contributes nothing to a child by design.
 
-This is usually invisible to you, because your handler runs in the child too: a child binds the parent's extension set, and its turn loop fires `before_agent_start` the same way the parent's does.
-An unconditional appender therefore writes a fresh block built for the child's own session — which is what you want, since the parent's copy named the parent's directory, model, and session.
-
-Two cases need care:
-
-- A handler gated on something a child lacks — an interactive UI, a terminal, or state your extension cached at `session_start` — appends nothing in the child.
-  That child now carries no block at all, where previously it inherited one built for the parent.
-  If your guidance applies to children, make the handler unconditional or derive its inputs from the event context rather than from cached session state.
-- An extension excluded from children through [`excludedExtensionPackages`](./docs/configuration.md#excluding-package-extensions-from-children) contributes nothing to a child by design, and no longer leaks its parent-session block in either.
-
-Extensions that _shape_ the prompt at the provider boundary rather than appending to it are unaffected — the region they rewrite is the identity a child inherits verbatim.
-
-An extension that states something **per session** — which tools this session may call, which skills it loaded — should append it rather than edit the inherited identity, even when Pi wrote its own copy up there.
-Editing that region rewrites bytes the child inherited from its parent, which ends the prefix the two share ([#890](https://github.com/gotgenes/pi-packages/issues/890)).
-Pi's own `<tools>` and `<rules>` sections are the exception: they describe one session's tools, so a child drops its parent's copies, and a per-session tool statement belongs after `<cwd>` ([ADR 0011](./docs/decisions/0011-tool-surface-sections-are-session-resolved.md)).
+A fork keeps the parent's system prompt byte for byte.
+An extension that rewrites the system prompt in the child's `before_agent_start` ends the prefix the fork shares with its parent, and with it the cache.
 
 ## Scope and non-goals
 

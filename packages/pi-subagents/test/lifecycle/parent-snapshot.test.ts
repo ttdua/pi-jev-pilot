@@ -1,142 +1,70 @@
 import { describe, expect, it, vi } from "vitest";
+import { buildParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import type { SessionContext } from "#src/types";
 
-const { buildParentContextMock } = vi.hoisted(() => ({
-  buildParentContextMock: vi.fn((): string => ""),
-}));
+const BRANCH = [
+  { type: "message", id: "e1", parentId: null, timestamp: "t", message: { role: "user", content: "hi" } },
+  { type: "message", id: "e2", parentId: "e1", timestamp: "t", message: { role: "assistant", content: [] } },
+];
 
-vi.mock("#src/session/context", () => ({
-  buildParentContext: buildParentContextMock,
-}));
-
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import {
-  buildParentSnapshot,
-  type ParentPromptOptions,
-} from "#src/lifecycle/parent-snapshot";
-
-function makeCtx(overrides: Record<string, unknown> = {}) {
+function makeCtx(overrides: Partial<SessionContext> = {}): SessionContext {
   return {
     cwd: "/test/project",
     getSystemPrompt: () => "parent system prompt",
-    model: { id: "claude-sonnet" },
-    modelRegistry: { find: vi.fn(), getAvailable: vi.fn(() => []) },
-    sessionManager: { getBranch: vi.fn(() => []) },
+    model: undefined,
+    thinkingLevel: "high",
+    modelRegistry: { find: vi.fn(), getAll: vi.fn(() => []) },
+    sessionManager: {
+      getSessionFile: () => undefined,
+      getSessionId: () => "parent-id",
+      getBranch: () => BRANCH,
+    },
     ...overrides,
-  } as unknown as ExtensionContext;
+  };
 }
 
+const decl = (name: string) => ({ name, description: `${name} tool`, parameters: {} });
+
 describe("buildParentSnapshot", () => {
-  it("captures cwd from ctx", () => {
-    const snapshot = buildParentSnapshot(makeCtx({ cwd: "/custom/path" }));
-    expect(snapshot.cwd).toBe("/custom/path");
+  it("captures cwd, system prompt, model and registry", () => {
+    const ctx = makeCtx({ cwd: "/custom" });
+    const snapshot = buildParentSnapshot(ctx, "fresh", []);
+    expect(snapshot.cwd).toBe("/custom");
+    expect(snapshot.systemPrompt).toBe("parent system prompt");
+    expect(snapshot.modelRegistry).toBe(ctx.modelRegistry);
   });
 
-  it("captures systemPrompt from ctx.getSystemPrompt()", () => {
-    const snapshot = buildParentSnapshot(makeCtx({ getSystemPrompt: () => "my prompt" }));
-    expect(snapshot.systemPrompt).toBe("my prompt");
+  it("carries the parent session id, tool names and thinking", () => {
+    const snapshot = buildParentSnapshot(makeCtx(), "fork", [decl("read"), decl("edit")]);
+    expect(snapshot.sessionId).toBe("parent-id");
+    expect(snapshot.toolNames).toEqual(["read", "edit"]);
+    expect(snapshot.thinking).toBe("high");
   });
 
-  it("captures model from ctx", () => {
-    const model = { id: "claude-haiku", provider: "anthropic" };
-    const snapshot = buildParentSnapshot(makeCtx({ model }));
-    expect(snapshot.model).toBe(model);
+  it("carries the live branch for a fork, before the session file is written", () => {
+    // getSessionFile() is undefined: Pi has not persisted yet, the branch is in memory.
+    const snapshot = buildParentSnapshot(makeCtx(), "fork", []);
+    expect(snapshot.branch).toEqual(BRANCH);
   });
 
-  it("captures modelRegistry from ctx", () => {
-    const registry = { find: vi.fn(), getAvailable: vi.fn(() => []) };
-    const snapshot = buildParentSnapshot(makeCtx({ modelRegistry: registry }));
-    expect(snapshot.modelRegistry).toBe(registry);
+  it("detaches the branch from the live session", () => {
+    const live = [...BRANCH];
+    const snapshot = buildParentSnapshot(
+      makeCtx({ sessionManager: { getSessionFile: () => undefined, getSessionId: () => "p", getBranch: () => live } }),
+      "fork",
+      [],
+    );
+    live.push(BRANCH[0]);
+    expect(snapshot.branch).toHaveLength(2);
   });
 
-  it("sets parentContext to undefined when inheritContext is false", () => {
-    const snapshot = buildParentSnapshot(makeCtx(), false);
-    expect(snapshot.parentContext).toBeUndefined();
-    expect(buildParentContextMock).not.toHaveBeenCalled();
+  it("carries no branch for a fresh launch", () => {
+    expect(buildParentSnapshot(makeCtx(), "fresh", []).branch).toEqual([]);
   });
 
-  it("sets parentContext to undefined when inheritContext is undefined", () => {
-    const snapshot = buildParentSnapshot(makeCtx());
-    expect(snapshot.parentContext).toBeUndefined();
-    expect(buildParentContextMock).not.toHaveBeenCalled();
-  });
-
-  it("populates parentContext when inheritContext is true and conversation exists", () => {
-    buildParentContextMock.mockReturnValueOnce("# Parent Conversation\n...");
-    const snapshot = buildParentSnapshot(makeCtx(), true);
-    expect(snapshot.parentContext).toBe("# Parent Conversation\n...");
-    expect(buildParentContextMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("sets parentContext to undefined when inheritContext is true but conversation is empty", () => {
-    buildParentContextMock.mockReturnValueOnce("");
-    const snapshot = buildParentSnapshot(makeCtx(), true);
-    expect(snapshot.parentContext).toBeUndefined();
-  });
-
-  describe("portablePrompt", () => {
-    it("is undefined when no prompt options were captured", () => {
-      expect(buildParentSnapshot(makeCtx(), false).portablePrompt).toBeUndefined();
-    });
-
-    it("is undefined when the captured options carry no operator-authored parts", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {});
-      expect(snapshot.portablePrompt).toBeUndefined();
-    });
-
-    it("carries no project context, which each child resolves for itself", () => {
-      // The block names context files by absolute path, so the parent's copy
-      // would tell a relocated child its files live in the parent's checkout.
-      // Pi's payload still carries them at runtime, which the cast reproduces.
-      const captured = {
-        customPrompt: "You are a specialist.",
-        contextFiles: [{ path: "/repo/AGENTS.md", content: "Repo rules." }],
-      } as ParentPromptOptions;
-
-      const snapshot = buildParentSnapshot(makeCtx(), false, captured);
-
-      expect(snapshot.portablePrompt).toBe("You are a specialist.");
-    });
-
-    it("orders the parts the way Pi composes them: custom, then append", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
-        customPrompt: "You are a specialist.",
-        appendSystemPrompt: "Extra instructions.",
-      });
-      expect(snapshot.portablePrompt).toBe(
-        [
-          "You are a specialist.",
-          "",
-          "<addendum>",
-          "Extra instructions.",
-          "</addendum>",
-        ].join("\n"),
-      );
-    });
-
-    it("wraps an appended prompt alone in the addendum section", () => {
-      // pi 0.86 and later render appendSystemPrompt as an <addendum> section; the
-      // portable identity leaves out the base preamble Pi would put first.
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
-        appendSystemPrompt: "Extra instructions.",
-      });
-      expect(snapshot.portablePrompt).toBe(
-        "<addendum>\nExtra instructions.\n</addendum>",
-      );
-    });
-
-    it("omits a section whose input is absent", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
-        customPrompt: "You are a specialist.",
-      });
-      expect(snapshot.portablePrompt).toBe("You are a specialist.");
-    });
-
-    it("treats a whitespace-only custom or append prompt as absent", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
-        customPrompt: "   ",
-        appendSystemPrompt: "\n\n",
-      });
-      expect(snapshot.portablePrompt).toBeUndefined();
-    });
+  it("carries no text parent context", () => {
+    const snapshot = buildParentSnapshot(makeCtx(), "fork", []);
+    expect("parentContext" in snapshot).toBe(false);
+    expect("portablePrompt" in snapshot).toBe(false);
   });
 });

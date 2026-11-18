@@ -61,10 +61,16 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/display.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
 | `test/helpers/make-agent-config.ts` | edit | Fixture builder sets `toolsDeclared`/`disallowedTools`. |
 | `test/helpers/make-agent-config.test.ts` | edit | Expected default fixture includes the new fields. |
+| `test/helpers/mock-session.ts` | edit | The mock extension runner lists registered tools, which a fork reads after bind. |
 | `test/helpers/make-deps.ts` | edit | Disabled-agent fixture carries the new required fields. |
 | `test/helpers/subagent-session-io.ts` | edit | Default lookup config carries the new required fields. |
 | `test/service/service-adapter.test.ts` | edit | Construct the adapter with a no-op agent-type catalog; the manager stub has `registerLaunchPolicy`. |
-| `test/session/session-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
+| `test/session/session-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields; inheritance tests removed with the portable plumbing. |
+| `src/session/session-config.ts` | edit | Drops the parent system prompt, the portable prompt and the inheritance resolver; `buildAgentPrompt` returns the header only. |
+| `test/lifecycle/fresh-prompt.test.ts` | seam | Real `createAgentSession` turn against a loopback provider: project instructions, append file once, `<agent>` section last, no parent identity, task as first user message. |
+| `src/session/project-context.ts` | delete | Rendered the parent-side `<project_context>` for the portable prompt; Pi now builds the child's own prompt. |
+| `test/session/project-context.test.ts` | delete | Tests of the deleted `project-context.ts`. |
+| `src/session/fresh-prompt-extension.ts` | seam | Internal child extension: `before_agent_start` sets `sections.agent` (header + body). |
 | `test/tools/spawn-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. Thinking and mode label on `detailBase`, not in tags; `agentTags` keeps mode label, thinking, invocation tags. |
 | `src/seams/launch-policy.ts` | seam | `LaunchPolicySlot` (one policy, fail-open consult with watchdog and run signal) and `validAdjustment`. |
 | `src/seams/launch-request.ts` | seam | Build the frozen `LaunchRequest`; grantable parent tools (minus orchestration tools and excluded packages' tools). |
@@ -84,6 +90,16 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/ui/fleet-roster.test.ts` | seam | Tests for the fleet roster filter, ordering, formats, layout, overflow windowing and width clamping. |
 | `src/ui/fleet-list.ts` | seam | Pi adapter for the below-editor fleet list: active and selection state, 1 s refresh timer, `fleet` widget, terminal-input listener with focus guard, and Enter opening the session pane. Key mechanics ported from tintinweb/pi-subagents 0.23.2. |
 | `test/ui/fleet-list.test.ts` | seam | Tests for the fleet list's visibility, activation, navigation, focus guard, open and reselect, observer hooks, and lifecycle with a fake UI and TUI. |
+| `docs/decisions/0014-subagent-context-is-fresh-or-fork.md` | seam | ADR for `context: fresh \| fork`: supersedes ADR 0008 and amends ADRs 0006, 0009, 0010 and 0011 (status lines edited). |
+| `README.md` | edit | Document `context`, the fork's tools, model and fallback rules, the cache conditions and known gaps, and the deprecated names. |
+| `docs/configuration.md` | edit | `context` fields, the fresh and fork chapters and the deprecated names replace the inherited-prompt chapters. |
+| `CHANGELOG.md` | edit | Migration section mapping each deprecated name to its replacement. |
+| `docs/decisions/0006-inherited-prompt-is-identity-only.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0008-inherited-region-is-shared-parts.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0009-portable-inheritance-is-provider-scoped.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0010-project-context-is-directory-resolved.md` | edit | Status line points to ADR 0014. |
+| `docs/decisions/0011-tool-surface-sections-are-session-resolved.md` | edit | Status line points to ADR 0014. |
+| `docs/architecture/architecture.md` | edit | The `SpawnOptions` listing names `context` instead of the old fork flag. |
 | `docs/decisions/0013-fleet-list-opens-the-session-pane.md` | seam | ADR for the fleet list: it opens the read-only session pane and lists foreground runs; the ported behavior is credited to tintinweb/pi-subagents 0.23.2. |
 | `README.md` | edit | Fleet list feature bullet, the `Fleet view` row in the settings description, and a `Fleet list` section with its keys. Run facts paragraph and examples: widget bracket, inline status table and fleet rows show model, thinking and tool counts. |
 | `docs/configuration.md` | edit | `fleetView` in persistent settings, its default, and the example JSON. |
@@ -95,11 +111,52 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/ui/agent-widget.test.ts` | edit | Tests that the widget snapshot carries thinking and tool facts into the rendered tag. |
 | `test/widget-renderer.test.ts` | edit | Tests for the run-facts tag on running and finished lines, and omission of unknown facts. |
 | `src/session/builtin-extensions.ts` | edit | Export `BUILTIN_EXTENSION_TOOL_NAMES`, the fixed tool names the built-in extensions supply; the `supplies` predicates reuse it. Selection behavior unchanged. |
-| `src/ui/display.ts` | edit | `AgentDetails` gains `modeLabel`, `thinking`, `toolCount`, `blockedToolCount`; `buildInvocationTags` no longer emits the thinking tag. |
-| `src/tools/spawn-config.ts` | edit | `detailBase` carries `modeLabel` and `thinking`; its `tags` hold invocation tags only. |
-| `src/tools/helpers.ts` | edit | `buildDetails` copies the live thinking and tool facts. |
+| `src/ui/display.ts` | edit | `AgentDetails` gains `modeLabel`, `thinking`, `toolCount`, `blockedToolCount`; `buildInvocationTags` no longer emits the thinking tag. `getContextLabel` replaces `getPromptModeLabel`: the label is read from the run (`fork`, `fork → fresh`), not the agent type. |
+| `src/tools/spawn-config.ts` | edit | `detailBase` carries `thinking`; its `tags` hold invocation tags only. The context label is set from the run, not here. |
+| `src/tools/helpers.ts` | edit | `buildDetails` copies the live thinking and tool facts and labels the run from its context. |
+| `src/tools/progress-stream.ts` | edit | The streamed details label the run from its context, read from the record. |
+| `src/tools/background-spawner.ts` | edit | A background launch labels the run from its record's context and fallback, and reports a missing record as an error. |
+| `src/persisted-record.ts` | edit | The `subagents:record` entry gains optional `context` and `contextFallback`, written only when set; an entry without them reads as fresh. |
+| `test/persisted-record.test.ts` | edit | Tests the writer's context fields and the reader's fresh default for older entries. |
+| `src/tools/agent-tool.ts` | edit | A background resume passes the resumed run's context to the launch report. |
+| `src/ui/agent-widget.ts` | edit | `toWidgetAgent` carries the record's `context` and `contextFallback` into the widget snapshot. |
+| `src/ui/session-navigation.ts` | edit | The navigator heading takes its context label from the live record. Persisted runs carry no context, so their heading shows none. |
+| `test/helpers/make-navigable.ts` | edit | Fixture carries `context` and `contextFallback`. |
 | `src/tools/progress-stream.ts` | edit | Streamed updates carry the record's live thinking and tool facts. |
 | `src/tools/result-renderer.ts` | edit | `renderStats` places mode label, thinking and tool parts in the existing order. |
 | `test/tools/result-renderer.test.ts` | edit | Run-facts order tests; thinking comes from `details.thinking`. |
 | `test/tools/helpers.test.ts` | edit | `buildDetails` copies thinking and tool facts. |
 | `test/tools/progress-stream.test.ts` | edit | Streamed update uses the record's live thinking. |
+| `src/config/deprecations.ts` | seam | One-shot deprecation warnings (once per session, once per file per load) for the `context` aliases. |
+| `src/config/invocation-config.ts` | edit | `context: fresh \| fork` replaces the boolean fork flag; the old `locked` entry and caller parameter read as `context` (deprecated aliases). |
+| `src/lifecycle/parent-snapshot.ts` | edit | Snapshot carries the parent session id, live branch (fork only), active tool names and thinking; the text parent context and portable prompt are removed. |
+| `src/runtime.ts` | edit | `buildSnapshot(context)` with the parent's active tools; no prompt-options capture. |
+| `src/session/prompts.ts` | edit | Fresh prompt: `composeAgentSection(header, body)` and the `<active_agent>`/env header; the inherited-identity machinery is removed. |
+| `test/config/agent-types.test.ts` | edit | Follows the `promptMode` removal. |
+| `test/config/custom-agents.test.ts` | edit | Cover `context`, the deprecated aliases and their warnings. |
+| `test/config/invocation-config.test.ts` | edit | Cover `context` resolution and the deprecated aliases. |
+| `test/config/deprecations.test.ts` | edit | Cover visible deprecation warnings and their dedup scopes. |
+| `test/helpers/make-spawn-config.test.ts` | edit | Fixture carries `context`/`contextSource`. |
+| `test/helpers/make-spawn-config.ts` | edit | Fixture carries `context`/`contextSource`. |
+| `test/helpers/make-subagent.ts` | edit | Fixture carries `context`/`contextSource`. |
+| `test/helpers/subagent-session-io.test.ts` | edit | Follows the `promptMode` removal. |
+| `test/lifecycle/parent-snapshot.test.ts` | edit | Session id, live branch, tool names and thinking; no text parent context. |
+| `test/lifecycle/subagent.test.ts` | edit | Execution carries `context`/`contextSource`. |
+| `test/runtime.test.ts` | edit | `buildSnapshot(context)` passes the parent's active tools. |
+| `test/session/prompts.test.ts` | edit | Follows the `promptMode` removal. |
+| `test/types/public-context.test.ts` | seam | Type check that the public entry exports `ContextMode` and the `context` fields. |
+| `src/lifecycle/fork-guard.ts` | seam | Fork child extension: forces the parent's system prompt each run, refuses calls outside the callable set, sets the session headers and payload cache keys to the parent id; the callable-set rule. |
+| `src/lifecycle/fork-session.ts` | seam | Pure fork plan: parent branch, synthetic results for pending calls, the `<subagent_instructions>` message. |
+| `src/lifecycle/fork-stubs.ts` | seam | Refusing stubs that declare the parent tools the fork's own registry cannot build. |
+| `src/session/fork-session-manager.ts` | seam | Create a fork's session file with its own header and the copied parent entries. |
+| `src/lifecycle/subagent-session.ts` | edit | `firstMessage` replaces the first run's prompt (was the text parent-context prefix); keeps the fork guard state. |
+| `src/session/context.ts` | edit | `buildParentContext` removed; `extractText` kept. |
+| `src/session/model-resolver.ts` | edit | Fork branch in `resolveInvocationModel`; `resolveForkThinking`. |
+| `test/helpers/stub-ctx.ts` | edit | Snapshot fixture carries `sessionId`, `branch`, `toolNames`. |
+| `test/lifecycle/fork-prompt.test.ts` | seam | Real SDK fork against a loopback provider: byte-identical system message and tools, prefix extended, prompt kept on a second turn, own session id, parent id in headers. |
+| `test/lifecycle/fork-session.test.ts` | seam | Tests for the pure fork plan. |
+| `test/session/fork-session-manager.test.ts` | seam | Tests for the fork's session file: ids, files, compaction replay. |
+| `test/lifecycle/fork-tools.test.ts` | seam | Fork callable set, guard handlers, fork grants, the factory's fork path and fork model/thinking. |
+| `test/lifecycle/subagent-session.test.ts` | edit | `firstMessage` replaces the parent-context prefix tests. |
+| `test/session/context.test.ts` | edit | `buildParentContext` tests removed. |
+| `test/session/model-resolver.test.ts` | edit | Fork model and thinking precedence. |

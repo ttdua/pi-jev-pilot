@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Migration: `context: fresh | fork`
+
+A subagent's context is now one setting, `context`, with the values `fresh` (default) and `fork`.
+The old names still work for one minor release, print a warning naming the replacement, and are then removed.
+See [ADR 0014](docs/decisions/0014-subagent-context-is-fresh-or-fork.md).
+
+| Old name | Replacement |
+| --- | --- |
+| `prompt_mode` (frontmatter) | None; ignored. A fresh child gets Pi's own prompt with the agent body as the last section. |
+| `inherit_context` (frontmatter) | `context: fork` (`false` is `context: fresh`) |
+| `inherit_context` (`subagent` tool parameter) | `context: "fork"`; if both are given, `context` wins and the alias still warns |
+| `locked: inherit_context` | `locked: context` |
+| `inheritContext` (`SubagentsService.spawn` option) | `context: "fork"`; if both are given, `context` wins and the alias still warns |
+| `subagents.forkedLaunch` (jev config) | `subagents.forkLaunch`; a file with both keys is invalid |
+| `promptInheritance` setting | None; kept in the file, otherwise ignored |
+
+Behaviour changes:
+
+- A `fresh` child no longer inherits a cut of the parent's prompt. A "parent twin" agent is now an ordinary fresh agent; use `context: fork` to reuse the parent's context.
+- A `fork` clones the parent's live conversation under the parent's prompt and tool declarations; it can call only tools a fresh child of the same agent would have and the parent has, and cannot start subagents.
+- The display label `twin` is gone; a fork shows `fork`, a fork that fell back shows `fork → fresh`.
+
 ## [25.0.5](https://github.com/gotgenes/pi-packages/compare/pi-subagents-v25.0.4...pi-subagents-v25.0.5) (2026-10-28)
 
 

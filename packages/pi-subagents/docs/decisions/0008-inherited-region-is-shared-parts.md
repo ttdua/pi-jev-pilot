@@ -1,5 +1,5 @@
 ---
-status: amended by 0011
+status: superseded by 0014
 date: 2026-09-08
 ---
 
@@ -7,7 +7,8 @@ date: 2026-09-08
 
 ## Status
 
-Accepted, and amended by [ADR 0011].
+Superseded by [ADR 0014]: no child inherits a part of the parent's prompt, so there is no shared region to guarantee.
+Accepted, and amended by [ADR 0011], while it applied.
 Amends [ADR 0006], which stands: a child still inherits the parent prompt's identity region and nothing after it.
 What this record changes is the *goal* that placement serves, and the claim the package makes about it.
 [ADR 0011] excises Pi's `<tools>` and `<rules>` sections from the region on the section-shaped prompt, which ends the shared prefix at the preamble for a parent that renders them and replaces the accepted residual below.
@@ -82,3 +83,4 @@ It sat after the identity, so removing it costs no prefix.
 [ADR 0009]: 0009-portable-inheritance-is-provider-scoped.md
 [ADR 0011]: 0011-tool-surface-sections-are-session-resolved.md
 [its ADR 0014]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md
+[ADR 0014]: 0014-subagent-context-is-fresh-or-fork.md

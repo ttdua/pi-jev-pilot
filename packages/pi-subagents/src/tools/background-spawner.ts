@@ -3,8 +3,8 @@ import type { AgentSpawnConfig } from "#src/lifecycle/subagent-manager";
 import type { LaunchOrigin } from "#src/service/service";
 import { renderSpawnNotes, textResult } from "#src/tools/helpers";
 import type { ResolvedSpawnConfig, SpawnPresentation } from "#src/tools/spawn-config";
-import type { ParentSessionInfo, Subagent } from "#src/types";
-import type { AgentDetails } from "#src/ui/display";
+import type { ContextMode, ParentSessionInfo, Subagent } from "#src/types";
+import { type AgentDetails, getContextLabel } from "#src/ui/display";
 
 /** Narrow manager interface for the background spawner. */
 export interface BackgroundManagerDeps {
@@ -30,6 +30,9 @@ export interface BackgroundLaunch {
   displayName: string;
   description: string;
   detailBase: SpawnPresentation["detailBase"];
+  /** The run's resolved context and any fallback, from the run the launch created. */
+  context: ContextMode;
+  contextFallback?: "no-parent-session";
   /** Advisories that lead the result; omitted when the door has none. */
   notes?: readonly string[];
   outputFile?: string;
@@ -55,7 +58,8 @@ export function spawnBackground(
       description: execution.description,
       model: execution.model,
       maxTurns: execution.effectiveMaxTurns,
-      inheritContext: execution.inheritContext,
+      context: execution.context,
+      contextSource: execution.contextSource,
       thinkingLevel: execution.thinking,
       // resolveSpawnConfig already merged the agent's frontmatter and AgentTool
       // routed here on the result, so this door has committed.
@@ -66,15 +70,20 @@ export function spawnBackground(
   }
 
   const record = manager.getRecord(id);
-  const isQueued = record?.status === "queued";
+  // The record holds the resolved context and any fallback; the call's requested
+  // context is never combined with them.
+  if (!record) return textResult(`Agent ${id} was started but its record is missing.`);
+  const isQueued = record.status === "queued";
   return renderBackgroundLaunch({
     headline: `Agent ${isQueued ? "queued" : "started"} in background.`,
     id,
     displayName: identity.displayName,
     description: execution.description,
     detailBase: presentation.detailBase,
+    context: record.context,
+    contextFallback: record.contextFallback,
     notes,
-    outputFile: record?.outputFile,
+    outputFile: record.outputFile,
     queuePosition: isQueued ? { maxConcurrent: params.settings.maxConcurrent } : undefined,
   });
 }
@@ -90,6 +99,7 @@ export function renderBackgroundLaunch(launch: BackgroundLaunch) {
   // against it.
   const details: AgentDetails = {
     ...launch.detailBase,
+    modeLabel: getContextLabel(launch.context, launch.contextFallback),
     toolUses: 0,
     tokens: "",
     durationMs: 0,

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: amended by 0014
 date: 2026-10-02
 ---
 
@@ -7,7 +7,7 @@ date: 2026-10-02
 
 ## Status
 
-Accepted.
+Accepted, and amended by [ADR 0014]: a fresh child's tool sections are Pi's own for that child, and a fork keeps the parent's.
 Amends [ADR 0006] and [ADR 0008], which stand: a child still inherits the parent prompt's identity region and nothing after it, and that region still guarantees shared parts rather than shared bytes.
 What this record changes is which part of the region counts as identity on a section-shaped prompt.
 
@@ -69,3 +69,4 @@ The trade was accepted on [#999], and it falls on [#180]'s constituency alone: [
 [#999]: https://github.com/gotgenes/pi-packages/issues/999
 [ADR 0006]: 0006-inherited-prompt-is-identity-only.md
 [ADR 0008]: 0008-inherited-region-is-shared-parts.md
+[ADR 0014]: 0014-subagent-context-is-fresh-or-fork.md

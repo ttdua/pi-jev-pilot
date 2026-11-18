@@ -10,16 +10,15 @@ describe("makeAgentConfig", () => {
       toolsDeclared: true,
       disallowedTools: [],
       systemPrompt: "You are a test agent.",
-      promptMode: "replace",
-      inheritContext: false,
+      context: "fresh",
       runInBackground: false,
     });
   });
 
   it("applies overrides while keeping other defaults", () => {
-    const config = makeAgentConfig({ name: "twin", promptMode: "append", systemPrompt: "" });
-    expect(config.name).toBe("twin");
-    expect(config.promptMode).toBe("append");
+    const config = makeAgentConfig({ name: "forker", context: "fork", systemPrompt: "" });
+    expect(config.name).toBe("forker");
+    expect(config.context).toBe("fork");
     expect(config.systemPrompt).toBe("");
     expect(config.description).toBe("Test agent");
   });

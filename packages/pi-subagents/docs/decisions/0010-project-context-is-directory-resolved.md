@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: amended by 0014
 date: 2026-09-15
 ---
 
@@ -7,7 +7,7 @@ date: 2026-09-15
 
 ## Status
 
-Accepted.
+Accepted, and amended by [ADR 0014]: a fresh child's project context is loaded by Pi for the child's own directory, and a fork reuses the parent's prompt as is.
 Amends [ADR 0006], which stands: a child still inherits the parent prompt's identity region and nothing after it.
 What this record changes is which layers count as resolved per session, for a child whose directory is not its parent's.
 
@@ -106,3 +106,4 @@ Nothing survives past this cut: the catalogue and footer are already gone, so th
 [ADR 0006]: 0006-inherited-prompt-is-identity-only.md
 [ADR 0008]: 0008-inherited-region-is-shared-parts.md
 [ADR 0009]: 0009-portable-inheritance-is-provider-scoped.md
+[ADR 0014]: 0014-subagent-context-is-fresh-or-fork.md

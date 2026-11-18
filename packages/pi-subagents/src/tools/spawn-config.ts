@@ -8,17 +8,18 @@
 
 import type { Model } from "@earendil-works/pi-ai";
 import type { AgentTypeRegistry } from "#src/config/agent-types";
+import type { DeprecationWarnings } from "#src/config/deprecations";
 import { type LockableField, resolveAgentInvocationConfig } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import { isBelowMinimumTurns, MIN_MAX_TURNS, normalizeMaxTurns } from "#src/lifecycle/turn-limits";
 import type { ModelRegistry } from "#src/session/model-resolver";
-import { resolveInvocationModel } from "#src/session/model-resolver";
-import type { AgentInvocation, SubagentType, ThinkingLevel } from "#src/types";
+import { resolveForkThinking, resolveInvocationModel } from "#src/session/model-resolver";
+import { lockedFields } from "#src/seams/locked-launch";
+import type { AgentInvocation, ContextMode, SubagentType, ThinkingLevel } from "#src/types";
 import {
   type AgentDetails,
   buildInvocationTags,
   getDisplayName,
-  getPromptModeLabel,
   modelLabel,
 } from "#src/ui/display";
 
@@ -26,6 +27,12 @@ import {
 export interface ModelInfo {
   parentModel: Model<any> | undefined;
   modelRegistry: ModelRegistry | undefined;
+  /**
+   * Whether the parent has a branch to fork. False makes an agent-file fork run
+   * fresh (the manager's fallback), so its model and thinking resolve as fresh.
+   * Absent means true.
+   */
+  parentHasBranch?: boolean;
 }
 
 /** Identity: who is being spawned. */
@@ -43,7 +50,8 @@ export interface SpawnExecution {
   model: Model<any> | undefined;
   effectiveMaxTurns: number | undefined;
   thinking: ThinkingLevel | undefined;
-  inheritContext: boolean;
+  context: ContextMode;
+  contextSource: "call" | "agent" | "default";
   runInBackground: boolean;
   agentInvocation: AgentInvocation;
 }
@@ -82,6 +90,7 @@ export function resolveSpawnConfig(
   registry: AgentTypeRegistry,
   modelInfo: ModelInfo,
   settings: { readonly defaultMaxTurns: number | undefined },
+  warnings?: DeprecationWarnings,
 ): ResolvedSpawnConfig | SpawnConfigError {
   // Validated at the door, so the merge below and every layer past it receive a
   // level the SDK recognizes rather than one it would clamp to "off" (Refs #834).
@@ -106,20 +115,30 @@ export function resolveSpawnConfig(
   const resolvedConfig = resolveAgentInvocationConfig(customConfig, {
     ...params,
     thinking: thinkingFromParams,
-  });
+  }, warnings);
 
-  // Resolve model
+  // Resolve model. A fork ignores an unlocked agent model and thinking: it
+  // runs on the parent's unless the caller or a lock names one.
+  const { context, contextSource } = resolvedConfig;
+  const locked = lockedFields(customConfig);
+  // An agent-file fork without a branch runs fresh: resolve it as fresh.
+  const fork = context === "fork" && (contextSource === "call" || modelInfo.parentHasBranch !== false);
   const resolution = resolveInvocationModel(
     modelInfo.parentModel,
     resolvedConfig.modelInput,
     resolvedConfig.modelFromParams,
     modelInfo.modelRegistry,
+    { fork, modelLocked: locked.includes("model") },
   );
   if (resolution.error) return { error: resolution.error };
   const model = resolution.model;
 
-  const thinking = resolvedConfig.thinking;
-  const inheritContext = resolvedConfig.inheritContext;
+  const thinking = fork
+    ? resolveForkThinking({
+        locked: locked.includes("thinking") ? customConfig.thinking : undefined,
+        caller: thinkingFromParams,
+      })
+    : resolvedConfig.thinking;
   const runInBackground = resolvedConfig.runInBackground;
 
   const modelName = modelLabel(model);
@@ -131,25 +150,20 @@ export function resolveSpawnConfig(
   const agentInvocation: AgentInvocation = {
     thinking,
     maxTurns: normalizeMaxTurns(resolvedConfig.maxTurns),
-    inheritContext,
+    context,
     runInBackground,
   };
 
-  const modeLabel = getPromptModeLabel(subagentType, registry);
   const { tags: invocationTags } = buildInvocationTags(agentInvocation);
-  // agentTags keeps its historical content for its other readers: mode label, thinking, invocation tags.
-  const agentTags = [
-    ...(modeLabel ? [modeLabel] : []),
-    ...(thinking ? [`thinking: ${thinking}`] : []),
-    ...invocationTags,
-  ];
+  const agentTags = [...(thinking ? [`thinking: ${thinking}`] : []), ...invocationTags];
 
+  // The context label is not set here: a fork may fall back to fresh only once the
+  // run exists, so buildDetails reads it from the record.
   const detailBase = {
     displayName,
     description: params.description as string,
     subagentType,
     modelName,
-    modeLabel,
     thinking,
     tags: invocationTags.length > 0 ? invocationTags : undefined,
   };
@@ -167,7 +181,8 @@ export function resolveSpawnConfig(
       model,
       effectiveMaxTurns,
       thinking,
-      inheritContext,
+      context,
+      contextSource,
       runInBackground,
       agentInvocation,
     },

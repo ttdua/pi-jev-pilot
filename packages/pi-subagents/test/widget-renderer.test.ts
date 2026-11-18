@@ -28,6 +28,7 @@ function makeAgent(overrides: Partial<WidgetAgent> = {}): WidgetAgent {
 		toolUses: 5,
 		startedAt: 1000,
 		completedAt: 6000,
+		context: "fresh",
 		compactionCount: 0,
 		// Activity fields (folded from the former WidgetActivity)
 		turnBudget: { maxTurns: 10, used: 3, phase: "within" },
@@ -265,19 +266,19 @@ describe("model tag", () => {
 	it("follows the running agent's name and mode", () => {
 		const agent = makeAgent({ status: "running", completedAt: undefined, model });
 		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
-		expect(header).toContain("**Agent** [dim:(twin)] [dim:[anthropic/claude-sonnet-5]]  [muted:test task]");
+		expect(header).toContain("**Agent** [dim:[anthropic/claude-sonnet-5]]  [muted:test task]");
 	});
 
 	it("follows the finished agent's name and mode", () => {
 		const line = renderFinishedLine(makeAgent({ model }), testRegistry, theme);
-		expect(line).toContain("[dim:Agent] [dim:(twin)] [dim:[anthropic/claude-sonnet-5]]  [dim:test task]");
+		expect(line).toContain("[dim:Agent] [dim:[anthropic/claude-sonnet-5]]  [dim:test task]");
 	});
 
 	it("is absent while the model is unknown", () => {
 		const [header] = renderRunningLines(makeAgent({ status: "running", completedAt: undefined }), testRegistry, 0, theme);
 		const line = renderFinishedLine(makeAgent(), testRegistry, theme);
-		expect(header).toContain("**Agent** [dim:(twin)]  [muted:test task]");
-		expect(line).toContain("[dim:Agent] [dim:(twin)]  [dim:test task]");
+		expect(header).toContain("**Agent**  [muted:test task]");
+		expect(line).toContain("[dim:Agent]  [dim:test task]");
 	});
 });
 
@@ -458,6 +459,33 @@ describe("renderWidgetLines", () => {
 	});
 });
 
+describe("context label", () => {
+	const theme = stubTheme();
+	const facts = {
+		model: { provider: "openai", id: "gpt-6" },
+		thinkingLevel: "medium" as const,
+		toolFacts: { toolCount: 9, blockedToolCount: 2 },
+	};
+
+	it("shows '(fork)' after the name, then the bracket tag, on a running fork", () => {
+		const agent = makeAgent({ status: "running", completedAt: undefined, context: "fork", ...facts });
+		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
+		expect(header).toContain("**Agent** [dim:(fork)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [muted:test task]");
+	});
+
+	it("shows '(fork → fresh)' after a fallback", () => {
+		const agent = makeAgent({ status: "running", completedAt: undefined, context: "fresh", contextFallback: "no-parent-session" });
+		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
+		expect(header).toContain("[dim:(fork → fresh)]");
+	});
+
+	it("shows no context label on a fresh run's finished line", () => {
+		const line = renderFinishedLine(makeAgent({ context: "fresh" }), testRegistry, theme);
+		expect(line).not.toContain("(fork)");
+		expect(line).not.toContain("(fork → fresh)");
+	});
+});
+
 describe("run-facts tag", () => {
 	const theme = stubTheme();
 	const facts = {
@@ -475,7 +503,7 @@ describe("run-facts tag", () => {
 
 	it("shows the run-facts tag after name and mode label on the finished line", () => {
 		const line = renderFinishedLine(makeAgent({ toolUses: 3, ...facts }), testRegistry, theme);
-		expect(line).toContain("[dim:Agent] [dim:(twin)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
+		expect(line).toContain("[dim:Agent] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
 		expect(line).toContain("3 tool uses");
 	});
 

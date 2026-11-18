@@ -49,17 +49,16 @@ describe("renderStats", () => {
 	});
 
 	it("includes tags", () => {
-		const details = makeDetails({ thinking: "high", tags: ["inherit context"] });
+		const details = makeDetails({ thinking: "high", tags: ["background"] });
 		const result = renderStats(details, theme);
 		expect(result).toContain("[dim:thinking: high]");
-		expect(result).toContain("[dim:inherit context]");
+		expect(result).toContain("[dim:background]");
 	});
 
 	it("keeps the existing order with run facts", () => {
 		const details = makeDetails({
 			modelName: "fixture/fixture-fast",
-			modeLabel: "twin",
-			tags: ["inherit context"],
+			modeLabel: "fork",
 			thinking: "low",
 			toolCount: 12,
 			blockedToolCount: 2,
@@ -70,11 +69,10 @@ describe("renderStats", () => {
 		const parts = renderStats(details, theme).split(" [dim:\u00B7] ").map((p) => p.replace(/^\[dim:|\]$/g, ""));
 		expect(parts).toEqual([
 			"fixture/fixture-fast",
-			"twin",
+			"fork",
 			"thinking: low",
 			"🔧12",
 			"⊘2",
-			"inherit context",
 			"↻3≤30",
 			"5 tool uses",
 			"1.2k token",
@@ -84,12 +82,12 @@ describe("renderStats", () => {
 	it("keeps the order without a mode label", () => {
 		const details = makeDetails({
 			modelName: "a/b",
-			tags: ["inherit context", "background", "max turns: 9"],
+			tags: ["background", "max turns: 9"],
 			thinking: "high",
 			toolCount: 3,
 		});
 		const parts = renderStats(details, theme).split(" [dim:\u00B7] ").map((p) => p.replace(/^\[dim:|\]$/g, ""));
-		expect(parts).toEqual(["a/b", "thinking: high", "🔧3", "inherit context", "background", "max turns: 9"]);
+		expect(parts).toEqual(["a/b", "thinking: high", "🔧3", "background", "max turns: 9"]);
 	});
 
 	it("omits unknown run facts", () => {

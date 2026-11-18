@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"; // vi: console.warn spy
 import { BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
 import { loadCustomAgents } from "#src/config/custom-agents";
 
@@ -56,8 +56,7 @@ You are a security auditor.`);
     expect(agent.model).toBe("anthropic/claude-opus-4-6");
     expect(agent.thinking).toBe("high");
     expect(agent.maxTurns).toBe(30);
-    expect(agent.promptMode).toBe("replace");
-    expect(agent.inheritContext).toBe(true);
+    expect(agent.context).toBe("fork");
     expect(agent.runInBackground).toBe(true);
     expect(agent.systemPrompt).toBe("You are a security auditor.");
   });
@@ -77,8 +76,7 @@ Just a prompt.`);
     expect(agent.model).toBeUndefined();
     expect(agent.thinking).toBeUndefined();
     expect(agent.maxTurns).toBeUndefined();
-    expect(agent.promptMode).toBe("append");
-    expect(agent.inheritContext).toBeUndefined();
+    expect(agent.context).toBeUndefined();
     expect(agent.runInBackground).toBeUndefined();
     expect(agent.systemPrompt).toBe("Just a prompt.");
   });
@@ -92,7 +90,7 @@ Just a prompt.`);
     expect(agent.name).toBe("bare");
     expect(agent.description).toBe("bare");
     expect(agent.toolNames).toEqual(BUILTIN_TOOL_NAMES);
-    expect(agent.promptMode).toBe("append");
+    expect(agent.context).toBeUndefined();
     expect(agent.systemPrompt).toBe("Just a system prompt, no frontmatter.");
   });
 
@@ -224,13 +222,13 @@ Comma entry.`);
     });
 
     it("reads every lockable field name", () => {
-      writeAgent("all", `---\nlocked: [model, thinking, max_turns, inherit_context, run_in_background]\n---\n\nAll.`);
+      writeAgent("all", `---\nlocked: [model, thinking, max_turns, context, run_in_background]\n---\n\nAll.`);
 
       expect(loadCustomAgents(tmpDir).get("all")!.locked).toEqual([
         "model",
         "thinking",
         "max_turns",
-        "inherit_context",
+        "context",
         "run_in_background",
       ]);
     });
@@ -324,18 +322,75 @@ prompt_mode: append
 Extra instructions.`);
 
     const result = loadCustomAgents(tmpDir);
-    expect(result.get("appender")!.promptMode).toBe("append");
+    expect(result.get("appender")!.context).toBeUndefined();
   });
 
-  it("defaults unknown prompt_mode to append", () => {
-    writeAgent("badmode", `---
-prompt_mode: merge
----
+  describe("context", () => {
+    let warn: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
+      warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      warn.mockRestore();
+    });
+    const warnings = () => warn.mock.calls.map((c: unknown[]) => String(c[0]));
 
-Unknown mode.`);
+    it("parses context: fork", () => {
+      writeAgent("forker", "---\ncontext: fork\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("forker")!.context).toBe("fork");
+      expect(warnings()).toEqual([]);
+    });
 
-    const result = loadCustomAgents(tmpDir);
-    expect(result.get("badmode")!.promptMode).toBe("append");
+    it("declares nothing and warns for an invalid value", () => {
+      writeAgent("nested", "---\ncontext: nested\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("nested")!.context).toBeUndefined();
+      const found = warnings().filter((w: string) => w.includes("nested.md") && w.includes("context"));
+      expect(found).toHaveLength(1);
+    });
+
+    it("reads inherit_context: true as fork and warns", () => {
+      writeAgent("old", "---\ninherit_context: true\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("old")!.context).toBe("fork");
+      expect(warnings().filter((w: string) => w.includes("old.md") && w.includes("context"))).toHaveLength(1);
+    });
+
+    it("lets context win over inherit_context", () => {
+      writeAgent("both", "---\ncontext: fresh\ninherit_context: true\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("both")!.context).toBe("fresh");
+    });
+
+    it("ignores prompt_mode and warns", () => {
+      writeAgent("modal", "---\nprompt_mode: append\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("modal")!.context).toBeUndefined();
+      expect(warnings().filter((w: string) => w.includes("modal.md") && w.includes("prompt_mode"))).toHaveLength(1);
+      expect(warnings().find((w: string) => w.includes("prompt_mode"))).toContain("use context: fresh | fork");
+    });
+
+    it("warns once per file per load even when the file is read twice", () => {
+      // The global dir resolves to the project dir, so one file loads twice.
+      vi.stubEnv("PI_CODING_AGENT_DIR", join(tmpDir, ".pi"));
+      writeAgent("twice", "---\ninherit_context: true\nprompt_mode: append\n---\n\nBody.");
+      loadCustomAgents(tmpDir);
+      expect(warnings().filter((w: string) => w.includes("twice.md") && w.includes("inherit_context"))).toHaveLength(1);
+      expect(warnings().filter((w: string) => w.includes("twice.md") && w.includes("prompt_mode"))).toHaveLength(1);
+    });
+
+    it("warns about locked: inherit_context once per file per load, and again on a later load", () => {
+      vi.stubEnv("PI_CODING_AGENT_DIR", join(tmpDir, ".pi"));
+      writeAgent("lkw", "---\nlocked: [inherit_context]\n---\n\nBody.");
+      const count = () => warnings().filter((w: string) => w.includes("lkw.md") && w.includes("locked")).length;
+      loadCustomAgents(tmpDir);
+      expect(count()).toBe(1);
+      loadCustomAgents(tmpDir);
+      expect(count()).toBe(2);
+    });
+
+    it("reads locked: inherit_context as context", () => {
+      writeAgent("lk", "---\nlocked: [inherit_context]\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("lk")!.locked).toEqual(["context"]);
+    });
   });
 
   it("loads multiple agents", () => {

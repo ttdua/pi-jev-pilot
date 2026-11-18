@@ -3,30 +3,15 @@
  */
 
 import type { Model } from "@earendil-works/pi-ai";
-import { buildParentContext } from "#src/session/context";
+import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { ModelRegistry } from "#src/session/model-resolver";
-import type { SessionContext } from "#src/types";
+import type { ContextMode, SessionContext, ThinkingLevel } from "#src/types";
 
-/**
- * The parent session's operator-authored prompt parts, as Pi reports them on
- * `before_agent_start`.
- *
- * A narrow structural slice of Pi's `BuildSystemPromptOptions` holding the
- * layers an operator wrote that describe no single session. `skills` is
- * excluded for the reason ADR 0006 cuts the catalogue: the child loads its
- * own. `contextFiles` is excluded for the same reason — the block names each
- * file by absolute path, so the child resolves it against its own directory
- * (#918). `promptGuidelines` is excluded because Pi derives it per session from
- * the tools actually in the registry, so inheriting the parent's would assert
- * guidance for tools the child may not hold — the defect ADR 0008 removed with
- * the `<sub_agent_context>` block. `selectedTools` and `toolSnippets` are
- * excluded because the tool surface is node-local prose.
- */
-export interface ParentPromptOptions {
-  /** Custom system prompt (`--system-prompt`), when the parent runs one. */
-  customPrompt?: string;
-  /** Appended system prompt text (`--append-system-prompt`). */
-  appendSystemPrompt?: string;
+/** A tool as the parent declares it to the model. */
+export interface ToolDeclaration {
+  name: string;
+  description: string;
+  parameters: unknown;
 }
 
 /**
@@ -36,23 +21,25 @@ export interface ParentPromptOptions {
 export interface ParentSnapshot {
   /** Parent working directory. */
   cwd: string;
-  /** Parent's effective system prompt (for append-mode agents). */
+  /** Parent's effective system prompt; a fork sends it unchanged. */
   systemPrompt: string;
-  /** Parent's current model instance (fallback when agent config has no model). */
+  /** Parent's current model instance. */
   model: Model<any> | undefined;
   /** Model registry for resolving config.model strings and creating sessions. */
   modelRegistry: ModelRegistry;
-  /** Pre-built parent conversation text (when inheritContext was requested). */
-  parentContext?: string;
+  /** Parent session id; a fork sends it as its provider cache-routing key. */
+  sessionId: string;
   /**
-   * The parent's operator-authored parts, rendered as an identity a child on a
-   * re-homing provider may adopt in place of the assembled prompt (ADR 0009):
-   * the custom prompt, then the appended prompt wrapped as an `<addendum>`
-   * section.
-   * Undefined when Pi has assembled no prompt yet, or when the parent has no
-   * such parts.
+   * The parent's live branch, root to leaf, for a fork; empty for a fresh launch.
+   * Read from the session manager in memory, not the file, which lags it.
    */
-  portablePrompt?: string;
+  branch: readonly SessionEntry[];
+  /** The tools the parent declares to the model; a fork declares exactly these. */
+  toolNames: readonly string[];
+  /** The parent's declaration of each of those tools, to rebuild any the fork lacks. */
+  declarations: readonly ToolDeclaration[];
+  /** Parent's current thinking level. */
+  thinking?: ThinkingLevel;
 }
 
 /**
@@ -63,40 +50,18 @@ export interface ParentSnapshot {
  */
 export function buildParentSnapshot(
   ctx: SessionContext,
-  inheritContext?: boolean,
-  promptOptions?: ParentPromptOptions,
+  context: ContextMode,
+  tools: readonly ToolDeclaration[],
 ): ParentSnapshot {
-  const parentContext = inheritContext ? buildParentContext(ctx) : undefined;
   return {
     cwd: ctx.cwd,
     systemPrompt: ctx.getSystemPrompt(),
     model: ctx.model,
     modelRegistry: ctx.modelRegistry,
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: converts empty string to undefined as well as null/undefined
-    parentContext: parentContext || undefined,
-    portablePrompt: buildPortablePrompt(promptOptions),
+    sessionId: ctx.sessionManager.getSessionId(),
+    branch: context === "fork" ? [...(ctx.sessionManager.getBranch() as SessionEntry[])] : [],
+    toolNames: tools.map((tool) => tool.name),
+    declarations: [...tools],
+    thinking: ctx.thinkingLevel,
   };
-}
-
-/**
- * Compose the parent's operator-authored parts into an identity a child may
- * adopt, in the order and shape Pi's own `buildSystemPrompt` composes them:
- * the custom prompt, then the appended prompt as an `<addendum>` section.
- *
- * The result is what Pi would assemble for a session with a custom prompt and
- * no tools, skills, or context files, so a host that re-homes it sees text
- * shaped the way its own harness produces — not Pi's base preamble. The child
- * appends its own directory's project context after it.
- *
- * Returns undefined when no part survives, which routes the caller to the
- * generic base rather than back to the full prompt.
- */
-function buildPortablePrompt(options?: ParentPromptOptions): string | undefined {
-  if (!options) return undefined;
-  const sections: string[] = [];
-  const custom = options.customPrompt?.trim();
-  if (custom) sections.push(custom);
-  const appended = options.appendSystemPrompt?.trim();
-  if (appended) sections.push(`<addendum>\n${appended}\n</addendum>`);
-  return sections.length > 0 ? sections.join("\n\n") : undefined;
 }

@@ -21,8 +21,7 @@ describe("createSubagentSessionIO", () => {
 	it("assemblerIO has the production interface's methods only", () => {
 		const io = createSubagentSessionIO();
 		expect(typeof io.assemblerIO.buildAgentPrompt).toBe("function");
-		expect(typeof io.assemblerIO.loadProjectContext).toBe("function");
-		expect(Object.keys(io.assemblerIO)).toEqual(["buildAgentPrompt", "loadProjectContext"]);
+		expect(Object.keys(io.assemblerIO)).toEqual(["buildAgentPrompt"]);
 	});
 
 	it("assemblerIO defaults return sensible stub values", () => {
@@ -52,7 +51,7 @@ describe("createSubagentSessionIO", () => {
 		const io = createSubagentSessionIO();
 		io.assemblerIO.buildAgentPrompt.mockReturnValue("custom prompt");
 		const result = io.assemblerIO.buildAgentPrompt(
-			{ name: "Explore", systemPrompt: "", promptMode: "replace" },
+			{ name: "Explore", systemPrompt: "" },
 			"/cwd",
 			{ isGitRepo: false, branch: "", platform: "linux" },
 		);
@@ -71,7 +70,7 @@ describe("createAgentLookup", () => {
 		const lookup = createAgentLookup();
 		const config = lookup.resolveAgentConfig("Explore");
 		expect(config.name).toBe("Explore");
-		expect(config.promptMode).toBe("replace");
+		expect(config.context).toBe("fresh");
 	});
 
 	it("default config toolNames includes 'read'", () => {
@@ -92,7 +91,7 @@ describe("createAgentLookup", () => {
 		expect(config.name).toBe("Custom");
 		expect(config.maxTurns).toBe(7);
 		// other defaults still present
-		expect(config.promptMode).toBe("replace");
+		expect(config.context).toBe("fresh");
 	});
 
 	it("resolveAgentConfig and getToolNamesForType are vi.fn() stubs", () => {

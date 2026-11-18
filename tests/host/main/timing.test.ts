@@ -28,7 +28,7 @@ function effortAnswer(choice: string, corrects = 0.05): JevOutcome {
 
 const snapshotOf = (state: object = SKILLS_OFF): Snapshot =>
   buildSnapshot({
-    configRead: { kind: "ok", present: true, deprecated: [], config: {} as never },
+    configRead: { kind: "ok", present: true, notices: [], deprecated: [], config: {} as never },
     stateRead: { kind: "ok", state: state as never },
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: [],

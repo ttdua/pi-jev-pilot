@@ -9,14 +9,13 @@
  * Commands:
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createAgentSession,
   DefaultResourceLoader,
   type ExtensionAPI,
   getAgentDir,
-  loadProjectContextFiles,
   ModelRuntime,
   type ResourceLoader,
   ModelRegistry as SdkModelRegistry,
@@ -38,14 +37,15 @@ import {
   type WorkspaceNoticeDetails,
 } from "#src/observation/notification";
 import { SubagentEventsObserver } from "#src/observation/subagent-events-observer";
+import { DeprecationWarnings } from "#src/config/deprecations";
 import { createSubagentRuntime } from "#src/runtime";
 import { AgentTypeCatalog } from "#src/seams/registry";
 import { SubagentsServiceAdapter } from "#src/service/service-adapter";
 import { ServicePublication } from "#src/seams/service-identity";
 import { detectEnv } from "#src/session/env";
+import { createForkSessionManager } from "#src/session/fork-session-manager";
 import { resolveModel } from "#src/session/model-resolver";
 import { createExcludedPackagesStorage } from "#src/session/package-exclusions";
-import { createProjectContextLoader } from "#src/session/project-context";
 import { buildAgentPrompt } from "#src/session/prompts";
 import { inheritRegisteredProviders } from "#src/session/provider-inheritance";
 import { deriveSubagentSessionDir } from "#src/session/session-dir";
@@ -75,7 +75,10 @@ export default function (pi: ExtensionAPI) {
   const registry = new AgentTypeRegistry(() => loadCustomAgents(process.cwd()));
 
   // ---- Runtime: all mutable extension state in one place ----
-  const runtime = createSubagentRuntime();
+  const runtime = createSubagentRuntime(() => {
+    const all = pi.getAllTools();
+    return pi.getActiveTools().flatMap((name) => all.filter((tool) => tool.name === name));
+  });
 
   // ---- Notification system ----
   // Owns completion nudges and live-activity cleanup. The widget detects finished
@@ -122,6 +125,8 @@ export default function (pi: ExtensionAPI) {
       createResourceLoader: (opts) => new DefaultResourceLoader(opts),
       deriveSessionDir: deriveSubagentSessionDir,
       createSessionManager: (cwd, dir) => SessionManager.create(cwd, dir),
+      createForkSessionManager,
+      removeSessionFile: (file) => rmSync(file, { force: true }),
       createSettingsManager: (cwd, dir) => SdkSettingsManager.create(cwd, dir),
       // The exclusion policy is resolved here, at the composition root, so the
       // assembly factory stays free of it and gets a ready-made settings view.
@@ -166,21 +171,11 @@ export default function (pi: ExtensionAPI) {
       },
       assemblerIO: {
         buildAgentPrompt,
-        // Pi's own discovery, pointed at whichever directory the child runs in.
-        loadProjectContext: createProjectContextLoader(
-          loadProjectContextFiles,
-          getAgentDir(),
-        ),
       },
     },
     exec: (cmd, args, opts) => pi.exec(cmd, args, opts),
     registry,
     lifecycle: createChildLifecyclePublisher((channel, data) => pi.events.emit(channel, data)),
-    // Resolved here, at the composition root, so the assembly factory stays
-    // free of the policy and gets a ready-made settings view — the same shape
-    // the extension-exclusion policy reaches it in. It is a resolver rather
-    // than a value because only the assembler knows the child's provider.
-    resolvePromptInheritance: (provider) => settings.promptInheritanceFor(provider),
     // Read per child rather than once: an MCP server connects in the
     // background, so its tools register after this extension loads.
     listParentToolNames: () => pi.getAllTools().map((tool) => tool.name),
@@ -210,7 +205,8 @@ export default function (pi: ExtensionAPI) {
   // Consumers: const { getSubagentsService } = await import("@gotgenes/pi-subagents");
   // Published at load, as upstream does, unless this implementation's service
   // already holds the slot (children load after the main session).
-  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime, new AgentTypeCatalog(registry));
+  const deprecations = new DeprecationWarnings();
+  const service = new SubagentsServiceAdapter(manager, resolveModel, runtime, new AgentTypeCatalog(registry), deprecations);
   const publication = new ServicePublication(service);
   publication.publish();
 
@@ -245,6 +241,7 @@ export default function (pi: ExtensionAPI) {
   // registrations rather than sharing a lambda with an unrelated concern.
   const widgetEvents = new WidgetEventsHandler(widget);
 
+  pi.on("session_start", () => deprecations.reset());
   pi.on("session_start", (_event, ctx) => {
     service.bindSession(ctx.sessionManager.getSessionId());
   });
@@ -266,14 +263,6 @@ export default function (pi: ExtensionAPI) {
   // Same ordering reason for the fleet list.
   pi.on("session_shutdown", () => fleet.dispose());
 
-  // Capture the prompt parts Pi assembled for the parent's turn. This is the
-  // only event carrying them — `getSystemPromptOptions()` is attached to a
-  // command context, not to the session context the runtime holds — and a spawn
-  // renders the parent's portable identity from the latest capture.
-  pi.on("before_agent_start", (event) => {
-    runtime.setSystemPromptOptions(event.systemPromptOptions);
-  });
-
   // Abort all subagents when the parent agent loop is interrupted (ESC), unless
   // the user has turned that policy off. The predicate is read at abort time.
   const interrupt = new InterruptHandler(manager, () => settings.abortAllOnInterrupt);
@@ -282,7 +271,7 @@ export default function (pi: ExtensionAPI) {
 
   // ---- Agent tool ----
 
-  pi.registerTool(new AgentTool(manager, runtime, settings, registry, getAgentDir()).toToolDefinition());
+  pi.registerTool(new AgentTool(manager, runtime, settings, registry, getAgentDir(), deprecations).toToolDefinition());
 
   // ---- get_subagent_result tool ----
 

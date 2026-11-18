@@ -144,7 +144,7 @@ function config(
     ...(extra.slotModel === undefined
       ? {}
       : { crew: { slots: [{ name: "reviewer", model: extra.slotModel, when: "Code review." }] } }),
-    ...(extra.forked === undefined ? {} : { subagents: { forkedLaunch: extra.forked } }),
+    ...(extra.forked === undefined ? {} : { subagents: { forkLaunch: extra.forked } }),
   };
 }
 
@@ -314,9 +314,7 @@ describe("worker routing through the real CLI", () => {
     "forked launch left alone",
     async () => {
       const jev = await newJev(jevAnswers({ tier: "fast" }));
-      const { fixture, session } = await setup(
-        script([subagentCall(launch({ inherit_context: true }))]),
-      );
+      const { fixture, session } = await setup(script([subagentCall(launch({ context: "fork" }))]));
       writeJev(session.agentDir, { config: config(jev, { forked: "untouched" }) });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
@@ -333,9 +331,7 @@ describe("worker routing through the real CLI", () => {
     "forked launch with thinking",
     async () => {
       const jev = await newJev(jevAnswers({ effort: "high" }));
-      const { fixture, session } = await setup(
-        script([subagentCall(launch({ inherit_context: true }))]),
-      );
+      const { fixture, session } = await setup(script([subagentCall(launch({ context: "fork" }))]));
       writeJev(session.agentDir, { config: config(jev, { forked: "thinking" }) });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");

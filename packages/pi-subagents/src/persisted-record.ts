@@ -10,7 +10,7 @@
 
 import type { SubagentStatus } from "#src/lifecycle/subagent-state";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
-import type { SubagentType } from "#src/types";
+import type { ContextMode, SubagentType } from "#src/types";
 
 /** The `customType` every persisted run record is appended under. */
 export const SUBAGENT_RECORD_ENTRY = "subagents:record";
@@ -31,12 +31,26 @@ export interface PersistedSubagentRecord {
 	/** The run's session JSONL, which a reader can open after the live session is gone. */
 	readonly outputFile: string | undefined;
 	readonly toolUses: number;
+	/** The resolved context. Absent on entries written before it was recorded; a reader treats those as fresh. */
+	readonly context?: ContextMode;
+	/** Set when a fork fell back to fresh. Absent otherwise. */
+	readonly contextFallback?: "no-parent-session";
 }
 
 /** The fields a reader validates and returns: what labels a past run and opens its transcript. */
 export type PersistedRunSummary = Pick<
 	PersistedSubagentRecord,
-	"id" | "type" | "description" | "status" | "startedAt" | "completedAt" | "stoppedWhileQueued" | "toolUses" | "outputFile"
+	| "id"
+	| "type"
+	| "description"
+	| "status"
+	| "startedAt"
+	| "completedAt"
+	| "stoppedWhileQueued"
+	| "toolUses"
+	| "outputFile"
+	| "context"
+	| "contextFallback"
 >;
 
 /** The session-entry fields the reader inspects; Pi's `SessionEntry` satisfies it. */
@@ -64,6 +78,9 @@ export function toPersistedRecord(record: PersistedSubagentRecord): PersistedSub
 		stoppedWhileQueued: record.stoppedWhileQueued,
 		outputFile: record.outputFile,
 		toolUses: record.toolUses,
+		// Written only for a non-default context, so a fresh run's entry keeps its old shape.
+		...(record.context === "fork" ? { context: "fork" as const } : {}),
+		...(record.contextFallback ? { contextFallback: record.contextFallback } : {}),
 	};
 }
 
@@ -96,8 +113,19 @@ const SUBAGENT_STATUSES: ReadonlySet<string> = new Set<SubagentStatus>([
 
 function asRunSummary(data: unknown): PersistedRunSummary | undefined {
 	if (typeof data !== "object" || data === null) return undefined;
-	const { id, type, description, status, startedAt, completedAt, stoppedWhileQueued, toolUses, outputFile } =
-		data as Record<string, unknown>;
+	const {
+		id,
+		type,
+		description,
+		status,
+		startedAt,
+		completedAt,
+		stoppedWhileQueued,
+		toolUses,
+		outputFile,
+		context,
+		contextFallback,
+	} = data as Record<string, unknown>;
 	if (typeof id !== "string" || typeof type !== "string" || typeof description !== "string") return undefined;
 	if (typeof status !== "string" || !SUBAGENT_STATUSES.has(status)) return undefined;
 	if (typeof startedAt !== "number" || typeof toolUses !== "number") return undefined;
@@ -114,5 +142,8 @@ function asRunSummary(data: unknown): PersistedRunSummary | undefined {
 		stoppedWhileQueued: stoppedWhileQueued ?? false,
 		toolUses,
 		outputFile,
+		// An entry without a valid context predates the field: it reads as fresh with no fallback.
+		context: context === "fork" ? "fork" : "fresh",
+		contextFallback: contextFallback === "no-parent-session" ? "no-parent-session" : undefined,
 	};
 }

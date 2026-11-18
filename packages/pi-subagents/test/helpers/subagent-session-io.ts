@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { AssemblerIO } from "#src/session/session-config";
-import type { AgentConfig, PromptInheritance, ShellExec } from "#src/types";
+import type { AgentConfig, ShellExec } from "#src/types";
 import { createMockSession } from "#test/helpers/mock-session";
 
 /** Default AgentConfig returned by createAgentLookup. Matches the Explore stub used in factory tests. */
@@ -11,10 +11,9 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
 	description: "Explore",
 	toolNames: ["read"],
 	systemPrompt: "You are Explore.",
-	promptMode: "replace",
 	toolsDeclared: true,
 	disallowedTools: [],
-	inheritContext: false,
+	context: "fresh",
 	runInBackground: false,
 };
 
@@ -43,15 +42,18 @@ export function createSubagentSessionIO() {
 			getSessionFile: vi.fn().mockReturnValue("/sessions/child.jsonl"),
 			getSessionId: vi.fn().mockReturnValue("child-session-id"),
 		}),
+		removeSessionFile: vi.fn(),
+		createForkSessionManager: vi.fn().mockReturnValue({
+			newSession: vi.fn(),
+			getSessionFile: vi.fn().mockReturnValue("/sessions/fork.jsonl"),
+			getSessionId: vi.fn().mockReturnValue("fork-session-id"),
+		}),
 		createSettingsManager: vi.fn().mockReturnValue({}),
 		// Identity by default: no package exclusions, so children inherit everything.
 		createLoaderSettingsManager: vi.fn().mockImplementation((parent: unknown) => parent),
 		createSession: vi.fn(),
 		assemblerIO: {
-			// Typed against the real signature so a test can read back the
-			// inherited-prompt argument the assembler composed.
 			buildAgentPrompt: vi.fn<AssemblerIO["buildAgentPrompt"]>(() => "system prompt"),
-			loadProjectContext: vi.fn<AssemblerIO["loadProjectContext"]>(() => undefined),
 		},
 	};
 }
@@ -90,7 +92,6 @@ export function createSubagentSessionDeps(overrides?: {
 	exec?: ShellExec;
 	registry?: AgentConfigLookup;
 	lifecycle?: ReturnType<typeof createChildLifecycleMock>;
-	resolvePromptInheritance?: (provider: string | undefined) => PromptInheritance;
 	listParentToolNames?: () => readonly string[];
 }) {
 	return {
@@ -98,9 +99,6 @@ export function createSubagentSessionDeps(overrides?: {
 		exec: overrides?.exec ?? vi.fn(),
 		registry: overrides?.registry ?? createAgentLookup(),
 		lifecycle: overrides?.lifecycle ?? createChildLifecycleMock(),
-		resolvePromptInheritance:
-			overrides?.resolvePromptInheritance ??
-			vi.fn((_provider: string | undefined): PromptInheritance => "full"),
 		listParentToolNames:
 			overrides?.listParentToolNames ?? vi.fn((): readonly string[] => []),
 	};

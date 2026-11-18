@@ -68,6 +68,6 @@ describe("settings sections", () => {
   test("scalar sections fall back to defaults", () => {
     expect(resolveSkills({})).toEqual({ inject: "content" });
     expect(resolveStateSection({})).toEqual({ parentRequest: false });
-    expect(resolveSubagents({})).toEqual({ forkedLaunch: "untouched" });
+    expect(resolveSubagents({})).toEqual({ forkLaunch: "untouched" });
   });
 });

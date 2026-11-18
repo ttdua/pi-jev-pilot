@@ -17,6 +17,7 @@
 
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
 import type { EffectiveFacts, PublishedLaunchIdentity } from "#src/seams/identity";
+import type { ContextMode } from "#src/types";
 
 /** Emitted at the start of a child run, before the session is created. */
 export const SUBAGENT_CHILD_SPAWNING = "subagents:child:spawning";
@@ -57,6 +58,8 @@ export interface ChildSessionCreatedEvent extends PublishedLaunchIdentity, Effec
    * siblings of the same parent occupy distinct keys. */
   sessionId: string;
   parentSessionId?: string;
+  /** The launch's resolved context; a fork's session id is still its own. */
+  context: ContextMode;
 }
 
 /** Payload for `subagents:child:bound`. */

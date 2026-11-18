@@ -63,7 +63,7 @@ function hasAgentLimits(v: Rec): boolean {
     (v.declaredTools === null || isStrings(v.declaredTools)) &&
     (v.maxTurns === null || typeof v.maxTurns === "number") &&
     optionalBool(v.runInBackground) &&
-    optionalBool(v.inheritContext) &&
+    (v.context === undefined || v.context === "fresh" || v.context === "fork") &&
     isLocked(v.locked)
   );
 }

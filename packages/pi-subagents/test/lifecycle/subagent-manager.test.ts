@@ -73,7 +73,7 @@ function createManager(overrides?: {
 
 /** Spawn a background agent using STUB_SNAPSHOT. */
 function spawnBg(mgr: SubagentManager, prompt = "test", desc = prompt) {
-  return mgr.spawn(STUB_SNAPSHOT, "general-purpose", prompt, { origin: { kind: "service" },
+  return mgr.spawn(STUB_SNAPSHOT, "general-purpose", prompt, { origin: { kind: "service" }, context: "fresh", contextSource: "default",
     description: desc,
     background: { kind: "explicit", isBackground: true },
   });
@@ -81,14 +81,14 @@ function spawnBg(mgr: SubagentManager, prompt = "test", desc = prompt) {
 
 /** Spawn a foreground agent using STUB_SNAPSHOT. */
 function spawnFg(mgr: SubagentManager, prompt = "test", desc = prompt) {
-  return mgr.spawnAndWait(STUB_SNAPSHOT, "general-purpose", prompt, { origin: { kind: "service" },
+  return mgr.spawnAndWait(STUB_SNAPSHOT, "general-purpose", prompt, { origin: { kind: "service" }, context: "fresh", contextSource: "default",
     description: desc,
   });
 }
 
 /** Spawn a background agent carrying a parentSession.toolCallId (notification path). */
 function spawnBgWithToolCall(mgr: SubagentManager, toolCallId: string, prompt = "test", desc = prompt) {
-  return mgr.spawn(STUB_SNAPSHOT, "general-purpose", prompt, { origin: { kind: "service" },
+  return mgr.spawn(STUB_SNAPSHOT, "general-purpose", prompt, { origin: { kind: "service" }, context: "fresh", contextSource: "default",
     description: desc,
     background: { kind: "explicit", isBackground: true },
     parentSession: { toolCallId },
@@ -154,7 +154,7 @@ describe("SubagentManager", () => {
       it("stores the canonical type for case-variant input", () => {
         ({ manager } = createManager());
 
-        const id = manager.spawn(STUB_SNAPSHOT, "explore", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "d",
           background: { kind: "explicit", isBackground: true },
         });
@@ -165,7 +165,7 @@ describe("SubagentManager", () => {
       it("falls back to general-purpose for an unknown type", () => {
         ({ manager } = createManager());
 
-        const id = manager.spawn(STUB_SNAPSHOT, "no-such-agent", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "no-such-agent", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "d",
           background: { kind: "explicit", isBackground: true },
         });
@@ -177,7 +177,7 @@ describe("SubagentManager", () => {
         ({ manager } = createManager({ registry: registryWith("Plan", { enabled: false }) }));
 
         expect(() =>
-          manager.spawn(STUB_SNAPSHOT, "Plan", "test", { origin: { kind: "service" },
+          manager.spawn(STUB_SNAPSHOT, "Plan", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
             description: "d",
             background: { kind: "explicit", isBackground: true },
           }),
@@ -188,7 +188,7 @@ describe("SubagentManager", () => {
         ({ manager } = createManager({ registry: registryWith("Plan", { enabled: false }) }));
 
         expect(() =>
-          manager.spawn(STUB_SNAPSHOT, "plan", "test", { origin: { kind: "service" },
+          manager.spawn(STUB_SNAPSHOT, "plan", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
             description: "d",
             background: { kind: "explicit", isBackground: true },
           }),
@@ -199,7 +199,7 @@ describe("SubagentManager", () => {
         ({ manager } = createManager({ registry: registryWith("Plan", { enabled: false }) }));
 
         expect(() =>
-          manager.spawn(STUB_SNAPSHOT, "Plan", "test", { origin: { kind: "service" },
+          manager.spawn(STUB_SNAPSHOT, "Plan", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
             description: "d",
             background: { kind: "explicit", isBackground: true },
           }),
@@ -224,7 +224,7 @@ describe("SubagentManager", () => {
           registry: registryWith("Explore", { runInBackground }),
           observer: { onSubagentCreated: onCreated },
         }));
-        return manager.spawn(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, description: "d", background });
+        return manager.spawn(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d", background });
       }
 
       it("defers to frontmatter declaring background when the request is a default", () => {
@@ -272,7 +272,7 @@ describe("SubagentManager", () => {
         }));
         spawnBg(manager, "occupies-the-only-slot");
 
-        const id = manager.spawn(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "d",
           background: { kind: "default", isBackground: false },
         });
@@ -293,7 +293,7 @@ describe("SubagentManager", () => {
       it("stores the canonical type for case-variant input", async () => {
         ({ manager } = createManager());
 
-        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "explore", "test", { origin: { kind: "service" }, description: "d" });
+        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" });
 
         expect(record.type).toBe("Explore");
       });
@@ -302,7 +302,7 @@ describe("SubagentManager", () => {
         ({ manager } = createManager({ registry: registryWith("Plan", { enabled: false }) }));
 
         await expect(
-          manager.spawnAndWait(STUB_SNAPSHOT, "Plan", "test", { origin: { kind: "service" }, description: "d" }),
+          manager.spawnAndWait(STUB_SNAPSHOT, "Plan", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" }),
         ).rejects.toThrow('Agent type "Plan" is disabled');
       });
     });
@@ -311,7 +311,7 @@ describe("SubagentManager", () => {
       it("stamps isBackground false on the record", async () => {
         ({ manager } = createManager({ registry: registryWith("Explore", { runInBackground: true }) }));
 
-        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, description: "d" });
+        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" });
 
         expect(record.isBackground).toBe(false);
       });
@@ -323,7 +323,7 @@ describe("SubagentManager", () => {
           observer: { onSubagentCreated: onCreated },
         }));
 
-        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, description: "d" });
+        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" });
 
         // The caller holds the result promise, so the frontmatter must not route
         // it through the limiter or announce it as a background agent.
@@ -339,7 +339,7 @@ describe("SubagentManager", () => {
         const controller = new AbortController();
         controller.abort();
 
-        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "d",
           signal: controller.signal,
         });
@@ -359,7 +359,7 @@ describe("SubagentManager", () => {
           }),
         }));
 
-        const pending = manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, description: "d" });
+        const pending = manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" });
 
         expect(manager.listAgents()[0]?.claimed).toBe(true);
 
@@ -386,7 +386,7 @@ describe("SubagentManager", () => {
         spawnBg(manager, "occupies-the-only-slot");
 
         // Were this routed through the limiter, the await would never settle.
-        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, description: "d" });
+        const record = await manager.spawnAndWait(STUB_SNAPSHOT, "Explore", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default", description: "d" });
 
         expect(record.status).toBe("completed");
       });
@@ -751,7 +751,7 @@ describe("SubagentManager", () => {
         const onCreated = vi.fn();
         ({ manager } = createManager({ observer: { onSubagentCreated: onCreated } }));
 
-        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "test agent",
           background: { kind: "explicit", isBackground: true },
         });
@@ -766,7 +766,7 @@ describe("SubagentManager", () => {
         const onCreated = vi.fn();
         ({ manager } = createManager({ observer: { onSubagentCreated: onCreated } }));
 
-        await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "foreground agent",
         });
 
@@ -793,7 +793,7 @@ describe("SubagentManager", () => {
           },
         }));
 
-        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "bg agent",
           background: { kind: "explicit", isBackground: true },
         });
@@ -818,7 +818,7 @@ describe("SubagentManager", () => {
       it("forwards onSessionCreated from spawn options observer to Agent", async () => {
         const received: { agent: Subagent | undefined } = { agent: undefined };
 
-        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "test",
           background: { kind: "explicit", isBackground: true },
           observer: {
@@ -836,7 +836,7 @@ describe("SubagentManager", () => {
       it("forwards onSessionCreated for foreground agents", async () => {
         const received: { agent: Subagent | undefined } = { agent: undefined };
 
-        await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "fg",
           observer: {
             onSessionCreated: (agent) => {
@@ -870,7 +870,7 @@ describe("SubagentManager", () => {
       it("toolCallId is undefined when absent", () => {
         ({ manager } = createManager());
 
-        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "bg",
           background: { kind: "explicit", isBackground: true },
         });
@@ -1409,7 +1409,7 @@ describe("SubagentManager", () => {
         const { factory } = createSessionFactory();
         ({ manager } = createManager({ createSubagentSession: factory }));
 
-        manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+        manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
           description: "test",
           background: { kind: "explicit", isBackground: true },
           parentSession: { parentSessionFile: "/sessions/parent.jsonl", parentSessionId: "parent-session-123" },
@@ -1555,7 +1555,7 @@ describe("SubagentManager", () => {
         })),
       });
 
-      const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" },
+      const id = manager.spawn(STUB_SNAPSHOT, "general-purpose", "test", { origin: { kind: "service" }, context: "fresh", contextSource: "default",
         description: "held agent",
         background: { kind: "explicit", isBackground: true },
       });
@@ -2003,5 +2003,57 @@ describe("resolveRetentionWindow", () => {
         ),
       ).toEqual({ referenceAt: 9_000, windowMinutes: 720 });
     });
+  });
+});
+
+describe("fork without a parent session", () => {
+  const forkOptions = (contextSource: "call" | "agent") => ({
+    origin: { kind: "service" } as const,
+    context: "fork" as const,
+    contextSource,
+    description: "d",
+  });
+
+  it("Explicit fork fails: a call fork with an empty branch rejects and creates no session", async () => {
+    const { manager, createSubagentSession } = createManager();
+    await expect(manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "task", forkOptions("call"))).rejects.toThrow(
+      "Cannot fork: the parent has no session to fork from.",
+    );
+    expect(() =>
+      manager.spawn(STUB_SNAPSHOT, "general-purpose", "task", {
+        ...forkOptions("call"),
+        background: { kind: "explicit", isBackground: true },
+      }),
+    ).toThrow("Cannot fork: the parent has no session to fork from.");
+    expect(createSubagentSession).not.toHaveBeenCalled();
+    expect(manager.listAgents()).toEqual([]);
+  });
+
+  it("Agent default falls back: an agent fork with an empty branch runs fresh and records the fallback", async () => {
+    const { manager, createSubagentSession } = createManager();
+    const record = await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "task", forkOptions("agent"));
+
+    expect(record.context).toBe("fresh");
+    expect(record.contextFallback).toBe("no-parent-session");
+    const params = (createSubagentSession as Mock).mock.calls[0]![0] as CreateSubagentSessionParams;
+    expect(params.context).toBe("fresh");
+    expect(params.task).toBe("task");
+  });
+
+  it("Fallen-back fork: the launch policy receives context fresh", async () => {
+    const policy = vi.fn(() => undefined);
+    const { manager } = createManager();
+    manager.registerLaunchPolicy(policy, { timeoutMs: 1000 });
+    await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "task", forkOptions("agent"));
+    expect((policy.mock.calls[0] as unknown[])[0]).toEqual(expect.objectContaining({ context: "fresh" }));
+  });
+
+  it("a fork from a parent with a branch keeps context fork and no fallback", async () => {
+    const { manager, createSubagentSession } = createManager();
+    const snapshot = { ...STUB_SNAPSHOT, branch: [{ type: "message", id: "e1" } as never] };
+    const record = await manager.spawnAndWait(snapshot, "general-purpose", "task", forkOptions("call"));
+    expect(record.context).toBe("fork");
+    expect(record.contextFallback).toBeUndefined();
+    expect(((createSubagentSession as Mock).mock.calls[0]![0] as CreateSubagentSessionParams).context).toBe("fork");
   });
 });

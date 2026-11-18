@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { type BackgroundParams, renderBackgroundLaunch, spawnBackground } from "#src/tools/background-spawner";
 import { createToolDeps } from "#test/helpers/make-deps";
 import { createResolvedSpawnConfig } from "#test/helpers/make-spawn-config";
-import { createTestSubagent } from "#test/helpers/make-subagent";
+import { createTestSubagent, makeStubExecution } from "#test/helpers/make-subagent";
 import { createMockSession, createSubagentSessionStub, toSubagentSession } from "#test/helpers/mock-session";
 import { STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import { textOf } from "#test/helpers/text-of";
@@ -44,6 +44,7 @@ describe("renderBackgroundLaunch", () => {
       displayName: "Explore",
       description: "answer",
       detailBase,
+      context: "fresh",
       outputFile: "/sessions/agent-7.jsonl",
     });
 
@@ -74,6 +75,7 @@ describe("renderBackgroundLaunch", () => {
       displayName: "Explore",
       description: "answer",
       detailBase,
+      context: "fresh",
     });
 
     expect(textOf(result)).toBe(
@@ -109,6 +111,34 @@ describe("spawnBackground", () => {
       "do something",
       expect.objectContaining({ background: { kind: "explicit", isBackground: true } }),
     );
+  });
+
+  it("labels a fork that fell back to fresh from the record, not the call's requested context", () => {
+    const { manager } = createToolDeps();
+    vi.mocked(manager.getRecord).mockReturnValue(
+      createTestSubagent({
+        execution: makeStubExecution({ context: "fresh", contextFallback: "no-parent-session" }),
+        status: "running",
+        completedAt: undefined,
+      }),
+    );
+    // The call asked for a fork; the run that the record describes is fresh after a fallback.
+    const base = makeConfig();
+    const config = { ...base, execution: { ...base.execution, context: "fork" as const, contextSource: "agent" as const } };
+
+    const result = spawnBackground(manager, makeParams({ config }));
+
+    expect(result.details?.modeLabel).toBe("fork → fresh");
+  });
+
+  it("reports a missing record as an error instead of a label", () => {
+    const { manager } = createToolDeps();
+    vi.mocked(manager.getRecord).mockReturnValue(undefined);
+
+    const result = spawnBackground(manager, makeParams());
+
+    expect(textOf(result)).toContain("record is missing");
+    expect(result.details).toBeUndefined();
   });
 
   it("passes parentSession.toolCallId to manager.spawn", () => {

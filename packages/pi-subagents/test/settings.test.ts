@@ -397,60 +397,6 @@ describe("SettingsManager", () => {
       const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
       expect(sm.excludedExtensionPackages).toEqual([]);
     });
-
-    it("defaults every provider to full prompt inheritance", () => {
-      const sm = new SettingsManager({ emit: vi.fn(), cwd: "/tmp", agentDir: "/nonexistent" });
-      expect(sm.promptInheritanceFor("claude-bridge")).toBe("full");
-    });
-  });
-
-  describe("promptInheritanceFor()", () => {
-    let projectDir: string;
-
-    beforeEach(() => {
-      projectDir = mkdtempSync(join(tmpdir(), "pi-sm-inherit-"));
-      mkdirSync(join(projectDir, ".pi"), { recursive: true });
-    });
-
-    afterEach(() => {
-      rmSync(projectDir, { recursive: true, force: true });
-    });
-
-    /** A manager loaded from a project file declaring the given rules. */
-    function managerWith(rules: Record<string, string>): SettingsManager {
-      writeFileSync(
-        join(projectDir, ".pi", "subagents.json"),
-        JSON.stringify({ promptInheritance: rules }),
-      );
-      const sm = new SettingsManager({ emit: vi.fn(), cwd: projectDir, agentDir: "/nonexistent" });
-      sm.load();
-      return sm;
-    }
-
-    it("returns the configured strategy for a listed provider", () => {
-      expect(managerWith({ "claude-bridge": "portable" }).promptInheritanceFor("claude-bridge")).toBe(
-        "portable",
-      );
-    });
-
-    it("returns full for a provider the rules do not list", () => {
-      expect(managerWith({ "claude-bridge": "portable" }).promptInheritanceFor("anthropic")).toBe(
-        "full",
-      );
-    });
-
-    it("returns full when the child resolved no provider", () => {
-      expect(managerWith({ "claude-bridge": "portable" }).promptInheritanceFor(undefined)).toBe(
-        "full",
-      );
-    });
-
-    it("clears rules that a later load no longer declares", () => {
-      const sm = managerWith({ "claude-bridge": "portable" });
-      writeFileSync(join(projectDir, ".pi", "subagents.json"), JSON.stringify({ wrapUpTurns: 7 }));
-      sm.load();
-      expect(sm.promptInheritanceFor("claude-bridge")).toBe("full");
-    });
   });
 
   describe("retention setter normalization", () => {

@@ -17,7 +17,7 @@ When a main-session run settles, the package SHALL run the tuning step once, aft
 - **THEN** the Jev fixture received only the requests of the turn itself
 
 ### Requirement: Tuned value reaches every reader
-Every reader of `classifier.timeoutMs` (the main decision, worker routing and tool assessment) SHALL take it from the settings snapshot, so a tuned value that applies is used by all of them.
+Every reader of `classifier.timeoutMs` (the main decision and worker routing) SHALL take it from the settings snapshot, so a tuned value that applies is used by all of them.
 
 #### Scenario: Tuned value used by the next request
 - **WHEN** `tuning.json` holds `timeoutMs` value 2500 with base 1500, the config does not set `classifier.timeoutMs`, Jev hangs, and a prompt is sent

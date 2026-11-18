@@ -73,7 +73,7 @@ export async function routeLaunchEntry(
     launch: entry.launch,
     offered: entry.offered,
     cuts: entry.cuts,
-    forkedLaunch: settings.subagents.forkedLaunch,
+    forkLaunch: settings.subagents.forkLaunch,
     canRun: (t) => !writes || checks.of(t).ok,
     thinkingOf: (t) => {
       const check = checks.of(t);

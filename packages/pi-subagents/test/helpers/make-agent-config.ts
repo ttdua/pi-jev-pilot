@@ -14,8 +14,7 @@ export function makeAgentConfig(overrides: Partial<AgentConfig> = {}): AgentConf
     toolsDeclared: true,
     disallowedTools: [],
     systemPrompt: "You are a test agent.",
-    promptMode: "replace",
-    inheritContext: false,
+    context: "fresh",
     runInBackground: false,
     ...overrides,
   };

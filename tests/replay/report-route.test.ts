@@ -39,7 +39,7 @@ const recordOf = (a: ReturnType<typeof workerAnswers>, cuts = SEED_CUTPOINTS.sta
     launch: REPLAY_LAUNCH(false),
     offered: offeredTiers(config.tiers, config.expertOn),
     cuts,
-    forkedLaunch: "untouched",
+    forkLaunch: "untouched",
     canRun: () => true,
     thinkingOf: () => ({ reasoning: true }),
     modelOf: modelOfConfig(config),

@@ -138,7 +138,7 @@ describe("createSubagentSession — assembly", () => {
     expect(io.createLoaderSettingsManager).toHaveBeenCalledTimes(1);
   });
 
-  it("suppresses AGENTS.md/CLAUDE.md/APPEND_SYSTEM.md for subagents", async () => {
+  it("loads the child's own project context and append file (fresh)", async () => {
     await createSubagentSession(
       { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
@@ -146,12 +146,14 @@ describe("createSubagentSession — assembly", () => {
 
     expect(io.createResourceLoader).toHaveBeenCalledWith(
       expect.objectContaining({
-        noContextFiles: true,
+        noContextFiles: false,
         appendSystemPromptOverride: expect.any(Function),
       }),
     );
     const loaderOpts = io.createResourceLoader.mock.calls[0][0];
-    expect(loaderOpts.appendSystemPromptOverride()).toEqual([]);
+    expect(loaderOpts.appendSystemPromptOverride(["APPEND"])).toEqual(["APPEND"]);
+    expect(loaderOpts.systemPromptOverride).toBeUndefined();
+    expect(loaderOpts.extensionFactories?.some((extension: unknown) => typeof extension === "function")).toBe(true);
   });
 
   it("calls newSession with parentSession when parentSessionId is provided", async () => {
@@ -438,49 +440,12 @@ describe("createSubagentSession — the core's own child tools", () => {
   });
 });
 
-describe("createSubagentSession — prompt inheritance", () => {
-  /** The inherited-prompt argument the assembler handed the prompt builder. */
-  function inheritedArgument() {
-    return io.assemblerIO.buildAgentPrompt.mock.calls[0]?.[3];
-  }
-
-  it("hands the prompt builder the snapshot's portable parts", async () => {
-    arrangeFactory();
-
-    await createSubagentSession(
-      {
-        agentId: "a1", snapshot: { ...STUB_SNAPSHOT, portablePrompt: "You are a specialist." },
-        type: "Explore",
-      },
-      defaultDeps(),
-    );
-
-    expect(inheritedArgument()?.portablePrompt).toBe("You are a specialist.");
-  });
-
-  it("applies the strategy the deps' resolver returns", async () => {
-    arrangeFactory();
-
-    await createSubagentSession(
-      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
-      createSubagentSessionDeps({
-        io,
-        exec,
-        registry: mockAgentLookup,
-        resolvePromptInheritance: () => "portable",
-      }),
-    );
-
-    expect(inheritedArgument()?.strategy).toBe("portable");
-  });
-});
-
 /** The names of the built-ins the child's resource loader was handed. */
 function loadedBuiltinNames(): string[] | undefined {
   const opts = io.createResourceLoader.mock.calls[0]?.[0] as ResourceLoaderOptions | undefined;
-  return opts?.extensionFactories?.map((extension) =>
-    typeof extension === "function" ? "<factory>" : extension.name,
-  );
+  return opts?.extensionFactories
+    ?.filter((extension) => typeof extension !== "function")
+    .map((extension) => extension.name);
 }
 
 describe("createSubagentSession — Pi built-in extensions", () => {

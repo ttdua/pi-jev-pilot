@@ -7,7 +7,7 @@ import { probeReport } from "../report";
 // A test launch policy. Reads a scripted adjustment from the JSON file named by JEV_POLICY_FILE
 // and registers it with the executor service at the main session's `session_start`; registers
 // `probe_tool`; `/probe-spawn <type> <prompt>` calls the service's `spawn()`; `/probe-reload`
-// reloads. Records event names, ids and counters only, never prompt text.
+// reloads. `JEV_SPAWN_CONTEXT=fork` makes `/probe-spawn` ask for a fork; `JEV_SPAWN_MODEL` names its model. Records event names, ids and counters only, never prompt text.
 
 type Script = { adjustment?: LaunchAdjustment; delayMs?: number; timeoutMs?: number };
 
@@ -54,7 +54,7 @@ export default function (pi: ExtensionAPI): void {
           agentId: request.agentId,
           origin: request.origin.kind,
           bg: request.isBackground,
-          inherit: request.inheritContext,
+          inherit: request.context === "fork",
         },
       });
       if (script.delayMs !== undefined) await sleep(script.delayMs, signal);
@@ -121,8 +121,19 @@ export default function (pi: ExtensionAPI): void {
     description: "Spawn an agent through the executor service: <type> <prompt>",
     handler: async (args) => {
       const [type = "general-purpose", ...rest] = args.trim().split(/\s+/);
-      const id = service()?.spawn(type, rest.join(" "), { description: "probe spawn" });
-      report("spawn", { data: { agentId: id ?? "none" } });
+      const context = process.env.JEV_SPAWN_CONTEXT === "fork" ? "fork" : undefined;
+      try {
+        const id = service()?.spawn(type, rest.join(" "), {
+          description: "probe spawn",
+          context,
+          model: process.env.JEV_SPAWN_MODEL,
+        });
+        report("spawn", { data: { agentId: id ?? "none" } });
+      } catch (error) {
+        report("spawn:error", {
+          data: { message: error instanceof Error ? error.message : "unknown" },
+        });
+      }
     },
   });
 

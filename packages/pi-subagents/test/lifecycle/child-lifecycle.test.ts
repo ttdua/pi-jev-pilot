@@ -41,6 +41,7 @@ describe("createChildLifecyclePublisher", () => {
     publisher.sessionCreated({
       sessionId: "child-session-abc",
       parentSessionId: "parent-42",
+      context: "fork",
       ...ID,
     });
 
@@ -48,6 +49,7 @@ describe("createChildLifecyclePublisher", () => {
     expect(emit).toHaveBeenCalledWith(SUBAGENT_CHILD_SESSION_CREATED, {
       sessionId: "child-session-abc",
       parentSessionId: "parent-42",
+      context: "fork",
       ...ID,
     });
   });

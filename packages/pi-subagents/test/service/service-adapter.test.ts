@@ -4,6 +4,7 @@ import { SubagentState } from "#src/lifecycle/subagent-state";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { SubagentsService } from "#src/service/service";
 import type { ServiceRuntimeLike, SubagentManagerLike } from "#src/service/service-adapter";
+import { DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
 import { SubagentsServiceAdapter, toSubagentRecord } from "#src/service/service-adapter";
 import { type SessionContext, Subagent } from "#src/types";
 import { makeModel } from "#test/helpers/make-model";
@@ -39,6 +40,7 @@ describe("toSubagentRecord", () => {
       completedAt: 2000,
       lifetimeUsage: { input: 100, output: 200, cacheWrite: 50 },
       compactionCount: 1,
+      context: "fresh",
       // The fixture never ran, so it has no session to continue.
       resumeRefusal: "no-session",
     });
@@ -48,6 +50,28 @@ describe("toSubagentRecord", () => {
     const agent = createTestSubagent({ sessionReady: true });
     await agent.releaseSession();
     expect(toSubagentRecord(agent).resumeRefusal).toBe("session-released");
+  });
+
+  it("carries a fork's context and a fallback when one happened", () => {
+    const fallback = new Subagent({
+      id: "fb",
+      type: "Explore",
+      description: "d",
+      isBackground: true,
+      execution: { ...makeStubExecution(), context: "fresh", contextFallback: "no-parent-session" },
+    });
+    expect(toSubagentRecord(fallback)).toEqual(
+      expect.objectContaining({ context: "fresh", contextFallback: "no-parent-session" }),
+    );
+    const fork = new Subagent({
+      id: "fk",
+      type: "Explore",
+      description: "d",
+      isBackground: true,
+      execution: { ...makeStubExecution(), context: "fork" },
+    });
+    expect(toSubagentRecord(fork).context).toBe("fork");
+    expect(toSubagentRecord(fork)).not.toHaveProperty("contextFallback");
   });
 
   it("omits resumeRefusal when a resume would start", () => {
@@ -177,6 +201,7 @@ describe("toSubagentRecord", () => {
       startedAt: 500,
       lifetimeUsage: { input: 0, output: 0, cacheWrite: 0 },
       compactionCount: 0,
+      context: "fresh",
       resumeRefusal: "still-running",
     });
     expect(result).not.toHaveProperty("result");
@@ -212,7 +237,7 @@ const NO_AGENT_TYPES = { list: () => [], get: () => undefined };
 function makeRuntimeStub(override: Partial<ServiceRuntimeLike> = {}): ServiceRuntimeLike {
   return {
     currentCtx: makeStubCtx(),
-    buildSnapshot: vi.fn((_: boolean): ParentSnapshot => STUB_SNAPSHOT),
+    buildSnapshot: vi.fn((_: string): ParentSnapshot => STUB_SNAPSHOT),
     getSessionInfo: vi.fn(() => ({
       parentSessionFile: "/sessions/parent.jsonl",
       parentSessionId: "parent-session-123",
@@ -348,6 +373,117 @@ describe("SubagentsServiceAdapter — spawn", () => {
     expect(() => svc.spawn("Explore", "task", { model: "bad-model" })).toThrow(
       /Model not found/,
     );
+  });
+
+  describe("context", () => {
+    it("throws for an unknown context and starts no child", () => {
+      const mgr = createManagerStub();
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
+
+      expect(() => svc.spawn("Explore", "task", { context: "nested" as never })).toThrow(
+        'Invalid context "nested": expected "fresh" or "fork".',
+      );
+      expect(mgr.spawn).not.toHaveBeenCalled();
+    });
+
+    it("passes a fork through and builds the snapshot for it", () => {
+      const mgr = createManagerStub();
+      const runtime = makeRuntimeStub();
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), runtime, NO_AGENT_TYPES);
+
+      svc.spawn("Explore", "task", { context: "fork" });
+
+      expect(runtime.buildSnapshot).toHaveBeenCalledWith("fork");
+      expect(mgr.spawn).toHaveBeenCalledWith(
+        expect.anything(),
+        "Explore",
+        "task",
+        expect.objectContaining({ context: "fork", contextSource: "call" }),
+      );
+    });
+
+    function withAgent(agent: Record<string, unknown>) {
+      const mgr = createManagerStub();
+      const types = { list: () => [], get: () => agent as never };
+      return { mgr, svc: new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), types) };
+    }
+    const spawnedWith = (mgr: ReturnType<typeof createManagerStub>) =>
+      (mgr.spawn as ReturnType<typeof vi.fn>).mock.calls[0]![3];
+
+    it("takes the agent's declared context when the caller names none", () => {
+      const { mgr, svc } = withAgent({ context: "fork" });
+      svc.spawn("Explore", "task");
+      expect(spawnedWith(mgr)).toMatchObject({ context: "fork", contextSource: "agent" });
+    });
+
+    it("lets the caller override an unlocked agent default", () => {
+      const { mgr, svc } = withAgent({ context: "fork" });
+      svc.spawn("Explore", "task", { context: "fresh" });
+      expect(spawnedWith(mgr)).toMatchObject({ context: "fresh", contextSource: "call" });
+    });
+
+    it("holds a locked agent context against the caller", () => {
+      const { mgr, svc } = withAgent({ context: "fresh", locked: ["context"] });
+      svc.spawn("Explore", "task", { context: "fork" });
+      expect(spawnedWith(mgr)).toMatchObject({ context: "fresh", contextSource: "agent" });
+    });
+
+    it("counts the deprecated inheritContext as a caller value", () => {
+      const { mgr, svc } = withAgent({ context: "fresh" });
+      svc.spawn("Explore", "task", { inheritContext: true });
+      expect(spawnedWith(mgr)).toMatchObject({ context: "fork", contextSource: "call" });
+    });
+
+    it("warns once per session for inheritContext and again after a new session", () => {
+      vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const warnings = new DeprecationWarnings();
+      const svc = new SubagentsServiceAdapter(createManagerStub(), vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES, warnings);
+      const count = () => warn.mock.calls.filter((c) => String(c[0]).includes("inheritContext")).length;
+
+      svc.spawn("Explore", "a", { inheritContext: true });
+      svc.spawn("Explore", "b", { inheritContext: true });
+      expect(count()).toBe(1);
+      warnings.reset();
+      svc.spawn("Explore", "c", { inheritContext: true });
+      expect(count()).toBe(2);
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    });
+
+    it("defaults to fresh", () => {
+      const mgr = createManagerStub();
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
+
+      svc.spawn("Explore", "task");
+
+      expect(mgr.spawn).toHaveBeenCalledWith(
+        expect.anything(),
+        "Explore",
+        "task",
+        expect.objectContaining({ context: "fresh", contextSource: "default" }),
+      );
+    });
+
+    it("reads inheritContext: false as fresh and warns about context", () => {
+      vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
+      defaultDeprecationWarnings.reset();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const mgr = createManagerStub();
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
+
+      svc.spawn("Explore", "task", { inheritContext: false });
+
+      expect(mgr.spawn).toHaveBeenCalledWith(
+        expect.anything(),
+        "Explore",
+        "task",
+        expect.objectContaining({ context: "fresh" }),
+      );
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes("context"))).toHaveLength(1);
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    });
   });
 
   describe("thinking level", () => {
@@ -657,6 +793,7 @@ describe("SubagentsServiceAdapter — resume", () => {
         completedAt: 2000,
         lifetimeUsage: { input: 100, output: 200, cacheWrite: 50 },
         compactionCount: 0,
+        context: "fresh",
         resumeRefusal: "no-session",
       },
     });

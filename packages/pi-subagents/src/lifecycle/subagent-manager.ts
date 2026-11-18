@@ -29,7 +29,7 @@ import type { RunConfig } from "#src/runtime";
 import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
 import { LaunchPolicySlot } from "#src/seams/launch-policy";
 import type { LaunchOrigin, LaunchPolicy } from "#src/service/service";
-import type { AgentConfig, CompactionInfo, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
+import type { AgentConfig, CompactionInfo, ContextMode, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
 /**
  * The agent-registry slice the manager needs to resolve a spawn. Deliberately
@@ -196,7 +196,8 @@ export interface AgentSpawnConfig {
   description: string;
   model?: Model<any>;
   maxTurns?: number;
-  inheritContext?: boolean;
+  context: ContextMode;
+  contextSource: "call" | "agent" | "default";
   thinkingLevel?: ThinkingLevel;
   /**
    * Whether this door has committed to a background mode or is offering a
@@ -218,6 +219,24 @@ export interface AgentSpawnConfig {
   parentSession?: ParentSessionInfo;
   /** What started the launch: the `subagent` tool call, or the service. */
   origin: LaunchOrigin;
+}
+
+/** The message an explicit fork fails with when the parent has nothing to copy. */
+export const NO_PARENT_SESSION_ERROR = "Cannot fork: the parent has no session to fork from.";
+
+/**
+ * The context a launch runs with. A fork needs a parent branch to copy: one
+ * the caller asked for fails before anything is created; one the agent file
+ * asked for runs fresh and records why.
+ */
+export function resolveLaunchContext(
+  snapshot: Pick<ParentSnapshot, "branch">,
+  context: ContextMode,
+  contextSource: "call" | "agent" | "default",
+): { context: ContextMode; contextFallback?: "no-parent-session" } {
+  if (context !== "fork" || snapshot.branch.length > 0) return { context };
+  if (contextSource === "call") throw new Error(NO_PARENT_SESSION_ERROR);
+  return { context: "fresh", contextFallback: "no-parent-session" };
 }
 
 export class SubagentManager {
@@ -380,6 +399,7 @@ export class SubagentManager {
     options: AgentSpawnConfig,
   ): string {
     const { type, isBackground } = resolved;
+    const launch = resolveLaunchContext(snapshot, options.context, options.contextSource);
     const id = randomUUID().slice(0, 17);
     const record = new Subagent({
       id,
@@ -400,7 +420,9 @@ export class SubagentManager {
         parentSession: options.parentSession,
         signal: options.signal,
         origin: options.origin,
-        inheritContext: options.inheritContext,
+        context: launch.context,
+        contextSource: options.contextSource,
+        contextFallback: launch.contextFallback,
         launchGate: this.launchGate,
       },
     });

@@ -56,7 +56,7 @@ export function newEntry(call: PolicyCall, window: readonly WindowEntry[]): Laun
     origin: request.origin,
     facts,
     launch,
-    kind: launchKind(launch, offered, settings.subagents.forkedLaunch, slots.length),
+    kind: launchKind(launch, offered, settings.subagents.forkLaunch, slots.length),
     mode: settings.mode,
     cuts: cutPointsFor(window, settings.mode),
     offered,

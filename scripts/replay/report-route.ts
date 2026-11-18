@@ -90,7 +90,7 @@ export function routeStreamRecords(
       launch: REPLAY_LAUNCH(o.background[i] === true),
       offered,
       cuts: cutPointsFor(windowEntries(lines.slice(-WINDOW_MAX), RUBRIC_VERSION), o.mode),
-      forkedLaunch: "untouched",
+      forkLaunch: "untouched",
       canRun: () => true,
       thinkingOf: () => ({ reasoning: true }),
       modelOf,

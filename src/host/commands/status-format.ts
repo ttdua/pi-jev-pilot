@@ -44,6 +44,19 @@ function executorLine(e: Snapshot["executor"]): string {
   return `executor: duplicate executor${other}; uninstall @gotgenes/pi-subagents; worker routing is off`;
 }
 
+/** The problem lines of the report: invalid or deprecated config, store issues, then `extra`. */
+function problemLines(s: Snapshot, extra: readonly string[]): string[] {
+  const problems: string[] = [];
+  if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
+  if (s.config.valid && s.config.deprecated.includes("tools"))
+    problems.push("  deprecated: config tools is ignored");
+  problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
+  problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
+  problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));
+  problems.push(...extra.map((p) => `  ${p}`));
+  return problems;
+}
+
 /** `extra` holds problems the snapshot cannot see, such as a launch policy slot held elsewhere. */
 export function formatStatus(
   s: Snapshot,
@@ -56,15 +69,10 @@ export function formatStatus(
   lines.push(reviewLine(s.settings.review));
   lines.push(`key: ${s.keyVar} ${s.keySet ? "set" : "not set"}`);
   lines.push(executorLine(s.executor));
-  const problems: string[] = [];
-  if (!s.config.valid) problems.push(...issueLines("config", s.config.issues));
-  if (s.config.valid && s.config.deprecated.includes("tools"))
-    problems.push("  deprecated: config tools is ignored");
-  problems.push(...issueLines(`state (${s.state.kind})`, s.state.issues));
-  problems.push(...issueLines(`tuning (${s.tuning.kind})`, s.tuning.issues));
-  problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));
-  problems.push(...extra.map((p) => `  ${p}`));
+  const problems = problemLines(s, extra);
   if (problems.length > 0) lines.push("problems:", ...problems);
+  if (s.config.valid) lines.push(...s.config.notices.map((n) => `notice: ${n}`));
+
   if (s.executor.kind === "present" && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");

@@ -74,7 +74,7 @@ Error messages name the field and what was expected, never the value found, so a
   },
   "effort": { "holdProviders": ["9router"] },
   "skills": { "inject": "content" },
-  "subagents": { "forkedLaunch": "untouched" },
+  "subagents": { "forkLaunch": "untouched" },
   "state": { "parentRequest": false },
   "review": { "cli": "codex" }
 }
@@ -132,7 +132,11 @@ Check for yourself by watching for cache misses after thinking-level changes on 
 
 | Key | Default | Values |
 |---|---|---|
-| `forkedLaunch` | `untouched` | `untouched` leaves a forked launch (`inherit_context`) alone; `thinking` keeps its model and changes only thinking. A `resume` launch is always untouched |
+| `forkLaunch` | `untouched` | `untouched` leaves a fork launch (`context: fork`) alone; `thinking` keeps its model and changes only thinking. A `resume` launch is always untouched |
+
+#### Deprecated: `forkedLaunch`
+
+`subagents.forkedLaunch` is the old name of `forkLaunch`. It is read as an alias, with a notice in `/jev` status, and removed in the next minor release. A file that sets both keys is invalid.
 
 `tools`: removed; accepted and ignored, and `/jev` reports it as deprecated.
 

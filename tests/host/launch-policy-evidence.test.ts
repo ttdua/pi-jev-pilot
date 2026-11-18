@@ -111,6 +111,35 @@ const MAIN_AFTER: ScriptEntry = {
 
 const childOf = (f: Fixture): RecordedRequest | undefined => f.requests.find(isChild);
 
+const FILE_MARKER = "JEV-MARKER-file-7d3a";
+/** A fork's request: only a fork holds the instructions block. */
+const isForkRequest = (r: RecordedRequest): boolean =>
+  JSON.stringify(messages(r)).includes("<subagent_instructions>");
+/**
+ * Main prompt `START-MAIN` reads `marker.txt` first, then launches `call`: the parent's leaf
+ * holds a real tool result when the fork starts.
+ */
+function forkAfterRead(call: Call): ScriptEntry[] {
+  return [
+    {
+      name: "main-read",
+      match: (r) => isMainPrompt(r, "START-MAIN"),
+      reply: { toolCalls: [{ name: "read", arguments: { path: "marker.txt" } }] },
+      times: 1,
+    },
+    {
+      name: "main-fork-call",
+      match: (r) =>
+        r.model === "fixture-main" &&
+        !isForkRequest(r) &&
+        messages(r).at(-1)?.role === "tool" &&
+        messages(r).filter((m) => m.role === "tool").length === 1,
+      reply: { toolCalls: [call] },
+      times: 1,
+    },
+  ];
+}
+
 // ---- Policy probe ----
 
 type ProbePolicy = {
@@ -350,20 +379,53 @@ describe("launch policy seam evidence", () => {
       const { fixture, session: s } = await session({
         install: "executor-only",
         env: probePolicy(POLICY_FAST),
-        script: [
-          ...childScript([]),
-          ...mainScript(`START-MAIN ${MARKER}`, [launch(WORKER, { inherit_context: true })]),
-        ],
+        script: [...childScript([]), ...forkAfterRead(launch(WORKER, { context: "fork" }))],
       });
-      await s.prompt(`START-MAIN ${MARKER}`);
+      writeFileSync(join(s.cwd, "marker.txt"), FILE_MARKER);
+      await s.prompt("START-MAIN");
       await s.waitFor(() => childOf(fixture) !== undefined, "child request");
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-fast");
       expect(child?.reasoningEffort).toBe("medium");
-      // The parent's prompt reached the child through the inherited context.
-      expect(JSON.stringify(child?.body.messages).includes(`START-MAIN ${MARKER}`)).toBe(true);
+      // The parent's tool result reached the child as a tool result, not as text elsewhere.
+      const toolMessages = messages(child as RecordedRequest).filter((m) => m.role === "tool");
+      expect(toolMessages.some((m) => textOf(m.content).includes(FILE_MARKER))).toBe(true);
       expect(records(s, "policy:call")[0]?.data).toMatchObject({ inherit: true });
-      expect(JSON.stringify(s.probeRecords())).not.toContain(MARKER);
+      expect(JSON.stringify(s.probeRecords())).not.toContain(FILE_MARKER);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Untouched fork keeps the parent prefix",
+    async () => {
+      // No policy, no model or thinking on the launch: the fork runs on the parent's model.
+      const { fixture, session: s } = await session({
+        install: "executor-only",
+        script: [
+          ...childScript([]),
+          ...forkAfterRead(
+            subagent({
+              prompt: "CHILD-TASK untouched",
+              description: "probe",
+              subagent_type: WORKER,
+              context: "fork",
+            }),
+          ),
+        ],
+      });
+      writeFileSync(join(s.cwd, "marker.txt"), FILE_MARKER);
+      await s.prompt("START-MAIN");
+      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
+      const child = childOf(fixture) as RecordedRequest;
+      const parent = fixture.requests.findLast(
+        (r) => !isForkRequest(r) && r.seq < child.seq,
+      ) as RecordedRequest;
+      expect(child.model).toBe(parent.model);
+      expect(["system", "developer"]).toContain(messages(parent)[0]?.role as string);
+      expect(JSON.stringify(messages(child)[0])).toBe(JSON.stringify(messages(parent)[0]));
+      expect(JSON.stringify(child.body.tools)).toBe(JSON.stringify(parent.body.tools));
+      expect(child.toolNames).toEqual(parent.toolNames);
     },
     TIMEOUT,
   );

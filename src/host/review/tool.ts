@@ -1,6 +1,6 @@
 import type { BeforeAgentStartEvent, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { isChild } from "../platform/index.ts";
+import { childContext, isChild } from "../platform/index.ts";
 import { loadSnapshot, type Snapshot } from "../platform/index.ts";
 import { effectiveChoice, type Exec, type ReviewChoice } from "../../policy/review/index.ts";
 import { runReview } from "./run.ts";
@@ -100,9 +100,9 @@ export function registerReviewTool(
   });
 }
 
-/** Removes the review tool from a child's tool list for this turn. */
+/** Removes the review tool from a fresh child's tool list; a fork keeps it declared, and `execute` refuses it. */
 export function hideReviewInChild(event: BeforeAgentStartEvent, sessionId: string): void {
-  if (!isChild(sessionId)) return;
+  if (childContext(sessionId) !== "fresh") return;
   const tools = event.systemPromptOptions?.selectedTools;
   if (!Array.isArray(tools)) return;
   for (let i = tools.length - 1; i >= 0; i--) if (tools[i] === REVIEW_TOOL) tools.splice(i, 1);

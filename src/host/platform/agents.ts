@@ -13,7 +13,7 @@ function isThinkingLevel(value: string | undefined): boolean {
 function snapshotLaunchFields(snapshot: AgentTypeSnapshot): Partial<AgentFacts> {
   const fields: Partial<AgentFacts> = {};
   if (snapshot.runInBackground !== undefined) fields.runInBackground = snapshot.runInBackground;
-  if (snapshot.inheritContext !== undefined) fields.inheritContext = snapshot.inheritContext;
+  if (snapshot.context !== undefined) fields.context = snapshot.context;
   return fields;
 }
 

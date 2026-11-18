@@ -7,12 +7,30 @@ import type { Config } from "../../../src/store/config.ts";
 
 const snap = (localMode?: "budget") =>
   buildSnapshot({
-    configRead: { kind: "ok", present: true, deprecated: [], config: {} as Config },
+    configRead: { kind: "ok", present: true, notices: [], deprecated: [], config: {} as Config },
     stateRead: { kind: "ok", state: {} },
     env: { TYPESAFE_API_KEY: "k" },
     toolNames: ["subagent"],
     ...(localMode === undefined ? {} : { localModeRead: { kind: "ok" as const, mode: localMode } }),
   });
+
+describe("config notices", () => {
+  test("the status shows a config notice", () => {
+    const s = buildSnapshot({
+      configRead: {
+        kind: "ok",
+        present: true,
+        config: {} as Config,
+        notices: ["subagents.forkedLaunch is deprecated; rename it to subagents.forkLaunch"],
+        deprecated: [],
+      },
+      stateRead: { kind: "ok", state: {} },
+      env: { TYPESAFE_API_KEY: "k" },
+      toolNames: [],
+    });
+    expect(formatStatus(s)).toContain("notice: subagents.forkedLaunch is deprecated");
+  });
+});
 
 describe("statusReply", () => {
   test("the plain reply is the empty-tally status at info", () => {

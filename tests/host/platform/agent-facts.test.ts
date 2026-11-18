@@ -71,15 +71,18 @@ describe("agentFacts", () => {
   });
 
   test("Launch fields carried only when declared", () => {
-    const declared = agentFacts(
-      snapshot({ maxTurns: 7, runInBackground: true, inheritContext: false }),
-    );
+    const declared = agentFacts(snapshot({ maxTurns: 7, runInBackground: true, context: "fresh" }));
     expect(declared.maxTurns).toBe(7);
     expect(declared.runInBackground).toBe(true);
-    expect(declared.inheritContext).toBe(false);
+    expect(declared.context).toBe("fresh");
     const bare = agentFacts(snapshot());
     expect("runInBackground" in bare).toBe(false);
-    expect("inheritContext" in bare).toBe(false);
+    expect("context" in bare).toBe(false);
+  });
+
+  test("Context carried", () => {
+    expect(agentFacts(snapshot({ context: "fork" })).context).toBe("fork");
+    expect(agentFacts(snapshot({ context: "fresh" })).context).toBe("fresh");
   });
 
   test("Executor agents mapped through agentFacts", () => {

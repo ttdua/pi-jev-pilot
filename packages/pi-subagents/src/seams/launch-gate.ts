@@ -14,14 +14,14 @@ import {
 	buildLaunchRequest,
 	type ParentToolInfo,
 } from "#src/seams/launch-request";
-import { applyLocks } from "#src/seams/locked-launch";
+import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import type {
 	LaunchAdjustment,
 	LaunchOrigin,
 	LaunchRequest,
 } from "#src/service/service";
-import { type ModelRegistry, resolveModel } from "#src/session/model-resolver";
-import type { AgentConfig, ThinkingLevel } from "#src/types";
+import { type ModelRegistry, resolveForkThinking, resolveModel } from "#src/session/model-resolver";
+import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /** What the parent session offers a launch, read fresh for each launch. */
 export interface LaunchContext {
@@ -39,10 +39,12 @@ export interface LaunchFacts {
 	description: string;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
-	inheritContext: boolean;
+	context: ContextMode;
 	isBackground: boolean;
 	/** The parent's model, which a locked agent model falls back to when unresolvable. */
 	parentModel: Model<any> | undefined;
+	/** The parent's thinking level; a fork's unlocked, uncalled thinking. */
+	parentThinking?: ThinkingLevel;
 	modelRegistry: ModelRegistry;
 }
 
@@ -88,10 +90,7 @@ export class LaunchPolicyGate {
 				modelRegistry: facts.modelRegistry,
 			});
 			const request = this.request({ ...facts, ...locked }, config);
-			const base: LaunchOverrides = {
-				model: locked.model,
-				thinkingLevel: locked.thinkingLevel,
-			};
+			const base = baseOverrides(facts, locked);
 			const adjustment = await this.slot.consult(request, runSignal);
 			return adjustment
 				? overridesOf(request, adjustment, base, facts.modelRegistry)
@@ -136,18 +135,40 @@ function overridesOf(
 }
 
 /**
+ * What the session runs with when the policy returns nothing: the locked
+ * values. A fork falls back to the parent's model and thinking, never to an
+ * unlocked agent default.
+ */
+function baseOverrides(facts: LaunchFacts, locked: LaunchValues): LaunchOverrides {
+	if (facts.context !== "fork") {
+		return { model: locked.model, thinkingLevel: locked.thinkingLevel };
+	}
+	return {
+		model: locked.model ?? facts.parentModel,
+		thinkingLevel: resolveForkThinking({ caller: locked.thinkingLevel, parent: facts.parentThinking }),
+	};
+}
+
+/**
  * The model and thinking level the launch would run with absent a policy:
  * the door's resolved values (caller over agent, after `locked`), else the
- * agent's own.
+ * agent's own; for a fork, else the parent's.
  */
 function requestedValues(
 	facts: LaunchFacts,
 	config: AgentConfig,
 ): { model?: string; thinking?: ThinkingLevel } {
-	const model = facts.model
-		? `${facts.model.provider}/${facts.model.id}`
-		: config.model;
-	return { model, thinking: facts.thinkingLevel ?? config.thinking };
+	const fork = facts.context === "fork";
+	const fallbackModel = fork ? modelName(facts.parentModel) : config.model;
+	const fallbackThinking = fork ? facts.parentThinking : config.thinking;
+	return {
+		model: modelName(facts.model) ?? fallbackModel,
+		thinking: facts.thinkingLevel ?? fallbackThinking,
+	};
+}
+
+function modelName(model: Model<any> | undefined): string | undefined {
+	return model ? `${model.provider}/${model.id}` : undefined;
 }
 
 function resolvePolicyModel(

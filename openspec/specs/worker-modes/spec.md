@@ -32,7 +32,7 @@ The table SHALL live in the pure policy layer as data. The expert cap is a ceili
 - **THEN** its expert cap is 0
 
 ### Requirement: Mode selects a target table
-A mode SHALL select exactly one target table, for worker requests only. Every question, threshold and rule other than the cut points derived from that table MUST be the same in every mode: the whole worker request, the difficulty score, the risk floor, slot handling, effort rules, fallback, tool assessment and the whole main request.
+A mode SHALL select exactly one target table, for worker requests only. Every question, threshold and rule other than the cut points derived from that table MUST be the same in every mode: the whole worker request, the difficulty score, the risk floor, slot handling, effort rules, fallback and the whole main request.
 
 #### Scenario: Worker request ignores the mode
 - **WHEN** worker questions offering all four tiers are built while the mode is `budget`, then `premium`

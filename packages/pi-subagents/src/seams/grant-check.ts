@@ -10,12 +10,18 @@
 
 import type { ToolExposure, ToolInfo } from "@earendil-works/pi-coding-agent";
 import { debugLog, debugNote } from "#src/debug";
+import { ORCHESTRATION_TOOLS, type ForkGuardState } from "#src/lifecycle/fork-guard";
 
 /** Exposures whose active tools Pi declares to the model. */
 const MODEL_CALLABLE: ReadonlySet<ToolExposure> = new Set([
 	"direct",
 	"model-only",
 ]);
+
+/** Whether the model can call a tool of this exposure; an unset exposure is `direct`. */
+export function isModelCallable(exposure: ToolExposure | undefined): boolean {
+	return MODEL_CALLABLE.has(exposure ?? "direct");
+}
 
 /** The granted names the child registered with a model-callable exposure, in grant order. */
 export function checkGrants(
@@ -75,5 +81,28 @@ function dropUncallable(
 	session.setActiveToolsByName(
 		session.getActiveToolNames().filter((name) => !dropped.includes(name)),
 	);
+	return kept;
+}
+
+/**
+ * The fork's grant check: grants the child registered with a model-callable
+ * exposure join the fork's callable set and are returned as `grantedTools`.
+ * The declarations never change, so the fork's prefix stays the parent's.
+ */
+export function enforceForkGrants(
+	state: ForkGuardState,
+	granted: readonly string[],
+	childTools: readonly Pick<ToolInfo, "name" | "exposure">[],
+): string[] {
+	if (granted.length === 0) return [];
+	const kept = checkGrants(
+		granted.filter((name) => !ORCHESTRATION_TOOLS.includes(name)),
+		childTools,
+	);
+	for (const name of granted.filter((name) => !kept.includes(name)))
+		debugNote(
+			`launch policy: grant ${name} is not a callable tool in the fork; dropped`,
+		);
+	for (const name of kept) state.callable.add(name);
 	return kept;
 }

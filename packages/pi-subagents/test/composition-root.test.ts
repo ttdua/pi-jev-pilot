@@ -87,6 +87,7 @@ function makePi() {
       sendMessage: vi.fn(),
       exec: vi.fn(),
       getAllTools: vi.fn((): { name: string }[] => []),
+      getActiveTools: vi.fn((): string[] => []),
     } as any,
     tools,
     handlers,
@@ -370,16 +371,13 @@ describe("composition root: widget teardown", () => {
   });
 });
 
-describe("composition root: prompt-inheritance wiring", () => {
+describe("composition root: parent snapshot wiring", () => {
   /**
-   * Run the extension through one parent turn and one spawn, and return what
-   * the root handed `createSubagentSession`.
-   *
-   * Only this file fails if the `before_agent_start` capture or the resolver
-   * entry is dropped from the deps bag — the unit tests for each half pass
-   * whether or not the root wires them together.
+   * Run the extension through one spawn and return what the root handed
+   * `createSubagentSession`. Only this file fails if the root stops reading
+   * the parent's active tools into the snapshot.
    */
-  async function spawnAfterParentTurn(systemPromptOptions?: unknown) {
+  async function spawnAfterParentTurn(activeTools: string[] = []) {
     // The module mock is shared across this file, so drop earlier tests' calls
     // before reading back the one this spawn makes.
     vi.mocked(createSubagentSession).mockClear();
@@ -387,11 +385,10 @@ describe("composition root: prompt-inheritance wiring", () => {
       toSubagentSession(createSubagentSessionStub(createMockSession(), "/sessions/child.jsonl")),
     );
     const { pi, tools, fire } = makePi();
+    vi.mocked(pi.getActiveTools).mockReturnValue(activeTools);
+    vi.mocked(pi.getAllTools).mockReturnValue(activeTools.map((name) => ({ name, description: `${name} tool`, parameters: {} })) as never);
     subagentsExtension(pi);
     await fire("session_start", {}, makeSessionStartCtx(makeParentRegistry().registry, makeRecordingUI()));
-    if (systemPromptOptions !== undefined) {
-      await fire("before_agent_start", { systemPromptOptions });
-    }
 
     await tools.get("subagent").execute(
       "tool-call-1",
@@ -408,75 +405,11 @@ describe("composition root: prompt-inheritance wiring", () => {
     return vi.mocked(createSubagentSession).mock.calls[0];
   }
 
-  it("captures the parent's prompt options and renders them into the spawn snapshot", async () => {
-    // Pi hands over the whole options object, project context included, so the
-    // exact assertion is what pins that the snapshot leaves that block behind
-    // for each child to resolve against its own directory (#918).
-    const [params] = await spawnAfterParentTurn({
-      customPrompt: "You are a specialist.",
-      contextFiles: [{ path: "/repo/AGENTS.md", content: "Repo rules." }],
-    });
+  it("puts the tools the parent declares into the spawn snapshot", async () => {
+    const [params] = await spawnAfterParentTurn(["read", "edit"]);
 
-    expect(params.snapshot.portablePrompt).toBe("You are a specialist.");
-  });
-
-  it("leaves the snapshot's portable parts absent when the parent has run no turn", async () => {
-    const [params] = await spawnAfterParentTurn();
-
-    expect(params.snapshot.portablePrompt).toBeUndefined();
-  });
-
-  describe("the session factory's inheritance resolver", () => {
-    let projectDir: string;
-
-    beforeEach(() => {
-      projectDir = mkdtempSync(join(tmpdir(), "pi-root-inherit-"));
-      mkdirSync(join(projectDir, ".pi"), { recursive: true });
-      writeFileSync(
-        join(projectDir, ".pi", "subagents.json"),
-        JSON.stringify({ promptInheritance: { "claude-bridge": "portable" } }),
-      );
-      // The root reads settings from process.cwd(), so point it at the fixture.
-      vi.spyOn(process, "cwd").mockReturnValue(projectDir);
-    });
-
-    afterEach(() => {
-      vi.mocked(process.cwd).mockRestore();
-      rmSync(projectDir, { recursive: true, force: true });
-    });
-
-    it("answers portable for a provider the operator configured", async () => {
-      const [, deps] = await spawnAfterParentTurn();
-
-      expect(deps.resolvePromptInheritance("claude-bridge")).toBe("portable");
-    });
-
-    it("answers full for a provider the operator did not configure", async () => {
-      const [, deps] = await spawnAfterParentTurn();
-
-      expect(deps.resolvePromptInheritance("anthropic")).toBe("full");
-    });
-  });
-
-  describe("the session factory's project-context loader", () => {
-    let workspace: string;
-
-    beforeEach(() => {
-      workspace = mkdtempSync(join(tmpdir(), "pi-root-context-"));
-      writeFileSync(join(workspace, "AGENTS.md"), "Worktree rules.");
-    });
-
-    afterEach(() => {
-      rmSync(workspace, { recursive: true, force: true });
-    });
-
-    it("reads the directory it is asked about, not the parent's", async () => {
-      const [, deps] = await spawnAfterParentTurn();
-
-      expect(deps.io.assemblerIO.loadProjectContext(workspace)).toContain(
-        `<project_instructions path="${join(workspace, "AGENTS.md")}">`,
-      );
-    });
+    expect(params.snapshot.toolNames).toEqual(["read", "edit"]);
+    expect(params.snapshot.sessionId).toBe("session-1");
   });
 });
 

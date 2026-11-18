@@ -2,6 +2,7 @@
  * Model resolution: exact match ("provider/modelId") with fuzzy fallback.
  */
 import type { Model } from "@earendil-works/pi-ai";
+import type { ThinkingLevel } from "#src/types";
 
 export interface ModelRegistry {
   find(provider: string, modelId: string): Model<any> | undefined;
@@ -37,19 +38,37 @@ export type ModelResolution = ModelResolutionResult | ModelResolutionError;
  * `modelFromParams` reports which side supplied the winning string, not merely whether
  * the caller passed one — a caller whose value an agent's `locked:` frontmatter discarded
  * did not win, so its typo is not the string being resolved here.
+ *
+ * A fork runs on the parent's model unless the caller or a lock names one: an
+ * unlocked agent default (`opts.fork`, not `modelLocked`, not `modelFromParams`)
+ * is ignored.
  */
 export function resolveInvocationModel(
   parentModel: Model<any> | undefined,
   modelInput: string | undefined,
   modelFromParams: boolean,
   registry: ModelRegistry | undefined,
+  opts?: { fork: boolean; modelLocked: boolean },
 ): ModelResolution {
   if (!modelInput) return { model: parentModel };
+  if (opts?.fork && !opts.modelLocked && !modelFromParams) return { model: parentModel };
   if (!registry) return { error: "No model registry available." };
   const resolved = resolveModel(modelInput, registry);
   if (typeof resolved !== "string") return { model: resolved };
   if (modelFromParams) return { error: resolved };
   return { model: parentModel };
+}
+
+/**
+ * A fork's thinking level before the launch policy: locked, then caller, then
+ * parent. An unlocked agent default does not apply to a fork.
+ */
+export function resolveForkThinking(input: {
+  locked?: ThinkingLevel;
+  caller?: ThinkingLevel;
+  parent?: ThinkingLevel;
+}): ThinkingLevel | undefined {
+  return input.locked ?? input.caller ?? input.parent;
 }
 
 /**

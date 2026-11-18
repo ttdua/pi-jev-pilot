@@ -22,7 +22,7 @@ Agent facts SHALL be built by a pure function from the agent snapshot the execut
 - `instructionsExcerpt`: the first 500 Unicode code points of the trimmed `instructions`;
 - `declaredTools`: the snapshot's `tools`, or `null`;
 - `disallowedTools`;
-- `maxTurns`, `runInBackground` and `inheritContext`;
+- `maxTurns`, `runInBackground` and `context`;
 - `sets`: whether `model` and `thinking` are set.
 
 `thinking` counts as set only when it is one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`.
@@ -38,3 +38,7 @@ Agent facts SHALL be built by a pure function from the agent snapshot the execut
 #### Scenario: Disallowed tools carried
 - **WHEN** the snapshot's `disallowedTools` is `bash`
 - **THEN** the facts' `disallowedTools` is `bash`
+
+#### Scenario: Context carried
+- **WHEN** the snapshot's `context` is `fork`
+- **THEN** the facts' `context` is `fork`

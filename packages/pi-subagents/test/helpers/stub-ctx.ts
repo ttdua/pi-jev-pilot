@@ -15,4 +15,8 @@ export const STUB_SNAPSHOT: ParentSnapshot = {
   systemPrompt: "test prompt",
   model: undefined,
   modelRegistry: { find: () => undefined, getAll: () => [] },
+  sessionId: "parent-session-id",
+  branch: [],
+  toolNames: [],
+  declarations: [],
 };

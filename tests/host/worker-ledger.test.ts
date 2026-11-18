@@ -277,9 +277,9 @@ describe("Decision fields", () => {
   });
 
   test("Thinking-only recorded", async () => {
-    const h = harness({ forkedLaunch: "thinking" });
+    const h = harness({ forkLaunch: "thinking" });
     h.setScript(() => ok(body("fast", "high")));
-    await foreground(h, { inheritContext: true });
+    await foreground(h, { context: "fork" });
     expect(h.lines[0]).toMatchObject({ answered: true, reason: "untouched", effort: "high" });
     expect(h.lines[0]).not.toHaveProperty("tier");
     expect(h.lines[0]).not.toHaveProperty("model");

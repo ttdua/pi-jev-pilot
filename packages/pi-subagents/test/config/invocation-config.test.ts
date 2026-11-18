@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { resolveAgentInvocationConfig } from "#src/config/invocation-config";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { defaultDeprecationWarnings } from "#src/config/deprecations";
+import { lockedFieldName, resolveAgentInvocationConfig } from "#src/config/invocation-config";
 import type { AgentConfig } from "#src/types";
 import { makeAgentConfig } from "#test/helpers/make-agent-config";
 
@@ -8,7 +9,7 @@ const OPINIONATED: Partial<AgentConfig> = {
   model: "provider/config-model",
   thinking: "high",
   maxTurns: 42,
-  inheritContext: false,
+  context: "fresh",
   runInBackground: false,
 };
 
@@ -29,7 +30,7 @@ describe("resolveAgentInvocationConfig", () => {
       expect(resolved.modelInput).toBe("provider/param-model");
       expect(resolved.thinking).toBe("minimal");
       expect(resolved.maxTurns).toBe(1);
-      expect(resolved.inheritContext).toBe(true);
+      expect(resolved.context).toBe("fork");
       expect(resolved.runInBackground).toBe(true);
     });
 
@@ -39,27 +40,27 @@ describe("resolveAgentInvocationConfig", () => {
       expect(resolved.modelInput).toBe("provider/config-model");
       expect(resolved.thinking).toBe("high");
       expect(resolved.maxTurns).toBe(42);
-      expect(resolved.inheritContext).toBe(false);
+      expect(resolved.context).toBe("fresh");
       expect(resolved.runInBackground).toBe(false);
     });
 
     it("lets the caller fill booleans the agent leaves undefined", () => {
       const resolved = resolveAgentInvocationConfig(
-        makeAgentConfig({ inheritContext: undefined, runInBackground: undefined }),
-        { inherit_context: true, run_in_background: true },
+        makeAgentConfig({ context: undefined, runInBackground: undefined }),
+        { context: "fork", run_in_background: true },
       );
 
-      expect(resolved.inheritContext).toBe(true);
+      expect(resolved.context).toBe("fork");
       expect(resolved.runInBackground).toBe(true);
     });
 
     it("defaults booleans to false when neither side sets them", () => {
       const resolved = resolveAgentInvocationConfig(
-        makeAgentConfig({ inheritContext: undefined, runInBackground: undefined }),
+        makeAgentConfig({ context: undefined, runInBackground: undefined }),
         {},
       );
 
-      expect(resolved.inheritContext).toBe(false);
+      expect(resolved.context).toBe("fresh");
       expect(resolved.runInBackground).toBe(false);
     });
   });
@@ -85,11 +86,11 @@ describe("resolveAgentInvocationConfig", () => {
 
     it("lets the caller switch off booleans the agent turned on", () => {
       const resolved = resolveAgentInvocationConfig(
-        makeAgentConfig({ inheritContext: true, runInBackground: true }),
-        { inherit_context: false, run_in_background: false },
+        makeAgentConfig({ context: "fork", runInBackground: true }),
+        { context: "fresh", run_in_background: false },
       );
 
-      expect(resolved.inheritContext).toBe(false);
+      expect(resolved.context).toBe("fresh");
       expect(resolved.runInBackground).toBe(false);
     });
 
@@ -122,7 +123,7 @@ describe("resolveAgentInvocationConfig", () => {
       expect(resolved.modelInput).toBe("provider/config-model");
       expect(resolved.thinking).toBe("high");
       expect(resolved.maxTurns).toBe(42);
-      expect(resolved.inheritContext).toBe(false);
+      expect(resolved.context).toBe("fresh");
       expect(resolved.runInBackground).toBe(false);
     });
 
@@ -147,7 +148,7 @@ describe("resolveAgentInvocationConfig", () => {
       expect(resolved.modelInput).toBe("provider/config-model");
       expect(resolved.maxTurns).toBe(42);
       expect(resolved.thinking).toBe("minimal");
-      expect(resolved.inheritContext).toBe(true);
+      expect(resolved.context).toBe("fork");
       expect(resolved.runInBackground).toBe(true);
     });
 
@@ -164,14 +165,14 @@ describe("resolveAgentInvocationConfig", () => {
     it("defaults a locked boolean the agent file never sets to false", () => {
       const resolved = resolveAgentInvocationConfig(
         makeAgentConfig({
-          locked: ["inherit_context", "run_in_background"],
-          inheritContext: undefined,
+          locked: ["context", "run_in_background"],
+          context: undefined,
           runInBackground: undefined,
         }),
         overridingParams,
       );
 
-      expect(resolved.inheritContext).toBe(false);
+      expect(resolved.context).toBe("fresh");
       expect(resolved.runInBackground).toBe(false);
     });
   });
@@ -199,7 +200,7 @@ describe("resolveAgentInvocationConfig", () => {
         "model",
         "thinking",
         "max_turns",
-        "inherit_context",
+        "context",
         "run_in_background",
       ]);
     });
@@ -264,6 +265,72 @@ describe("resolveAgentInvocationConfig", () => {
       const resolved = resolveAgentInvocationConfig(makeAgentConfig(), {});
 
       expect(resolved.modelFromParams).toBe(false);
+    });
+  });
+
+  describe("context", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      defaultDeprecationWarnings.reset();
+    });
+
+    it("default is fresh", () => {
+      const resolved = resolveAgentInvocationConfig(makeAgentConfig({ context: undefined }), {});
+      expect(resolved.context).toBe("fresh");
+      expect(resolved.contextSource).toBe("default");
+    });
+
+    it("caller wins over agent default", () => {
+      const resolved = resolveAgentInvocationConfig(makeAgentConfig({ context: "fork" }), { context: "fresh" });
+      expect(resolved.context).toBe("fresh");
+      expect(resolved.contextSource).toBe("call");
+    });
+
+    it("takes the agent's value when the caller names none", () => {
+      const resolved = resolveAgentInvocationConfig(makeAgentConfig({ context: "fork" }), {});
+      expect(resolved.context).toBe("fork");
+      expect(resolved.contextSource).toBe("agent");
+    });
+
+    it("locked agent wins over caller", () => {
+      const resolved = resolveAgentInvocationConfig(
+        makeAgentConfig({ context: "fork", locked: ["context"] }),
+        { context: "fresh" },
+      );
+      expect(resolved.context).toBe("fork");
+      expect(resolved.contextSource).toBe("agent");
+      expect(resolved.discarded).toEqual(["context"]);
+    });
+
+    it("inherit_context true maps to fork as caller", () => {
+      const resolved = resolveAgentInvocationConfig(makeAgentConfig({ context: undefined }), { inherit_context: true });
+      expect(resolved.context).toBe("fork");
+      expect(resolved.contextSource).toBe("call");
+    });
+
+    it("context wins over inherit_context", () => {
+      const resolved = resolveAgentInvocationConfig(
+        makeAgentConfig({ context: undefined }),
+        { context: "fresh", inherit_context: true },
+      );
+      expect(resolved.context).toBe("fresh");
+    });
+
+    it("locked inherit_context reads as context", () => {
+      const resolved = resolveAgentInvocationConfig(
+        makeAgentConfig({ context: "fork", locked: [lockedFieldName("inherit_context") as "context"] }),
+        { inherit_context: false },
+      );
+      expect(resolved.context).toBe("fork");
+    });
+
+    it("warns once per session for inherit_context", () => {
+      vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const agent = makeAgentConfig({ context: undefined });
+      for (let i = 0; i < 3; i++) resolveAgentInvocationConfig(agent, { inherit_context: true });
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes("inherit_context"))).toHaveLength(1);
+      warn.mockRestore();
     });
   });
 });

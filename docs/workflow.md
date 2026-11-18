@@ -85,7 +85,7 @@ What the policy leaves alone:
 
 - A launch whose parent is a child session.
 - A service `spawn()` that names a model: the model is kept and thinking is still decided, as for an agent file that locks only the model.
-- A forked launch (`inherit_context`) under the default `subagents.forkedLaunch`; with `thinking` only thinking changes.
+- A fork launch (`context: fork`) under the default `subagents.forkLaunch`; with `thinking` only thinking changes.
 - Anything the agent file locks. The executor enforces this; a locked field is never changed.
 
 If the policy throws, is too slow or returns something malformed, the launch runs unchanged. The ledger joins events to launches by `agentId`; a resumed launch writes no line.

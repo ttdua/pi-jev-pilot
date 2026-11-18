@@ -4,8 +4,13 @@ import { resolveSettings, type Settings, untunedTimeout } from "../../src/store/
 
 describe("resolveSettings", () => {
   test("Forked launch from config", () => {
+    const s = resolveSettings({ config: { subagents: { forkLaunch: "thinking" } }, state: {} });
+    expect(s.subagents.forkLaunch).toBe("thinking");
+  });
+
+  test("Fork launch from the deprecated key", () => {
     const s = resolveSettings({ config: { subagents: { forkedLaunch: "thinking" } }, state: {} });
-    expect(s.subagents.forkedLaunch).toBe("thinking");
+    expect(s.subagents.forkLaunch).toBe("thinking");
   });
 
   test("Ignored tools section", () => {
@@ -28,7 +33,7 @@ describe("resolveSettings", () => {
       effort: { holdProviders: ["9router"] },
       skills: { inject: "content" },
       state: { parentRequest: false },
-      subagents: { forkedLaunch: "untouched" },
+      subagents: { forkLaunch: "untouched" },
       review: { cli: "codex", enabled: false },
       mode: "standard",
       modeSource: "global",

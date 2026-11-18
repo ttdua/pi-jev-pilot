@@ -139,7 +139,7 @@ describe("snapshot element validation", () => {
     ["agent source bad", { v: 1, tools: [], agents: [{ ...agent, source: "x" }] }],
     ["agent sets bad", { v: 1, tools: [], agents: [{ ...agent, sets: { model: 1 } }] }],
     ["agent locked bad", { v: 1, tools: [], agents: [{ ...agent, locked: "yes" }] }],
-    ["agent flag bad", { v: 1, tools: [], agents: [{ ...agent, inheritContext: "no" }] }],
+    ["agent flag bad", { v: 1, tools: [], agents: [{ ...agent, context: "no" }] }],
   ];
   for (const [name, snapshot] of bad) {
     test(`rejects: ${name}`, () => {
@@ -169,7 +169,7 @@ describe("same state as live", () => {
   async function liveState(entries: SessionEntry[], cwd: string, rich?: MainDeps["rich"]) {
     const requests: JevRequest[] = [];
     const snapshot = buildSnapshot({
-      configRead: { kind: "ok", present: true, deprecated: [], config: {} },
+      configRead: { kind: "ok", present: true, notices: [], deprecated: [], config: {} },
       stateRead: { kind: "ok", state: {} },
       env: { TYPESAFE_API_KEY: "k" },
       toolNames: [],

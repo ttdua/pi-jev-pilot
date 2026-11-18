@@ -131,6 +131,7 @@ function setup(
           ...(o.holdProviders === undefined ? {} : { effort: { holdProviders: o.holdProviders } }),
           ...(o.inject === undefined ? {} : { skills: { inject: o.inject } }),
         } as Config,
+        notices: [],
       },
       stateRead: { kind: "ok", state: state ?? {} },
       env: o.env ?? { TYPESAFE_API_KEY: "test-key" },

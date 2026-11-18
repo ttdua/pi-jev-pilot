@@ -171,13 +171,13 @@ describe("Launches routing acts on", () => {
 
   test("service fork with explicit model", async () => {
     const forked = { origin: { kind: "service" as const }, requested: { model: "fx/main" } };
-    const thinking = harness({ forkedLaunch: "thinking" });
+    const thinking = harness({ forkLaunch: "thinking" });
     thinking.setScript(() => ok(body("deep", "high")));
-    const r = await thinking.launch({ ...forked, inheritContext: true });
+    const r = await thinking.launch({ ...forked, context: "fork" });
     expect(Object.keys(questionsOf(thinking)).sort()).toEqual(["effort", "risky"]);
     expect(r.adjustment).toEqual({ thinking: "high" });
-    const untouched = harness({ forkedLaunch: "untouched" });
-    const u = await untouched.launch({ ...forked, inheritContext: true });
+    const untouched = harness({ forkLaunch: "untouched" });
+    const u = await untouched.launch({ ...forked, context: "fork" });
     expect(u.adjustment).toBeUndefined();
     expect(untouched.asks).toHaveLength(0);
   });
@@ -335,8 +335,8 @@ describe("Worker request content", () => {
   });
 
   test("Forked launch with thinking asks fewer questions", async () => {
-    const h = harness({ forkedLaunch: "thinking" });
-    await h.launch({ inheritContext: true });
+    const h = harness({ forkLaunch: "thinking" });
+    await h.launch({ context: "fork" });
     expect(Object.keys(questionsOf(h)).sort()).toEqual(["effort", "risky"]);
   });
 
@@ -419,8 +419,8 @@ describe("Input mutation", () => {
   });
 
   test("a route that writes nothing returns no adjustment", async () => {
-    const h = harness({ forkedLaunch: "untouched" });
-    expect((await h.launch({ inheritContext: true })).adjustment).toBeUndefined();
+    const h = harness({ forkLaunch: "untouched" });
+    expect((await h.launch({ context: "fork" })).adjustment).toBeUndefined();
   });
 
   test("Resume untouched", async () => {
@@ -480,6 +480,22 @@ describe("Routing fails open", () => {
     const h = harness();
     h.setScript(() => ({ kind: "miss", miss: "error", reason: "http 500", ms: 1 }));
     expect((await h.launch({ requested: { model: "m" } })).adjustment).toBeUndefined();
+  });
+
+  test("Jev fails for a fork with thinking", async () => {
+    const h = harness({ forkLaunch: "thinking" });
+    h.setScript(() => ({ kind: "miss", miss: "error", reason: "http 500", ms: 1 }));
+    const { adjustment } = await runToCompletion(h, { context: "fork" });
+    expect(adjustment).toBeUndefined();
+    expect(h.lines[0]).toMatchObject({ reason: "miss" });
+  });
+
+  test("Jev times out for a fork with thinking", async () => {
+    const h = harness({ forkLaunch: "thinking" });
+    h.setScript(() => ({ kind: "miss", miss: "timeout", reason: "t", ms: 1500 }));
+    const { adjustment } = await runToCompletion(h, { context: "fork" });
+    expect(adjustment).toBeUndefined();
+    expect(h.lines[0]).toMatchObject({ reason: "miss" });
   });
 
   test("Unreadable answers", async () => {

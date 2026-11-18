@@ -6,7 +6,7 @@ When and how a main session's `subagent` launches are classified and rewritten, 
 ## Requirements
 
 ### Requirement: When routing runs
-Worker routing SHALL act only inside its launch policy, for launches started from a main session. It MUST do nothing, and call Jev for nothing, when `config.json` is invalid, the API key is unset, the executor is absent or duplicated (see `readiness-checks`), or the `subagents` switch is off. These conditions SHALL be read fresh at each policy call. Doing nothing MUST mean returning no adjustment, unless tool assessment returns one (see `tool-assessment`).
+Worker routing SHALL act only inside its launch policy, for launches started from a main session. It MUST do nothing, and call Jev for nothing, when `config.json` is invalid, the API key is unset, the executor is absent or duplicated (see `readiness-checks`), or the `subagents` switch is off. These conditions SHALL be read fresh at each policy call. Doing nothing MUST mean returning no adjustment. The launch policy MUST NOT ask Jev about tools and MUST NOT return `addTools` or `removeTools`, so a worker gets exactly the tool set the executor resolves without a policy.
 
 #### Scenario: Switch off
 - **WHEN** the `subagents` switch is off and the main model launches a worker
@@ -32,12 +32,25 @@ Worker routing SHALL act only inside its launch policy, for launches started fro
 - **WHEN** an assistant message calls only `read` and `bash`
 - **THEN** no worker request is sent
 
+#### Scenario: No tool questions or tool adjustment
+- **WHEN** `config.json` holds a legacy `tools` section with `mode` `enforce` and a routed launch is decided
+- **THEN** the worker request has no `tool::` or `grant::` question, no other request is sent for the launch, and the adjustment has no `addTools` or `removeTools`
+
+#### Scenario: Routing off sends nothing about tools
+- **WHEN** the `subagents` switch is off and a worker is launched
+- **THEN** no Jev request is sent for the launch and the worker's tools are those the executor resolves without a policy
+
 #### Scenario: Nested launch with the switch off
 - **WHEN** the `subagents` switch is off and a codemode script calls `subagent`
 - **THEN** no worker request is sent and the child runs with the requested model and thinking
 
 ### Requirement: Worker request content
-Each worker request SHALL use the agent facts built from the launch request's agent snapshot, the worker state from the launch request's `prompt` and `description`, and its `isBackground`. The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
+Each worker request SHALL be built from:
+- the agent facts built from the launch request's agent snapshot;
+- the worker state, from the launch request's `prompt` and `description`;
+- its `isBackground`.
+
+The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
 
 #### Scenario: Display name prefix
 - **WHEN** `tiers.fast` names a registry model whose display name is `Fixture Fast`
@@ -52,7 +65,7 @@ Each worker request SHALL use the agent facts built from the launch request's ag
 - **THEN** the request state has no `parent_request`
 
 #### Scenario: Forked launch with thinking asks fewer questions
-- **WHEN** a launch inherits context and `subagents.forkedLaunch` is `thinking`
+- **WHEN** a launch's context is `fork` and `subagents.forkLaunch` is `thinking`
 - **THEN** the request asks exactly `effort` and `risky`
 
 #### Scenario: Service launch content
@@ -270,7 +283,7 @@ The policy SHALL return nothing, and ask Jev nothing, for a launch whose `parent
 - **THEN** the child runs on `tiers.fast` with reasoning effort `medium`
 
 ### Requirement: Launch policy slot taken
-When registering the launch policy throws, because another extension holds the slot, routing and tool assessment MUST stay off for that session, and `/jev` SHALL report `launch policy held by another extension`.
+When registering the launch policy throws, because another extension holds the slot, routing MUST stay off for that session, and `/jev` SHALL report `launch policy held by another extension`.
 
 #### Scenario: Slot taken
 - **WHEN** another extension registered a launch policy first

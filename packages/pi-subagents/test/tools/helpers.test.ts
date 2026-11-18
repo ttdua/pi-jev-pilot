@@ -244,7 +244,14 @@ describe("buildDetails", () => {
     error: undefined,
     id: "agent-42",
     lifetimeUsage: { input: 100, output: 50, cacheWrite: 0 },
+    context: "fresh" as const,
   };
+
+  it("labels the run from its context: 'fork', 'fork → fresh' after a fallback, none for fresh", () => {
+    expect(buildDetails(base, { ...record, context: "fork" }).modeLabel).toBe("fork");
+    expect(buildDetails(base, { ...record, context: "fresh", contextFallback: "no-parent-session" }).modeLabel).toBe("fork → fresh");
+    expect(buildDetails(base, record).modeLabel).toBeUndefined();
+  });
 
   it("maps record fields to AgentDetails shape", () => {
     const details = buildDetails(base, record);

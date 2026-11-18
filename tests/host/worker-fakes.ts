@@ -35,7 +35,7 @@ export type Opts = {
   keySet?: boolean;
   executor?: boolean | "duplicate";
   parentRequest?: boolean;
-  forkedLaunch?: "untouched" | "thinking";
+  forkLaunch?: "untouched" | "thinking";
   slots?: Slot[];
   window?: () => readonly WindowEntry[];
   /** A config read from a file, for tests that need legacy keys to pass through the reader. */
@@ -50,7 +50,7 @@ export function snap(o: Opts = {}): Snapshot {
       ...o.config,
       tiers: o.tiers ?? TIERS,
       state: { parentRequest: o.parentRequest ?? false },
-      subagents: { forkedLaunch: o.forkedLaunch ?? "untouched" },
+      subagents: { forkLaunch: o.forkLaunch ?? "untouched" },
       ...(o.timeoutMs === undefined ? {} : { classifier: { timeoutMs: o.timeoutMs } }),
       ...(o.slots === undefined ? {} : { crew: { slots: o.slots } }),
     } as never,
@@ -60,7 +60,10 @@ export function snap(o: Opts = {}): Snapshot {
     } as never,
   });
   return {
-    config: o.valid === false ? { valid: false, issues: [] } : { valid: true, deprecated: [] },
+    config:
+      o.valid === false
+        ? { valid: false, issues: [] }
+        : { valid: true, notices: [], deprecated: [] },
     state: { kind: "ok", issues: [] },
     localMode: { kind: "missing", issues: [] },
     settings,
@@ -161,7 +164,7 @@ export function launchRequest(over: LaunchOver = {}): LaunchRequest {
     description: over.description ?? "d",
     requested: over.requested ?? {},
     locked: over.locked ?? [],
-    inheritContext: over.inheritContext ?? false,
+    context: over.context ?? "fresh",
     isBackground: over.isBackground ?? false,
     toolSet: {
       declared,

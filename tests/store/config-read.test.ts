@@ -72,12 +72,24 @@ describe("readConfig", () => {
   test("Valid full example", () => {
     const r = readText(FULL);
     const { tools: _tools, ...expected } = JSON.parse(FULL);
-    expect(r).toEqual({ kind: "ok", present: true, config: expected, deprecated: ["tools"] });
+    expect(r).toEqual({
+      kind: "ok",
+      present: true,
+      config: expected,
+      notices: [],
+      deprecated: ["tools"],
+    });
   });
 
   test("Deprecated tools section ignored", () => {
     const r = readJson({ tools: { mode: "enforce", grantAt: 0.9 } });
-    expect(r).toEqual({ kind: "ok", present: true, config: {}, deprecated: ["tools"] });
+    expect(r).toEqual({
+      kind: "ok",
+      present: true,
+      config: {},
+      notices: [],
+      deprecated: ["tools"],
+    });
     if (r.kind === "ok") expect("tools" in r.config).toBe(false);
   });
 
@@ -87,13 +99,20 @@ describe("readConfig", () => {
         kind: "ok",
         present: true,
         config: {},
+        notices: [],
         deprecated: ["tools"],
       });
     }
   });
 
   test("No tools section, nothing deprecated", () => {
-    expect(readJson({})).toEqual({ kind: "ok", present: true, config: {}, deprecated: [] });
+    expect(readJson({})).toEqual({
+      kind: "ok",
+      present: true,
+      config: {},
+      notices: [],
+      deprecated: [],
+    });
   });
 
   test("Several problems reported together", () => {
@@ -148,7 +167,13 @@ describe("readConfig", () => {
 
   test("No file", () => {
     withDir((dir) => {
-      expect(readConfig(dir)).toEqual({ kind: "ok", present: false, config: {}, deprecated: [] });
+      expect(readConfig(dir)).toEqual({
+        kind: "ok",
+        present: false,
+        config: {},
+        notices: [],
+        deprecated: [],
+      });
     });
   });
 
@@ -159,6 +184,7 @@ describe("readConfig", () => {
       kind: "ok",
       present: true,
       config: { review: { cli: "opencode", enabled: true } },
+      notices: [],
       deprecated: [],
     });
   });
@@ -266,6 +292,7 @@ describe("readConfig", () => {
       kind: "ok",
       present: true,
       config: expected,
+      notices: [],
       deprecated: ["tools"],
     });
   });
@@ -344,14 +371,49 @@ describe("readConfig", () => {
   });
 
   test("Forked launch setting accepted", () => {
+    const r = readJson({ subagents: { forkLaunch: "thinking" } });
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.config.subagents?.forkLaunch).toBe("thinking");
+      expect(r.notices).toEqual([]);
+    }
+  });
+
+  test("Deprecated forkedLaunch accepted", () => {
     const r = readJson({ subagents: { forkedLaunch: "thinking" } });
     expect(r.kind).toBe("ok");
-    if (r.kind === "ok") expect(r.config.subagents?.forkedLaunch).toBe("thinking");
+    if (r.kind === "ok") {
+      expect(r.config.subagents).toEqual({ forkLaunch: "thinking" });
+      expect(r.notices).toHaveLength(1);
+      expect(r.notices[0]).toContain("subagents.forkLaunch");
+    }
+  });
+
+  test("Both keys present", () => {
+    const r = readJson({ subagents: { forkLaunch: "thinking", forkedLaunch: "untouched" } });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r)).toEqual(["subagents.forkedLaunch"]);
+  });
+
+  test("Both keys present with one invalid", () => {
+    const r = readJson({ subagents: { forkLaunch: "skip", forkedLaunch: "thinking" } });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r).sort()).toEqual(["subagents.forkLaunch", "subagents.forkedLaunch"]);
+  });
+
+  test("Both keys present with another field invalid", () => {
+    const r = readJson({
+      subagents: { forkLaunch: "thinking", forkedLaunch: "untouched" },
+      review: { cli: "claude" },
+    });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r).sort()).toEqual(["review.cli", "subagents.forkedLaunch"]);
+    expect("config" in r).toBe(false);
   });
 
   test("Forked launch setting rejected", () => {
-    expect(paths(readJson({ subagents: { forkedLaunch: "skip" } }))).toEqual([
-      "subagents.forkedLaunch",
+    expect(paths(readJson({ subagents: { forkLaunch: "skip" } }))).toEqual([
+      "subagents.forkLaunch",
     ]);
     expect(paths(readJson({ subagents: { inheritContext: "skip" } }))).toEqual([
       "subagents.inheritContext",

@@ -10,13 +10,13 @@ import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { formatLifetimeTokens } from "#src/tools/helpers";
 import type { SpawnPresentation } from "#src/tools/spawn-config";
 import type { Subagent } from "#src/types";
-import { type AgentDetails, describeActivity, modelLabel } from "#src/ui/display";
+import { type AgentDetails, describeActivity, getContextLabel, modelLabel } from "#src/ui/display";
 import { SPINNER } from "#src/ui/glyphs";
 
 /** The record fields one update renders. */
 export type StreamedRecord = Pick<
   Subagent,
-  "toolUses" | "model" | "thinkingLevel" | "toolFacts" | "lifetimeUsage" | "turnBudget" | "activeTools" | "responseText"
+  | "toolUses" | "model" | "thinkingLevel" | "toolFacts" | "lifetimeUsage" | "turnBudget" | "activeTools" | "responseText" | "context" | "contextFallback"
 >;
 
 export interface ProgressStreamParams {
@@ -44,6 +44,7 @@ export function startProgressStream(params: ProgressStreamParams): () => void {
     const toolUses = record?.toolUses ?? 0;
     const details: AgentDetails = {
       ...detailBase,
+      modeLabel: record ? getContextLabel(record.context, record.contextFallback) : detailBase.modeLabel,
       modelName: modelLabel(record?.model) ?? detailBase.modelName,
       thinking: record?.thinkingLevel ?? detailBase.thinking,
       toolCount: record?.toolFacts?.toolCount,

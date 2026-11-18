@@ -46,6 +46,7 @@ function instance() {
 		sendMessage: vi.fn(),
 		exec: vi.fn(),
 		getAllTools: vi.fn(() => []),
+		getActiveTools: vi.fn(() => []),
 	} as any;
 	subagentsExtension(pi);
 	const fire = async (event: string, ...args: any[]) => {

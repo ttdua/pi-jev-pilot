@@ -28,7 +28,7 @@ export function lockedFields(config: AgentConfig): LockableField[] {
 		model: config.model,
 		thinking: config.thinking,
 		max_turns: config.maxTurns,
-		inherit_context: config.inheritContext,
+		context: config.context,
 		run_in_background: config.runInBackground,
 	};
 	return LOCKABLE_FIELDS.filter((field) => sets[field] !== undefined);

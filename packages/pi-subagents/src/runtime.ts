@@ -6,13 +6,9 @@
  * Follows the same pattern as pi-permission-system's ExtensionRuntime.
  */
 
-import {
-  buildParentSnapshot,
-  type ParentPromptOptions,
-  type ParentSnapshot,
-} from "#src/lifecycle/parent-snapshot";
+import { buildParentSnapshot, type ParentSnapshot, type ToolDeclaration } from "#src/lifecycle/parent-snapshot";
 import type { ModelInfo } from "#src/tools/spawn-config";
-import type { SessionContext } from "#src/types";
+import type { ContextMode, SessionContext } from "#src/types";
 
 /**
  * Narrow config subset read by Agent when driving the turn loop (defaultMaxTurns, wrapUpTurns).
@@ -37,10 +33,10 @@ export class SubagentRuntime {
   currentCtx: SessionContext | undefined = undefined;
 
   /**
-   * Prompt options Pi assembled for the parent's latest turn, captured from
-   * `before_agent_start`. Undefined until the parent has run one.
+   * @param listActiveTools The tools (with declarations) the parent declares to the model, read per
+   *   snapshot (a fork declares exactly these).
    */
-  private lastPromptOptions: ParentPromptOptions | undefined = undefined;
+  constructor(private readonly listActiveTools: () => readonly ToolDeclaration[] = () => []) {}
 
   // ── Session-context methods ──────────────────────────────────────────────
 
@@ -55,23 +51,11 @@ export class SubagentRuntime {
   }
 
   /**
-   * Record the prompt options Pi assembled for the parent's latest turn.
-   *
-   * Captured from `before_agent_start`, which is the only event carrying them:
-   * `getSystemPromptOptions()` is attached to a command context, not to the
-   * session context this runtime holds.
-   */
-  setSystemPromptOptions(options: ParentPromptOptions): void {
-    this.lastPromptOptions = options;
-  }
-
-  /**
    * Build a parent snapshot from the current session context.
    * Only valid during an active session (currentCtx is defined).
    */
-  buildSnapshot(inheritContext: boolean): ParentSnapshot {
-
-    return buildParentSnapshot(this.currentCtx!, inheritContext, this.lastPromptOptions);
+  buildSnapshot(context: ContextMode): ParentSnapshot {
+    return buildParentSnapshot(this.currentCtx!, context, this.listActiveTools());
   }
 
   /** Extract model info from the current session context. */
@@ -79,6 +63,7 @@ export class SubagentRuntime {
     return {
       parentModel: this.currentCtx?.model,
       modelRegistry: this.currentCtx?.modelRegistry,
+      parentHasBranch: (this.currentCtx?.sessionManager.getBranch().length ?? 0) > 0,
     };
   }
 
@@ -96,6 +81,6 @@ export class SubagentRuntime {
  *
  * Call once at extension startup; pass the result to factories and handlers.
  */
-export function createSubagentRuntime(): SubagentRuntime {
-  return new SubagentRuntime();
+export function createSubagentRuntime(listActiveTools?: () => readonly ToolDeclaration[]): SubagentRuntime {
+  return new SubagentRuntime(listActiveTools);
 }

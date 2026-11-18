@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type StreamedRecord, startProgressStream } from "#src/tools/progress-stream";
-import { createTestSubagent } from "#test/helpers/make-subagent";
+import { createTestSubagent, makeStubExecution } from "#test/helpers/make-subagent";
 
 const detailBase = {
 	displayName: "Explore",
@@ -81,6 +81,8 @@ describe("startProgressStream", () => {
 			responseText: "",
 			thinkingLevel: "low",
 			toolFacts: { toolCount: 4, blockedToolCount: 1 },
+			context: "fresh",
+			contextFallback: undefined,
 		};
 
 		const stop = startProgressStream({
@@ -94,6 +96,27 @@ describe("startProgressStream", () => {
 		expect(details.thinking).toBe("low");
 		expect(details.toolCount).toBe(4);
 		expect(details.blockedToolCount).toBe(1);
+	});
+
+	it.each([
+		["a fork", { context: "fork" as const, contextFallback: undefined }, "fork"],
+		["a fresh run after a fallback", { context: "fresh" as const, contextFallback: "no-parent-session" as const }, "fork → fresh"],
+		["a fresh run without a fallback", { context: "fresh" as const, contextFallback: undefined }, undefined],
+	])("labels %s from the record on every streamed update", (_name, run, label) => {
+		const onUpdate = vi.fn();
+		const stop = startProgressStream({
+			detailBase: { ...detailBase, modeLabel: "stale" },
+			onUpdate,
+			getRecord: () =>
+				createTestSubagent({
+					status: "running",
+					completedAt: undefined,
+					execution: makeStubExecution({ context: run.context, contextFallback: run.contextFallback }),
+				}) as StreamedRecord,
+		});
+		stop();
+
+		expect(onUpdate.mock.calls[0][0].details.modeLabel).toBe(label);
 	});
 
 	it("streams nothing more once stopped, and stops again harmlessly", async () => {

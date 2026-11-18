@@ -148,10 +148,10 @@ A worker request is skipped when:
 
 - `subagents` is off;
 - the launch has `resume` set;
-- the launch is forked (`inherit_context`) and `subagents.forkedLaunch` is `untouched`;
+- the launch is a fork (`context: fork`) and `subagents.forkLaunch` is `untouched`;
 - both the model and the thinking level are locked by the agent file.
 
-A forked launch with `subagents.forkedLaunch` set to `thinking`, or a launch with no tier configured, asks only `effort` and `risky`. When no tier is decided, only thinking is written (the request still asks `tier`). A launch whose agent file locks the model is asked the full questions, but only thinking is written.
+A fork launch with `subagents.forkLaunch` set to `thinking`, or a launch with no tier configured, asks only `effort` and `risky`. When no tier is decided, only thinking is written (the request still asks `tier`). A launch whose agent file locks the model is asked the full questions, but only thinking is written.
 
 ## Main questions
 

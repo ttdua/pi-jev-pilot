@@ -25,7 +25,7 @@ export type Settings = {
   effort: { holdProviders: string[] };
   skills: { inject: "content" | "suggest" };
   state: { parentRequest: boolean };
-  subagents: { forkedLaunch: "untouched" | "thinking" };
+  subagents: { forkLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
   /** Effective mode: the directory override when set, else the global mode. */
   mode: Mode;

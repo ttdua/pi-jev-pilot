@@ -208,3 +208,21 @@ describe("checkGrants", () => {
 		).toEqual(["b", "a"]);
 	});
 });
+
+describe("enforceForkGrants orchestration tools", () => {
+	it("never adds an orchestration tool to the callable set", async () => {
+		const { enforceForkGrants } = await import("#src/seams/grant-check");
+		const state = { callable: new Set<string>(), parentSessionId: "p" } as never as Parameters<typeof enforceForkGrants>[0];
+		const kept = enforceForkGrants(
+			state,
+			["subagent", "steer_subagent", "read"],
+			[
+				{ name: "subagent", exposure: "direct" },
+				{ name: "steer_subagent", exposure: "direct" },
+				{ name: "read", exposure: "direct" },
+			],
+		);
+		expect(kept).toEqual(["read"]);
+		expect([...state.callable]).toEqual(["read"]);
+	});
+});

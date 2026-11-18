@@ -38,7 +38,13 @@ function snap(
   } = {},
 ): Snapshot {
   return buildSnapshot({
-    configRead: o.config ?? { kind: "ok", present: true, deprecated: [], config: {} as Config },
+    configRead: o.config ?? {
+      kind: "ok",
+      present: true,
+      notices: [],
+      deprecated: [],
+      config: {} as Config,
+    },
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
@@ -191,7 +197,13 @@ describe("formatStatus", () => {
     const issues = [{ path: "", message: "jev-mode.json is not valid JSON" }];
     const text = formatStatus(
       buildSnapshot({
-        configRead: { kind: "ok", present: true, deprecated: [], config: {} as Config },
+        configRead: {
+          kind: "ok",
+          present: true,
+          notices: [],
+          deprecated: [],
+          config: {} as Config,
+        },
         stateRead: { kind: "ok", state: {} },
         env: { TYPESAFE_API_KEY: "k" },
         toolNames: ["subagent"],

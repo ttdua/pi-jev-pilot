@@ -77,7 +77,7 @@ describe("AgentTypeRegistry", () => {
       const registry = makeRegistry();
       const config = registry.resolveAgentConfig("Explore");
       expect(config.name).toBe("Explore");
-      expect(config.promptMode).toBe("replace");
+      expect(config.context).toBeUndefined();
     });
 
     it("performs case-insensitive lookup", () => {

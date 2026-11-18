@@ -112,7 +112,7 @@ function mainKeys(answers: Record<string, Answer>): Decided {
 }
 
 export const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
-  inheritContext: false,
+  context: "fresh",
   runInBackground,
   modelLocked: false,
   thinkingLocked: false,
@@ -136,7 +136,7 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
     offered: offeredTiers(config.tiers, config.expertOn),
     // Seed cut points: the replay has no ledger window. Live routing uses cutPointsFor(window(), mode).
     cuts: cutPointsFor([], config.mode),
-    forkedLaunch: "untouched",
+    forkLaunch: "untouched",
     canRun: () => true,
     thinkingOf: () => ({ reasoning: true }),
     modelOf,

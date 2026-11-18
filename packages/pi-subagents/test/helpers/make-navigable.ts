@@ -21,6 +21,8 @@ export function makeNavigable(overrides: Partial<NavigableSubagent> = {}): Navig
     outputFile: undefined,
     model: undefined,
     thinkingLevel: undefined,
+    context: "fresh",
+    contextFallback: undefined,
     isSessionReady: () => true,
     subscribeToUpdates: vi.fn(() => () => {}),
     getToolDefinition: vi.fn(() => undefined),

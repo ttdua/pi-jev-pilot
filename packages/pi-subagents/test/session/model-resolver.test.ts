@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type ModelRegistry,
+  resolveForkThinking,
   resolveInvocationModel,
   resolveModel,
 } from "#src/session/model-resolver";
@@ -288,5 +289,44 @@ describe("resolveInvocationModel", () => {
       const result = resolveInvocationModel(parentModel, undefined, false, undefined);
       expect(result).toEqual({ model: parentModel });
     });
+  });
+});
+
+describe("resolveInvocationModel: fork", () => {
+  const parent = MODELS[0];
+  const registry = makeRegistry();
+
+  it("Agent default ignored: an unlocked agent model with no caller runs the parent's model", () => {
+    const result = resolveInvocationModel(parent, "openai/gpt-4o", false, registry, { fork: true, modelLocked: false });
+    expect(result.model).toBe(parent);
+  });
+
+  it("Caller override: the caller's model runs", () => {
+    const result = resolveInvocationModel(parent, "openai/gpt-4o", true, registry, { fork: true, modelLocked: false });
+    expect(result.model).toEqual(MODELS[3]);
+  });
+
+  it("Locked agent model: the agent's locked model runs", () => {
+    const result = resolveInvocationModel(parent, "openai/gpt-4o", false, registry, { fork: true, modelLocked: true });
+    expect(result.model).toEqual(MODELS[3]);
+  });
+
+  it("a fresh launch still applies the agent default", () => {
+    const result = resolveInvocationModel(parent, "openai/gpt-4o", false, registry, { fork: false, modelLocked: false });
+    expect(result.model).toEqual(MODELS[3]);
+  });
+});
+
+describe("resolveForkThinking", () => {
+  it("Parent thinking kept: no lock and no caller → the parent's level", () => {
+    expect(resolveForkThinking({ parent: "high" })).toBe("high");
+  });
+
+  it("the caller wins over the parent", () => {
+    expect(resolveForkThinking({ caller: "low", parent: "high" })).toBe("low");
+  });
+
+  it("a locked value wins over the caller", () => {
+    expect(resolveForkThinking({ locked: "minimal", caller: "low", parent: "high" })).toBe("minimal");
   });
 });

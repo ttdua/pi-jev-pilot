@@ -189,6 +189,19 @@ describe("agent snapshot fields", () => {
 		expect(snapshot.defaultTools).toEqual(BUILTIN_TOOL_NAMES);
 	});
 
+	it("reads inherit_context: true as context fork, with no inheritContext field", () => {
+		writeProjectAgent("legacy", "---\ndescription: Legacy\ninherit_context: true\n---\nBody.");
+
+		const snapshot = makeCatalog().get("legacy")!;
+
+		expect(snapshot.context).toBe("fork");
+		expect(snapshot).not.toHaveProperty("inheritContext");
+	});
+
+	it("a built-in with no declared context has none in its snapshot", () => {
+		expect(makeCatalog().get("Explore")).not.toHaveProperty("context");
+	});
+
 	it("carries declared fields and omits undeclared ones", () => {
 		writeProjectAgent(
 			"full",
@@ -200,7 +213,7 @@ describe("agent snapshot fields", () => {
 				"thinking: high",
 				"max_turns: 7",
 				"run_in_background: true",
-				"inherit_context: false",
+				"context: fresh",
 				"locked: true",
 				"---",
 				"Full body.",
@@ -221,7 +234,7 @@ describe("agent snapshot fields", () => {
 			locked: true,
 			maxTurns: 7,
 			runInBackground: true,
-			inheritContext: false,
+			context: "fresh",
 		});
 		expect(Object.keys(catalog.get("general-purpose")!).sort()).toEqual(
 			[

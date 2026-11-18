@@ -250,14 +250,21 @@ A pure launch route SHALL return one of: `untouched` (nothing to write, nothing 
 - **THEN** the result marks `locked` true
 
 ### Requirement: Launches left untouched
-The route SHALL return `untouched` in each of these cases: (a) it inherits context and the forked launch setting is `untouched`; (b) the agent locks both `model` and `thinking`; (c) the agent locks `thinking`, and either the launch inherits context with the setting `thinking`, or neither a tier nor a slot is offered. Here "locks" includes `model` treated as locked for a service launch with an explicit model (see `worker-routing`). These checks MUST be decidable before Jev is asked, so an untouched launch sends no worker request. A resumed launch never reaches the route, because the executor does not consult the launch policy for it.
+The route SHALL return `untouched` in each of these cases:
+- (a) the launch's context is `fork` and the fork launch setting (`subagents.forkLaunch`) is `untouched`;
+- (b) the agent locks both `model` and `thinking`;
+- (c) the agent locks `thinking`, and either the launch is a fork with the setting `thinking`, or neither a tier nor a slot is offered.
+
+Here "locks" includes `model` treated as locked for a service launch with an explicit model (see `worker-routing`).
+
+These checks MUST be decidable before Jev is asked, so an untouched launch sends no worker request. A resumed launch never reaches the route, because the executor does not consult the launch policy for it.
 
 #### Scenario: Resume
 - **WHEN** the launch resumes an agent
 - **THEN** no route is computed and no worker request is sent
 
 #### Scenario: Forked launch left alone
-- **WHEN** the effective launch inherits context and the setting is `untouched`
+- **WHEN** the effective launch is a fork and the setting is `untouched`
 - **THEN** the route is `untouched`
 
 #### Scenario: Both fields locked
@@ -269,7 +276,7 @@ The route SHALL return `untouched` in each of these cases: (a) it inherits conte
 - **THEN** the route is `untouched`
 
 #### Scenario: Forked thinking with thinking locked
-- **WHEN** the launch inherits context, the setting is `thinking`, and the agent locks `thinking`
+- **WHEN** the launch is a fork, the setting is `thinking`, and the agent locks `thinking`
 - **THEN** the route is `untouched`
 
 #### Scenario: Slot alone with thinking locked
@@ -288,10 +295,15 @@ When the worker answers are cancelled, the route SHALL be `skip`. When they are 
 - **THEN** the route writes neither model nor thinking, and records reason `miss` and no tier
 
 ### Requirement: Route writes thinking only
-The route SHALL write no model and record reason `untouched` when the launch inherits context with the setting `thinking`, when neither a tier nor a slot is offered, or when the `tier` question is asked but no target is decided. Unless `thinking` is locked, it MUST write the worker effort, computed without the `fast` cap, as thinking without clamping, since the model that runs is not known here. When no effort is requested, or `thinking` is locked, it MUST write nothing.
+The route SHALL write no model, and record reason `untouched`, in each of these cases:
+- the launch is a fork with the setting `thinking`;
+- neither a tier nor a slot is offered;
+- the `tier` question is asked but no target is decided.
+
+Unless `thinking` is locked, the route MUST write the worker effort, computed without the `fast` cap, as thinking without clamping, since the model that runs is not known here. When no effort is requested, or `thinking` is locked, it MUST write nothing.
 
 #### Scenario: Forked launch with thinking
-- **WHEN** the launch inherits context, the setting is `thinking`, `effort.choice` is `medium` and `risky` is .9
+- **WHEN** the launch is a fork, the setting is `thinking`, `effort.choice` is `medium` and `risky` is .9
 - **THEN** the route writes thinking `high` and no model, recording reason `untouched` and effort `high`
 
 #### Scenario: No tier offered
@@ -313,6 +325,10 @@ The route SHALL write no model and record reason `untouched` when the launch inh
 #### Scenario: No tier decided with thinking locked
 - **WHEN** tiers are offered, no tier is decided and the agent locks `thinking`
 - **THEN** the route writes nothing, recording reason `untouched` and locked
+
+#### Scenario: Jev fails for a fork with thinking
+- **WHEN** the launch is a fork with the setting `thinking` and Jev times out
+- **THEN** the route writes neither model nor thinking, and records reason `miss`
 
 ### Requirement: Routed launch
 When a target is decided and `model` is not locked, the route SHALL choose the fallback over the targets that can run, compute the worker effort with whether fallback moved the target, and clamp it to the final target's model. It MUST write that target's model and the clamped thinking, and record the final target as `tier`, the deciding reason, the clamped effort, and `fallback` when it moved. A slot that runs without a move MUST NOT get the `fast` effort cap.

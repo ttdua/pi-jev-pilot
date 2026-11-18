@@ -7,21 +7,20 @@ import {
 	LOCKABLE_FIELDS,
 	type LockableField,
 } from "#src/config/invocation-config";
+import { ORCHESTRATION_TOOLS } from "#src/lifecycle/fork-guard";
 import { lockedFields } from "#src/seams/locked-launch";
 import { finalToolNames, snapshotOf } from "#src/seams/registry";
 import type { LaunchOrigin, LaunchRequest } from "#src/service/service";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
-import type { AgentConfig, ThinkingLevel } from "#src/types";
+import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /**
  * Tools the executor installs or owns itself; never offered as grants. The
  * first three are the parent's orchestration tools, the last two the child
  * protocol tools the executor adds on its own.
  */
-const ORCHESTRATION_TOOLS: ReadonlySet<string> = new Set([
-	"subagent",
-	"get_subagent_result",
-	"steer_subagent",
+const OWNED_TOOLS: ReadonlySet<string> = new Set([
+	...ORCHESTRATION_TOOLS,
 	"ask_parent",
 	"notify_parent",
 ]);
@@ -43,7 +42,7 @@ export interface LaunchRequestInput {
 	description: string;
 	/** The model (`provider/id`) and thinking level the launch would run without a policy. */
 	requested: { model?: string; thinking?: ThinkingLevel };
-	inheritContext: boolean;
+	context: ContextMode;
 	isBackground: boolean;
 	parentTools: readonly ParentToolInfo[];
 	excludedPackages: readonly string[];
@@ -64,7 +63,7 @@ export function buildLaunchRequest(input: LaunchRequestInput): LaunchRequest {
 		description: input.description,
 		requested: Object.freeze(definedOnly(input.requested)),
 		locked: Object.freeze(lockedFields(input.config)),
-		inheritContext: input.inheritContext,
+		context: input.context,
 		isBackground: input.isBackground,
 		toolSet: Object.freeze({
 			declared: input.config.toolsDeclared
@@ -97,7 +96,7 @@ export function grantableParentTools(
 ): string[] {
 	const excluded = new Set(excludedPackages);
 	const names = tools
-		.filter((tool) => !ORCHESTRATION_TOOLS.has(tool.name))
+		.filter((tool) => !OWNED_TOOLS.has(tool.name))
 		.filter((tool) => !fromExcludedPackage(tool, excluded))
 		.map((tool) => tool.name);
 	return [...new Set(names)];

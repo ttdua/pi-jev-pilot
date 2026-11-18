@@ -10,7 +10,9 @@ import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 
 export type Snapshot = {
-  config: { valid: true; deprecated: readonly "tools"[] } | { valid: false; issues: Issue[] };
+  config:
+    | { valid: true; notices: string[]; deprecated: readonly "tools"[] }
+    | { valid: false; issues: Issue[] };
   state: { kind: StateRead["kind"]; issues: Issue[] };
   /** The directory mode file read, kept so the status can report a bad file. */
   localMode: { kind: LocalModeRead["kind"]; issues: Issue[] };
@@ -84,7 +86,7 @@ export function hasExecutor(toolNames: readonly string[]): boolean {
 
 function configState(read: ConfigRead): Snapshot["config"] {
   return read.kind === "ok"
-    ? { valid: true, deprecated: read.deprecated }
+    ? { valid: true, notices: read.notices, deprecated: read.deprecated }
     : { valid: false, issues: read.issues };
 }
 

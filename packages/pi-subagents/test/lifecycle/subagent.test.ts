@@ -144,6 +144,8 @@ function createRunnableAgent(overrides?: {
 			observer,
 			snapshot: STUB_SNAPSHOT,
 			prompt: "do something",
+			context: "fresh",
+			contextSource: "default",
 			getRunConfig: overrides?.getRunConfig,
 			maxTurns: overrides?.maxTurns,
 			parentSession: overrides?.parentSession,
@@ -1506,7 +1508,6 @@ describe("Subagent", () => {
 					sessionDir: "/sessions",
 					agentName: "Explore",
 					turnLimits: { wrapUpTurns: 2 },
-					parentContext: undefined,
 					lifecycle: createChildLifecycleMock(),
 				}),
 			);
