@@ -55,7 +55,8 @@
 | `AgentInvocationParams` | modified | adds `context?: ContextMode`; keeps `inherit_context?: boolean` (deprecated) | internal |
 | `resolveInvocationModel` (`session/model-resolver.ts`) | modified | `(parentModel: Model<any> \| undefined, modelInput: string \| undefined, modelFromParams: boolean, registry: ModelRegistry \| undefined, opts?: { fork: boolean; modelLocked: boolean }) => ModelResolution`. When `opts.fork` and not `modelLocked` and not `modelFromParams`, it returns the parent model and ignores the agent's `modelInput` | internal |
 | `resolveForkThinking` (`session/model-resolver.ts`) | new | `(input: { locked?: ThinkingLevel; caller?: ThinkingLevel; parent?: ThinkingLevel }) => ThinkingLevel \| undefined`; returns `locked ?? caller ?? parent`. The policy adjustment is applied afterwards by the existing launch-gate rule | internal |
-| `composeFreshPrompt` (`session/prompts.ts`) | new | `(base: string, header: string, body: string) => string`; returns `base + "\n\n" + header + (body.trim() ? "\n\n" + body : "")` | internal |
+| `composeAgentSection` (`session/prompts.ts`) | new (replaces `composeFreshPrompt`, decided at Task 3: Pi's `systemPromptOverride` only replaces the preamble) | `(header: string, body: string) => string`; returns `header + (body.trim() ? "\n\n" + body : "")` | internal |
+| `freshPromptExtension` (`session/fresh-prompt-extension.ts`) | new | `(section: string) => ExtensionFactory`. It registers `before_agent_start` and sets `event.systemPromptOptions.sections.agent = section`, returning nothing | internal |
 | `RuntimeSnapshotSource.buildSnapshot` (`runtime.ts`, `service/service-adapter.ts`, `tools/agent-tool.ts`) | modified | `buildSnapshot(context: ContextMode): ParentSnapshot` (was `inheritContext: boolean`) | internal |
 | Spawn plumbing options (`SubagentRunOptions` in `lifecycle/subagent.ts`, `SpawnRequest` in `lifecycle/subagent-manager.ts`, and the execution objects in `tools/foreground-runner.ts` and `tools/background-spawner.ts`) | modified | `inheritContext?: boolean` → `context: ContextMode` (required) and `contextSource: "call" \| "agent" \| "default"` (required) | internal |
 | Child registry (`src/host/platform/child.ts`) | modified | records `Map<sessionId, { context: "fresh" \| "fork" }>`; adds `childContext(sessionId: string): "fresh" \| "fork" \| undefined`; `isChild` unchanged | internal |
@@ -182,18 +183,21 @@
 - Delete if unused: `packages/pi-subagents/src/session/project-context.ts`, `src/session/provider-inheritance*` portions tied to the portable prompt.
 - Test: `packages/pi-subagents/test/session/prompts.test.ts`, `test/lifecycle/create-subagent-session.test.ts`, `test/session/session-config.test.ts`, `test/lifecycle/fresh-prompt.test.ts` (new)
 
-**Interfaces:** Consumes `AgentInvocationConfig.context`. Produces `composeFreshPrompt(base: string, header: string, body: string): string` in `session/prompts.ts`.
+**Interfaces:** Consumes `AgentInvocationConfig.context`. Produces `composeAgentSection` and `freshPromptExtension` (see Contracts).
 
 - [ ] **Step 1:** Failing tests:
-  - `create-subagent-session.test.ts` (fresh): the loader is created with `noContextFiles: false`; `appendSystemPromptOverride()` returns `[]`.
+  - `create-subagent-session.test.ts` (fresh): the loader is created with `noContextFiles: false`, no `systemPromptOverride`, and a passthrough `appendSystemPromptOverride`; `extensionFactories` include `freshPromptExtension`.
   - A new SDK-assembly test in `test/lifecycle/fresh-prompt.test.ts` uses the real `DefaultResourceLoader` on a temp project holding an `AGENTS.md` with `AGENTS-MARKER` and an `APPEND_SYSTEM.md` with `APPEND-MARKER`, and a parent prompt containing `PARENT-MARKER`. It asserts on the child's assembled system prompt:
     - `AGENTS-MARKER` is present before the body;
     - `APPEND-MARKER` occurs exactly once;
     - `PARENT-MARKER` is absent;
-    - the prompt ends with `BODY-MARKER`;
+    - the prompt's last section is `<agent>` and it ends with `BODY-MARKER`, with `<active_agent name="…"/>` before the body;
     - the first user message is exactly the task.
+
+    The test runs a real `createAgentSession` turn against a loopback fixture, so `before_agent_start` fires.
 - [ ] **Step 2:** Failing tests in `prompts.test.ts`:
-  - `composeFreshPrompt` puts the body last and `<active_agent name="x"/>` before it;
+  - `composeAgentSection` puts the body last and `<active_agent name="x"/>` before it; an empty body yields the header only;
+  - `freshPromptExtension` sets `sections.agent` on the event;
   - the old inherited-identity tests are deleted.
 - [ ] **Step 3:** Run them. Expected: FAIL.
 - [ ] **Step 4:** Implement. Delete `adoptedIdentity`, `inheritedIdentity`, `ownProjectContext`, `genericBase` and the portable strategy plumbing in `session-config.ts` (`resolvePromptInheritance`, `parentPortablePrompt`). Keep `buildPromptHeader`.

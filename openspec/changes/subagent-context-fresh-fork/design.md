@@ -78,13 +78,14 @@ The warnings are debug-noted once per agent file per load, using the existing `d
 
 ### D2. Fresh prompt: let Pi build the child-session prompt
 
-For `fresh`, the loader runs with project context files enabled for the child's cwd. The override is `systemPromptOverride: (base) => base + "\n\n" + header + "\n\n" + body`:
+For `fresh`, the loader runs with project context files enabled for the child's cwd. There is no `systemPromptOverride` and `appendSystemPromptOverride` passes through, so Pi renders its own sections: preamble, tools, rules, docs, addendum (`APPEND_SYSTEM.md`), `<project_context>`, `<skills>` and `<cwd>`.
 
-- `base` is the prompt Pi assembled for the child session: tools, guidelines, context files, skills catalog and footer.
+The agent's part goes into a custom section. An internal child extension handles `before_agent_start` and sets `event.systemPromptOptions.sections.agent = composeAgentSection(header, body)`. Pi renders custom sections after `<cwd>`, so `<agent>…</agent>` is the last section.
+
 - `header` is the `<active_agent name="…"/>` tag plus the env block, which `@gotgenes/pi-permission-system` still parses.
 - `body` is the agent body.
 
-`appendSystemPromptOverride` stays `() => []`, so `APPEND_SYSTEM.md` is not double-applied.
+**Why a section, not a preamble override.** `systemPromptOverride` replaces only the preamble, which Pi renders before the project context and skills. A forced `systemPrompt` from `before_agent_start` would end exactly with the body, but it is per-turn, unstructured, and replaced by any other extension's override. The section keeps Pi's per-section diffing (cache-stable) and puts the body last. This was decided at Task 3; the spec scenario "Agent body last" was amended to "ends with the `<agent>` section".
 
 **Code removed:**
 
