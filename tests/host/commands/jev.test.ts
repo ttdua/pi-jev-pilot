@@ -161,6 +161,10 @@ describe("usageText", () => {
     for (const f of ["/jev", "/jev <feature> on|off", "/jev all on|off", "/jev reset", ...FEATURES])
       expect(text).toContain(f);
   });
+  test("states the decision feature count", () => {
+    expect(text).toContain("five decision features");
+    expect(text).not.toContain("six");
+  });
   test("Usage lists the tune form", () => {
     expect(text).toContain("/jev tune [undo|reset|on|off]");
   });

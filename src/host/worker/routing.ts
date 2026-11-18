@@ -126,7 +126,8 @@ class Registration {
 }
 
 /**
- * Worker routing: the main session's executor launch policy routes each worker, and one `worker` ledger line is written per decided launch when its outcome arrives.
+ * Worker routing: the main session's executor launch policy routes each worker.
+ * One `worker` ledger line is written per decided launch when its outcome arrives.
  */
 export function registerWorkerRouting(pi: ExtensionAPI, deps: WorkerDeps = {}): WorkerRouting {
   let main: MainContext | undefined;

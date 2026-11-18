@@ -1,4 +1,4 @@
-import type { LaunchPolicy, LaunchRequest, LaunchAdjustment } from "@ttdua/pi-subagents";
+import type { LaunchAdjustment, LaunchPolicy, LaunchRequest } from "@ttdua/pi-subagents";
 import { isChild, type Snapshot } from "../platform/index.ts";
 import { classifyLaunch, type ClassifyDeps } from "./classify.ts";
 import type { LaunchEntry } from "./entry.ts";
@@ -75,8 +75,7 @@ async function decideLaunch(
 }
 
 /**
- * The main session's launch policy: routes the worker. Fails
- * open: any error returns no adjustment, so the launch runs as requested.
+ * The main session's launch policy: routes the worker. Fails open: any error returns no adjustment, so the launch runs as requested.
  */
 export function createWorkerPolicy(host: WorkerHost): LaunchPolicy {
   return async (request, signal) => {

@@ -244,7 +244,7 @@ Each row is a contract the package relies on: a public Pi API, or a seam of the 
 | Read recent conversation | `ctx.sessionManager.getBranch()` | Documented |
 | Skill catalog | `pi.getCommands()` with `sourceInfo.path`, `parseFrontmatter` / `stripFrontmatter` | Documented |
 | Skills already in context | `ctx.sessionManager.buildSessionProjection()` | Documented |
-| Decide every worker launch | Executor `registerLaunchPolicy`: one slot, 10 s watchdog, fails open. Returns `model`, `thinking`, `addTools`, `removeTools` | Executor contract. Verified by `tests/host/launch-policy-evidence.test.ts`. Supersedes Q1, Q2 and Q7 ([evidence](evidence/2026-11-05-host-seams.md)) |
+| Decide every worker launch | Executor `registerLaunchPolicy`: one slot, 10 s watchdog, fails open. Returns `model`, `thinking`, `addTools`, `removeTools` (jev-pilot uses model and thinking only) | Executor contract. Verified by `tests/host/launch-policy-evidence.test.ts`. Supersedes Q1, Q2 and Q7 ([evidence](evidence/2026-11-05-host-seams.md)) |
 | Join a launch to its child and outcome | `agentId`, `agentType`, `toolCallId` on `subagents:*` events; effective model and thinking on `session-created` | Executor contract; `tests/host/worker-ledger.test.ts` |
 | Agent facts | Service `listAgentTypes()` / `getAgentType()` (declared `tools`, `disallowed_tools`, locks) | Executor contract; `tests/host/platform/agent-facts.test.ts` |
 | Remove tools in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` | Verified: yes ([Q3](evidence/2026-11-05-host-seams.md#q3)) |
