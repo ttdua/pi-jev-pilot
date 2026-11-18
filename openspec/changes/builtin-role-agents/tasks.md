@@ -24,6 +24,6 @@ Blocked by: 1
 
 Blocked by: 1, 2
 
-- [ ] 3.1 Docs: `packages/pi-subagents/docs/configuration.md` (sources and order, manifest key, frontmatter `name:`, "role in the agent file, process and task in the launch"), `packages/pi-subagents/README.md`, `packages/pi-subagents/docs/comparison-with-upstream.md`, `docs/usage-guide.md`, `docs/configuration.md`, `docs/architecture.md`, `docs/glossary.md`, `docs/domain-model.md`, `docs/scenarios.md`, `README.md`.
-- [ ] 3.2 `CHANGELOG.md` `[Unreleased]`: added role agents and package agents; removed `Plan`, `Explore`'s pinned model, TypeScript built-ins; `general-purpose` alias (#82, #87, #91).
-- [ ] 3.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`, `bun run test:executor`, `bun run --cwd packages/pi-subagents verify:public-types`.
+- [x] 3.1 Docs: `packages/pi-subagents/docs/configuration.md` (sources and order, manifest key, frontmatter `name:`, "role in the agent file, process and task in the launch"), `packages/pi-subagents/README.md`, `packages/pi-subagents/docs/comparison-with-upstream.md`, `docs/usage-guide.md`, `docs/configuration.md`, `docs/architecture.md`, `docs/glossary.md`, `docs/domain-model.md`, `docs/scenarios.md`, `README.md`.
+- [x] 3.2 `CHANGELOG.md` `[Unreleased]`: added role agents and package agents; removed `Plan`, `Explore`'s pinned model, TypeScript built-ins; `general-purpose` alias (#82, #87, #91).
+- [x] 3.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`, `bun run test:executor`, `bun run --cwd packages/pi-subagents verify:public-types`.
