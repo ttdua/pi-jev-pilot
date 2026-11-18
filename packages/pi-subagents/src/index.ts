@@ -16,7 +16,6 @@ import {
   DefaultResourceLoader,
   type ExtensionAPI,
   getAgentDir,
-  loadProjectContextFiles,
   ModelRuntime,
   type ResourceLoader,
   ModelRegistry as SdkModelRegistry,
@@ -46,7 +45,6 @@ import { ServicePublication } from "#src/seams/service-identity";
 import { detectEnv } from "#src/session/env";
 import { resolveModel } from "#src/session/model-resolver";
 import { createExcludedPackagesStorage } from "#src/session/package-exclusions";
-import { createProjectContextLoader } from "#src/session/project-context";
 import { buildAgentPrompt } from "#src/session/prompts";
 import { inheritRegisteredProviders } from "#src/session/provider-inheritance";
 import { deriveSubagentSessionDir } from "#src/session/session-dir";
@@ -167,21 +165,11 @@ export default function (pi: ExtensionAPI) {
       },
       assemblerIO: {
         buildAgentPrompt,
-        // Pi's own discovery, pointed at whichever directory the child runs in.
-        loadProjectContext: createProjectContextLoader(
-          loadProjectContextFiles,
-          getAgentDir(),
-        ),
       },
     },
     exec: (cmd, args, opts) => pi.exec(cmd, args, opts),
     registry,
     lifecycle: createChildLifecyclePublisher((channel, data) => pi.events.emit(channel, data)),
-    // Resolved here, at the composition root, so the assembly factory stays
-    // free of the policy and gets a ready-made settings view — the same shape
-    // the extension-exclusion policy reaches it in. It is a resolver rather
-    // than a value because only the assembler knows the child's provider.
-    resolvePromptInheritance: (provider) => settings.promptInheritanceFor(provider),
     // Read per child rather than once: an MCP server connects in the
     // background, so its tools register after this extension loads.
     listParentToolNames: () => pi.getAllTools().map((tool) => tool.name),

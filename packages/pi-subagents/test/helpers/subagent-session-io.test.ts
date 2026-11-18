@@ -21,8 +21,7 @@ describe("createSubagentSessionIO", () => {
 	it("assemblerIO has the production interface's methods only", () => {
 		const io = createSubagentSessionIO();
 		expect(typeof io.assemblerIO.buildAgentPrompt).toBe("function");
-		expect(typeof io.assemblerIO.loadProjectContext).toBe("function");
-		expect(Object.keys(io.assemblerIO)).toEqual(["buildAgentPrompt", "loadProjectContext"]);
+		expect(Object.keys(io.assemblerIO)).toEqual(["buildAgentPrompt"]);
 	});
 
 	it("assemblerIO defaults return sensible stub values", () => {

@@ -14,14 +14,7 @@ import type { Model } from "@earendil-works/pi-ai";
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import type { EnvInfo } from "#src/session/env";
 import type { ModelRegistry } from "#src/session/model-resolver";
-import type { ProjectContextLoader } from "#src/session/project-context";
-import type { InheritedPrompt } from "#src/session/prompts";
-import type {
-  AgentPromptConfig,
-  PromptInheritance,
-  SubagentType,
-  ThinkingLevel,
-} from "#src/types";
+import type { AgentPromptConfig, SubagentType, ThinkingLevel } from "#src/types";
 
 // ── Public interfaces ────────────────────────────────────────────────────────
 
@@ -34,19 +27,7 @@ import type {
  * at the edge (`create-subagent-session.ts`) or stubs in tests.
  */
 export interface AssemblerIO {
-  buildAgentPrompt: (
-    config: AgentPromptConfig,
-    cwd: string,
-    env: EnvInfo,
-    inherited?: InheritedPrompt,
-    loadProjectContext?: ProjectContextLoader,
-  ) => string;
-  /**
-   * Resolves a directory's project instructions. Relayed to the prompt builder,
-   * which decides whether this child needs its own — the assembler never calls
-   * it, so a child that inherits an accurate block does no file IO.
-   */
-  loadProjectContext: ProjectContextLoader;
+  buildAgentPrompt: (config: AgentPromptConfig, cwd: string, env: EnvInfo) => string;
 }
 
 /**
@@ -60,15 +41,6 @@ export interface AssemblerIO {
 export interface AssemblerContext {
   /** Parent working directory (overridable via options.cwd). */
   cwd: string;
-  /** Parent's effective system prompt (for append-mode agents). */
-  parentSystemPrompt: string;
-  /** Parent's operator-authored parts, for a child on a re-homing provider. */
-  parentPortablePrompt?: string;
-  /**
-   * Which prompt-inheritance strategy the child's provider calls for.
-   * Absent resolves every child to `"full"`.
-   */
-  resolvePromptInheritance?: (provider: string | undefined) => PromptInheritance;
   /** Parent's current model instance (fallback when agent config has no model). */
   parentModel?: Model<any>;
   /** Model registry for resolving config.model strings. */
@@ -176,28 +148,13 @@ export function assembleSessionConfig(
   const toolNames = registry.getToolNamesForType(type);
 
   // Model resolution: explicit option > config model string > parent model.
-  // Resolved before the prompt because the child's provider is what selects a
-  // prompt-inheritance strategy; the two computations are otherwise
-  // independent, so the order is free.
   const model =
     options.model ??
     resolveDefaultModel(ctx.parentModel, ctx.modelRegistry, agentConfig.model);
 
-  // Build system prompt from the resolved agent config. The strategy is keyed
-  // on the child's own provider, so a per-spawn model override moves the child
-  // between transports and takes the right strategy with it.
-  const systemPrompt = io.buildAgentPrompt(
-    agentConfig,
-    effectiveCwd,
-    env,
-    {
-      systemPrompt: ctx.parentSystemPrompt,
-      cwd: ctx.cwd,
-      strategy: ctx.resolvePromptInheritance?.(model?.provider) ?? "full",
-      portablePrompt: ctx.parentPortablePrompt,
-    },
-    io.loadProjectContext,
-  );
+  // The per-call header (active_agent tag + env block). Pi's base and the agent
+  // body are composed around it by the factory (composeAgentSection).
+  const systemPrompt = io.buildAgentPrompt(agentConfig, effectiveCwd, env);
 
   // Thinking level: explicit option > agent config > undefined (inherit)
   const thinkingLevel = options.thinkingLevel ?? agentConfig.thinking;

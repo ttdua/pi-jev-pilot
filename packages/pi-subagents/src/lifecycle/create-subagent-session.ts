@@ -34,10 +34,11 @@ import type { EnvInfo } from "#src/session/env";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
 import type { ModelRegistry } from "#src/session/model-resolver";
 import { NotifyParentTool, type UpdateAnnouncer } from "#src/session/notify-parent-tool";
+import { freshPromptExtension } from "#src/session/fresh-prompt-extension";
+import { composeAgentSection } from "#src/session/prompts";
 import { type AssemblerIO, assembleSessionConfig } from "#src/session/session-config";
 import type {
   ParentSessionInfo,
-  PromptInheritance,
   ShellExec,
   SubagentType,
   ThinkingLevel,
@@ -75,7 +76,7 @@ export interface ResourceLoaderOptions {
   noPromptTemplates?: boolean;
   noThemes?: boolean;
   noContextFiles?: boolean;
-  systemPromptOverride?: () => string;
+  systemPromptOverride?: (base: string | undefined) => string;
   /** Override the append system prompt. Receives the current base value; return the replacement. */
   appendSystemPromptOverride?: (base: string[]) => string[];
   /** Extensions supplied as code; `builtin` entries are Pi's built-ins, resolved as `builtin:<name>`. */
@@ -154,14 +155,6 @@ export interface SubagentSessionDeps {
   registry: AgentConfigLookup;
   /** Publishes the child-execution lifecycle so consumers can observe it. */
   lifecycle: ChildLifecyclePublisher;
-  /**
-   * Which prompt-inheritance strategy a child on the given provider adopts.
-   *
-   * Resolved at the composition root from the operator's settings, so this
-   * factory stays policy-free — the same shape the extension-exclusion policy
-   * reaches it in.
-   */
-  resolvePromptInheritance: (provider: string | undefined) => PromptInheritance;
   /**
    * Names of the tools the parent session has registered, read when a child is
    * created. An agent's `mcp__<server>__*` tool patterns expand against them.
@@ -282,11 +275,8 @@ export async function createSubagentSession(
     type,
     {
       cwd: snapshot.cwd,
-      parentSystemPrompt: snapshot.systemPrompt,
-      parentPortablePrompt: snapshot.portablePrompt,
       parentModel: snapshot.model,
       modelRegistry: snapshot.modelRegistry,
-      resolvePromptInheritance: deps.resolvePromptInheritance,
     },
     {
       cwd: params.cwd,
@@ -319,6 +309,7 @@ export async function createSubagentSession(
   // The SDK drops a custom tool missing from `tools`; keep the two consistent.
   const childTools = protocolTools.filter((tool) => toolNames.includes(tool.name));
 
+  const agentBody = deps.registry.resolveAgentConfig(type).systemPrompt;
   const agentDir = deps.io.getAgentDir();
   const sessionSettings = deps.io.createSettingsManager(cfg.effectiveCwd, agentDir);
   const loaderSettings = deps.io.createLoaderSettingsManager(sessionSettings);
@@ -327,21 +318,20 @@ export async function createSubagentSession(
   // root did not exclude (#696), plus the Pi built-ins their tools call for —
   // Pi supplies those to its own CLI session only.
   //
-  // Suppress AGENTS.md/CLAUDE.md and APPEND_SYSTEM.md - upstream's
-  // buildSystemPrompt() re-appends both AFTER systemPromptOverride, which
-  // would defeat prompt_mode: replace. Parent context, if wanted, reaches the
-  // subagent via prompt_mode: append (parentSystemPrompt is embedded in
-  // systemPromptOverride) or inherit_context (conversation).
+  // Pi builds the child's own prompt: base, project context from the child's
+  // cwd and the append file. The agent header and body go in the last section.
   const loader = deps.io.createResourceLoader({
     cwd: cfg.effectiveCwd,
     agentDir,
     settingsManager: loaderSettings,
     noPromptTemplates: true,
     noThemes: true,
-    noContextFiles: true,
-    systemPromptOverride: () => cfg.systemPrompt,
-    appendSystemPromptOverride: () => [],
-    extensionFactories: builtinExtensionsFor(toolNames),
+    noContextFiles: false,
+    appendSystemPromptOverride: (base) => base,
+    extensionFactories: [
+      ...builtinExtensionsFor(toolNames),
+      freshPromptExtension(composeAgentSection(cfg.systemPrompt, agentBody)),
+    ],
   });
   await loader.reload();
 

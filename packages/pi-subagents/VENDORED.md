@@ -64,7 +64,12 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/helpers/make-deps.ts` | edit | Disabled-agent fixture carries the new required fields. |
 | `test/helpers/subagent-session-io.ts` | edit | Default lookup config carries the new required fields. |
 | `test/service/service-adapter.test.ts` | edit | Construct the adapter with a no-op agent-type catalog; the manager stub has `registerLaunchPolicy`. |
-| `test/session/session-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
+| `test/session/session-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields; inheritance tests removed with the portable plumbing. |
+| `src/session/session-config.ts` | edit | Drops the parent system prompt, the portable prompt and the inheritance resolver; `buildAgentPrompt` returns the header only. |
+| `test/lifecycle/fresh-prompt.test.ts` | seam | Real `createAgentSession` turn against a loopback provider: project instructions, append file once, `<agent>` section last, no parent identity, task as first user message. |
+| `src/session/project-context.ts` | delete | Rendered the parent-side `<project_context>` for the portable prompt; Pi now builds the child's own prompt. |
+| `test/session/project-context.test.ts` | delete | Tests of the deleted `project-context.ts`. |
+| `src/session/fresh-prompt-extension.ts` | seam | Internal child extension: `before_agent_start` sets `sections.agent` (header + body). |
 | `test/tools/spawn-config.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. Thinking and mode label on `detailBase`, not in tags; `agentTags` keeps mode label, thinking, invocation tags. |
 | `src/seams/launch-policy.ts` | seam | `LaunchPolicySlot` (one policy, fail-open consult with watchdog and run signal) and `validAdjustment`. |
 | `src/seams/launch-request.ts` | seam | Build the frozen `LaunchRequest`; grantable parent tools (minus orchestration tools and excluded packages' tools). |
@@ -107,7 +112,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/config/invocation-config.ts` | edit | `context: fresh | fork` replaces `inherit_context`; `locked: inherit_context` reads as `context`; deprecated caller alias. |
 | `src/lifecycle/parent-snapshot.ts` | edit | `buildParentSnapshot` takes the `ContextMode` (temporary bridge until the fork session). |
 | `src/runtime.ts` | edit | `buildSnapshot(context)`. |
-| `src/session/prompts.ts` | edit | Every agent takes the replace branch (temporary bridge until the fresh prompt). |
+| `src/session/prompts.ts` | edit | Fresh prompt: `composeAgentSection(header, body)` and the `<active_agent>`/env header; the inherited-identity machinery is removed. |
 | `test/config/agent-types.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/config/custom-agents.test.ts` | edit | Cover `context`, the deprecated aliases and their warnings. |
 | `test/config/invocation-config.test.ts` | edit | Cover `context` resolution and the deprecated `inherit_context`. |

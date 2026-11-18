@@ -425,59 +425,6 @@ describe("composition root: prompt-inheritance wiring", () => {
 
     expect(params.snapshot.portablePrompt).toBeUndefined();
   });
-
-  describe("the session factory's inheritance resolver", () => {
-    let projectDir: string;
-
-    beforeEach(() => {
-      projectDir = mkdtempSync(join(tmpdir(), "pi-root-inherit-"));
-      mkdirSync(join(projectDir, ".pi"), { recursive: true });
-      writeFileSync(
-        join(projectDir, ".pi", "subagents.json"),
-        JSON.stringify({ promptInheritance: { "claude-bridge": "portable" } }),
-      );
-      // The root reads settings from process.cwd(), so point it at the fixture.
-      vi.spyOn(process, "cwd").mockReturnValue(projectDir);
-    });
-
-    afterEach(() => {
-      vi.mocked(process.cwd).mockRestore();
-      rmSync(projectDir, { recursive: true, force: true });
-    });
-
-    it("answers portable for a provider the operator configured", async () => {
-      const [, deps] = await spawnAfterParentTurn();
-
-      expect(deps.resolvePromptInheritance("claude-bridge")).toBe("portable");
-    });
-
-    it("answers full for a provider the operator did not configure", async () => {
-      const [, deps] = await spawnAfterParentTurn();
-
-      expect(deps.resolvePromptInheritance("anthropic")).toBe("full");
-    });
-  });
-
-  describe("the session factory's project-context loader", () => {
-    let workspace: string;
-
-    beforeEach(() => {
-      workspace = mkdtempSync(join(tmpdir(), "pi-root-context-"));
-      writeFileSync(join(workspace, "AGENTS.md"), "Worktree rules.");
-    });
-
-    afterEach(() => {
-      rmSync(workspace, { recursive: true, force: true });
-    });
-
-    it("reads the directory it is asked about, not the parent's", async () => {
-      const [, deps] = await spawnAfterParentTurn();
-
-      expect(deps.io.assemblerIO.loadProjectContext(workspace)).toContain(
-        `<project_instructions path="${join(workspace, "AGENTS.md")}">`,
-      );
-    });
-  });
 });
 
 describe("composition root: parent tool list", () => {
