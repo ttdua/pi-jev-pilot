@@ -23,9 +23,9 @@ Blocked by: 1
 
 Blocked by: 1, 2
 
-- [ ] 3.1 `src/host/commands/status-format.ts`: drop "and tool assessment" from both executor lines; add `deprecated: config tools is ignored` under `problems:` when the snapshot's config read reports it; carry the deprecation through `buildSnapshot` in `src/host/platform/readiness.ts` (spec `jev-command` "Status report"). No toast anywhere.
-- [ ] 3.2 `src/host/commands/jev.ts`: `tools` is no longer a feature; `/jev tools on|off` prints usage; `/jev all` sets five features; usage text lists seven feature names (spec `jev-command` "Feature switch commands", "All features", "Usage text for other input").
-- [ ] 3.3 Tests: `tests/host/commands/jev.test.ts`, `tests/host/status/line.test.ts`, `tests/host/jev-base.test.ts`, `tests/host/main/rich.test.ts`, `tests/host/platform/readiness.test.ts` and the `ConfigRead` fixtures (`tests/host/main.test.ts`, `tuning-fakes.ts`, `commands/status-reply.test.ts`, `tuning/step.test.ts`, `main/gate.test.ts`, `main/timing.test.ts`, `commands/jev-order.test.ts`, `tests/replay/inputs.test.ts`) for seven features, five decision features, the deprecated line, no notification on session start with a legacy `tools` section, and `/jev tools off` → usage.
+- [x] 3.1 `src/host/commands/status-format.ts`: drop "and tool assessment" from both executor lines; add `deprecated: config tools is ignored` under `problems:` when the snapshot's config read reports it; carry the deprecation through `buildSnapshot` in `src/host/platform/readiness.ts` (spec `jev-command` "Status report"). No toast anywhere.
+- [x] 3.2 `src/host/commands/jev.ts`: `tools` is no longer a feature; `/jev tools on|off` prints usage; `/jev all` sets five features; usage text lists seven feature names (spec `jev-command` "Feature switch commands", "All features", "Usage text for other input").
+- [x] 3.3 Tests: `tests/host/commands/jev.test.ts`, `tests/host/status/line.test.ts`, `tests/host/jev-base.test.ts`, `tests/host/main/rich.test.ts`, `tests/host/platform/readiness.test.ts` and the `ConfigRead` fixtures (`tests/host/main.test.ts`, `tuning-fakes.ts`, `commands/status-reply.test.ts`, `tuning/step.test.ts`, `main/gate.test.ts`, `main/timing.test.ts`, `commands/jev-order.test.ts`, `tests/replay/inputs.test.ts`) for seven features, five decision features, the deprecated line, no notification on session start with a legacy `tools` section, and `/jev tools off` → usage.
 
 ## 4. Docs and changelog
 
