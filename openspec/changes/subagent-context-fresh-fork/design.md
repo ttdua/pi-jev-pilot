@@ -243,6 +243,14 @@ Callers that take the label from the record or invocation, not the registry:
 
 Plan task 1. Run against `@earendil-works/pi-coding-agent` 1.5.0 and `pi-ai` 1.5.0 with a local loopback provider (`openai-completions`) and a real probe through the 9router. The probe code was throwaway and is deleted.
 
+**Step 4 runs** (cwd `packages/pi-subagents`, vitest 4.1.12):
+
+- `bun run test test/spike`: 1 file (`fork-probe.test.ts`), 2 tests, 2 passed (declarations + block + header rewrite; payload `prompt_cache_key` rewrite). A first run failed on the header assertion (the handler tried to rewrite existing keys of an empty header object); after switching the handler to set the names, it passed.
+- `bun run test test/spike/router-probe`: 1 test passed (9router probe, numbers below).
+- `bun run test test/spike/synthetic`: 1 test passed (synthetic tool result, added in fix round 1).
+
+All spike files were deleted before the commit.
+
 ### Where the session id reaches the provider
 
 Source: `node_modules/@earendil-works/pi-ai/dist/api/*.js`. `options.sessionId` is the session's own id; `cacheRetention: "none"` drops it.
@@ -259,7 +267,7 @@ Header-name set the D3 handler must cover: `x-session-affinity`, `x-session-id`,
 
 ### Can the hooks rewrite them
 
-- **`before_provider_headers`.** Pi calls it through `transformHeaders` in `ModelRuntime.prepareRequest`, **before** the provider builds its client. The handler sees only `{}` plus auth/option headers, so there is nothing to rewrite in place: it must **set** the headers. `pi-ai` merges `options.headers` last (`Object.assign(headers, optionsHeaders)`), so the handler's values win over the provider's own session headers. Verified on the wire: a handler that set `session_id`, `x-session-affinity`, `x-client-request-id` and `x-session-id` to the parent id changed every one (fork's own id replaced). Consequence: the handler must set all names unconditionally; where the parent sent none (`sendSessionAffinityHeaders` off), the fork adds harmless extra headers. `null` deletes a header. A Codex WebSocket connection is chosen from `options.sessionId` before headers are built, so it keys on the fork id: it is not covered by this hook (known gap; only SSE honours the override).
+- **`before_provider_headers`.** Pi calls it through `transformHeaders` in `ModelRuntime.prepareRequest`, **before** the provider builds its client. The handler sees only `{}` plus auth/option headers, so there is nothing to rewrite in place: it must **set** the headers. `pi-ai` merges `options.headers` last (`Object.assign(headers, optionsHeaders)`), so the handler's values win over the provider's own session headers. Verified on the wire: a handler that set `session_id`, `x-session-affinity`, `x-client-request-id` and `x-session-id` to the parent id changed every one (fork's own id replaced). Consequence: the handler must set all names unconditionally; where the parent sent none (`sendSessionAffinityHeaders` off), the fork adds harmless extra headers. `null` deletes a header. **`openai-codex-responses` is not covered.** `buildBaseCodexHeaders` applies `options.headers`, but `buildSSEHeaders` then calls `headers.set("session-id", sessionId)` and `headers.set("x-client-request-id", sessionId)` with the fork's own id, overwriting the hook's values (`openai-codex-responses.js:1301-1311`). `buildWebSocketHeaders` does the same with `requestId` (`:1312-1321`), and the WebSocket cache and SSE-fallback state are keyed by `cacheSessionId`. Read from source only; not exercised on the wire. Both Codex transports therefore keep the fork id in `session-id` / `x-client-request-id` with the current hook; the `prompt_cache_key` payload rewrite is the only lever that reaches them (also not verified).
 - **`before_provider_request`.** Verified: a handler returning `{ ...payload, prompt_cache_key: parentId }` changed the wire value (`openai-completions`, retention `long`). The handler must only rewrite the key when present, so as not to add it where the parent had none.
 - Anthropic puts nothing in the payload, so headers cover it. A provider that derives routing from something other than these fields (e.g. `metadata.user_id`) is not covered.
 
@@ -268,7 +276,8 @@ Header-name set the D3 handler must cover: `x-session-affinity`, `x-session-id`,
 - **Declarations identical.** A second session built through the real `createAgentSession` with `systemPromptOverride: () => parentPrompt`, `appendSystemPromptOverride: () => []`, `noContextFiles: true` and `tools: parentToolNames` sent a first request whose system messages and `tools` JSON were byte-identical to the parent's last request (`JSON.stringify` equal, tools `read, edit`).
 - **`tool_call` block.** A handler returning `{ block: true, reason }` for `edit`, with the scripted model calling `edit`: the tool did not execute (the file was unchanged), the next request carried a tool message with the reason text, and the session's `toolResult` message had `isError: true`.
 - **Session id.** A second `SessionManager.create(cwd, dir)` + `newSession({ parentSession })` has its own id (differs from the parent's), with parent branch messages appended via `appendMessage`.
-- The copied tool-call branch (assistant `toolCall` + tool results) is accepted as the prefix without modification.
+- **Copied completed branch.** In the first probe the fork was built from the parent's already-completed branch (the parent really executed `read`; the fork appended those messages via `appendMessage`). That probe did **not** test a synthetic tool result.
+- **Synthetic tool result after a pending call (separate probe, loopback fixture).** The parent ran a turn whose first reply was a `read` call (executed: 1 `toolResult`, content `hello`, `isError: false`). The fork branch was cut at the assistant message holding that call, so the call was pending, and a synthetic `toolResult` (`toolCallId` of the pending call, text `Forked: this branch continues as a subagent.`, `isError: false`) was appended with `appendMessage`, followed by `session.prompt("You are the fork. Continue.")`. The fork's first request had roles `[system, user, assistant, tool, user]`; the `tool` message was `{"content":"Forked: this branch continues as a subagent.","tool_call_id":"call_1"}`; the real result `hello` was absent from the request; the fork replied normally. Command: `bun run test test/spike/synthetic --reporter=verbose --silent=false` (cwd `packages/pi-subagents`), 1 test passed. Only `openai-completions` was exercised.
 
 ### SDK API relied on (reuse in Task 4)
 
@@ -292,8 +301,8 @@ Through a recording pass-through proxy to `http://127.0.0.1:20128` (key read fro
 | `session_id`, `x-session-affinity`, `x-client-request-id` received | all equal the parent id: **yes** |
 | `prompt_cache_key` in body | absent (9router base URL is not `api.openai.com`) |
 
-The ratio is below 0.90: reported, not a stop condition (Task 7 enforces the bound). The shortfall is block granularity: `16256 = 127 × 128`, and the fork's own new user turn plus the parent's last assistant text sit after the cached prefix. One parent turn with a long system prompt, no tool results.
+The ratio is below 0.90: reported, not a stop condition (Task 7 enforces the bound). Hypothesis, not tested: the shortfall is cache block granularity (`16256 = 127 x 128`) plus the fork's own new user turn and the parent's last assistant text, which sit after the cached prefix. One parent turn with a long system prompt, no tool results; one measurement only.
 
 ### Outcome
 
-No stop condition: declarations stay identical, and `{ block: true }` prevents execution. Design impact: (1) D3's `before_provider_headers` handler sets the full header-name set, it cannot "rewrite"; (2) Codex WebSocket sessions are a known gap, recorded here for the evidence document; (3) a provider with default affinity headers off gets extra headers, which is harmless.
+No stop condition: declarations stay identical, and `{ block: true }` prevents execution. Design impact: (1) D3's `before_provider_headers` handler sets the full header-name set, it cannot "rewrite"; (2) `openai-codex-responses` is a known header-routing gap on **both** SSE and WebSocket: the provider overwrites `session-id` and `x-client-request-id` after the hook, so the full header set does not cover it. Task 4 must not claim Codex cache sharing from the header handler; it needs another mechanism or an explicit documented gap in the evidence document; (3) a provider with default affinity headers off gets extra headers, which is harmless.
