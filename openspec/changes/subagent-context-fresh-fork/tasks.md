@@ -63,7 +63,7 @@ Blocked by: 3, 4, 5, 6
 
 - [ ] 7.1 `tests/host/launch-policy-evidence.test.ts`: switch the `inherit_context` launch to `context: "fork"`; add an untouched fork keeping the parent prefix byte-for-byte; check the marker inside a tool result.
 - [ ] 7.2 Host tests: parallel forks share the prefix up to the synthetic result; a fork refuses a disallowed tool and `jev_review`; fresh has no parent marker; explicit fork with no parent fails.
-- [ ] 7.3 Manual evidence run (real Anthropic plus one OpenAI-compatible provider, outside CI): `docs/evidence/<date>-fork-cache.md` with the matrix, conditions and the 90% bound.
+- [ ] 7.3 Manual evidence run (one OpenAI-compatible provider, `9router/gpt-6-luna`; optional unbounded Anthropic-model row via `claude-code/claude-haiku-5-5`; outside CI), with the parent at 25000 or more input tokens and the provider's cache floor recorded: `docs/evidence/<date>-fork-cache.md` with the matrix, conditions and the 90% bound.
 
 ## 8. Docs, decision record and migration
 

@@ -396,9 +396,9 @@
 - [ ] **Step 3:** Run `bun test tests/host/launch-policy-evidence.test.ts tests/host/context-mode.test.ts`. Expected: PASS.
 - [ ] **Step 4:** Write `scripts/fork-cache-evidence.ts`, run as `bun scripts/fork-cache-evidence.ts --anthropic <provider/id> --openai <provider/id>`.
   - **Keys.** Read from `ANTHROPIC_API_KEY` and `FORK_EVIDENCE_OPENAI_API_KEY` (with `FORK_EVIDENCE_OPENAI_BASE_URL`). Never print them.
-  - **Parent.** Build a parent turn from a generated filler document. Let `P` be the parent's last-request total input, `input + cacheRead + cacheWrite` from its usage. Exclude the sample unless `P >= 8000`.
+  - **Parent.** Build a parent turn from a generated filler document. Let `P` be the parent's last-request total input, `input + cacheRead + cacheWrite` from its usage. Exclude the sample unless `P >= 25000` (raised from 8000 at Task 7: 9router leaves about 2150 tokens of any prompt uncached, so 0.90 needs P of about 21500; user ruling). Also measure the provider floor: send the parent's last request again unchanged, and record its `cacheRead` and `P - cacheRead`.
   - **Fork.** Record the timestamp when the parent's last request is sent. Start the fork within 60 seconds of that timestamp, with no thinking or tool override; compute elapsed seconds and the exclusion rule from it. Record the fork's first-turn `cacheRead` and the ratio `cacheRead / P`.
-  - **Matrix.** For each provider: one fork, two parallel forks, and one fork with a model override. The model-override row is recorded with no bound.
+  - **Matrix.** OpenAI-compatible (`9router/gpt-6-luna`): one fork, two parallel forks, and one fork with a model override. The model-override row is recorded with no bound. Optional unbounded Anthropic-model row via `claude-code/claude-haiku-5-5`, with its route stated (user ruling: Anthropic API not measured).
   - **Output.** One table row per run: provider, kind, `P`, `cacheRead`, ratio, elapsed seconds, included or excluded.
 
   Run it manually and write the table and conditions into `docs/evidence/<date>-fork-cache.md`. The bound is a ratio of at least 0.90 for every included same-model row. If the bound fails, stop and escalate; do not lower it.
@@ -531,54 +531,5 @@
 - subagent-context-mode / Decision record present → `tests/docs-old-names.test.ts` (Task 8)
 - subagent-context-mode / Old names gone from current docs → `tests/docs-old-names.test.ts` (Task 8)
 - subagent-run-facts / Policy-changed thinking shown live → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / Existing order kept → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / Fallback shown → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / Fresh run has no label → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / Running agent line → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / No facts known → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / Fresh run line → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
-- subagent-run-facts / Count after the grant check → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Fork tool count → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Allowlist narrows the child → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Disallowed tool is blocked → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Policy removal is blocked → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Removal re-granted is not blocked → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Unknown before bind → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Fork blocked count → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Recursion guard tools are blocked → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Child's own tools are granted → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Granted plus blocked is the total → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Nothing blocked → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- subagent-run-facts / Refused fork tool is blocked → `packages/pi-subagents/test/ui/run-facts.test.ts` + `tests/host/run-facts-offline.test.ts`
-- tool-assessment / Long brief → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Forked worker → `tests/host/tool-assessment.test.ts` (fork cases)
-- tool-assessment / Empty prompt → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Brief not stored → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Observe keeps tools → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Observe in a fork → `tests/host/tool-assessment.test.ts` (fork cases)
-- tool-assessment / Enforce removes → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Enforce grants → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Enforce grant the child cannot take → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Never adds → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Enforce in a fork → `tests/host/tool-assessment.test.ts` (fork cases)
-- tool-assessment / Resumed worker → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Failed first call not retried → `tests/host/tool-assessment.test.ts`
-- tool-assessment / Resumed fork keeps refusals → `tests/host/tool-assessment.test.ts` (fork cases)
-- worker-decision / Resume → `tests/policy/worker/route.test.ts`
-- worker-decision / Forked launch left alone → `tests/policy/worker/route.test.ts`
-- worker-decision / Both fields locked → `tests/policy/worker/route.test.ts`
-- worker-decision / Service launch with a model and locked thinking → `tests/policy/worker/route.test.ts`
-- worker-decision / Forked thinking with thinking locked → `tests/policy/worker/route.test.ts`
-- worker-decision / Slot alone with thinking locked → `tests/policy/worker/route.test.ts`
-- worker-decision / Forked launch with thinking → `tests/policy/worker/route.test.ts`
-- worker-decision / No tier offered → `tests/policy/worker/route.test.ts`
-- worker-decision / No tier decided → `tests/policy/worker/route.test.ts`
-- worker-decision / Slot below the bar with no tier → `tests/policy/worker/route.test.ts`
-- worker-decision / No effort answer → `tests/policy/worker/route.test.ts`
-- worker-decision / No tier decided with thinking locked → `tests/policy/worker/route.test.ts`
-- worker-decision / Jev fails for a fork with thinking → `tests/policy/worker/route.test.ts`
-- worker-routing / Display name prefix → `tests/host/worker-routing.test.ts`
-- worker-routing / Slot display name → `tests/host/worker-routing.test.ts`
-- worker-routing / Parent request off → `tests/host/worker-routing.test.ts`
-- worker-routing / Forked launch with thinking asks fewer questions → `tests/host/worker-routing.test.ts`
-- worker-routing / Service launch content → `tests/host/worker-routing.test.ts`
+
+[Showing lines 1-533 of 585 (50.0KB limit). Use offset=534 to continue.]

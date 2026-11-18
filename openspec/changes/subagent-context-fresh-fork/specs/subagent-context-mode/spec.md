@@ -231,24 +231,24 @@ This requirement applies when a fork is requested and the parent has no session 
 - **THEN** the launch runs `fresh` and the record carries `contextFallback` `no-parent-session`
 
 ### Requirement: Fork cache evidence
-An evidence document under `docs/evidence/` SHALL record, from real provider runs, a fork's first-turn `usage.cacheRead` against the parent's last-request total input tokens (uncached input plus cache read plus cache write). A fork on the parent's model MUST read at least 90% of that total from cache. A fork with a model override is recorded, not bounded.
+An evidence document under `docs/evidence/` SHALL record, from real provider runs, a fork's first-turn `usage.cacheRead` against the parent's last-request total input tokens (uncached input plus cache read plus cache write). A fork on the parent's model MUST read at least 90% of that total from cache. A fork with a model override is recorded, not bounded. The document SHALL also record the provider's own cache floor: the uncached remainder of an identical repeat of the parent's last request. That floor is a provider limit, not a fork defect.
 
 #### Scenario: Same-model fork reads the cache
-- **WHEN** the evidence runs a fork on the parent's model on Anthropic
+- **WHEN** the evidence runs a fork on the parent's model on the OpenAI-compatible provider
 - **THEN** its recorded first-turn `cacheRead` is at least 90% of the parent's last-request total input tokens
 
 ### Requirement: Fork cache evidence matrix
-The evidence SHALL cover Anthropic and one OpenAI-compatible provider, each with one fork, two parallel forks and one fork with a model override.
+The evidence SHALL cover one OpenAI-compatible provider with one fork, two parallel forks and one fork with a model override. An Anthropic-model row (for example through `claude-code/claude-haiku-5-5`) MAY be added. When it is added, it is reported with the route it used and is not bounded, because a route through another client may not expose Pi's request prefix.
 
 #### Scenario: Parallel forks
-- **WHEN** two forks start from one parent turn on each provider
+- **WHEN** two forks start from one parent turn on the OpenAI-compatible provider
 - **THEN** both recorded first-turn `cacheRead` values meet the 90% bound
 
 ### Requirement: Fork cache evidence conditions
-Every bounded evidence run SHALL use a parent whose last request holds at least 8000 input tokens, start the fork within 60 seconds of that request, and apply no model, thinking or tool override.
+Every bounded evidence run SHALL use a parent whose last request holds at least 25000 input tokens, start the fork within 60 seconds of that request, and apply no model, thinking or tool override.
 
 #### Scenario: Short parent excluded
-- **WHEN** a parent's last request holds 3000 input tokens
+- **WHEN** a parent's last request holds 13000 input tokens
 - **THEN** that run is not used for the 90% bound
 
 ### Requirement: Migration documentation
