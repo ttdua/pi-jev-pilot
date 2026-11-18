@@ -231,11 +231,18 @@ This requirement applies when a fork is requested and the parent has no session 
 - **THEN** the launch runs `fresh` and the record carries `contextFallback` `no-parent-session`
 
 ### Requirement: Fork cache evidence
-An evidence document under `docs/evidence/` SHALL record, from real provider runs, a fork's first-turn `usage.cacheRead` against the parent's last-request total input tokens (uncached input plus cache read plus cache write). A fork on the parent's model MUST read at least 90% of that total from cache. A fork with a model override is recorded, not bounded. The document SHALL also record the provider's own cache floor: the uncached remainder of an identical repeat of the parent's last request. That floor is a provider limit, not a fork defect.
+An evidence document under `docs/evidence/` SHALL record, from real provider runs, a fork's first-turn `usage.cacheRead` against the parent's last-request total input tokens (uncached input plus cache read plus cache write). A fork on the parent's model MUST read at least 90% of that total from cache. A fork with a model override is recorded, not bounded.
 
 #### Scenario: Same-model fork reads the cache
 - **WHEN** the evidence runs a fork on the parent's model on the OpenAI-compatible provider
 - **THEN** its recorded first-turn `cacheRead` is at least 90% of the parent's last-request total input tokens
+
+### Requirement: Provider cache floor recorded
+The evidence document SHALL record the provider's cache floor: the uncached remainder when the parent's last request is sent again unchanged. That floor is a provider limit, not a fork defect.
+
+#### Scenario: Floor measured
+- **WHEN** the evidence run sends the parent's last request a second time unchanged
+- **THEN** the document records that repeat's `cacheRead` and `P - cacheRead`
 
 ### Requirement: Fork cache evidence matrix
 The evidence SHALL cover one OpenAI-compatible provider with one fork, two parallel forks and one fork with a model override. An Anthropic-model row (for example through `claude-code/claude-haiku-5-5`) MAY be added. When it is added, it is reported with the route it used and is not bounded, because a route through another client may not expose Pi's request prefix.
