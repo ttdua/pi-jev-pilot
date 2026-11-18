@@ -69,6 +69,6 @@ Blocked by: 3, 4, 5, 6
 
 Blocked by: 3, 4, 5, 6
 
-- [ ] 8.1 ADR `packages/pi-subagents/docs/decisions/0014-subagent-context-is-fresh-or-fork.md`; status lines in ADRs 0006, 0008, 0009, 0010 and 0011.
-- [ ] 8.2 `packages/pi-subagents/README.md`, `packages/pi-subagents/docs/configuration.md`, `VENDORED.md`, `CHANGELOG.md` (migration section).
-- [ ] 8.3 `docs/configuration.md`, `docs/usage-guide.md`, `docs/workflow.md`, `docs/jev-contract.md`, `docs/domain-model.md`, `docs/roadmap.md`; grep check for old names outside the exempt places.
+- [x] 8.1 ADR `packages/pi-subagents/docs/decisions/0014-subagent-context-is-fresh-or-fork.md`; status lines in ADRs 0006, 0008, 0009, 0010 and 0011.
+- [x] 8.2 `packages/pi-subagents/README.md`, `packages/pi-subagents/docs/configuration.md`, `VENDORED.md`, `CHANGELOG.md` (migration section).
+- [x] 8.3 `docs/configuration.md`, `docs/usage-guide.md`, `docs/workflow.md`, `docs/jev-contract.md`, `docs/domain-model.md`, `docs/roadmap.md`; grep check for old names outside the exempt places.
