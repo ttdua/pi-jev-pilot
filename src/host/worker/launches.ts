@@ -8,8 +8,6 @@ export type Held<E> = {
   entry: E;
   /** From `subagents:child:session-created`; absent until the session exists. */
   effective?: EffectiveValues;
-  /** From `subagents:child:bound`: the grants that took effect in the child. */
-  grantedTools?: readonly string[];
 };
 
 /**
@@ -45,12 +43,6 @@ export class LaunchBook<E> {
   sessionCreated(agentId: string, effective: EffectiveValues): void {
     const held = this.#held.get(agentId);
     if (held !== undefined) held.effective = effective;
-  }
-
-  /** Records the grants the executor reports as taken effect in a held launch's child. */
-  bound(agentId: string, grantedTools: readonly string[]): void {
-    const held = this.#held.get(agentId);
-    if (held !== undefined) held.grantedTools = grantedTools;
   }
 
   /** Removes and returns a held launch when its outcome arrives. */
