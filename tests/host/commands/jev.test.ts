@@ -565,7 +565,9 @@ describe("runJev", () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "config.json"), JSON.stringify({ tools: {}, effort: 5 }));
     const text = (await run("", dir)).notes[0]![0];
-    expect(text).toContain("config");
+    expect(text).toContain("Jev · config error");
+    expect(text).toContain("problems:");
+    expect(text).toContain("  config effort: expected an object");
     expect(text).not.toContain("deprecated:");
   });
 
