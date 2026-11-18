@@ -14,9 +14,10 @@
 // The OpenAI-compatible parent runs through a recording proxy; its last request is then sent again
 // unchanged to measure the provider's cache floor.
 //
-// Each run starts its own real Pi session (executor-only package plus the policy probe, which
-// provides `/probe-spawn`), sends one parent turn that holds a generated filler document, then
-// starts the fork(s) with `/probe-spawn` and reads the first assistant message of each fork
+// Each run starts its own real Pi session (the executor package plus `fork-cache-evidence-ext/`,
+// which provides `/evidence-spawn` and logs request and launch times), sends one parent turn that
+// holds a generated filler document, then starts the fork(s) with `/evidence-spawn` and reads the
+// first assistant message of each fork
 // transcript.
 import {
   existsSync,
@@ -344,51 +345,66 @@ type Session = {
   agentDir: string;
   cwd: string;
   rpc: Rpc;
-  count: (event: string) => number;
+  reportPath: string;
 };
 
 function installAll(target: Target, dirs: { agentDir: string; home: string; cwd: string }): void {
   if (target.extension !== undefined) install(target.extension, dirs);
-  install(join(REPO_ROOT, "tests", "fixtures", "executor-only"), dirs);
-  install(join(REPO_ROOT, "tests", "host", "probes", "policy"), dirs);
+  // The executor's production entry point and this script's own extension; nothing from tests/.
+  install(join(REPO_ROOT, "packages", "pi-subagents"), dirs);
+  install(join(import.meta.dir, "fork-cache-evidence-ext"), dirs);
 }
 
-/** A real Pi session on `target`, with the executor and the policy probe installed. */
+/** A real Pi session on `target`, with the executor and the evidence extension installed. */
 async function openSession(target: Target, spawnModel: string | undefined): Promise<Session> {
   const agentDir = tempDir("fork-evidence-agent-");
   const cwd = tempDir("fork-evidence-cwd-");
-  const home = target.home ?? join(agentDir, "home");
-  mkdirSync(home, { recursive: true });
-  if (target.modelsJson !== undefined)
-    writeFileSync(join(agentDir, "models.json"), JSON.stringify(target.modelsJson));
-  installAll(target, { agentDir, home, cwd });
-  const reportPath = join(agentDir, "probe-report.jsonl");
-  writeFileSync(reportPath, "");
-  writeFileSync(join(agentDir, "policy.json"), "{}");
-  const rpc = spawnRpc({
-    agentDir,
-    home,
-    cwd,
-    args: ["--provider", target.provider, "--model", target.model, "--thinking", "off"],
-    env: {
-      PI_OFFLINE: "1",
-      JEV_PROBE_REPORT: reportPath,
-      JEV_POLICY_FILE: join(agentDir, "policy.json"),
-      JEV_SPAWN_CONTEXT: "fork",
-      ...(spawnModel === undefined ? {} : { JEV_SPAWN_MODEL: spawnModel }),
-      ...target.env,
-    },
-  });
-  const count = (event: string): number =>
-    readFileSync(reportPath, "utf8")
-      .split("\n")
-      .filter((l) => l.includes(`"event":"${event}"`)).length;
-  await rpc.waitFor(() => count("session_start") >= 1, "session_start");
-  return { agentDir, cwd, rpc, count };
+  const reportPath = join(agentDir, "evidence-report.jsonl");
+  let rpc: Rpc | undefined;
+  try {
+    const home = target.home ?? join(agentDir, "home");
+    mkdirSync(home, { recursive: true });
+    if (target.modelsJson !== undefined)
+      writeFileSync(join(agentDir, "models.json"), JSON.stringify(target.modelsJson));
+    installAll(target, { agentDir, home, cwd });
+    writeFileSync(reportPath, "");
+    rpc = spawnRpc({
+      agentDir,
+      home,
+      cwd,
+      args: ["--provider", target.provider, "--model", target.model, "--thinking", "off"],
+      env: {
+        PI_OFFLINE: "1",
+        FORK_EVIDENCE_REPORT: reportPath,
+        ...(spawnModel === undefined ? {} : { FORK_EVIDENCE_SPAWN_MODEL: spawnModel }),
+        ...target.env,
+      },
+    });
+    const session = { agentDir, cwd, rpc, reportPath };
+    await rpc.waitFor(() => events(session, "session_start").length >= 1, "session_start");
+    return session;
+  } catch (error) {
+    await closeSession({ agentDir, cwd, rpc });
+    throw error;
+  }
 }
 
-async function closeSession(s: Session): Promise<void> {
-  await s.rpc.close().catch(() => undefined);
+type ReportEvent = { event: string; t: number; agentId?: string; sessionId?: string };
+
+function events(s: { reportPath: string }, name: string): ReportEvent[] {
+  return readFileSync(s.reportPath, "utf8")
+    .split("\n")
+    .filter((l) => l.trim() !== "")
+    .map((l) => JSON.parse(l) as ReportEvent)
+    .filter((e) => e.event === name);
+}
+
+async function closeSession(s: {
+  agentDir: string;
+  cwd: string;
+  rpc: Rpc | undefined;
+}): Promise<void> {
+  await s.rpc?.close().catch(() => undefined);
   rmSync(s.agentDir, { recursive: true, force: true });
   rmSync(s.cwd, { recursive: true, force: true });
 }
@@ -396,17 +412,21 @@ async function closeSession(s: Session): Promise<void> {
 /** Why a run does not count toward the bound, or undefined when it does. */
 function exclusion(
   parentTokens: number,
-  elapsedS: number,
+  elapsedS: number | undefined,
   override: boolean,
   unbounded: boolean,
 ): string | undefined {
   if (parentTokens < MIN_PARENT_TOKENS) return `excluded: P < ${MIN_PARENT_TOKENS}`;
+  if (elapsedS === undefined)
+    return unbounded
+      ? "recorded, no bound (other route; no request hook, elapsed not observable)"
+      : "excluded: no parent request time";
   if (elapsedS > MAX_ELAPSED_S) return `excluded: elapsed > ${MAX_ELAPSED_S}s`;
   if (unbounded) return "recorded, no bound (other route)";
   return override ? "recorded, no bound (model override)" : undefined;
 }
 
-type ParentFacts = { tokens: number; elapsedS: number };
+type ParentFacts = { tokens: number; elapsedS: number | undefined };
 type Shape = {
   base: Pick<Row, "provider" | "kind">;
   forks: number;
@@ -442,30 +462,52 @@ function forkRow(shape: Shape, t: { entries: Entry[] }, p: ParentFacts): Row {
   };
 }
 
+/** Seconds from the parent's last request before `launchAt` to `launchAt`; undefined if none. */
+function elapsedBefore(s: Session, launchAt: number): number | undefined {
+  const sent = events(s, "request")
+    .map((e) => e.t)
+    .filter((t) => t <= launchAt)
+    .at(-1);
+  return sent === undefined ? undefined : (launchAt - sent) / 1000;
+}
+
+/** The fork transcript whose session id the launch event for `agentId` reported. */
+function forkTranscript(
+  s: Session,
+  all: ReturnType<typeof transcripts>,
+  agentId: string | undefined,
+): { entries: Entry[] } | undefined {
+  const sessionId = events(s, "session").find((e) => e.agentId === agentId)?.sessionId;
+  return all.find((t) => sessionId !== undefined && t.text.includes(`"id":"${sessionId}"`));
+}
+
 /** One parent turn on the filler document, then `forks` forks; one row per fork. */
 async function measure(s: Session, shape: Shape): Promise<Row[]> {
   await s.rpc.prompt(
     `Below is a reference document. Read it, then reply with exactly: OK\n\n${filler()}`,
   );
   const sessions = join(s.agentDir, "sessions");
-  const parent = transcripts(sessions).find((t) => t.entries.length > 0);
-  const last = assistants(parent?.entries ?? []).at(-1);
-  if (last?.usage === undefined || last.timestamp === undefined) {
+  const last = assistants(
+    transcripts(sessions).find((t) => t.entries.length > 0)?.entries ?? [],
+  ).at(-1);
+  if (last?.usage === undefined) {
     return [emptyRow(shape.base, "excluded: parent made no usage-bearing request")];
   }
-  const startedAt = Date.now();
+  const tokens = total(last.usage);
   for (let i = 0; i < shape.forks; i++) {
-    s.rpc.send(`/probe-spawn general-purpose CHILD-TASK reply OK ${i}`);
+    s.rpc.send(`/evidence-spawn general-purpose CHILD-TASK reply OK ${i}`);
   }
-  await s.rpc.waitFor(() => s.count("record:facts") >= shape.forks, "fork completion");
-  const facts = {
-    tokens: total(last.usage),
-    elapsedS: (startedAt - last.timestamp) / 1000,
-  };
-  return transcripts(sessions)
-    .filter((t) => t.file !== parent?.file && t.text.includes("<subagent_instructions>"))
+  await s.rpc.waitFor(() => events(s, "completed").length >= shape.forks, "fork completion");
+  const all = transcripts(sessions);
+  return events(s, "launch")
     .slice(0, shape.forks)
-    .map((t) => forkRow(shape, t, facts));
+    .map((launch) => {
+      const t = forkTranscript(s, all, launch.agentId);
+      const facts = { tokens, elapsedS: elapsedBefore(s, launch.t) };
+      return t === undefined
+        ? emptyRow(shape.base, "excluded: fork transcript not found")
+        : forkRow(shape, t, facts);
+    });
 }
 
 /** The target with its upstream base URL replaced by the recording proxy's. */
@@ -498,9 +540,24 @@ async function run(target: Target, kind: Kind): Promise<Row[]> {
   if (skipped !== undefined) return [emptyRow(shape.base, skipped)];
   const upstream = process.env.FORK_EVIDENCE_OPENAI_BASE_URL;
   const proxy = wantsFloor(target, kind, upstream) ? recordingProxy(upstream ?? "") : undefined;
-  const effective =
-    proxy === undefined || upstream === undefined ? target : viaProxy(target, upstream, proxy.url);
-  const session = await openSession(effective, shape.override ? target.override : undefined);
+  try {
+    const effective =
+      proxy === undefined || upstream === undefined
+        ? target
+        : viaProxy(target, upstream, proxy.url);
+    return await runSession(effective, shape, proxy, upstream);
+  } finally {
+    proxy?.stop();
+  }
+}
+
+async function runSession(
+  target: Target,
+  shape: Shape,
+  proxy: { requests: Captured[] } | undefined,
+  upstream: string | undefined,
+): Promise<Row[]> {
+  const session = await openSession(target, shape.override ? target.override : undefined);
   try {
     const rows = await measure(session, shape);
     const parentRequest = proxy?.requests.find((r) =>
@@ -511,7 +568,6 @@ async function run(target: Target, kind: Kind): Promise<Row[]> {
     return rows;
   } finally {
     await closeSession(session);
-    proxy?.stop();
   }
 }
 

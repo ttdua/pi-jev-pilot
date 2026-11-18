@@ -1,6 +1,6 @@
 # Fork cache evidence (2026-11-18)
 
-**Result: PASS.** Every included same-model OpenAI-compatible row is at or above the 0.90 bound (0.920 to 0.925) at `P >= 25000`. The Anthropic API is **not measured**. A model-override row and one Anthropic-model row through the Claude Code CLI are recorded without a bound.
+**Result: PASS.** Every included same-model OpenAI-compatible row is at or above the 0.90 bound (0.921) at `P >= 25000`. The Anthropic API is **not measured**. A model-override row and one Anthropic-model row through the Claude Code CLI are recorded without a bound.
 
 Command (`scripts/fork-cache-evidence.ts`, manual, not run by `bun test`):
 
@@ -17,22 +17,22 @@ Keys come from the environment and are never printed. The OpenAI-compatible prov
 
 | provider | kind | P | cacheRead | ratio | elapsed s | result |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| OpenAI-compatible (`9router/gpt-6-luna`) | one fork | 27686 | 25472 | 0.920 | 1.9 | included: PASS |
-| OpenAI-compatible | parallel forks (1/2) | 27686 | 25600 | 0.925 | 1.8 | included: PASS |
-| OpenAI-compatible | parallel forks (2/2) | 27686 | 25472 | 0.920 | 1.8 | included: PASS |
-| OpenAI-compatible | model override (`gpt-6-sol`) | 27685 | 0 | 0.000 | 1.5 | recorded, no bound |
-| Anthropic model via `claude-code/claude-haiku-5-5` | one fork | 52093 | 51747 | 0.993 | 2.5 | recorded, no bound (other route) |
+| OpenAI-compatible (`9router/gpt-6-luna`) | one fork | 27666 | 25472 | 0.921 | 1.7 | included: PASS |
+| OpenAI-compatible | parallel forks (1/2) | 27669 | 25472 | 0.921 | 2.4 | included: PASS |
+| OpenAI-compatible | parallel forks (2/2) | 27669 | 25472 | 0.921 | 2.4 | included: PASS |
+| OpenAI-compatible | model override (`gpt-6-sol`) | 27671 | 0 | 0.000 | 2.3 | recorded, no bound |
+| Anthropic model via `claude-code/claude-haiku-5-5` | one fork | 52028 | 51682 | 0.993 | - | recorded, no bound (other route; no request hook, elapsed not observable) |
 
-An earlier run in the same session gave 0.920 / 0.920 / 0.920 for the three included rows (P 27686 and 27684, cacheRead 25472), so the result is stable.
+Earlier runs in the same session (before elapsed was measured at the hooks) gave 0.920 / 0.920 / 0.920 and 0.920 / 0.925 / 0.920 (P 27 684 to 27 686), so the result is stable.
 
 ## Provider cache floor
 
-The parent's last request (`one fork` run) sent again unchanged to the same route: `P = 27686`, `cacheRead = 25472`, `P - cacheRead = 2214`. This is a provider limit, not a fork defect: even a byte-identical request leaves about 2 200 tokens uncached, so the best possible ratio at this `P` is `25472 / 27686 = 0.920`, which is exactly what the fork reads.
+The parent's last request (`one fork` run) sent again unchanged to the same route: `P = 27666`, `cacheRead = 25472`, `P - cacheRead = 2194`. This is a provider limit, not a fork defect: even a byte-identical request leaves about 2 200 tokens uncached, so the best possible ratio at this `P` is `25472 / 27666 = 0.921`, which is exactly what the fork reads.
 
 ## Conditions
 
-- Parent: one turn holding a generated filler document (about 90 000 characters); `P` is the parent's last request `input + cacheRead + cacheWrite` from its usage. A run is excluded when `P < 25000`; every run here had `P` of 27 600 or more.
-- Fork: started by the service's `spawn` with `context: "fork"`, no thinking or tool override, within 60 seconds of the parent's last request (elapsed is from that assistant message's timestamp to the fork launch). Elapsed was under 3 s in every run.
+- Parent: one turn holding a generated filler document (about 90 000 characters); `P` is the parent's last request `input + cacheRead + cacheWrite` from its usage. A run is excluded when `P < 25000`; every run here had `P` of 27 600 or more (the claude-code row 52 028).
+- Fork: started by the service's `spawn` with `context: "fork"`, no thinking or tool override, within 60 seconds of the parent's last request. Elapsed is measured at two hooks of the script's own extension: the wall-clock time of the last `before_provider_request` of the parent before the fork's `subagents:child:spawning` event, to that event's time, per fork. Command and initialization delay are therefore counted. Elapsed was under 3 s in every observed run. The Claude Code route issues no Pi provider request (the CLI makes it), so its elapsed is not observable; that row is unbounded anyway.
 - `cacheRead` is the first assistant message of the fork transcript; ratio is `cacheRead / P`.
 - Model override row: the fork runs on a different model, so a zero read is expected; recorded without a bound.
 - Anthropic-model row: the Anthropic API was not called by this script. The route is the `pi-claude-code` extension (`claude-code` provider), which drives the Claude Code CLI under the operator's subscription login (the row runs with the operator's real `HOME` for that login; the OpenAI rows use an isolated one). A route through another client may not expose Pi's request prefix, so the row is reported with its route and no bound. Its 0.993 shows the fork reuses the parent's cache through that client, nothing more.
@@ -57,7 +57,7 @@ Root cause: provider behaviour, not the fork's construction. Two experiments:
 
 An **identical** repeat leaves about 2 150 to 2 200 tokens uncached, so the provider (through 9router) caches only up to about `P - 2 150` rounded down to 128-token blocks, whatever the prefix. The fork reads the same 11 392 (0.841) the identical parent request reads: it loses nothing to divergence. The ratio is therefore `1 - ~2 150 / P`, and 0.90 is reached only for `P` of about 21 500 or more on this route. The earlier minimum `P` of 8000 was too small for this provider; at `P = 13 500` no fork can pass, because even a byte-identical request does not.
 
-Decision (user): keep 0.90, require `P >= 25000`, record the floor. The rerun above confirms the model: ratio is `1 - ~2 200 / P`, 0.920 at `P = 27 686`.
+Decision (user): keep 0.90, require `P >= 25000`, record the floor. The rerun above confirms the model: ratio is `1 - ~2 200 / P`, 0.921 at `P = 27 666`.
 
 ## Known gap: Codex
 
