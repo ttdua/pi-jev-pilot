@@ -60,7 +60,7 @@ export function snap(o: Opts = {}): Snapshot {
     } as never,
   });
   return {
-    config: o.valid === false ? { valid: false, issues: [] } : { valid: true },
+    config: o.valid === false ? { valid: false, issues: [] } : { valid: true, deprecated: [] },
     state: { kind: "ok", issues: [] },
     localMode: { kind: "missing", issues: [] },
     settings,

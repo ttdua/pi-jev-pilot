@@ -166,7 +166,6 @@ describe("setup registration", () => {
       `events:${CREATED}`,
       "events:subagents:child:disposed",
       `events:${CREATED}`,
-      "events:subagents:child:bound",
       "events:subagents:completed",
       "events:subagents:failed",
       "on:session_start",
@@ -495,7 +494,6 @@ describe("setup session_shutdown", () => {
       `off:${CREATED}`,
       "off:subagents:child:disposed",
       `off:${CREATED}`,
-      "off:subagents:child:bound",
       "off:subagents:completed",
       "off:subagents:failed",
     ]);
@@ -512,7 +510,7 @@ describe("setup session_shutdown", () => {
     log.length = 0;
     await f.fire("session_shutdown", {}, loggingCtx("kid", log));
     expect(mainService()).toBe(service as never);
-    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(6);
+    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(5);
   });
 
   test("a throwing session id read does not skip any unsubscribe", async () => {
@@ -521,7 +519,7 @@ describe("setup session_shutdown", () => {
     setup(f.pi);
     log.length = 0;
     await f.fire("session_shutdown", {}, {}); // ctx.sessionManager is undefined: the read throws
-    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(6);
+    expect(log.filter((l) => l.startsWith("off:"))).toHaveLength(5);
   });
 });
 

@@ -19,6 +19,7 @@ import { tempDir } from "../../helpers.ts";
 const okConfig = (config: Config = {}): ConfigRead => ({
   kind: "ok",
   present: true,
+  deprecated: [],
   config,
 });
 const okState: StateRead = { kind: "missing", state: {} };
@@ -35,6 +36,20 @@ function snap(over: Partial<Parameters<typeof buildSnapshot>[0]> = {}) {
 }
 
 describe("buildSnapshot", () => {
+  test("config deprecation mapped", () => {
+    expect(
+      snap({ configRead: { kind: "ok", present: true, config: {}, deprecated: ["tools"] } }).config,
+    ).toEqual({
+      valid: true,
+      deprecated: ["tools"],
+    });
+    expect(snap().config).toEqual({ valid: true, deprecated: [] });
+    const issues = [{ path: "x", message: "m" }];
+    expect(snap({ configRead: { kind: "invalid", issues } }).config).toEqual({
+      valid: false,
+      issues,
+    });
+  });
   test("default key variable", () => {
     const s = snap();
     expect(s.keySet).toBe(true);

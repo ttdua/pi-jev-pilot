@@ -5,7 +5,7 @@ import { tempDir } from "../helpers";
 import { toolNames } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { runOnce, startHostSession, type HostSession } from "./harness";
-import { command, notifies, uiRequests, type UiRequest } from "./rpc-helpers";
+import { command, notifies, uiRequests, writeConfigFile, type UiRequest } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -100,10 +100,25 @@ describe("status line and /jev through the real CLI", () => {
   );
 
   test(
+    "deprecation never notified on its own",
+    async () => {
+      const agentDir = tempDir("jev-host-agent-");
+      dirs.push(agentDir);
+      writeConfigFile(agentDir, { tools: { threshold: 3 } });
+      const s = await host(await fixtureWith(), { agentDir });
+      await s.waitFor(() => jevWidgets(s).length >= 1, "jev widget");
+      await command(s, "hello");
+      await Bun.sleep(300);
+      expect(notifies(s).some((n) => /tools/.test(n.message ?? ""))).toBe(false);
+    },
+    TIMEOUT,
+  );
+
+  test(
     "all decision features off shows off",
     async () => {
       const s = await host(await fixtureWith());
-      for (const f of ["effort", "subagents", "skills", "strategy", "tools", "expert"]) {
+      for (const f of ["effort", "subagents", "skills", "strategy", "expert"]) {
         await command(s, `/jev ${f} off`);
       }
       await s.waitFor(() => jevWidgets(s).at(-1)?.widgetLines?.[0] === "Jev · off", "off widget");
