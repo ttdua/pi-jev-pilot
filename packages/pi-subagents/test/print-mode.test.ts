@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 vi.mock("#src/lifecycle/create-subagent-session", async () => {
   const actual = await vi.importActual<typeof import("#src/lifecycle/create-subagent-session")>(
     "#src/lifecycle/create-subagent-session",
@@ -75,6 +77,7 @@ function makeHeadlessCtx() {
       find: vi.fn(),
       getAvailable: vi.fn(() => []),
     },
+    isProjectTrusted: () => false,
     sessionManager: {
       getSessionId: vi.fn(() => "session-1"),
       getSessionFile: vi.fn(() => "/sessions/parent.jsonl"),
@@ -85,7 +88,13 @@ function makeHeadlessCtx() {
 }
 
 describe("print mode background notifications", () => {
-  afterEach(() => {
+  // Package discovery reads pi settings under a file lock whose retry spins on Date.now(),
+// which fake timers freeze; an empty agent dir keeps the operator's settings.json out of it.
+const emptyAgentDir = mkdtempSync(join(tmpdir(), "pi-agent-home-"));
+process.env.PI_CODING_AGENT_DIR = emptyAgentDir;
+afterAll(() => rmSync(emptyAgentDir, { recursive: true, force: true }));
+
+afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
   });

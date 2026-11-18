@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import { resolveSpawnConfig } from "#src/tools/spawn-config";
 import { makeAgentConfig } from "#test/helpers/make-agent-config";
 import { makeModel } from "#test/helpers/make-model";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 /** Minimal registry with default agents only. */
-const testRegistry = new AgentTypeRegistry(() => new Map());
+const testRegistry = registryWithGeneral(() => new Map([["Explore", makeAgentConfig({ name: "Explore", displayName: "Explore", source: "builtin" })]]));
 
 /** Shorthand for building ModelInfo. */
 function makeModelInfo(overrides: Partial<Parameters<typeof resolveSpawnConfig>[2]> = {}) {
@@ -18,21 +18,45 @@ function makeModelInfo(overrides: Partial<Parameters<typeof resolveSpawnConfig>[
 
 const defaultSettings = { defaultMaxTurns: undefined as number | undefined };
 
+describe("resolveSpawnConfig — missing fallback agent", () => {
+  it("returns an error naming general when the fallback is disabled", () => {
+    const registry = registryWithGeneral(() => new Map([["general", makeAgentConfig({ name: "general", enabled: false })]]));
+    const result = resolveSpawnConfig(
+      { subagent_type: "Plan", prompt: "test", description: "d" },
+      registry,
+      makeModelInfo(),
+      defaultSettings,
+    );
+    expect(result).toEqual({ error: expect.stringContaining('Agent type "general" is not available') });
+  });
+
+  it("notes the fallback exactly", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Plan", prompt: "test", description: "d" },
+      testRegistry,
+      makeModelInfo(),
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.notes).toEqual(['Note: Unknown agent type "Plan" — using general.']);
+  });
+});
+
 describe("resolveSpawnConfig — type resolution", () => {
   it("resolves a known agent type", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general", prompt: "test", description: "d" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
     );
     expect("error" in result && result.error).toBeFalsy();
     if ("error" in result) return;
-    expect(result.identity.subagentType).toBe("general-purpose");
+    expect(result.identity.subagentType).toBe("general");
     expect(result.identity.fellBack).toBe(false);
   });
 
-  it("falls back to general-purpose for unknown agent type", () => {
+  it("falls back to general for unknown agent type", () => {
     const result = resolveSpawnConfig(
       { subagent_type: "unknown-type", prompt: "test", description: "d" },
       testRegistry,
@@ -41,7 +65,7 @@ describe("resolveSpawnConfig — type resolution", () => {
     );
     expect("error" in result && result.error).toBeFalsy();
     if ("error" in result) return;
-    expect(result.identity.subagentType).toBe("general-purpose");
+    expect(result.identity.subagentType).toBe("general");
     expect(result.identity.fellBack).toBe(true);
   });
 
@@ -58,14 +82,14 @@ describe("resolveSpawnConfig — type resolution", () => {
 
   it("uses displayName from agent config when available", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general", prompt: "test", description: "d" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
     );
     if ("error" in result) return;
-    // general-purpose config has displayName: "Agent"
-    expect(result.identity.displayName).toBe("Agent");
+    // the general built-in declares no display name
+    expect(result.identity.displayName).toBe("general");
   });
 });
 
@@ -73,7 +97,7 @@ describe("resolveSpawnConfig — model resolution", () => {
   it("inherits parent model when no model specified", () => {
     const parentModel = makeModel({ id: "claude-sonnet", name: "Claude Sonnet" });
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general", prompt: "test", description: "d" },
       testRegistry,
       makeModelInfo({ parentModel }),
       defaultSettings,
@@ -84,7 +108,7 @@ describe("resolveSpawnConfig — model resolution", () => {
 
   it("returns error when user-specified model cannot be resolved", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", model: "nonexistent-xyz" },
+      { subagent_type: "general", prompt: "test", description: "d", model: "nonexistent-xyz" },
       testRegistry,
       makeModelInfo({ modelRegistry: { find: () => undefined, getAll: () => [], getAvailable: () => [] } }),
       defaultSettings,
@@ -104,7 +128,7 @@ describe("resolveSpawnConfig — model label", () => {
 
   function modelNameFor(params: Record<string, unknown>, modelInfo: Parameters<typeof resolveSpawnConfig>[2]) {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", ...params },
+      { subagent_type: "general", prompt: "test", description: "d", ...params },
       testRegistry,
       modelInfo,
       defaultSettings,
@@ -131,7 +155,7 @@ describe("resolveSpawnConfig — model label", () => {
 describe("resolveSpawnConfig — max turns normalization", () => {
   it("normalizes max_turns from params", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", max_turns: 10 },
+      { subagent_type: "general", prompt: "test", description: "d", max_turns: 10 },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
@@ -142,7 +166,7 @@ describe("resolveSpawnConfig — max turns normalization", () => {
 
   it("uses settings defaultMaxTurns when no max_turns in params", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general", prompt: "test", description: "d" },
       testRegistry,
       makeModelInfo(),
       { defaultMaxTurns: 25 },
@@ -153,7 +177,7 @@ describe("resolveSpawnConfig — max turns normalization", () => {
 
   it("returns undefined effectiveMaxTurns when neither params nor settings specify", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general", prompt: "test", description: "d" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
@@ -166,7 +190,7 @@ describe("resolveSpawnConfig — max turns normalization", () => {
 describe("resolveSpawnConfig — invocation fields", () => {
   it("sets runInBackground from params", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", run_in_background: true },
+      { subagent_type: "general", prompt: "test", description: "d", run_in_background: true },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
@@ -177,7 +201,7 @@ describe("resolveSpawnConfig — invocation fields", () => {
 
   it("builds agentInvocation snapshot", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", thinking: "high" },
+      { subagent_type: "general", prompt: "test", description: "d", thinking: "high" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
@@ -195,21 +219,21 @@ describe("resolveSpawnConfig — invocation fields", () => {
 describe("resolveSpawnConfig — detailBase and tags", () => {
   it("builds detailBase with description from params", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "my task" },
+      { subagent_type: "general", prompt: "test", description: "my task" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
     );
     if ("error" in result) return;
     expect(result.presentation.detailBase.description).toBe("my task");
-    expect(result.presentation.detailBase.subagentType).toBe("general-purpose");
-    expect(result.presentation.detailBase.displayName).toBe("Agent");
+    expect(result.presentation.detailBase.subagentType).toBe("general");
+    expect(result.presentation.detailBase.displayName).toBe("general");
   });
 
   it("carries thinking on detailBase, not as a tag", () => {
     const result = resolveSpawnConfig(
       {
-        subagent_type: "general-purpose",
+        subagent_type: "general",
         prompt: "test",
         description: "d",
         thinking: "high",
@@ -239,7 +263,7 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
 
   it("includes fork tag for a forked launch", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d", context: "fork" },
+      { subagent_type: "general", prompt: "test", description: "d", context: "fork" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
@@ -306,7 +330,7 @@ describe("resolveSpawnConfig — minimum turns note", () => {
   });
 
   it("notes an agent file's max_turns below the minimum", () => {
-    const registry = new AgentTypeRegistry(
+    const registry = registryWithGeneral(
       () =>
         new Map([
           ["terse", { name: "terse", description: "Terse", systemPrompt: "", toolsDeclared: false, disallowedTools: [], maxTurns: 1 }],
@@ -347,7 +371,7 @@ describe("resolveSpawnConfig — notes", () => {
   });
 
   it("carries a lock note naming the discarded parameters", () => {
-    const lockedRegistry = new AgentTypeRegistry(
+    const lockedRegistry = registryWithGeneral(
       () =>
         new Map([
           [
@@ -385,7 +409,7 @@ describe("resolveSpawnConfig — notes", () => {
   });
 
   it("names a single discarded parameter in the singular", () => {
-    const lockedRegistry = new AgentTypeRegistry(
+    const lockedRegistry = registryWithGeneral(
       () =>
         new Map([
           [
@@ -424,19 +448,19 @@ describe("resolveSpawnConfig — notes", () => {
     );
     if ("error" in result) return;
     expect(result.notes).toEqual([
-      'Note: Unknown agent type "unknown-type" — using general-purpose.',
+      'Note: Unknown agent type "unknown-type" — using general.',
     ]);
   });
 
   it("reports the fallback before the lock when a project pins the fallback agent", () => {
-    const pinnedFallback = new AgentTypeRegistry(
+    const pinnedFallback = registryWithGeneral(
       () =>
         new Map([
           [
-            "general-purpose",
+            "general",
             {
-              name: "general-purpose",
-              description: "Pinned general-purpose",
+              name: "general",
+              description: "Pinned general",
               systemPrompt: "",
               promptMode: "append" as const,
               toolsDeclared: false,
@@ -455,8 +479,8 @@ describe("resolveSpawnConfig — notes", () => {
     );
     if ("error" in result) throw new Error(result.error);
     expect(result.notes).toEqual([
-      'Note: Unknown agent type "unknown-type" — using general-purpose.',
-      'Note: agent "general-purpose" locks max_turns, so the max_turns parameter was ignored.',
+      'Note: Unknown agent type "unknown-type" — using general.',
+      'Note: agent "general" locks max_turns, so the max_turns parameter was ignored.',
     ]);
   });
 });
@@ -484,7 +508,7 @@ describe("resolveSpawnConfig — fork model and thinking", () => {
     getAvailable: () => [parentModel, agentModel],
   };
   const registryOf = (locked?: true) =>
-    new AgentTypeRegistry(
+    registryWithGeneral(
       () =>
         new Map([
           [

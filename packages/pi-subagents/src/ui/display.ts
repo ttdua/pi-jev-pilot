@@ -163,8 +163,8 @@ function formatDuration(startedAt: number, completedAt?: number): string {
 
 /** Get display name for any agent type (built-in or custom). */
 export function getDisplayName(type: SubagentType, registry: AgentConfigLookup): string {
-  const config = registry.resolveAgentConfig(type);
-  return config.displayName ?? config.name;
+  const config = registry.findAgentConfig(type);
+  return config ? (config.displayName ?? config.name) : type;
 }
 
 /**

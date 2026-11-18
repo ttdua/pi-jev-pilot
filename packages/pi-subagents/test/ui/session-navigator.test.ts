@@ -9,7 +9,6 @@ import {
   visibleWidth,
 } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { SessionMessage } from "#src/types";
 import {
   type EntryHeading,
@@ -21,8 +20,9 @@ import {
 import { openTranscript, type PaneKeys, SessionNavigatorHandler, type SessionNavigatorParams, TranscriptPane } from "#src/ui/session-navigator";
 import { makeNavigable } from "#test/helpers/make-navigable";
 import { fakeSource, mockTui } from "#test/helpers/transcript-fixtures";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
-const registry = new AgentTypeRegistry(() => new Map());
+const registry = registryWithGeneral(() => new Map());
 
 // Pi's per-entry components read the global interactive theme; Pi initializes it
 // at startup before any command runs. Tests must initialize it explicitly.
@@ -540,7 +540,7 @@ describe("SessionNavigatorHandler", () => {
     const [label] = (() => {
       // The handler labels entries identically to listNavigableAgents.
       return [
-        "Agent (Test task) · 2 tools · completed · 3.0s",
+        "general-purpose (Test task) · 2 tools · completed · 3.0s",
       ];
     })();
     const ui = makeUI(label);
@@ -557,15 +557,15 @@ describe("SessionNavigatorHandler", () => {
   });
 
   it("heads the pane with the picked agent's name and task", async () => {
-    const ui = makeUI("Agent (Test task) · 2 tools · completed · 3.0s");
+    const ui = makeUI("general-purpose (Test task) · 2 tools · completed · 3.0s");
     await handleWith(ui, [makeNavigable()]);
-    expect(stripAnsi(renderCapturedPane(ui)[0] ?? "").startsWith("── Agent  Test task ")).toBe(true);
+    expect(stripAnsi(renderCapturedPane(ui)[0] ?? "").startsWith("── general-purpose  Test task ")).toBe(true);
   });
 
   it("mounts the transcript outside Pi's overlay compositor", async () => {
     // Regular-mode overlays are composited into the buffer that backs scrollback,
     // so an overlay mount bakes the pane's chrome into terminal history (#733).
-    const ui = makeUI("Agent (Test task) · 2 tools · completed · 3.0s");
+    const ui = makeUI("general-purpose (Test task) · 2 tools · completed · 3.0s");
 
     await handleWith(ui, [makeNavigable()]);
 
@@ -614,7 +614,7 @@ describe("SessionNavigatorHandler", () => {
       id: "e1", description: "Old task", status: "completed", startedAt: 1000, completedAt: 4000, toolUses: 5,
       isSessionReady: () => false, outputFile: "/tasks/e1.jsonl",
     });
-    const ui = makeUI("Agent (Old task) · 5 tools · completed · 3.0s · session released (snapshot)");
+    const ui = makeUI("general-purpose (Old task) · 5 tools · completed · 3.0s · session released (snapshot)");
 
     await handleWith(ui, [released], { readFile });
 
@@ -632,7 +632,7 @@ describe("SessionNavigatorHandler", () => {
         result: "done", startedAt: 1000, completedAt: 4000, outputFile: "/tasks/e1.jsonl", toolUses: 5,
       },
     };
-    const label = "Agent (Old task) · 5 tools · completed · 3.0s · session released (snapshot)";
+    const label = "general-purpose (Old task) · 5 tools · completed · 3.0s · session released (snapshot)";
 
     it("offers the runs the session recorded", async () => {
       const ui = makeUI(undefined);
@@ -657,7 +657,7 @@ describe("SessionNavigatorHandler", () => {
       const ui = makeUI(undefined);
       await handleWith(ui, [], { sessionEntries: [stoppedWhileQueued] });
       expect(ui.select).toHaveBeenCalledWith("Subagent sessions", [
-        "Agent (Old task) · 5 tools · stopped · queued 3.0s · session released (snapshot)",
+        "general-purpose (Old task) · 5 tools · stopped · queued 3.0s · session released (snapshot)",
       ]);
     });
   });
@@ -670,7 +670,7 @@ describe("SessionNavigatorHandler", () => {
       id: "e1", description: "Old task", status: "completed", startedAt: 1000, completedAt: 4000, toolUses: 5,
       isSessionReady: () => false, outputFile: "/tasks/e1.jsonl",
     });
-    const ui = makeUI("Agent (Old task) · 5 tools · completed · 3.0s · session released (snapshot)");
+    const ui = makeUI("general-purpose (Old task) · 5 tools · completed · 3.0s · session released (snapshot)");
 
     await handleWith(ui, [released], { readFile });
 

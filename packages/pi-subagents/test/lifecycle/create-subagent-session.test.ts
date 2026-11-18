@@ -5,6 +5,7 @@ import type {
 } from "#src/lifecycle/create-subagent-session";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
+import { builtinConfig } from "#test/helpers/builtin-config";
 import { STUB_CTX, STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import {
   createAgentLookup,
@@ -749,5 +750,23 @@ describe("createSubagentSession — tool facts", () => {
     expect(onToolFacts).not.toHaveBeenCalled();
     expect(result).toBeInstanceOf(SubagentSession);
     expect(lifecycle.bound).toHaveBeenCalled();
+  });
+});
+
+describe("createSubagentSession — built-in verifier (fresh)", () => {
+  it("offers bash and neither edit nor write", async () => {
+    const session = arrangeFactory();
+    session.getActiveToolNames.mockReturnValue(["read", "grep", "find", "ls", "bash"]);
+    const verifier = builtinConfig("verifier");
+
+    await createSubagentSession(
+      { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "verifier" },
+      createSubagentSessionDeps({ io, exec, registry: createAgentLookup(verifier) }),
+    );
+
+    const offered = io.createSession.mock.calls[0]![0].tools as string[];
+    expect(offered).toContain("bash");
+    expect(offered).not.toContain("edit");
+    expect(offered).not.toContain("write");
   });
 });

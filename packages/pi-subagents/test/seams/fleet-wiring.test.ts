@@ -71,6 +71,7 @@ function sessionCtx(ui: ReturnType<typeof makeUI>) {
     cwd: "/tmp",
     model: undefined,
     modelRegistry: { find: vi.fn(), getAvailable: vi.fn(() => []) },
+    isProjectTrusted: () => false,
     sessionManager: {
       getSessionId: () => "session-1",
       getSessionFile: () => "/sessions/parent.jsonl",
@@ -83,10 +84,15 @@ function sessionCtx(ui: ReturnType<typeof makeUI>) {
 const fleetCalls = (ui: ReturnType<typeof makeUI>) => ui.setWidget.mock.calls.filter((call) => call[0] === "fleet");
 
 let projectDir: string;
+let originalAgentDir: string | undefined;
 
 beforeEach(() => {
   vi.useFakeTimers();
   projectDir = mkdtempSync(join(tmpdir(), "pi-fleet-wiring-"));
+  // Package discovery reads pi settings under a file lock whose retry spins on Date.now(),
+  // which fake timers freeze; an empty agent dir keeps the real settings.json out of it.
+  originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = join(projectDir, "agent-home");
   vi.spyOn(process, "cwd").mockReturnValue(projectDir);
   vi.mocked(createSubagentSession).mockResolvedValue(
     toSubagentSession(createSubagentSessionStub(createMockSession(), "/sessions/child.jsonl")),
@@ -94,6 +100,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+  else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
   vi.mocked(process.cwd).mockRestore();
   vi.useRealTimers();
   unpublishSubagentsService();

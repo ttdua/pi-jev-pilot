@@ -1,275 +1,248 @@
 import { describe, expect, it } from "vitest";
-import { AgentTypeRegistry, BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
+import {
+  AgentTypeRegistry,
+  BUILTIN_TOOL_NAMES,
+  FALLBACK_AGENT,
+  MissingFallbackAgentError,
+} from "#src/config/agent-types";
 import type { AgentConfig } from "#src/types";
 import { makeAgentConfig } from "#test/helpers/make-agent-config";
+import { makeGeneralAgent } from "#test/helpers/make-registry";
+
+/** A built-in fixture agent. */
+function builtin(name: string, overrides: Partial<AgentConfig> = {}): [string, AgentConfig] {
+  return [name, makeAgentConfig({ name, source: "builtin", ...overrides })];
+}
 
 describe("AgentTypeRegistry", () => {
-  function makeRegistry(userAgents: Map<string, AgentConfig> = new Map()): AgentTypeRegistry {
-    return new AgentTypeRegistry(() => userAgents);
+  /** Holds `general` plus whatever else the test lists, as the loader returns them. */
+  function makeRegistry(agents: [string, AgentConfig][] = []): AgentTypeRegistry {
+    return new AgentTypeRegistry(() => new Map([["general", makeGeneralAgent()], ...agents]));
   }
 
   describe("construction and reload", () => {
-    it("loads default agents on construction", () => {
-      const registry = makeRegistry();
-      expect(registry.isValidType("general-purpose")).toBe(true);
-      expect(registry.isValidType("Explore")).toBe(true);
-      expect(registry.isValidType("Plan")).toBe(true);
+    it("holds exactly what the loader returns", () => {
+      const registry = new AgentTypeRegistry(() => new Map());
+      expect(registry.getAllTypes()).toEqual([]);
     });
 
-    it("does not call loadUserAgents until construction", () => {
+    it("calls the loader once per reload", () => {
       let callCount = 0;
       const registry = new AgentTypeRegistry(() => {
         callCount++;
         return new Map();
       });
-      // constructor calls reload() once
       expect(callCount).toBe(1);
       registry.reload();
       expect(callCount).toBe(2);
     });
 
-    it("reload picks up new agents from loader", () => {
-      let userAgents = new Map<string, AgentConfig>();
-      const registry = new AgentTypeRegistry(() => userAgents);
-
+    it("reload picks up new agents from the loader", () => {
+      let agents = new Map<string, AgentConfig>();
+      const registry = new AgentTypeRegistry(() => agents);
       expect(registry.isValidType("auditor")).toBe(false);
 
-      userAgents = new Map([["auditor", makeAgentConfig({ name: "auditor" })]]);
+      agents = new Map([["auditor", makeAgentConfig({ name: "auditor" })]]);
       registry.reload();
-
       expect(registry.isValidType("auditor")).toBe(true);
     });
 
-    it("reload clears previous user agents", () => {
-      const userAgents = new Map([["auditor", makeAgentConfig({ name: "auditor" })]]);
-      const registry = new AgentTypeRegistry(() => userAgents);
-      expect(registry.isValidType("auditor")).toBe(true);
-
-      userAgents.clear();
+    it("reload clears previous agents", () => {
+      const agents = new Map([["auditor", makeAgentConfig({ name: "auditor" })]]);
+      const registry = new AgentTypeRegistry(() => agents);
+      agents.clear();
       registry.reload();
-
       expect(registry.isValidType("auditor")).toBe(false);
-      expect(registry.isValidType("general-purpose")).toBe(true);
     });
   });
 
   describe("resolveType", () => {
-    it("returns canonical key for exact match", () => {
+    it("returns the canonical key for an exact match", () => {
+      const registry = makeRegistry([builtin("explore")]);
+      expect(registry.resolveType("explore")).toBe("explore");
+    });
+
+    it("returns the canonical key for a case-insensitive match", () => {
+      const registry = makeRegistry([builtin("Worker")]);
+      expect(registry.resolveType("worker")).toBe("Worker");
+    });
+
+    it("returns undefined for an unknown type", () => {
+      expect(makeRegistry().resolveType("nonexistent")).toBeUndefined();
+    });
+
+    it("maps general-purpose to general, in any case, when no agent has that name", () => {
       const registry = makeRegistry();
-      expect(registry.resolveType("Explore")).toBe("Explore");
+      expect(registry.resolveType("general-purpose")).toBe("general");
+      expect(registry.resolveType("GENERAL-PURPOSE")).toBe("general");
+    });
+
+    it("keeps a real general-purpose agent ahead of the alias", () => {
+      const registry = makeRegistry([["general-purpose", makeAgentConfig({ name: "general-purpose" })]]);
       expect(registry.resolveType("general-purpose")).toBe("general-purpose");
     });
 
-    it("returns canonical key for case-insensitive match", () => {
-      const registry = makeRegistry();
-      expect(registry.resolveType("explore")).toBe("Explore");
-      expect(registry.resolveType("GENERAL-PURPOSE")).toBe("general-purpose");
+    it("does not map the alias when general is missing", () => {
+      const registry = new AgentTypeRegistry(() => new Map());
+      expect(registry.resolveType("general-purpose")).toBeUndefined();
+    });
+  });
+
+  describe("findAgentConfig", () => {
+    it("finds an agent exactly and case-insensitively", () => {
+      const registry = makeRegistry([builtin("Explore")]);
+      expect(registry.findAgentConfig("Explore")?.name).toBe("Explore");
+      expect(registry.findAgentConfig("explore")?.name).toBe("Explore");
     });
 
-    it("returns undefined for unknown type", () => {
+    it("applies no alias and no fallback", () => {
       const registry = makeRegistry();
-      expect(registry.resolveType("nonexistent")).toBeUndefined();
+      expect(registry.findAgentConfig("general-purpose")).toBeUndefined();
+      expect(registry.findAgentConfig("Plan")).toBeUndefined();
+    });
+
+    it("never throws when general is missing", () => {
+      const registry = new AgentTypeRegistry(() => new Map());
+      expect(registry.findAgentConfig("Plan")).toBeUndefined();
     });
   });
 
   describe("resolveAgentConfig", () => {
-    it("returns config for a known enabled type", () => {
-      const registry = makeRegistry();
-      const config = registry.resolveAgentConfig("Explore");
-      expect(config.name).toBe("Explore");
-      expect(config.context).toBeUndefined();
+    it("returns the config for a known type, case-insensitively", () => {
+      const registry = makeRegistry([builtin("Explore")]);
+      expect(registry.resolveAgentConfig("explore").name).toBe("Explore");
     });
 
-    it("performs case-insensitive lookup", () => {
-      const registry = makeRegistry();
-      const config = registry.resolveAgentConfig("explore");
-      expect(config.name).toBe("Explore");
+    it("falls back to general for an unknown type", () => {
+      expect(makeRegistry().resolveAgentConfig("nonexistent").name).toBe(FALLBACK_AGENT);
     });
 
-    it("falls back to general-purpose for unknown type", () => {
-      const registry = makeRegistry();
-      const config = registry.resolveAgentConfig("nonexistent");
-      expect(config.name).toBe("general-purpose");
+    it("resolves the legacy general-purpose name to general", () => {
+      expect(makeRegistry().resolveAgentConfig("GENERAL-PURPOSE").name).toBe("general");
     });
 
-    it("returns config for disabled type (no fallback for existing disabled)", () => {
-      const registry = makeRegistry(
-        new Map([["Plan", makeAgentConfig({ name: "Plan", description: "Disabled", enabled: false })]])
-      );
+    it("returns a disabled agent that exists, without falling back", () => {
+      const registry = makeRegistry([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]]);
       const config = registry.resolveAgentConfig("Plan");
       expect(config.name).toBe("Plan");
       expect(config.enabled).toBe(false);
     });
 
-    it("returns user-defined agent config", () => {
-      const registry = makeRegistry(
-        new Map([["auditor", makeAgentConfig({ name: "auditor", description: "Security auditor" })]])
+    it("throws a MissingFallbackAgentError naming general when general is absent", () => {
+      const registry = new AgentTypeRegistry(() => new Map());
+      expect(() => registry.resolveAgentConfig("anything")).toThrow(MissingFallbackAgentError);
+      expect(() => registry.resolveAgentConfig("anything")).toThrow(
+        'Agent type "general" is not available; the built-in agents are missing or disabled',
       );
-      const config = registry.resolveAgentConfig("auditor");
-      expect(config.name).toBe("auditor");
-      expect(config.description).toBe("Security auditor");
+    });
+
+    it("throws when general is disabled", () => {
+      const registry = new AgentTypeRegistry(
+        () => new Map([["general", makeGeneralAgent({ enabled: false })]]),
+      );
+      expect(() => registry.resolveAgentConfig("anything")).toThrow(MissingFallbackAgentError);
     });
   });
 
   describe("getAvailableTypes", () => {
-    it("includes all enabled defaults", () => {
-      const registry = makeRegistry();
-      const types = registry.getAvailableTypes();
-      expect(types).toContain("general-purpose");
-      expect(types).toContain("Explore");
-      expect(types).toContain("Plan");
-    });
-
     it("excludes disabled agents", () => {
-      const registry = makeRegistry(
-        new Map([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]])
-      );
+      const registry = makeRegistry([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]]);
       expect(registry.getAvailableTypes()).not.toContain("Plan");
-    });
-
-    it("includes user agents", () => {
-      const registry = makeRegistry(
-        new Map([["auditor", makeAgentConfig({ name: "auditor" })]])
-      );
-      expect(registry.getAvailableTypes()).toContain("auditor");
+      expect(registry.getAvailableTypes()).toContain("general");
     });
   });
 
   describe("getAllTypes", () => {
     it("includes disabled agents", () => {
-      const registry = makeRegistry(
-        new Map([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]])
-      );
+      const registry = makeRegistry([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]]);
       expect(registry.getAllTypes()).toContain("Plan");
     });
   });
 
   describe("getDefaultAgentNames", () => {
-    it("returns only default agents", () => {
-      const registry = makeRegistry(
-        new Map([["auditor", makeAgentConfig({ name: "auditor" })]])
-      );
-      const names = registry.getDefaultAgentNames();
-      expect(names).toContain("general-purpose");
-      expect(names).toContain("Explore");
-      expect(names).toContain("Plan");
-      expect(names).not.toContain("auditor");
+    it("returns the enabled built-ins in load order", () => {
+      const registry = makeRegistry([
+        builtin("explore"),
+        builtin("scout", { enabled: false }),
+        ["auditor", makeAgentConfig({ name: "auditor", source: "package" })],
+      ]);
+      expect(registry.getDefaultAgentNames()).toEqual(["general", "explore"]);
     });
   });
 
   describe("getUserAgentNames", () => {
-    it("returns only user agents", () => {
-      const registry = makeRegistry(
-        new Map([
-          ["auditor", makeAgentConfig({ name: "auditor" })],
-          ["reviewer", makeAgentConfig({ name: "reviewer" })],
-        ])
-      );
-      const names = registry.getUserAgentNames();
-      expect(names).toEqual(["auditor", "reviewer"]);
-      expect(names).not.toContain("general-purpose");
+    it("returns the agents whose source is not builtin", () => {
+      const registry = makeRegistry([
+        ["auditor", makeAgentConfig({ name: "auditor", source: "project" })],
+        ["reviewer", makeAgentConfig({ name: "reviewer", source: "package" })],
+      ]);
+      expect(registry.getUserAgentNames()).toEqual(["auditor", "reviewer"]);
     });
   });
 
   describe("isValidType", () => {
-    it("returns true for enabled defaults", () => {
-      const registry = makeRegistry();
-      expect(registry.isValidType("general-purpose")).toBe(true);
-      expect(registry.isValidType("Explore")).toBe(true);
-    });
-
-    it("returns true case-insensitively", () => {
-      const registry = makeRegistry();
+    it("is true for an enabled agent, case-insensitively", () => {
+      const registry = makeRegistry([builtin("Explore")]);
       expect(registry.isValidType("explore")).toBe(true);
-      expect(registry.isValidType("PLAN")).toBe(true);
     });
 
-    it("returns false for disabled agents", () => {
-      const registry = makeRegistry(
-        new Map([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]])
-      );
+    it("is false for disabled and unknown types", () => {
+      const registry = makeRegistry([["Plan", makeAgentConfig({ name: "Plan", enabled: false })]]);
       expect(registry.isValidType("Plan")).toBe(false);
-    });
-
-    it("returns false for unknown types", () => {
-      const registry = makeRegistry();
       expect(registry.isValidType("nonexistent")).toBe(false);
       expect(registry.isValidType("")).toBe(false);
     });
   });
 
   describe("getToolNamesForType", () => {
-    it("returns all built-in tools for general-purpose", () => {
-      const registry = makeRegistry();
-      const names = registry.getToolNamesForType("general-purpose");
-      expect(names).toEqual(BUILTIN_TOOL_NAMES);
+    it("returns all built-in tools for general, which declares none", () => {
+      expect(makeRegistry().getToolNamesForType("general")).toEqual(BUILTIN_TOOL_NAMES);
     });
 
-    it("returns restricted tools for Explore", () => {
-      const registry = makeRegistry();
-      const names = registry.getToolNamesForType("Explore");
-      expect(names).toEqual(["read", "bash", "grep", "find", "ls"]);
+    it("returns the declared list for a restricted agent", () => {
+      const registry = makeRegistry([builtin("explore", { toolNames: ["read", "grep", "find", "ls"] })]);
+      expect(registry.getToolNamesForType("explore")).toEqual(["read", "grep", "find", "ls"]);
     });
 
-    it("returns custom tool names for user agent", () => {
-      const registry = makeRegistry(
-        new Map([["auditor", makeAgentConfig({ name: "auditor", toolNames: ["read", "grep"] })]])
-      );
-      expect(registry.getToolNamesForType("auditor")).toEqual(["read", "grep"]);
-    });
-
-    it("returns BUILTIN_TOOL_NAMES for unknown type", () => {
-      const registry = makeRegistry();
-      const names = registry.getToolNamesForType("nonexistent");
-      expect(names).toEqual(BUILTIN_TOOL_NAMES);
+    it("returns BUILTIN_TOOL_NAMES for an unknown type (via general)", () => {
+      expect(makeRegistry().getToolNamesForType("nonexistent")).toEqual(BUILTIN_TOOL_NAMES);
     });
 
     it("returns an empty list for an agent that declared tools: none", () => {
-      const registry = makeRegistry(
-        new Map([["silent", makeAgentConfig({ name: "silent", toolNames: [] })]])
-      );
+      const registry = makeRegistry([["silent", makeAgentConfig({ name: "silent", toolNames: [] })]]);
       expect(registry.getToolNamesForType("silent")).toEqual([]);
     });
 
-    it("returns the built-ins for a user agent that declared no tools key", () => {
-      const registry = makeRegistry(
-        new Map([["unrestricted", makeAgentConfig({ name: "unrestricted", toolNames: undefined })]])
-      );
+    it("returns the built-ins for an agent that declared no tools key", () => {
+      const registry = makeRegistry([
+        ["unrestricted", makeAgentConfig({ name: "unrestricted", toolNames: undefined })],
+      ]);
       expect(registry.getToolNamesForType("unrestricted")).toEqual(BUILTIN_TOOL_NAMES);
     });
 
     it("returns a disabled agent's own list rather than the built-ins", () => {
-      const registry = makeRegistry(
-        new Map([
-          ["retired", makeAgentConfig({ name: "retired", toolNames: ["read"], enabled: false })],
-        ])
-      );
+      const registry = makeRegistry([
+        ["retired", makeAgentConfig({ name: "retired", toolNames: ["read"], enabled: false })],
+      ]);
       expect(registry.getToolNamesForType("retired")).toEqual(["read"]);
     });
   });
 
-  describe("DEFAULT_AGENT_NAMES static property", () => {
-    it("is defined on the class", () => {
-      expect(AgentTypeRegistry.DEFAULT_AGENT_NAMES).toBeDefined();
-    });
-
-    it("contains the three built-in default names", () => {
-      expect(AgentTypeRegistry.DEFAULT_AGENT_NAMES).toEqual(["general-purpose", "Explore", "Plan"]);
-    });
-
+  describe("code-defined agents", () => {
     it("is no longer exported from types.ts", async () => {
-      // DEFAULT_AGENT_NAMES was moved to AgentTypeRegistry; it must NOT appear
-      // as a named export from types.ts anymore.
       const typesModule = await import("#src/types");
       expect((typesModule as Record<string, unknown>).DEFAULT_AGENT_NAMES).toBeUndefined();
+    });
+
+    it("has no static default-name list", () => {
+      expect((AgentTypeRegistry as unknown as Record<string, unknown>).DEFAULT_AGENT_NAMES).toBeUndefined();
     });
   });
 
   describe("instance isolation", () => {
     it("two registries have independent state", () => {
-      const r1 = makeRegistry(new Map([["auditor", makeAgentConfig({ name: "auditor" })]]));
+      const r1 = makeRegistry([["auditor", makeAgentConfig({ name: "auditor" })]]);
       const r2 = makeRegistry();
-
       expect(r1.isValidType("auditor")).toBe(true);
       expect(r2.isValidType("auditor")).toBe(false);
     });

@@ -71,6 +71,7 @@ function instance() {
 					getAll: () => [],
 					getAvailable: () => [],
 				},
+				isProjectTrusted: () => false,
 				sessionManager: {
 					getSessionId: () => sessionId,
 					getSessionFile: () => `/sessions/${sessionId}.jsonl`,

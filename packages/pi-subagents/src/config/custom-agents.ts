@@ -8,33 +8,58 @@ import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import { BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
 import { warnDeprecatedIn } from "#src/config/deprecations";
 import { isLockableField, type LockDeclaration, lockedFieldName } from "#src/config/invocation-config";
+import { builtinAgentDirs, isInside, type PackageAgentDir, packageAgentDirs, realOrSelf } from "#src/config/package-agents";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import { debugLog } from "#src/debug";
 import { noteDeclaredAndDisallowed } from "#src/seams/registry";
 import type { AgentConfig, ContextMode } from "#src/types";
 
-/**
- * Scan for custom agent .md files from multiple locations.
- * Discovery hierarchy (higher priority wins):
- *   1. Project: <cwd>/.pi/agents/*.md
- *   2. Global:  $PI_CODING_AGENT_DIR/agents/*.md (default: ~/.pi/agent/agents/*.md)
- *
- * Project-level agents override global ones with the same name.
- * Any name is allowed — names matching defaults (e.g. "Explore") override them.
- */
-export function loadCustomAgents(cwd: string): Map<string, AgentConfig> {
-  const globalDir = join(getAgentDir(), "agents");
-  const projectDir = join(cwd, ".pi", "agents");
+/** Injectable agent directories, so unit tests need no pi settings or installed packages. */
+export interface LoadCustomAgentsOptions {
+  builtinDirs?: PackageAgentDir[];
+  packageDirs?: PackageAgentDir[];
+}
 
+/**
+ * Load every agent from four sources, lowest priority first:
+ *   1. builtin: the executor's own declared agent directories
+ *   2. package: directories declared by pi's configured packages
+ *   3. global:  $PI_CODING_AGENT_DIR/agents/*.md (default: ~/.pi/agent/agents/*.md)
+ *   4. project: <cwd>/.pi/agents/*.md
+ *
+ * A later source replaces an agent of the same name, compared case-insensitively,
+ * so the map never holds two spellings of one name.
+ */
+export function loadCustomAgents(cwd: string, opts: LoadCustomAgentsOptions = {}): Map<string, AgentConfig> {
   const agents = new Map<string, AgentConfig>();
   const warned = new Set<string>();
-  loadFromDir(globalDir, agents, "global", warned);   // lower priority
-  loadFromDir(projectDir, agents, "project", warned);  // higher priority (overwrites)
+  for (const { dir, root } of opts.builtinDirs ?? builtinAgentDirs()) loadFromDir(dir, agents, "builtin", warned, root);
+  for (const { dir, root } of opts.packageDirs ?? packageAgentDirs(cwd)) loadFromDir(dir, agents, "package", warned, root);
+  loadFromDir(join(getAgentDir(), "agents"), agents, "global", warned);
+  loadFromDir(join(cwd, ".pi", "agents"), agents, "project", warned);
   return agents;
 }
 
-/** Load agent configs from a directory into the map. */
-function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "project" | "global", warned: Set<string>): void {
+/** Set `config` under its name, first deleting any key that equals it case-insensitively. */
+function setReplacing(agents: Map<string, AgentConfig>, config: AgentConfig): void {
+  const lower = config.name.toLowerCase();
+  for (const key of [...agents.keys()]) {
+    if (key.toLowerCase() === lower) agents.delete(key);
+  }
+  agents.set(config.name, config);
+}
+
+/**
+ * Load agent configs from a directory into the map. With a `root`, each file must
+ * canonicalise inside it, so a file symlinked out of a package is skipped.
+ */
+function loadFromDir(
+  dir: string,
+  agents: Map<string, AgentConfig>,
+  source: AgentConfig["source"] & string,
+  warned: Set<string>,
+  root?: string,
+): void {
   if (!existsSync(dir)) return;
 
   let files: string[];
@@ -46,23 +71,28 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
   }
 
   for (const file of files) {
-    const name = basename(file, ".md");
+    const path = join(dir, file);
+    if (root !== undefined && !isInside(root, realOrSelf(path))) {
+      debugLog("agent file outside package root", path);
+      continue;
+    }
 
     let content: string;
     try {
-      content = readFileSync(join(dir, file), "utf-8");
+      content = readFileSync(path, "utf-8");
     } catch (err) {
       debugLog("readFileSync agent file", err);
       continue;
     }
 
     const { frontmatter: fm, body } = parseFrontmatter(content);
+    const name = (typeof fm.name === "string" && fm.name.trim() !== "" ? fm.name.trim() : undefined) ?? basename(file, ".md");
     const toolNames = listField(fm.tools, BUILTIN_TOOL_NAMES);
     const toolsDeclared = fm.tools != null;
     const disallowedTools = listField(fm.disallowed_tools, []);
     if (toolsDeclared) noteDeclaredAndDisallowed(name, toolNames, disallowedTools);
 
-    agents.set(name, {
+    setReplacing(agents, {
       name,
       displayName: str(fm.display_name),
       description: str(fm.description) ?? name,
@@ -73,9 +103,9 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
       thinking: thinkingLevel(fm.thinking, name),
       maxTurns: nonNegativeInt(fm.max_turns),
       systemPrompt: body.trim(),
-      context: contextField(fm, join(dir, file), warned),
+      context: contextField(fm, path, warned),
       runInBackground: fm.run_in_background != null ? fm.run_in_background === true : undefined,
-      locked: lockDeclaration(fm.locked, name, join(dir, file), warned),
+      locked: lockDeclaration(fm.locked, name, path, warned),
       enabled: fm.enabled !== false,  // default true; explicitly false disables
       source,
     });

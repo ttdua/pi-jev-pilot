@@ -14,6 +14,7 @@ import { makeNavigable } from "../helpers/make-navigable";
 const theme = { fg: (_: string, t: string) => t, bold: (t: string) => t };
 const registry = {
   resolveAgentConfig: () => ({ name: "Explore", displayName: "Explore" }),
+  findAgentConfig: () => ({ name: "Explore", displayName: "Explore" }),
 } as unknown as AgentConfigLookup;
 const HINT = "  esc to interrupt · ← for agents · ↓ to manage";
 

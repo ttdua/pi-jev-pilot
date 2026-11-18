@@ -7,7 +7,7 @@
  * child's allowlist.
  */
 
-import { BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
+import { BUILTIN_TOOL_NAMES, FALLBACK_AGENT, MissingFallbackAgentError } from "#src/config/agent-types";
 import { debugNote } from "#src/debug";
 import type { AgentTypeSnapshot } from "#src/service/service";
 import type { AgentConfig } from "#src/types";
@@ -22,7 +22,7 @@ export interface AgentTypeSource {
 }
 
 /** The type a launch runs when the requested name matches no agent. */
-const FALLBACK_TYPE = "general-purpose";
+const FALLBACK_TYPE = FALLBACK_AGENT;
 
 /** Read-only view of the agent registry, reloaded on every query as a `subagent` call does. */
 export class AgentTypeCatalog {
@@ -39,16 +39,19 @@ export class AgentTypeCatalog {
 
 	/**
 	 * Resolve `name` as a launch would: exact, case-insensitive, then
-	 * `general-purpose`. A name resolving to a disabled agent returns nothing.
+	 * `general`. A name resolving to a disabled agent returns nothing.
 	 */
 	get(name: string): AgentTypeSnapshot | undefined {
 		this.source.reload();
 		const canonical = this.source.resolveType(name);
-		if (canonical !== undefined && !this.source.isValidType(canonical))
-			return undefined;
-		return snapshotOf(
-			this.source.resolveAgentConfig(canonical ?? FALLBACK_TYPE),
-		);
+		const resolved = canonical ?? FALLBACK_TYPE;
+		if (!this.source.isValidType(resolved)) return undefined;
+		try {
+			return snapshotOf(this.source.resolveAgentConfig(resolved));
+		} catch (err) {
+			if (err instanceof MissingFallbackAgentError) return undefined;
+			throw err;
+		}
 	}
 }
 
@@ -94,7 +97,7 @@ function optionalFields(config: AgentConfig): OptionalSnapshotFields {
 function snapshotSource(
 	source: AgentConfig["source"],
 ): AgentTypeSnapshot["source"] {
-	return source === "project" || source === "global" ? source : "builtin";
+	return source ?? "builtin";
 }
 
 function frozenCopy<T>(items: readonly T[]): readonly T[] {

@@ -9,7 +9,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sdk = vi.hoisted(() => {
   interface Recorded {
@@ -51,6 +51,12 @@ vi.mock("@earendil-works/pi-coding-agent", async () => {
   };
 });
 
+// Pass-through spies: the trust wiring is observable without changing behaviour.
+vi.mock("#src/config/package-agents", async () => {
+  const actual = await vi.importActual<typeof import("#src/config/package-agents")>("#src/config/package-agents");
+  return { ...actual, seedProjectTrust: vi.fn(actual.seedProjectTrust), setProjectTrusted: vi.fn(actual.setProjectTrusted) };
+});
+
 vi.mock("#src/lifecycle/create-subagent-session", async () => {
   const actual = await vi.importActual<typeof import("#src/lifecycle/create-subagent-session")>(
     "#src/lifecycle/create-subagent-session",
@@ -58,10 +64,17 @@ vi.mock("#src/lifecycle/create-subagent-session", async () => {
   return { ...actual, createSubagentSession: vi.fn() };
 });
 
+import { seedProjectTrust, setProjectTrusted } from "#src/config/package-agents";
 import subagentsExtension from "#src/index";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
 import { getSubagentsService, unpublishSubagentsService } from "#src/service/service";
 import { createMockSession, createSubagentSessionStub, toSubagentSession } from "./helpers/mock-session";
+
+// Package discovery reads pi settings under a file lock whose retry spins on Date.now(),
+// which fake timers freeze; an empty agent dir keeps the operator's settings.json out of it.
+const emptyAgentDir = mkdtempSync(join(tmpdir(), "pi-agent-home-"));
+process.env.PI_CODING_AGENT_DIR = emptyAgentDir;
+afterAll(() => rmSync(emptyAgentDir, { recursive: true, force: true }));
 
 // A loaded instance no longer replaces a vendored service already published, so
 // each test starts with an empty slot instead of relying on the last load winning.
@@ -144,6 +157,7 @@ function makeSessionStartCtx(
   parentRegistry: unknown,
   ui: ReturnType<typeof makeRecordingUI>,
   hasUI = false,
+  projectTrusted = false,
 ) {
   return {
     hasUI,
@@ -151,6 +165,7 @@ function makeSessionStartCtx(
     cwd: "/tmp",
     model: undefined,
     modelRegistry: parentRegistry,
+    isProjectTrusted: () => projectTrusted,
     sessionManager: {
       getSessionId: vi.fn(() => "session-1"),
       getSessionFile: vi.fn(() => "/sessions/parent.jsonl"),
@@ -435,4 +450,36 @@ describe("composition root: parent tool list", () => {
 
     expect(deps.listParentToolNames()).toEqual(["read", "mcp__github__get_issue"]);
   });
+});
+
+describe("composition root: package-agent trust wiring", () => {
+  it("seeds trust from the saved decision at load, before any session", async () => {
+    vi.mocked(seedProjectTrust).mockClear();
+    const { pi, fire } = makePi();
+    subagentsExtension(pi);
+    await fire("session_shutdown", {}, {});
+    expect(seedProjectTrust).toHaveBeenCalledWith(process.cwd());
+  });
+
+  it("lists the built-in agents in the tool description built at activation", async () => {
+    const { pi, tools, fire } = makePi();
+    subagentsExtension(pi);
+    await fire("session_shutdown", {}, {});
+    const description: string = tools.get("subagent").description;
+    for (const name of ["general", "implementer", "explore", "scout", "reviewer", "verifier"]) {
+      expect(description).toContain(`- ${name}: `);
+    }
+  });
+
+  it.each([true, false])("the first session_start handler records the session answer %s", async (trusted) => {
+    vi.mocked(setProjectTrusted).mockClear();
+    const { pi, handlers, fire } = makePi();
+    subagentsExtension(pi);
+    const [first] = handlers.get("session_start")!;
+    await first({}, makeSessionStartCtx(makeParentRegistry().registry, makeRecordingUI(), false, trusted));
+    await fire("session_shutdown", {}, {});
+    expect(setProjectTrusted).toHaveBeenCalledTimes(1);
+    expect(setProjectTrusted).toHaveBeenCalledWith(trusted);
+  });
+
 });

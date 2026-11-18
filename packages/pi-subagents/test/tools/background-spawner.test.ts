@@ -200,7 +200,7 @@ describe("spawnBackground", () => {
       makeParams({ config: makeConfig({ fellBack: true, rawType: "unknown-type" }) }),
     );
     expect(textOf(result)).toMatch(
-      /^Note: Unknown agent type "unknown-type" — using general-purpose\.\n\nAgent (started|queued) in background\./,
+      /^Note: Unknown agent type "unknown-type" — using general\.\n\nAgent (started|queued) in background\./,
     );
   });
 

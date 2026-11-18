@@ -11,9 +11,11 @@ import {
   modelLabel,
   type Theme,
 } from "#src/ui/display";
+import { makeAgentConfig } from "#test/helpers/make-agent-config";
 import { makeModel } from "#test/helpers/make-model";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
-const testRegistry = new AgentTypeRegistry(() => new Map());
+const testRegistry = registryWithGeneral(() => new Map());
 
 describe("Theme", () => {
   it("accepts only Pi theme color names", () => {
@@ -34,7 +36,7 @@ describe("getDisplayName", () => {
         disallowedTools: [],
       },
     ]]);
-    const registry = new AgentTypeRegistry(() => customAgents);
+    const registry = registryWithGeneral(() => customAgents);
     expect(getDisplayName("my-agent", registry)).toBe("My Agent");
   });
 
@@ -49,7 +51,7 @@ describe("getDisplayName", () => {
         disallowedTools: [],
       },
     ]]);
-    const registry = new AgentTypeRegistry(() => customAgents);
+    const registry = registryWithGeneral(() => customAgents);
     expect(getDisplayName("my-agent", registry)).toBe("my-agent");
   });
 
@@ -57,8 +59,8 @@ describe("getDisplayName", () => {
     expect(getDisplayName("Explore", testRegistry)).toBe("Explore");
   });
 
-  it("uses registry to resolve general-purpose displayName", () => {
-    expect(getDisplayName("general-purpose", testRegistry)).toBe("Agent");
+  it("shows a legacy type as recorded when no agent resolves it", () => {
+    expect(getDisplayName("general-purpose", testRegistry)).toBe("general-purpose");
   });
 });
 
@@ -142,5 +144,27 @@ describe("formatRunDuration", () => {
 
   it("marks a still-running run's elapsed time as running", () => {
     expect(formatRunDuration({ status: "running", startedAt: 1000, completedAt: undefined, stoppedWhileQueued: false })).toBe("5.0s (running)");
+  });
+});
+
+describe("getDisplayName — history without the fallback agent", () => {
+  const withoutGeneral = (agents: Map<string, AgentConfig> = new Map()) => new AgentTypeRegistry(() => agents);
+
+  it.each(["Plan", "Explore", "general-purpose"])("shows the recorded legacy type %s when general is missing", (type) => {
+    expect(getDisplayName(type, withoutGeneral())).toBe(type);
+  });
+
+  it("shows the recorded type when general is disabled", () => {
+    const registry = withoutGeneral(new Map([["general", makeAgentConfig({ name: "general", enabled: false })]]));
+    expect(getDisplayName("Plan", registry)).toBe("Plan");
+  });
+
+  it("shows the recorded type when general is present but the type does not resolve", () => {
+    expect(getDisplayName("Plan", testRegistry)).toBe("Plan");
+  });
+
+  it("uses a resolving agent's display name or name, case-insensitively", () => {
+    const registry = withoutGeneral(new Map([["Explore", makeAgentConfig({ name: "Explore" })]]));
+    expect(getDisplayName("explore", registry)).toBe("Explore");
   });
 });

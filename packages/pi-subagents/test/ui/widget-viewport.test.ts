@@ -11,10 +11,10 @@
 
 import { type Terminal, TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { SubagentManager } from "#src/lifecycle/subagent-manager";
 import { AgentWidget, type UICtx } from "#src/ui/agent-widget";
 import { createTestSubagent } from "#test/helpers/make-subagent";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 /** A `Terminal` that reports fixed dimensions and discards every write. */
 function fakeTerminal(columns: number, rows: number): Terminal {
@@ -69,7 +69,7 @@ function animateUnderRealRenderer(opts: { rows: number; transcriptLines: number;
 			description: `task ${i}`,
 		}));
 	const manager = { listAgents: () => records } as unknown as SubagentManager;
-	const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+	const widget = new AgentWidget(manager, registryWithGeneral(() => new Map()));
 
 	const tui = new TuiMainScreen(fakeTerminal(100, opts.rows), false, "/tmp/pi-subagents-widget-viewport-test");
 	const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
@@ -167,7 +167,7 @@ describe("AgentWidget cadence under Pi's real renderers", () => {
 			isBackground: true,
 		});
 		const manager = { listAgents: () => [record] } as unknown as SubagentManager;
-		const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+		const widget = new AgentWidget(manager, registryWithGeneral(() => new Map()));
 		const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
 		const requestRender = vi.spyOn(tui, "requestRender").mockImplementation(() => {});
 		widget.setUICtx({

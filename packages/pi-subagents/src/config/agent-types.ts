@@ -1,12 +1,22 @@
 /**
  * agent-types.ts — Unified agent type registry.
  *
- * Merges embedded default agents with user-defined agents from .pi/agents/*.md.
- * User agents override defaults with the same name. Disabled agents are kept but excluded from spawning.
+ * Holds whatever `loadUserAgents` returns: built-in, package, global and project agents,
+ * already merged by the loader. Disabled agents are kept but excluded from spawning.
  */
 
-import { DEFAULT_AGENTS } from "#src/config/default-agents";
 import type { AgentConfig } from "#src/types";
+
+/** The agent a launch falls back to when the requested name matches none. */
+export const FALLBACK_AGENT = "general";
+
+/** Thrown when a launch needs the fallback agent and it is absent or disabled. */
+export class MissingFallbackAgentError extends Error {
+  constructor() {
+    super(`Agent type "${FALLBACK_AGENT}" is not available; the built-in agents are missing or disabled`);
+    this.name = "MissingFallbackAgentError";
+  }
+}
 
 // ── AgentConfigLookup interface ──────────────────────────────────────────────
 
@@ -17,6 +27,8 @@ import type { AgentConfig } from "#src/types";
 export interface AgentConfigLookup {
   resolveAgentConfig(type: string): AgentConfig;
   getToolNamesForType(type: string): string[];
+  /** Exact then case-insensitive lookup; no alias, no fallback. For display paths. */
+  findAgentConfig(type: string): AgentConfig | undefined;
 }
 
 // ── AgentTypeRegistry class ──────────────────────────────────────────────────
@@ -31,30 +43,34 @@ export interface AgentConfigLookup {
 export class AgentTypeRegistry implements AgentConfigLookup {
   private agents = new Map<string, AgentConfig>();
 
-  /** The three embedded default agent names. */
-  static readonly DEFAULT_AGENT_NAMES = ["general-purpose", "Explore", "Plan"] as const;
-
   constructor(private loadUserAgents: () => Map<string, AgentConfig>) {
     this.reload();
   }
 
   /**
-   * Re-scan user agents and rebuild the registry.
-   * Starts with DEFAULT_AGENTS, then overlays whatever `loadUserAgents()` returns.
+   * Re-scan every agent source and rebuild the registry from `loadUserAgents()`.
    */
   reload(): void {
     this.agents.clear();
-    for (const [name, config] of DEFAULT_AGENTS) {
-      this.agents.set(name, config);
-    }
     for (const [name, config] of this.loadUserAgents()) {
       this.agents.set(name, config);
     }
   }
 
-  /** Resolve a type name case-insensitively. Returns the canonical key or undefined. */
+  /**
+   * Resolve a type name: exact, case-insensitive, then `general-purpose` as an alias of
+   * the fallback when no agent of that name exists. Returns the canonical key or undefined.
+   */
   resolveType(name: string): string | undefined {
-    return this.resolveKey(name);
+    const key = this.resolveKey(name);
+    if (key !== undefined) return key;
+    return name.toLowerCase() === "general-purpose" ? this.resolveKey(FALLBACK_AGENT) : undefined;
+  }
+
+  /** Exact then case-insensitive lookup; no alias, no fallback. */
+  findAgentConfig(type: string): AgentConfig | undefined {
+    const key = this.resolveKey(type);
+    return key === undefined ? undefined : this.agents.get(key);
   }
 
   /** Get all enabled type names (for spawning and tool descriptions). */
@@ -69,17 +85,17 @@ export class AgentTypeRegistry implements AgentConfigLookup {
     return [...this.agents.keys()];
   }
 
-  /** Get names of default agents currently in the registry. */
+  /** Get names of enabled built-in agents currently in the registry, in load order. */
   getDefaultAgentNames(): string[] {
     return [...this.agents.entries()]
-      .filter(([_, config]) => config.isDefault === true)
+      .filter(([_, config]) => config.enabled !== false && config.source === "builtin")
       .map(([name]) => name);
   }
 
-  /** Get names of user-defined agents (non-defaults) currently in the registry. */
+  /** Get names of the remaining (non-built-in) agents currently in the registry. */
   getUserAgentNames(): string[] {
     return [...this.agents.entries()]
-      .filter(([_, config]) => config.isDefault !== true)
+      .filter(([_, config]) => config.source !== "builtin")
       .map(([name]) => name);
   }
 
@@ -101,25 +117,19 @@ export class AgentTypeRegistry implements AgentConfigLookup {
     return this.resolveAgentConfig(type).toolNames ?? [...BUILTIN_TOOL_NAMES];
   }
 
-  /** Resolve agent config with guaranteed non-null return. Falls back: unknown → general-purpose → absolute fallback. */
+  /**
+   * Resolve agent config with a non-null return: the named agent, else the enabled
+   * fallback agent. Throws `MissingFallbackAgentError` when neither exists; no
+   * stand-in agent is defined in code.
+   */
   resolveAgentConfig(type: string): AgentConfig {
-    const key = this.resolveKey(type);
-    const config = key ? this.agents.get(key) : undefined;
+    const key = this.resolveType(type);
+    const config = key === undefined ? undefined : this.agents.get(key);
     if (config) return config;
 
-    const gp = this.agents.get("general-purpose");
-    if (gp) return gp;
-
-    // Absolute fallback (should never happen in practice)
-    return {
-      name: type,
-      displayName: "Agent",
-      description: "General-purpose agent for complex, multi-step tasks",
-      toolNames: BUILTIN_TOOL_NAMES,
-      toolsDeclared: false,
-      disallowedTools: [],
-      systemPrompt: "",
-    };
+    const fallback = this.findAgentConfig(FALLBACK_AGENT);
+    if (fallback && fallback.enabled !== false) return fallback;
+    throw new MissingFallbackAgentError();
   }
 
   private resolveKey(name: string): string | undefined {

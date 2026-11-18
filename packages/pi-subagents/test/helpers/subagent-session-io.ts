@@ -72,6 +72,7 @@ export function createAgentLookup(configOverrides?: Partial<AgentConfig>) {
 	const config: AgentConfig = { ...DEFAULT_AGENT_CONFIG, ...configOverrides };
 	return {
 		resolveAgentConfig: vi.fn((_type: string): AgentConfig => config),
+		findAgentConfig: vi.fn((_type: string): AgentConfig | undefined => config),
 		getToolNamesForType: vi.fn((_type: string): string[] => config.toolNames ?? ["read"]),
 	};
 }

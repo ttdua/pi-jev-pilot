@@ -1,12 +1,12 @@
 import type { TuiMode } from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { Subagent } from "#src/lifecycle/subagent";
 import type { SubagentManager } from "#src/lifecycle/subagent-manager";
 import type { CompactionInfo } from "#src/types";
 import { AgentWidget, assembleWidgetState, type UICtx } from "#src/ui/agent-widget";
 import { makeModel } from "#test/helpers/make-model";
 import { createTestSubagent, makeStubExecution } from "#test/helpers/make-subagent";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 // Minimal agent fixture — only the three fields AgentSummary requires.
 function makeAgent(overrides: { id?: string; status?: string; completedAt?: number } = {}) {
@@ -55,7 +55,7 @@ function makeWidget(
 	const manager = {
 		listAgents: () => agents.map(a => ({ isBackground: true, ...a })),
 	} as unknown as SubagentManager;
-	const registry = new AgentTypeRegistry(() => new Map());
+	const registry = registryWithGeneral(() => new Map());
 	const widget = new AgentWidget(manager, registry);
 	const setWidget = vi.fn<UICtx["setWidget"]>();
 	const setStatus = vi.fn<UICtx["setStatus"]>();
@@ -238,7 +238,7 @@ describe("AgentWidget — projection reads activity off Subagent records", () =>
 			isBackground: true,
 		});
 		const manager = { listAgents: () => [record] } as unknown as SubagentManager;
-		const registry = new AgentTypeRegistry(() => new Map());
+		const registry = registryWithGeneral(() => new Map());
 		const widget = new AgentWidget(manager, registry);
 
 		let renderFn: ((tui: unknown, theme: unknown) => { render(): string[] }) | undefined;
@@ -269,7 +269,7 @@ describe("AgentWidget — projection reads activity off Subagent records", () =>
 			execution: makeStubExecution({ model: makeModel({ provider: "anthropic", id: "claude-sonnet-5" }) }),
 		});
 		const manager = { listAgents: () => [record] } as unknown as SubagentManager;
-		const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+		const widget = new AgentWidget(manager, registryWithGeneral(() => new Map()));
 
 		let renderFn: ((tui: unknown, theme: unknown) => { render(): string[] }) | undefined;
 		widget.setUICtx({
@@ -292,7 +292,7 @@ describe("AgentWidget — projection reads activity off Subagent records", () =>
 			turnBudget: { maxTurns: 2, used: 3, phase: "warned" },
 		});
 		const manager = { listAgents: () => [record] } as unknown as SubagentManager;
-		const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+		const widget = new AgentWidget(manager, registryWithGeneral(() => new Map()));
 
 		let renderFn: ((tui: unknown, theme: unknown) => { render(): string[] }) | undefined;
 		widget.setUICtx({
@@ -441,7 +441,7 @@ describe("AgentWidget — self-drives from lifecycle notifications", () => {
 describe("AgentWidget — background-only filtering", () => {
 	function setup(records: Subagent[]) {
 		const manager = { listAgents: () => records } as unknown as SubagentManager;
-		const registry = new AgentTypeRegistry(() => new Map());
+		const registry = registryWithGeneral(() => new Map());
 		const widget = new AgentWidget(manager, registry);
 		const setWidgetCalls: unknown[] = [];
 		let renderFn: ((tui: unknown, theme: unknown) => { render(): string[] }) | undefined;
@@ -570,7 +570,7 @@ describe("AgentWidget — animation cadence", () => {
 		});
 		const listAgents = vi.fn(() => [record]);
 		const manager = { listAgents } as unknown as SubagentManager;
-		const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+		const widget = new AgentWidget(manager, registryWithGeneral(() => new Map()));
 		widget.setUICtx({
 			setStatus: () => {},
 			setWidget: (_key, content) => {
@@ -724,7 +724,7 @@ describe("AgentWidget — run facts on the widget snapshot", () => {
 		});
 		vi.spyOn(record, "toolFacts", "get").mockReturnValue({ toolCount: 7, blockedToolCount: 1 });
 		const manager = { listAgents: () => [record] } as unknown as SubagentManager;
-		const widget = new AgentWidget(manager, new AgentTypeRegistry(() => new Map()));
+		const widget = new AgentWidget(manager, registryWithGeneral(() => new Map()));
 
 		let renderFn: ((tui: unknown, theme: unknown) => { render(): string[] }) | undefined;
 		widget.setUICtx({

@@ -67,7 +67,7 @@ describe("createResolvedSpawnConfig", () => {
 
   it("derives the unknown-type note from fellBack and rawType", () => {
     expect(createResolvedSpawnConfig({ fellBack: true, rawType: "unknown-type" }).notes).toEqual([
-      'Note: Unknown agent type "unknown-type" — using general-purpose.',
+      'Note: Unknown agent type "unknown-type" — using general.',
     ]);
   });
 

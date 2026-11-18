@@ -27,6 +27,7 @@ import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 
 import type { RunConfig } from "#src/runtime";
 import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
+import { FALLBACK_AGENT, MissingFallbackAgentError } from "#src/config/agent-types";
 import { LaunchPolicySlot } from "#src/seams/launch-policy";
 import type { LaunchOrigin, LaunchPolicy } from "#src/service/service";
 import type { AgentConfig, CompactionInfo, ContextMode, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
@@ -386,7 +387,9 @@ export class SubagentManager {
     if (canonical !== undefined && !this.registry.isValidType(canonical)) {
       throw new Error(`Agent type "${canonical}" is disabled`);
     }
-    const resolvedType = canonical ?? "general-purpose";
+    const resolvedType = canonical ?? FALLBACK_AGENT;
+    // The fallback must be enabled too: a disabled `general` refuses the launch.
+    if (canonical === undefined && !this.registry.isValidType(FALLBACK_AGENT)) throw new MissingFallbackAgentError();
     const agentConfig = this.registry.resolveAgentConfig(resolvedType);
     return { type: resolvedType, isBackground: resolveBackgroundMode(agentConfig, background) };
   }

@@ -7,6 +7,7 @@ pi-jev-pilot adapts behavior and classifier question wording from these MIT-lice
 - [naicoi92/pi-jev-pilot](https://github.com/naicoi92/pi-jev-pilot). The `expert` criterion and the `expert_needed` question.
 - [gotgenes/pi-packages](https://github.com/gotgenes/pi-packages) `packages/pi-subagents` 25.0.5 (`pi-subagents-v25.0.5`), by Chris Lasher, a friendly fork of tintinweb/pi-subagents (Copyright (c) 2026 tintinweb). Vendored in `packages/pi-subagents`; license: MIT (`packages/pi-subagents/LICENSE`).
 - [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) 0.23.2 at commit `83fdf77f918e37c0b0116cade493569d7e745ae1`, Copyright (c) 2026 tintinweb, MIT. The fleet list behavior in `packages/pi-subagents/src/ui/fleet-roster.ts` and `packages/pi-subagents/src/ui/fleet-list.ts`.
+- [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents) 0.26.1 at commit `9a1b37dff9c6626a48912d23efabfa13e3c53ddb`, Copyright (c) 2026 tintinweb, MIT. Package agent discovery in `packages/pi-subagents/src/config/package-agents.ts` (a reduced port of `src/package-resources.ts`).
 
 The upstream license texts must ship with any release that contains adapted wording.
 

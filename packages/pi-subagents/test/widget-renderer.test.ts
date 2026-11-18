@@ -8,6 +8,7 @@ import {
 	renderWidgetLines,
 	widgetLineBudget,
 } from "#src/ui/widget-renderer";
+import { registryWithGeneral } from "#test/helpers/make-registry";
 
 /** Minimal theme stub — wraps text with markup tags for assertion. */
 function stubTheme(): Theme {
@@ -17,7 +18,7 @@ function stubTheme(): Theme {
 	};
 }
 
-const testRegistry = new AgentTypeRegistry(() => new Map());
+const testRegistry = registryWithGeneral(() => new Map());
 
 function makeAgent(overrides: Partial<WidgetAgent> = {}): WidgetAgent {
 	return {
@@ -67,8 +68,8 @@ describe("renderFinishedLine", () => {
 
 		// Success icon
 		expect(line).toContain("[success:✓]");
-		// Display name (general-purpose type displayName → "Agent"; tool name is now "subagent")
-		expect(line).toContain("[dim:Agent]");
+		// Display name (a legacy general-purpose type shows as recorded; tool name is now "subagent")
+		expect(line).toContain("[dim:general-purpose]");
 		// Description
 		expect(line).toContain("[dim:test task]");
 		// Tool uses
@@ -201,7 +202,7 @@ describe("renderRunningLines", () => {
 
 		// Header contains spinner frame, bold name, description
 		expect(header).toContain("[accent:⠋]");
-		expect(header).toContain("**Agent**");
+		expect(header).toContain("**general-purpose**");
 		expect(header).toContain("[muted:test task]");
 		// Stats: turn count
 		expect(header).toContain("↻2≤10");
@@ -266,19 +267,19 @@ describe("model tag", () => {
 	it("follows the running agent's name and mode", () => {
 		const agent = makeAgent({ status: "running", completedAt: undefined, model });
 		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
-		expect(header).toContain("**Agent** [dim:[anthropic/claude-sonnet-5]]  [muted:test task]");
+		expect(header).toContain("**general-purpose** [dim:[anthropic/claude-sonnet-5]]  [muted:test task]");
 	});
 
 	it("follows the finished agent's name and mode", () => {
 		const line = renderFinishedLine(makeAgent({ model }), testRegistry, theme);
-		expect(line).toContain("[dim:Agent] [dim:[anthropic/claude-sonnet-5]]  [dim:test task]");
+		expect(line).toContain("[dim:general-purpose] [dim:[anthropic/claude-sonnet-5]]  [dim:test task]");
 	});
 
 	it("is absent while the model is unknown", () => {
 		const [header] = renderRunningLines(makeAgent({ status: "running", completedAt: undefined }), testRegistry, 0, theme);
 		const line = renderFinishedLine(makeAgent(), testRegistry, theme);
-		expect(header).toContain("**Agent**  [muted:test task]");
-		expect(line).toContain("[dim:Agent]  [dim:test task]");
+		expect(header).toContain("**general-purpose**  [muted:test task]");
+		expect(line).toContain("[dim:general-purpose]  [dim:test task]");
 	});
 });
 
@@ -314,7 +315,7 @@ describe("renderWidgetLines", () => {
 		expect(lines[0]).toContain("Agents");
 		// Header line with └─ (last item uses └─ not ├─)
 		expect(lines[1]).toContain("└─");
-		expect(lines[1]).toContain("**Agent**");
+		expect(lines[1]).toContain("**general-purpose**");
 		// Activity line — uses space indent (not │) since it's the last agent
 		expect(lines[2]).not.toContain("│");
 		expect(lines[2]).toContain("⎿");
@@ -335,7 +336,7 @@ describe("renderWidgetLines", () => {
 		// finished line (1 line)
 		expect(lines[1]).toContain("[success:\u2713]");
 		// running header (1 line) + activity (1 line)
-		expect(lines[2]).toContain("**Agent**");
+		expect(lines[2]).toContain("**general-purpose**");
 		expect(lines[3]).toContain("\u23bf");
 		// queued line (last item, uses └─)
 		expect(lines[4]).toContain("\u2514\u2500");
@@ -470,7 +471,7 @@ describe("context label", () => {
 	it("shows '(fork)' after the name, then the bracket tag, on a running fork", () => {
 		const agent = makeAgent({ status: "running", completedAt: undefined, context: "fork", ...facts });
 		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
-		expect(header).toContain("**Agent** [dim:(fork)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [muted:test task]");
+		expect(header).toContain("**general-purpose** [dim:(fork)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [muted:test task]");
 	});
 
 	it("shows '(fork → fresh)' after a fallback", () => {
@@ -503,7 +504,7 @@ describe("run-facts tag", () => {
 
 	it("shows the run-facts tag after name and mode label on the finished line", () => {
 		const line = renderFinishedLine(makeAgent({ toolUses: 3, ...facts }), testRegistry, theme);
-		expect(line).toContain("[dim:Agent] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
+		expect(line).toContain("[dim:general-purpose] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
 		expect(line).toContain("3 tool uses");
 	});
 
@@ -523,4 +524,12 @@ describe("run-facts tag", () => {
 		const line = renderFinishedLine(makeAgent(), testRegistry, theme);
 		expect(line).not.toContain("[dim:[");
 	});
+});
+
+describe("renderFinishedLine — without the fallback agent", () => {
+  it.each(["Plan", "Explore"])("shows the recorded type %s when general is missing", (type) => {
+    const registry = new AgentTypeRegistry(() => new Map());
+    const line = renderFinishedLine(makeAgent({ type }), registry, stubTheme());
+    expect(line).toContain(`[dim:${type}]`);
+  });
 });
