@@ -4,10 +4,10 @@ Blocked by: none
 
 Run the spike with model `9router/gpt-6-luna`, both for the agent doing this group and for the spike's real-provider probe.
 
-- [ ] 1.1 Throwaway probe (not merged) under `packages/pi-subagents/test/spike/`: build a fork session with its own id, append a copied live branch plus a synthetic tool result, set `systemPromptOverride` to the parent's prompt and `tools` to the parent's tool names. Record the first request against the recording fixture.
-- [ ] 1.2 Confirm that a `tool_call` handler returning `{ block: true }` refuses a declared tool without running it, and that the declarations stay unchanged.
-- [ ] 1.3 List, per `pi-ai` provider API, where the session id reaches the provider (headers, `prompt_cache_key`). Confirm that `before_provider_headers` / `before_provider_request` can rewrite each one to the parent's id. Then send one parent turn and one fork through `9router/gpt-6-luna`, and record the fork's session headers and first-turn `cacheRead`.
-- [ ] 1.4 Write the findings into the design's Open Questions resolution (a short note appended to `design.md`). Stop and escalate if the declarations cannot stay identical, or if blocking does not work.
+- [x] 1.1 Throwaway probe (not merged) under `packages/pi-subagents/test/spike/`: build a fork session with its own id, append a copied live branch plus a synthetic tool result, set `systemPromptOverride` to the parent's prompt and `tools` to the parent's tool names. Record the first request against the recording fixture.
+- [x] 1.2 Confirm that a `tool_call` handler returning `{ block: true }` refuses a declared tool without running it, and that the declarations stay unchanged.
+- [x] 1.3 List, per `pi-ai` provider API, where the session id reaches the provider (headers, `prompt_cache_key`). Confirm that `before_provider_headers` / `before_provider_request` can rewrite each one to the parent's id. Then send one parent turn and one fork through `9router/gpt-6-luna`, and record the fork's session headers and first-turn `cacheRead`.
+- [x] 1.4 Write the findings into the design's Open Questions resolution (a short note appended to `design.md`). Stop and escalate if the declarations cannot stay identical, or if blocking does not work.
 
 ## 2. Executor: context setting, resolution and deprecation
 
