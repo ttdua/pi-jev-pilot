@@ -12,12 +12,12 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 `src/host/worker/policy.ts`: drop `planTools` / `assessTools`, the `tools` gate and `addTools` / `removeTools` from the adjustment; `Decided` holds only the launch entry (spec `worker-routing` "When routing runs").
-- [ ] 2.2 `src/host/worker/outcomes.ts`, `launches.ts`, `routing.ts`: remove `grantedTools` tracking, the `subagents:child:bound` grant handler, `launchToolCounts` and the `assess` deps; drop the `ToolCounts` re-export in `src/policy/worker/index.ts`.
-- [ ] 2.3 `src/policy/worker/worker-line.ts`: remove `toolCounts` and the three `tools*` writes (spec `worker-ledger` "Retired worker fields not written").
-- [ ] 2.4 Delete `src/host/tools/` and `src/policy/tools/`; remove `TOOL_QUESTION`, `GRANT_QUESTION` (`src/jev/rubrics.ts`), the tool-question builder (`src/jev/questions.ts`) and `buildToolState` with its types (`src/jev/state.ts`); `RUBRIC_VERSION` stays `2`.
-- [ ] 2.5 Tests: delete `tests/host/tool-assessment.test.ts`, `tests/host/tools/`, `tests/policy/tools/`; update `tests/host/worker/policy.test.ts`, `worker-routing.test.ts`, `worker-ledger.test.ts`, `worker-fakes.ts`, `tests/jev/questions.test.ts`, `tests/jev/state.test.ts`, `tests/policy/worker/worker-line.test.ts`. Add a `worker-routing` test: legacy `tools.mode: enforce` config, routed launch → no `tool::`/`grant::` question, one request, no `addTools`/`removeTools`.
-- [ ] 2.6 `tests/host/launch-policy-evidence.test.ts`: remove the jev-pilot assessment cases ("Enforce removes", "Enforce grants", "Ordering control…", "Resumed worker is not reassessed", "Jev down in enforce…") and the enforce grant step of the e2e case; keep the executor seam cases ("Grant reaches the child", "disallowed_tools wins over a grant") and `tests/host/probes/policy/` as they test the vendored seam.
+- [x] 2.1 `src/host/worker/policy.ts`: drop `planTools` / `assessTools`, the `tools` gate and `addTools` / `removeTools` from the adjustment; `Decided` holds only the launch entry (spec `worker-routing` "When routing runs").
+- [x] 2.2 `src/host/worker/outcomes.ts`, `launches.ts`, `routing.ts`: remove `grantedTools` tracking, the `subagents:child:bound` grant handler, `launchToolCounts` and the `assess` deps; drop the `ToolCounts` re-export in `src/policy/worker/index.ts`.
+- [x] 2.3 `src/policy/worker/worker-line.ts`: remove `toolCounts` and the three `tools*` writes (spec `worker-ledger` "Retired worker fields not written").
+- [x] 2.4 Delete `src/host/tools/` and `src/policy/tools/`; remove `TOOL_QUESTION`, `GRANT_QUESTION` (`src/jev/rubrics.ts`), the tool-question builder (`src/jev/questions.ts`) and `buildToolState` with its types (`src/jev/state.ts`); `RUBRIC_VERSION` stays `2`.
+- [x] 2.5 Tests: delete `tests/host/tool-assessment.test.ts`, `tests/host/tools/`, `tests/policy/tools/`; update `tests/host/worker/policy.test.ts`, `worker-routing.test.ts`, `worker-ledger.test.ts`, `worker-fakes.ts`, `tests/jev/questions.test.ts`, `tests/jev/state.test.ts`, `tests/policy/worker/worker-line.test.ts`. Add a `worker-routing` test: legacy `tools.mode: enforce` config, routed launch → no `tool::`/`grant::` question, one request, no `addTools`/`removeTools`.
+- [x] 2.6 `tests/host/launch-policy-evidence.test.ts`: remove the jev-pilot assessment cases ("Enforce removes", "Enforce grants", "Ordering control…", "Resumed worker is not reassessed", "Jev down in enforce…") and the enforce grant step of the e2e case; keep the executor seam cases ("Grant reaches the child", "disallowed_tools wins over a grant") and `tests/host/probes/policy/` as they test the vendored seam.
 
 ## 3. Command and status surface
 
