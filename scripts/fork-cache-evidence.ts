@@ -1,15 +1,18 @@
 // Manual evidence run (never part of `bun test`): measures how much of a parent's prompt a fork
 // reads from the provider's cache, on real providers.
 //
-//   bun scripts/fork-cache-evidence.ts --anthropic <provider/id> --openai <provider/id>
+//   bun scripts/fork-cache-evidence.ts --openai <provider/id> [--anthropic-route <provider/id>]
 //
 // Keys come from the environment and are never printed:
-//   ANTHROPIC_API_KEY                      the Anthropic row
 //   FORK_EVIDENCE_OPENAI_API_KEY           the OpenAI-compatible row
 //   FORK_EVIDENCE_OPENAI_BASE_URL          its base URL (an OpenAI-style `/v1` root)
-//   FORK_EVIDENCE_ANTHROPIC_OVERRIDE       model for the override row (default: claude-haiku-4-5)
 //   FORK_EVIDENCE_OPENAI_OVERRIDE          model id for the override row (required for that row)
-// A provider whose key is missing is reported as "not run: no credentials".
+// `--anthropic-route` adds one optional, unbounded Anthropic-model row through another client
+// (for example `claude-code/claude-haiku-5-5`, the pi-claude-code extension at
+// FORK_EVIDENCE_ANTHROPIC_ROUTE_EXTENSION, default ~/.pi/agent/git/github.com/earendil-works/pi-claude-code).
+// It is not bounded: that route may not expose Pi's request prefix. The Anthropic API is not measured.
+// The OpenAI-compatible parent runs through a recording proxy; its last request is then sent again
+// unchanged to measure the provider's cache floor.
 //
 // Each run starts its own real Pi session (executor-only package plus the policy probe, which
 // provides `/probe-spawn`), sends one parent turn that holds a generated filler document, then
@@ -25,13 +28,13 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-const MIN_PARENT_TOKENS = 8000;
+const MIN_PARENT_TOKENS = 25_000;
 const MAX_ELAPSED_S = 60;
 const BOUND = 0.9;
-const FILLER_CHARS = 36_000;
+const FILLER_CHARS = 90_000;
 const RUN_TIMEOUT_MS = 180_000;
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -49,7 +52,8 @@ function isolatedEnv(
   extra: Record<string, string> = {},
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const key of ["PATH", "TMPDIR"]) {
+  // USER/LOGNAME/SHELL: the Claude Code CLI needs them to find its keychain login.
+  for (const key of ["PATH", "TMPDIR", "USER", "LOGNAME", "SHELL"]) {
     const value = process.env[key];
     if (value !== undefined) env[key] = value;
   }
@@ -119,7 +123,7 @@ function spawnRpc(opts: {
   return { send, prompt, waitFor, close: () => killGroup(proc) };
 }
 
-type Kind = "one fork" | "parallel forks" | "model override";
+type Kind = "one fork" | "parallel forks" | "model override" | "route (no bound)";
 type Row = {
   provider: string;
   kind: Kind;
@@ -136,6 +140,14 @@ type Target = {
   model: string;
   key: string | undefined;
   env: Record<string, string>;
+  /** Replaces the isolated HOME (a route through another client needs that client's login). */
+  home?: string;
+  /** Extension to install for this route. */
+  extension?: string;
+  /** Route through the recording proxy and measure the floor. */
+  floor?: boolean;
+  /** No bound applies to this target's rows. */
+  unbounded?: boolean;
   modelsJson?: object;
   override: string | undefined;
 };
@@ -151,17 +163,20 @@ function split(spec: string): { provider: string; model: string } {
   return { provider: spec.slice(0, i), model: spec.slice(i + 1) };
 }
 
-function anthropicTarget(spec: string): Target {
+function anthropicRouteTarget(spec: string): Target {
   const { provider, model } = split(spec);
-  const key = process.env.ANTHROPIC_API_KEY;
-  const override = process.env.FORK_EVIDENCE_ANTHROPIC_OVERRIDE ?? "claude-haiku-4-5";
   return {
-    label: "Anthropic",
+    label: `Anthropic model via ${provider}`,
     provider,
     model,
-    key,
-    env: key === undefined ? {} : { ANTHROPIC_API_KEY: key },
-    override: `${provider}/${override}`,
+    key: "route",
+    env: {},
+    home: homedir(),
+    extension:
+      process.env.FORK_EVIDENCE_ANTHROPIC_ROUTE_EXTENSION ??
+      join(homedir(), ".pi", "agent", "git", "github.com", "earendil-works", "pi-claude-code"),
+    unbounded: true,
+    override: undefined,
   };
 }
 
@@ -178,6 +193,7 @@ function openaiTarget(spec: string): Target {
     label: "OpenAI-compatible",
     provider,
     model,
+    floor: true,
     key: baseUrl === undefined ? undefined : key,
     env: key === undefined ? {} : { FORK_EVIDENCE_OPENAI_API_KEY: key },
     // Affinity headers are off by default outside OpenRouter; the fork guard sets them itself,
@@ -188,7 +204,10 @@ function openaiTarget(spec: string): Target {
           baseUrl,
           api: "openai-completions",
           apiKey: "$FORK_EVIDENCE_OPENAI_API_KEY",
-          compat: { sendSessionAffinityHeaders: true, sessionAffinityFormat: "openai" },
+          compat: {
+            sendSessionAffinityHeaders: true,
+            sessionAffinityFormat: "openai",
+          },
           models,
         },
       },
@@ -258,6 +277,69 @@ function install(source: string, dirs: { agentDir: string; home: string; cwd: st
   if (r.exitCode !== 0) throw new Error(`install failed: ${source}`);
 }
 
+type Captured = { body: string; headers: Record<string, string> };
+
+/** A pass-through proxy that records every request, so the parent's last one can be replayed. */
+function recordingProxy(upstream: string): {
+  url: string;
+  requests: Captured[];
+  stop(): void;
+} {
+  const requests: Captured[] = [];
+  const base = upstream.replace(/\/$/, "");
+  const server = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    async fetch(req) {
+      const body = await req.text();
+      const headers: Record<string, string> = {};
+      req.headers.forEach((v, k) => {
+        if (k !== "host" && k !== "content-length") headers[k] = v;
+      });
+      requests.push({ body, headers });
+      const path = new URL(req.url).pathname.replace(/^\/v1/, "");
+      return fetch(`${base}${path}`, { method: req.method, headers, body });
+    },
+  });
+  return {
+    url: `http://127.0.0.1:${server.port}/v1`,
+    requests,
+    stop: () => void server.stop(true),
+  };
+}
+
+type Floor = { p: number | undefined; cacheRead: number | undefined };
+
+/** Sends a captured request again, unchanged, and reads usage from its (SSE or JSON) response. */
+async function resend(upstream: string, req: Captured): Promise<Floor> {
+  const res = await fetch(`${upstream.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: req.headers,
+    body: req.body,
+  });
+  const text = await res.text();
+  let usage: {
+    prompt_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  } = {};
+  for (const line of text.split("\n")) {
+    const data = line.startsWith("data:") ? line.slice(5).trim() : undefined;
+    if (data === undefined || data === "" || data === "[DONE]") continue;
+    try {
+      const u = JSON.parse(data).usage;
+      if (u) usage = u;
+    } catch {
+      // not a JSON chunk
+    }
+  }
+  return {
+    p: usage.prompt_tokens,
+    cacheRead: usage.prompt_tokens_details?.cached_tokens,
+  };
+}
+
+const floors: Floor[] = [];
+
 type Session = {
   agentDir: string;
   cwd: string;
@@ -265,16 +347,21 @@ type Session = {
   count: (event: string) => number;
 };
 
+function installAll(target: Target, dirs: { agentDir: string; home: string; cwd: string }): void {
+  if (target.extension !== undefined) install(target.extension, dirs);
+  install(join(REPO_ROOT, "tests", "fixtures", "executor-only"), dirs);
+  install(join(REPO_ROOT, "tests", "host", "probes", "policy"), dirs);
+}
+
 /** A real Pi session on `target`, with the executor and the policy probe installed. */
 async function openSession(target: Target, spawnModel: string | undefined): Promise<Session> {
   const agentDir = tempDir("fork-evidence-agent-");
   const cwd = tempDir("fork-evidence-cwd-");
-  const home = join(agentDir, "home");
+  const home = target.home ?? join(agentDir, "home");
   mkdirSync(home, { recursive: true });
   if (target.modelsJson !== undefined)
     writeFileSync(join(agentDir, "models.json"), JSON.stringify(target.modelsJson));
-  install(join(REPO_ROOT, "tests", "fixtures", "executor-only"), { agentDir, home, cwd });
-  install(join(REPO_ROOT, "tests", "host", "probes", "policy"), { agentDir, home, cwd });
+  installAll(target, { agentDir, home, cwd });
   const reportPath = join(agentDir, "probe-report.jsonl");
   writeFileSync(reportPath, "");
   writeFileSync(join(agentDir, "policy.json"), "{}");
@@ -307,36 +394,56 @@ async function closeSession(s: Session): Promise<void> {
 }
 
 /** Why a run does not count toward the bound, or undefined when it does. */
-function exclusion(parentTokens: number, elapsedS: number, override: boolean): string | undefined {
+function exclusion(
+  parentTokens: number,
+  elapsedS: number,
+  override: boolean,
+  unbounded: boolean,
+): string | undefined {
   if (parentTokens < MIN_PARENT_TOKENS) return `excluded: P < ${MIN_PARENT_TOKENS}`;
   if (elapsedS > MAX_ELAPSED_S) return `excluded: elapsed > ${MAX_ELAPSED_S}s`;
+  if (unbounded) return "recorded, no bound (other route)";
   return override ? "recorded, no bound (model override)" : undefined;
 }
 
-function forkRow(
-  base: Pick<Row, "provider" | "kind">,
-  t: { entries: Entry[] },
-  p: ParentFacts,
-  override: boolean,
-): Row {
+type ParentFacts = { tokens: number; elapsedS: number };
+type Shape = {
+  base: Pick<Row, "provider" | "kind">;
+  forks: number;
+  override: boolean;
+  unbounded: boolean;
+};
+
+function emptyRow(base: Shape["base"], verdict: string): Row {
+  return {
+    ...base,
+    parentTokens: undefined,
+    cacheRead: undefined,
+    ratio: undefined,
+    elapsedS: undefined,
+    verdict,
+  };
+}
+
+function forkRow(shape: Shape, t: { entries: Entry[] }, p: ParentFacts): Row {
   const at = t.entries.findIndex((e) => JSON.stringify(e).includes("<subagent_instructions>"));
   const cacheRead = assistants(t.entries.slice(at))[0]?.usage?.cacheRead;
   const ratio = cacheRead === undefined ? undefined : cacheRead / p.tokens;
-  const excluded = exclusion(p.tokens, p.elapsedS, override);
+  const excluded = exclusion(p.tokens, p.elapsedS, shape.override, shape.unbounded);
   const pass = ratio !== undefined && ratio >= BOUND;
   const verdict = excluded ?? (pass ? "included: PASS" : "included: FAIL");
-  return { ...base, parentTokens: p.tokens, cacheRead, ratio, elapsedS: p.elapsedS, verdict };
+  return {
+    ...shape.base,
+    parentTokens: p.tokens,
+    cacheRead,
+    ratio,
+    elapsedS: p.elapsedS,
+    verdict,
+  };
 }
 
-type ParentFacts = { tokens: number; elapsedS: number };
-
 /** One parent turn on the filler document, then `forks` forks; one row per fork. */
-async function measure(
-  s: Session,
-  base: Pick<Row, "provider" | "kind">,
-  forks: number,
-  override: boolean,
-): Promise<Row[]> {
+async function measure(s: Session, shape: Shape): Promise<Row[]> {
   await s.rpc.prompt(
     `Below is a reference document. Read it, then reply with exactly: OK\n\n${filler()}`,
   );
@@ -344,49 +451,67 @@ async function measure(
   const parent = transcripts(sessions).find((t) => t.entries.length > 0);
   const last = assistants(parent?.entries ?? []).at(-1);
   if (last?.usage === undefined || last.timestamp === undefined) {
-    return [
-      {
-        ...base,
-        parentTokens: undefined,
-        cacheRead: undefined,
-        ratio: undefined,
-        elapsedS: undefined,
-        verdict: "excluded: parent made no usage-bearing request",
-      },
-    ];
+    return [emptyRow(shape.base, "excluded: parent made no usage-bearing request")];
   }
   const startedAt = Date.now();
-  for (let i = 0; i < forks; i++) {
+  for (let i = 0; i < shape.forks; i++) {
     s.rpc.send(`/probe-spawn general-purpose CHILD-TASK reply OK ${i}`);
   }
-  await s.rpc.waitFor(() => s.count("record:facts") >= forks, "fork completion");
-  const facts = { tokens: total(last.usage), elapsedS: (startedAt - last.timestamp) / 1000 };
+  await s.rpc.waitFor(() => s.count("record:facts") >= shape.forks, "fork completion");
+  const facts = {
+    tokens: total(last.usage),
+    elapsedS: (startedAt - last.timestamp) / 1000,
+  };
   return transcripts(sessions)
     .filter((t) => t.file !== parent?.file && t.text.includes("<subagent_instructions>"))
-    .slice(0, forks)
-    .map((t) => forkRow(base, t, facts, override));
+    .slice(0, shape.forks)
+    .map((t) => forkRow(shape, t, facts));
+}
+
+/** The target with its upstream base URL replaced by the recording proxy's. */
+function viaProxy(target: Target, upstream: string, proxyUrl: string): Target {
+  const json = JSON.stringify(target.modelsJson).replace(
+    JSON.stringify(upstream),
+    JSON.stringify(proxyUrl),
+  );
+  return { ...target, modelsJson: JSON.parse(json) };
+}
+
+function wantsFloor(target: Target, kind: Kind, upstream: string | undefined): boolean {
+  return target.floor === true && upstream !== undefined && kind === "one fork";
+}
+
+function skipReason(target: Target, shape: Shape): string | undefined {
+  if (target.key === undefined) return "not run: no credentials";
+  if (shape.override && target.override === undefined) return "not run: no override model";
+  return undefined;
 }
 
 async function run(target: Target, kind: Kind): Promise<Row[]> {
-  const base = { provider: target.label, kind };
-  const override = kind === "model override";
-  const skip = (verdict: string): Row[] => [
-    {
-      ...base,
-      parentTokens: undefined,
-      cacheRead: undefined,
-      ratio: undefined,
-      elapsedS: undefined,
-      verdict,
-    },
-  ];
-  if (target.key === undefined) return skip("not run: no credentials");
-  if (override && target.override === undefined) return skip("not run: no override model");
-  const session = await openSession(target, override ? target.override : undefined);
+  const shape: Shape = {
+    base: { provider: target.label, kind },
+    forks: kind === "parallel forks" ? 2 : 1,
+    override: kind === "model override",
+    unbounded: target.unbounded === true,
+  };
+  const skipped = skipReason(target, shape);
+  if (skipped !== undefined) return [emptyRow(shape.base, skipped)];
+  const upstream = process.env.FORK_EVIDENCE_OPENAI_BASE_URL;
+  const proxy = wantsFloor(target, kind, upstream) ? recordingProxy(upstream ?? "") : undefined;
+  const effective =
+    proxy === undefined || upstream === undefined ? target : viaProxy(target, upstream, proxy.url);
+  const session = await openSession(effective, shape.override ? target.override : undefined);
   try {
-    return await measure(session, base, kind === "parallel forks" ? 2 : 1, override);
+    const rows = await measure(session, shape);
+    const parentRequest = proxy?.requests.find((r) =>
+      r.body.includes("Below is a reference document"),
+    );
+    if (parentRequest !== undefined && upstream !== undefined)
+      floors.push(await resend(upstream, parentRequest));
+    return rows;
   } finally {
     await closeSession(session);
+    proxy?.stop();
   }
 }
 
@@ -404,24 +529,48 @@ function render(rows: Row[]): string {
   return lines.join("\n");
 }
 
+async function runGuarded(target: Target, kind: Kind): Promise<Row[]> {
+  try {
+    return await run(target, kind);
+  } catch (e) {
+    if (!target.unbounded) throw e;
+    const why = e instanceof Error ? e.message.slice(0, 120) : "failed";
+    return [emptyRow({ provider: target.label, kind }, `not run: ${why}`)];
+  }
+}
+
+function printFloors(): void {
+  for (const f of floors) {
+    const gap = f.p === undefined || f.cacheRead === undefined ? "-" : f.p - f.cacheRead;
+    console.log(
+      `cache floor (parent's last request sent again unchanged): P=${f.p ?? "-"} cacheRead=${f.cacheRead ?? "-"} P-cacheRead=${gap}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
-  const anthropic = arg("anthropic");
   const openai = arg("openai");
-  if (anthropic === undefined || openai === undefined) {
+  const route = arg("anthropic-route");
+  if (openai === undefined) {
     console.error(
-      "usage: bun scripts/fork-cache-evidence.ts --anthropic <provider/id> --openai <provider/id>",
+      "usage: bun scripts/fork-cache-evidence.ts --openai <provider/id> [--anthropic-route <provider/id>]",
     );
     process.exit(2);
   }
   const rows: Row[] = [];
-  for (const target of [anthropicTarget(anthropic), openaiTarget(openai)]) {
-    for (const kind of ["one fork", "parallel forks", "model override"] as const) {
-      rows.push(...(await run(target, kind)));
-    }
+  const targets = [
+    openaiTarget(openai),
+    ...(route === undefined ? [] : [anthropicRouteTarget(route)]),
+  ];
+  for (const target of targets) {
+    const kinds: Kind[] = target.unbounded
+      ? ["route (no bound)"]
+      : ["one fork", "parallel forks", "model override"];
+    for (const kind of kinds) rows.push(...(await runGuarded(target, kind)));
   }
   console.log(render(rows));
-  const failed = rows.some((r) => r.verdict === "included: FAIL");
-  if (failed) {
+  printFloors();
+  if (rows.some((r) => r.verdict === "included: FAIL")) {
     console.error(`bound ${BOUND} failed for at least one included same-model row`);
     process.exit(1);
   }
