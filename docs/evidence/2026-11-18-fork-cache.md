@@ -40,7 +40,17 @@ Second of two identical runs; the first gave 0.841 / 0.850 / 0.841 for the three
 
 ## Reading the shortfall
 
-`P - cacheRead` is about 2 150 tokens in every run, whatever `P` is (the spike's 18 394-token parent left 2 153 uncached). The fork's tail after the shared prefix (synthetic tool result, `<subagent_instructions>` message, task, the parent's last assistant text) plus cache block granularity (128 tokens) stays uncached. Hypothesis, not tested: the tail is roughly constant, so the ratio rises with `P`. Escalated rather than tuned: raise the minimum parent size in the conditions, relax the bound for this provider, or shorten the fork's own tail.
+Root cause: provider behaviour, not the fork's construction. Two experiments through a throwaway recording proxy in front of 9router (not committed):
+
+1. **Fork vs parent request.** The parent's last request (2 messages: system, user filler; P = 13 549) and the fork's first request (4 messages) were compared as parsed JSON and as raw text. `tools` are equal, every other top-level field is equal (only `prompt_cache_key` is absent in both), and the parent's messages are a strict prefix of the fork's: the first raw difference is at byte 39 804 of 48 343, exactly where the parent's body ends and the fork's synthetic assistant `OK` message begins. Headers: `session_id`, `x-session-affinity` and `x-client-request-id` equal the parent id in both; the fork also sends `session-id`, `x-session-id`, `x-affinity` (the guard's full set, all the parent id).
+2. **Does the provider cache a whole prompt?** The same request sent three times on one fresh session id (`prompt_tokens` / `cached_tokens`):
+   - 13 596-token prompt: 11 392 on the repeat (gap 2 204, ratio 0.838), with no change on a third send.
+   - 23 019-token prompt: 20 864 on the repeat (gap 2 155, ratio 0.906).
+   - The parent's own request replayed: first send 0, second 11 392 (gap 2 166).
+
+An **identical** repeat leaves about 2 150 to 2 200 tokens uncached, so the provider (through 9router) caches only up to about `P - 2 150` rounded down to 128-token blocks, whatever the prefix. The fork reads the same 11 392 (0.841) the identical parent request reads: it loses nothing to divergence. The ratio is therefore `1 - ~2 150 / P`, and 0.90 is reached only for `P` of about 21 500 or more on this route. The conditions' `P >= 8000` is too small for this provider; at `P = 13 500` no fork can pass, because even a byte-identical request does not.
+
+Decision for the controller: raise the minimum `P` for the bound (about 25 000 for this route), relax the bound for this provider, or treat the 9router row as a provider limit. No code change is warranted.
 
 ## Known gap: Codex
 
