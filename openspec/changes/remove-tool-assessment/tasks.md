@@ -2,11 +2,11 @@
 
 Blocked by: none
 
-- [ ] 1.1 `src/store/config.ts`: replace the `tools` object validator with an accept-anything key that contributes nothing; drop `tools` from `Config`; report `deprecated: ["tools"]` from `readConfig` when the raw object has a `tools` key (specs `config-file` "Deprecated tools section", "Optional field rules"). Tests in `tests/store/config-read.test.ts`, `config-write.test.ts`, `validate.test.ts`.
-- [ ] 1.2 `src/store/settings.ts`, `settings-sections.ts`: remove `resolveTools` and `tools` from `Settings` (spec `settings-resolution` "Effective settings resolver"). Tests in `tests/store/settings*.test.ts`.
-- [ ] 1.3 `src/store/defaults.ts`: drop `tools` from `FEATURES`, `DECISION_FEATURES`, `DEFAULTS.tools` and `DEFAULTS.switches`; keep it in `RESERVED_SLOT_NAMES`.
-- [ ] 1.4 `src/store/state-file.ts`: accept a boolean `switches.tools` as a legacy key next to `review` and drop both from the returned state (spec `state-file` "State file content"). Tests in `tests/store/state-file.test.ts`.
-- [ ] 1.5 `src/store/ledger-schema.ts`: keep `toolsScored`, `toolsFlagged`, `toolsGranted` allowed for reading old lines (spec `decision-ledger`); confirm `tests/store/ledger-schema.test.ts` and `ledger-pin.test.ts` still pass.
+- [x] 1.1 `src/store/config.ts`: replace the `tools` object validator with an accept-anything key that contributes nothing; drop `tools` from `Config`; report `deprecated: ["tools"]` from `readConfig` when the raw object has a `tools` key (specs `config-file` "Deprecated tools section", "Optional field rules"). Tests in `tests/store/config-read.test.ts`, `config-write.test.ts`, `validate.test.ts`.
+- [x] 1.2 `src/store/settings.ts`, `settings-sections.ts`: remove `resolveTools` and `tools` from `Settings` (spec `settings-resolution` "Effective settings resolver"). Tests in `tests/store/settings*.test.ts`.
+- [x] 1.3 `src/store/defaults.ts`: drop `tools` from `FEATURES`, `DECISION_FEATURES`, `DEFAULTS.tools` and `DEFAULTS.switches`; keep it in `RESERVED_SLOT_NAMES`.
+- [x] 1.4 `src/store/state-file.ts`: accept a boolean `switches.tools` as a legacy key next to `review` and drop both from the returned state (spec `state-file` "State file content"). Tests in `tests/store/state-file.test.ts`.
+- [x] 1.5 `src/store/ledger-schema.ts`: keep `toolsScored`, `toolsFlagged`, `toolsGranted` allowed for reading old lines (spec `decision-ledger`); confirm `tests/store/ledger-schema.test.ts` and `ledger-pin.test.ts` still pass.
 
 ## 2. Host and wire: remove tool assessment
 
