@@ -172,5 +172,6 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/helpers/builtin-config.ts` | add | Fixture: the real built-in agent config. |
 | `test/helpers/make-registry.ts` | add | Fixture: a registry that always holds an enabled `general`. |
 | `test/tools/get-result-tool.test.ts` | edit | Registry fixture holds `general`. |
-| `docs/comparison-with-upstream.md` | edit | Role agents and the `pi.subagents.agents` package manifest listed as fork features. |
+| `docs/comparison-with-upstream.md` | edit | Role agents and the `pi.subagents.agents` package manifest listed as fork features, not common ground. |
+| `README.md` (role agents) | edit | Case-insensitive bullet and custom-agent bullet name role agents and the package manifest; `spawn` contract documents the `general` fallback and the missing or disabled `general` refusal. |
 | `src/tools/get-result-renderer.ts` | edit | Comment sample uses the `explore` agent name. |

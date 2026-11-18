@@ -401,14 +401,15 @@ See `src/service/service.ts` for the full `SubagentsService` interface and the `
 Use `getRecord(id)` to poll, `steer` to send a message, and the `subagents:completed` event to learn when it finished.
 
 The agent type is canonicalized, so `"explore"` and `"Explore"` reach the same agent.
-An unrecognized type falls back to `general` rather than throwing, matching the `subagent` tool's behavior.
+An unrecognized type falls back to `general`, matching the `subagent` tool's behavior, as long as `general` exists and is enabled.
 
-It throws in four cases:
+It throws in these cases:
 
 - there is no active session, so there is no parent to spawn from;
 - a `model` string does not resolve against the session's model registry;
 - a `thinkingLevel` is not one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`;
-- the named agent type exists but is disabled (`enabled: false`).
+- the named agent type exists but is disabled (`enabled: false`);
+- the type is unknown and `general` is missing or disabled, so there is no fallback.
 
 Agent frontmatter never overrides an option you pass.
 It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `context` is resolved like the tool does: your option wins, then the agent file's `context`, then `fresh`; an agent file that [locks](./docs/configuration.md#locking-fields-against-callers) `context` wins over your option.
