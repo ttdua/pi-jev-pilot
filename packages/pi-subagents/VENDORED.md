@@ -99,7 +99,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `docs/decisions/0009-portable-inheritance-is-provider-scoped.md` | edit | Status line points to ADR 0014. |
 | `docs/decisions/0010-project-context-is-directory-resolved.md` | edit | Status line points to ADR 0014. |
 | `docs/decisions/0011-tool-surface-sections-are-session-resolved.md` | edit | Status line points to ADR 0014. |
-| `docs/architecture/architecture.md` | edit | The `SpawnOptions` listing names `context` instead of the old fork flag. |
+| `docs/architecture/architecture.md` | edit | The `SpawnOptions` listing names `context` instead of the old fork flag. Current-structure diagram and layout show the markdown built-ins (`agents/`), `package-agents.ts`, and no `default-agents.ts`. History is unchanged. |
 | `docs/decisions/0013-fleet-list-opens-the-session-pane.md` | seam | ADR for the fleet list: it opens the read-only session pane and lists foreground runs; the ported behavior is credited to tintinweb/pi-subagents 0.23.2. |
 | `README.md` | edit | Fleet list feature bullet, the `Fleet view` row in the settings description, and a `Fleet list` section with its keys. Run facts paragraph and examples: widget bracket, inline status table and fleet rows show model, thinking and tool counts. |
 | `docs/configuration.md` | edit | `fleetView` in persistent settings, its default, and the example JSON. |

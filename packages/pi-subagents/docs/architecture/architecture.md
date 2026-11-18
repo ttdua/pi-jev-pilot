@@ -69,7 +69,8 @@ flowchart TB
     subgraph config["Config domain"]
         direction TB
         AgentTypeRegistry["AgentTypeRegistry<br/>(registry of agent types)"]
-        DefaultAgents["default-agents<br/>(built-in types)"]
+        BuiltinAgents["agents/*.md<br/>(built-in role agents)"]
+        PackageAgents["package-agents<br/>(installed packages)"]
         CustomAgents["custom-agents<br/>(user .md files)"]
         InvocationConfig["invocation-config<br/>(per-call merge)"]
         ThinkingLevelModule["thinking-level<br/>(level vocabulary)"]
@@ -129,7 +130,7 @@ flowchart TB
     CreateSubagentSession --> SessionConfig
     SessionConfig --> AgentTypeRegistry
     SessionConfig --> Prompts & Env
-    AgentTypeRegistry --> DefaultAgents & CustomAgents
+    AgentTypeRegistry --> BuiltinAgents & PackageAgents & CustomAgents
     SpawnConfig --> InvocationConfig & ThinkingLevelModule
     CustomAgents --> ThinkingLevelModule
     RecordObserver -.->|subscribes| SubagentSession
@@ -356,6 +357,10 @@ A module belongs to the zone of the object it serves, not the zone of what it to
 ### Current layout
 
 ```text
+agents/                             built-in role agents, one .md file each (general, implementer, explore, scout, reviewer, verifier)
+```
+
+```text
 src/
 ├── index.ts                        entry point, tool registration, event wiring
 ├── runtime.ts                      SubagentRuntime factory (session-scoped state)
@@ -367,8 +372,8 @@ src/
 │
 ├── config/                         agent type definitions and resolution
 │   ├── agent-types.ts              AgentTypeRegistry class
-│   ├── default-agents.ts           built-in agent configs (general-purpose, Explore, Plan)
-│   ├── custom-agents.ts            user-defined agent .md file loader
+│   ├── package-agents.ts           agent .md files from installed packages (`pi.subagents.agents`)
+│   ├── custom-agents.ts            agent loader: builtin, package, global and project .md files
 │   ├── invocation-config.ts        per-call config merge (caller wins unless `locked`); background-mode resolution
 │   └── thinking-level.ts           thinking-level vocabulary and parser, wider than pi-ai's `ThinkingLevel`
 │
