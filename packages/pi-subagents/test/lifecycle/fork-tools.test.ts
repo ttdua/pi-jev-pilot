@@ -39,8 +39,8 @@ describe("forkCallableTools", () => {
     expect(callable).toEqual(["read"]);
   });
 
-  it("a policy removal or an enforced assessment flag (absent from the base tools) is not callable", () => {
-    // Both reach the fork as the launch plan's base tools without the tool.
+  it("Policy removal refuses: a launch-policy removal (absent from the base tools) is not callable", () => {
+    // A removal reaches the fork as the launch plan's base tools without the tool.
     const { callable } = forkCallableTools({ agentTools: ["read", "grep", "bash"], disallowed: [], parentTools: PARENT });
     expect(callable).not.toContain("edit");
   });

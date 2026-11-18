@@ -72,7 +72,7 @@
 | `enforceForkGrants` (`seams/grant-check.ts`) | new | `(state: ForkGuardState, granted: readonly string[], childTools: readonly Pick<ToolInfo, "name" \| "exposure">[]) => string[]`. It reuses `checkGrants(granted, childTools)`, so only grants that the child registered with a model-callable exposure take effect. It adds those to `state.callable`, returns them as `grantedTools`, and never calls `setActiveToolsByName`, so the declarations stay unchanged | internal |
 | Fork session plumbing (Task 4) | new | `SessionFactoryIO.createForkSessionManager(cwd, sessionDir, parentSession, entries)` (prod: `session/fork-session-manager.ts`, writes the fork file with its own header plus the copied entries, then opens it; `SessionManager` has no public raw-entry append and `appendMessage` cannot carry compaction entries); `CreateSubagentSessionParams` gains `context?: ContextMode`, `task?: string`; `SubagentSessionMeta.parentContext` → `firstMessage?: string` (replaces the first run's prompt) and `forkGuard?: ForkGuardState`; `forkCallableTools({ agentTools, disallowed, parentTools }) => { callable, agentOnly }` in `fork-guard.ts`; `resolveLaunchContext(snapshot, context, contextSource)` + `NO_PARENT_SESSION_ERROR` in `subagent-manager.ts`; `LaunchFacts.parentThinking?`; fix round 1: `lifecycle/fork-stubs.ts` (`missingToolStubs`, `refusingStub`), `ResourceLoaderLike.getExtensions?`, `ContextSetup.customTools(loader)`, `SessionFactoryIO.removeSessionFile` (drops a failed fork's transcript), stubs delegate at call time to a real same-name tool the bound session registered (round 2: `refusingStub(declaration, real)`, `ForkStubs.settle` after bind decides callable/refusing from `extensionRunner.getAllRegisteredTools()`), `ModelInfo.parentHasBranch?` (an agent-file fork with no branch resolves model and thinking as fresh) | internal |
 | `getContextLabel(context, fallback?)` | new (replaces `getPromptModeLabel`) | `(context: ContextMode, fallback?: "no-parent-session") => "fork" \| "fork → fresh" \| undefined` | internal |
-| `subagents:record` session entry (`persisted-record.ts`) | modified (Task 5 fix round 1, file-format deviation) | gains optional `context?: "fork"` and `contextFallback?: "no-parent-session"`, written only when set; `PersistedRunSummary` gains `context` (`"fresh"` when absent) and `contextFallback`. Reason: released-session navigator headings must show the same run-facts label as live ones (spec "Run facts in the agents widget"); the persisted entry was the only source without the context. Old entries read as fresh with no label. | internal |
+| `subagents:record` session entry (`persisted-record.ts`) | modified (Task 5 fix round 1, file-format deviation) | gains optional `context?: ContextMode` (absent on older entries, which read as fresh) and `contextFallback?: "no-parent-session"`, written only when set; `PersistedRunSummary` gains `context` (`"fresh"` when absent) and `contextFallback`. Reason: released-session navigator headings must show the same run-facts label as live ones (spec "Run facts in the agents widget"); the persisted entry was the only source without the context. Old entries read as fresh with no label. | internal |
 | Config key `subagents.forkLaunch` | new | `"untouched" \| "thinking"`, default `"untouched"` | public |
 | Config key `subagents.forkedLaunch` | modified (deprecated) | alias of `forkLaunch`; both present → problem at `subagents.forkedLaunch` | public |
 | Config read result | modified | gains `notices?: readonly string[]` (deprecation notices shown by `/jev` status) | internal |
@@ -452,8 +452,6 @@
 - config-file / Forked launch setting rejected → `tests/store/config-read.test.ts`
 - config-file / Deprecated forkedLaunch accepted → `tests/store/config-read.test.ts`
 - config-file / Both keys present → `tests/store/config-read.test.ts`
-- config-file / Grant cut accepted → `tests/store/config-read.test.ts`
-- config-file / Grant cut out of range → `tests/store/config-read.test.ts`
 - executor-agent-registry / Built-in Explore → `packages/pi-subagents/test/seams/registry.test.ts`
 - executor-agent-registry / Snapshot is detached → `packages/pi-subagents/test/seams/registry.test.ts`
 - executor-agent-registry / Absent tools kept distinct from defaults → `packages/pi-subagents/test/seams/registry.test.ts`
@@ -486,7 +484,7 @@
 - settings-resolution / Tuning over config → `tests/store/settings.test.ts`
 - settings-resolution / Forked launch from config → `tests/store/settings.test.ts`
 - settings-resolution / Fork launch from the deprecated key → `tests/store/settings.test.ts`
-- settings-resolution / Grant cut from config → `tests/store/settings.test.ts`
+- settings-resolution / Ignored tools section → `tests/store/settings.test.ts`
 - subagent-context-mode / Invalid value → `packages/pi-subagents/test/config/invocation-config.test.ts` + `test/tools/agent-tool.test.ts`
 - subagent-context-mode / Invalid service value → `packages/pi-subagents/test/service/service-adapter.test.ts`
 - subagent-context-mode / Invalid frontmatter value → `packages/pi-subagents/test/config/custom-agents.test.ts`
@@ -516,20 +514,23 @@
 - subagent-context-mode / Caller override → `packages/pi-subagents/test/session/model-resolver.test.ts`
 - subagent-context-mode / Locked agent model → `packages/pi-subagents/test/session/model-resolver.test.ts`
 - subagent-context-mode / Parent thinking kept → `packages/pi-subagents/test/session/model-resolver.test.ts`
-- subagent-context-mode / Policy over caller → `packages/pi-subagents/test/session/model-resolver.test.ts`
+- subagent-context-mode / Policy over caller → `packages/pi-subagents/test/seams/launch-policy.test.ts` ("Policy over caller")
 - subagent-context-mode / Declarations unchanged → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
 - subagent-context-mode / No protocol tools → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
 - subagent-context-mode / Disallowed tool refused → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
 - subagent-context-mode / Nested spawn refused → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
 - subagent-context-mode / Disallowed tool refused, not removed → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
-- subagent-context-mode / Enforced assessment refuses → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
+- subagent-context-mode / Policy removal refuses → `packages/pi-subagents/test/lifecycle/fork-tools.test.ts` + `tests/host/context-mode.test.ts`
 - subagent-context-mode / Explicit fork fails → `packages/pi-subagents/test/lifecycle/subagent-manager.test.ts`
 - subagent-context-mode / Agent default falls back → `packages/pi-subagents/test/lifecycle/subagent-manager.test.ts`
 - subagent-context-mode / Same-model fork reads the cache → manual evidence `docs/evidence/<date>-fork-cache.md` (Task 7, step 7.3)
 - subagent-context-mode / Parallel forks → manual evidence `docs/evidence/<date>-fork-cache.md` (Task 7, step 7.3)
 - subagent-context-mode / Short parent excluded → manual evidence `docs/evidence/<date>-fork-cache.md` (Task 7, step 7.3)
+- subagent-context-mode / Floor measured → manual evidence `docs/evidence/2026-11-18-fork-cache.md` (provider floor row)
+- subagent-context-mode / Codex routing limitation documented → `packages/pi-subagents/docs/decisions/0014-subagent-context-is-fresh-or-fork.md` (Limitation) and `docs/evidence/2026-11-18-fork-cache.md` ("Known gap: Codex")
 - subagent-context-mode / Decision record present → `tests/docs-old-names.test.ts` (Task 8)
 - subagent-context-mode / Old names gone from current docs → `tests/docs-old-names.test.ts` (Task 8)
 - subagent-run-facts / Policy-changed thinking shown live → `packages/pi-subagents/test/tools/result-renderer.test.ts` / `test/widget-renderer.test.ts` / `test/ui/session-navigator.test.ts`
 
 [Showing lines 1-533 of 585 (50.0KB limit). Use offset=534 to continue.]
+> After merging `main` (#89, remove-tool-assessment), the `tool-assessment` delta was dropped, and the config-file and settings-resolution deltas were rebased on the requirements that change introduced. The historical Task 7 step 2b (fork tool-assessment cases) no longer applies: its test file was removed upstream.

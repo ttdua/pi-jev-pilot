@@ -1,11 +1,9 @@
 ## MODIFIED Requirements
 
-### Requirement: Other field rules
+### Requirement: Optional field rules
 These fields SHALL be optional and MUST follow these rules:
 - `effort.holdProviders` is up to 32 unique provider names of 1–64 characters from letters, digits, `.`, `_`, `-`;
 - `skills.inject` is `content` or `suggest`;
-- `tools.mode` is `observe` or `enforce`;
-- `tools.grantAt` is a finite number from 0.5 to 1;
 - `state.parentRequest` is a boolean;
 - `review.cli` is `codex` or `opencode`;
 - `review.enabled` is a boolean;
@@ -26,8 +24,8 @@ For one minor release, `subagents.forkedLaunch` SHALL be accepted, under the sam
 - **THEN** the read is invalid with a problem at `state.parentRequest`
 
 #### Scenario: Enum values
-- **WHEN** `skills.inject` is `"full"`, `tools.mode` is `"remove"` and `review.cli` is `"claude"`
-- **THEN** the read is invalid with problems at `skills.inject`, `tools.mode` and `review.cli`
+- **WHEN** `skills.inject` is `"full"` and `review.cli` is `"claude"`
+- **THEN** the read is invalid with problems at `skills.inject` and `review.cli`
 
 #### Scenario: CLI review enabled accepted
 - **WHEN** `review` is `{"cli":"opencode","enabled":true}`
@@ -52,11 +50,3 @@ For one minor release, `subagents.forkedLaunch` SHALL be accepted, under the sam
 #### Scenario: Both keys present
 - **WHEN** `subagents` holds both `forkLaunch` and `forkedLaunch`
 - **THEN** the read is invalid with a problem at `subagents.forkedLaunch`, and no config value is returned
-
-#### Scenario: Grant cut accepted
-- **WHEN** `tools.grantAt` is `0.9`
-- **THEN** the read is valid and returns that value
-
-#### Scenario: Grant cut out of range
-- **WHEN** `tools.grantAt` is `0.3` in one read, and `"high"` in another
-- **THEN** both reads are invalid with a problem at `tools.grantAt`

@@ -122,6 +122,13 @@ The fork's first provider request MUST carry:
 - **WHEN** the parent session has history but no assistant message has been written to its file yet
 - **THEN** the fork still starts from the in-memory branch
 
+### Requirement: Cache-routing exception for overwriting providers
+The parent session id as cache-routing key SHALL be exempt for a provider API that overwrites the session headers after extension hooks run. Today that is only `openai-codex-responses`, where a fork keeps its own id in `session-id` and `x-client-request-id`. The decision record and the cache evidence MUST state this limitation.
+
+#### Scenario: Codex routing limitation documented
+- **WHEN** the decision record and the fork cache evidence are read
+- **THEN** both name `openai-codex-responses` as a provider whose fork does not share the parent's cache route
+
 ### Requirement: Fork session identity
 A fork SHALL have its own session id, distinct from the parent's and from every other fork's. That id MUST be used for its transcript file, its subagent record and the `subagents:child:*` events, so the parent is never recorded as a child.
 
@@ -187,7 +194,7 @@ An unlocked model or thinking in the agent file MUST NOT apply to a fork.
 - **THEN** the fork runs at thinking `medium`
 
 ### Requirement: Fork tool limits
-A fork SHALL declare exactly the parent's tools: it MUST NOT add a tool the agent allows but the parent lacks, nor protocol tools (`ask_parent`, `notify_parent`). Its callable tools SHALL be the parent's tools that survive every rule that would remove a tool from a fresh child (allowlist, `disallowed_tools`, policy removals, enforced assessment; policy grants kept), never including `subagent`, `get_subagent_result` or `steer_subagent`.
+A fork SHALL declare exactly the parent's tools: it MUST NOT add a tool the agent allows but the parent lacks, nor protocol tools (`ask_parent`, `notify_parent`). Its callable tools SHALL be the parent's tools that survive every rule that would remove a tool from a fresh child (allowlist, `disallowed_tools`, launch-policy removals; launch-policy grants kept), never including `subagent`, `get_subagent_result` or `steer_subagent`.
 
 #### Scenario: Declarations unchanged
 - **WHEN** a read-only agent is forked
@@ -212,8 +219,8 @@ Before a call runs, a fork MUST refuse any call to a tool that is not callable (
 - **WHEN** an agent declares `disallowed_tools: bash` and is forked from a parent with `bash`
 - **THEN** the fork's tool list contains `bash` and a call to `bash` is refused
 
-#### Scenario: Enforced assessment refuses
-- **WHEN** tool assessment in `enforce` mode flags `edit` for a fork
+#### Scenario: Policy removal refuses
+- **WHEN** a launch policy returns `removeTools` `edit` for a fork
 - **THEN** the fork's tool list still contains `edit` and a call to `edit` is refused
 
 ### Requirement: Fork without a parent session

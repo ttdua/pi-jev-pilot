@@ -56,11 +56,11 @@ The names promise behaviour the code does not deliver, and the UI shows two unre
 - `agent-metadata`: the agent facts carry `context` instead of `inheritContext`.
 - `executor-launch-policy`: the launch request given to the policy carries `context` instead of `inheritContext`.
 - `host-seam-evidence`: the launch-policy evidence covers a fork launch instead of `inherit_context: true`.
-- `config-file`: `subagents.forkLaunch` replaces `subagents.forkedLaunch`; the old key is accepted with a warning for one minor release.
-- `settings-resolution`: the effective settings carry `subagents.forkLaunch`.
+- `config-file`: `subagents.forkLaunch` replaces `subagents.forkedLaunch`; the old key is accepted with a warning for one minor release. The delta modifies "Optional field rules", which `remove-tool-assessment` (#89) introduced, so that change must be archived first.
+- `settings-resolution`: the effective settings carry `subagents.forkLaunch`. The delta modifies "Effective settings resolver" from `remove-tool-assessment` (#89), which must be archived first.
 - `worker-routing`: forks, not "launches that inherit context", ask fewer questions under `forkLaunch: thinking`.
 - `worker-decision`: the untouched and thinking-only rules key on a fork launch and on `forkLaunch`.
-- `tool-assessment`: the brief rule names fork launches. In a fork, enforced flags refuse calls instead of removing the tool, and a resumed fork keeps its refusals.
+- `tool-assessment`: dropped from this change after merging `main`. `remove-tool-assessment` (#89) removed the capability; a fork's tool limits now come only from the agent file and launch-policy adjustments.
 - `executor-agent-registry` (`disallowed_tools`) and `executor-launch-policy` (adjustments): in a fork, removal means refusal at call time. Policy precedence for a fork's model and thinking is also defined.
 - `subagent-run-facts`: a fork's tool and blocked counts use its callable tools; a fallback shows `fork → fresh`.
 - `cli-review`: `jev_review` stays declared in a fork but is refused.

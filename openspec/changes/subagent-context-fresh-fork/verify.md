@@ -211,3 +211,39 @@ Run `/opsx-continue` with the worktree (`/Users/naicoi/Projects/oss/pi-jev-pilot
 > - FAIL, code-fixable: load `systematic-debugging`, re-run `/opsx-apply`, then verify again.
 > - FAIL, artifact-level: fix the artifact, then re-run `/opsx-apply`.
 > - Stop after 5 iterations and report to the user.
+
+---
+
+## Addendum: after merging `main` and resolving W1–W3 (2026-11-18)
+
+This addendum records changes made after the verify run above. They follow a merge of `origin/main` (`d459e733`, remove-tool-assessment #89) into `prompt-mode`, plus artifact fixes for the warnings. The outcome above was not re-scored.
+
+**Merge**: merge commit `0dfcae8d`.
+- **Text conflicts.** The config read now carries both the `forkedLaunch` notices and #89's deprecated `tools` report.
+- **Fakes.** The worker fakes drop the `tools` settings.
+- **Deleted tests.** Both tool-assessment test files were deleted upstream and are removed here too.
+- **Lint.** `formatStatus` exceeded the lint complexity limit after the merge, so its problem lines moved into a helper.
+- **Test fix.** One test used `tools.mode` as an invalid field, which is now always accepted, so it uses `review.cli` instead.
+
+**Artifact rebase**: the `tool-assessment` delta is dropped, because that capability was removed upstream.
+- The `config-file` delta now modifies "Optional field rules".
+- The `settings-resolution` delta now modifies "Effective settings resolver".
+- Both are requirements introduced by `remove-tool-assessment`, so that change must be archived first. `openspec validate` reports this as INFO.
+- The fork scenario "Enforced assessment refuses" became "Policy removal refuses".
+
+**Warnings resolved:**
+- **W1.** New requirement "Cache-routing exception for overwriting providers" with the scenario "Codex routing limitation documented", covered by ADR 0014 and the evidence document.
+- **W2.** `plan.md` Scenario → test: "Policy over caller" now points to `packages/pi-subagents/test/seams/launch-policy.test.ts`, "Floor measured" and the Codex scenario are added, and the rows removed by #89 are dropped.
+- **W3.** The `plan.md` Contracts row for the persisted record now says `context?: ContextMode`.
+- **W4.** Unchanged (informational).
+
+**Fresh checks on the merged tree:**
+
+| Check | Exit | Result |
+|---|---|---|
+| `bun test` | 0 | 2635 pass, 0 fail. The count is lower than 2710 because #89 removed the tool-assessment tests. |
+| `bun run test:executor` | 0 | 2428 passed |
+| `bun run typecheck` | 0 | clean |
+| `bun run lint` | 0 | clean |
+| `bun run fmt:check` | 0 | clean |
+| `openspec validate subagent-context-fresh-fork --strict` | — | valid |

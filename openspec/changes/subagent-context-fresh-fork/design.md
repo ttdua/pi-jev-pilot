@@ -145,7 +145,7 @@ The spike (plan task 1) confirms which fields each `pi-ai` provider sends.
 
 ### D4. Call-time tool refusal in a fork
 
-A fork declares exactly the parent's tools and gets no protocol tools. The **callable set** is computed by the existing tool pipeline as if the child were fresh, then intersected with the parent's tools. The pipeline covers declared/expanded tools, policy grants and removals, enforced assessment and `disallowed_tools`; the recursion guard is always excluded.
+A fork declares exactly the parent's tools and gets no protocol tools. The **callable set** is computed by the existing tool pipeline as if the child were fresh, then intersected with the parent's tools. The pipeline covers declared/expanded tools, policy grants and removals and `disallowed_tools` (Jev tool assessment was removed upstream in #89); the recursion guard is always excluded.
 
 An internal extension factory, added like the existing protocol tools, registers a `tool_call` handler that returns `{ block: true, reason }` for any tool outside the callable set. Run facts count the callable set as active tools, and every other declared tool as blocked.
 

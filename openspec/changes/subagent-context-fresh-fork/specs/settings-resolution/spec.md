@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: One resolver for effective settings
+### Requirement: Effective settings resolver
 Effective settings SHALL come from one pure function of:
 - a valid config;
 - the state;
@@ -14,7 +14,7 @@ For each value, the tuning layer wins over the state, the state over the config,
 - **THEN** the result has:
   - `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`;
   - no tiers and no slots;
-  - `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `tools.mode` `observe`, `tools.grantAt` `0.8`, `state.parentRequest` `false`;
+  - `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `state.parentRequest` `false`;
   - `review.cli` `codex`, `review.enabled` `false`, `subagents.forkLaunch` `untouched`;
   - mode `standard` with source `global` and global mode `standard`;
   - every feature on except `verbose`
@@ -35,6 +35,6 @@ For each value, the tuning layer wins over the state, the state over the config,
 - **WHEN** the config sets only `subagents.forkedLaunch` to `thinking`
 - **THEN** the result's `subagents.forkLaunch` is `thinking`
 
-#### Scenario: Grant cut from config
-- **WHEN** the config sets `tools.grantAt` to `0.9`
-- **THEN** the result's `tools.grantAt` is `0.9`
+#### Scenario: Ignored tools section
+- **WHEN** the config holds `{"tools":{"mode":"enforce","grantAt":0.9}}`
+- **THEN** the result has no `tools` setting and equals the result for an empty config
