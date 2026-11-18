@@ -17,13 +17,12 @@ export const DEFAULT_AGENTS: Map<string, AgentConfig> = new Map([
       description: "General-purpose agent for complex, multi-step tasks",
       toolGuideline: "- Use general-purpose for complex tasks that need file editing.",
       // toolNames omitted — means "all available tools" (resolved at lookup time)
-      // inheritContext / runInBackground omitted — strategy fields, callers decide per-call.
+      // context / runInBackground omitted — strategy fields, callers decide per-call.
       // No built-in declares `locked`: Explore's haiku is a cost default, not a
       // correctness one, so a caller that knows better may override it (#829).
       toolsDeclared: false,
       disallowedTools: [],
       systemPrompt: "",
-      promptMode: "append",
       isDefault: true,
     },
   ],
@@ -66,7 +65,6 @@ Use Bash ONLY for read-only operations: ls, git status, git log, git diff, find,
 - Report findings as regular messages
 - Do not use emojis
 - Be thorough and precise`,
-      promptMode: "replace",
       isDefault: true,
     },
   ],
@@ -120,7 +118,6 @@ You are STRICTLY PROHIBITED from:
 ### Critical Files for Implementation
 List 3-5 files most critical for implementing this plan:
 - /absolute/path/to/file.ts - [Brief reason]`,
-      promptMode: "replace",
       isDefault: true,
     },
   ],

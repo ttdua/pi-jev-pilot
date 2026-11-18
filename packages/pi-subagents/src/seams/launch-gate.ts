@@ -21,7 +21,7 @@ import type {
 	LaunchRequest,
 } from "#src/service/service";
 import { type ModelRegistry, resolveModel } from "#src/session/model-resolver";
-import type { AgentConfig, ThinkingLevel } from "#src/types";
+import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /** What the parent session offers a launch, read fresh for each launch. */
 export interface LaunchContext {
@@ -39,7 +39,7 @@ export interface LaunchFacts {
 	description: string;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
-	inheritContext: boolean;
+	context: ContextMode;
 	isBackground: boolean;
 	/** The parent's model, which a locked agent model falls back to when unresolvable. */
 	parentModel: Model<any> | undefined;

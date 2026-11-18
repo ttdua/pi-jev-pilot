@@ -67,7 +67,7 @@ export function renderFinishedLine(
 	theme: Theme,
 ): string {
 	const name = getDisplayName(agent.type, registry);
-	const modeLabel = getPromptModeLabel(agent.type, registry);
+	const modeLabel = getPromptModeLabel(undefined) /* TODO(subagent-context-fresh-fork task 5): read the record context */;
 	const duration = formatMs((agent.completedAt ?? Date.now()) - agent.startedAt);
 
 	let icon: string;
@@ -108,7 +108,7 @@ export function renderRunningLines(
 	theme: Theme,
 ): [header: string, activity: string] {
 	const name = getDisplayName(agent.type, registry);
-	const modeLabel = getPromptModeLabel(agent.type, registry);
+	const modeLabel = getPromptModeLabel(undefined) /* TODO(subagent-context-fresh-fork task 5): read the record context */;
 	const modeTag = modeLabel ? ` ${theme.fg("dim", `(${modeLabel})`)}` : "";
 	const elapsed = formatMs(Date.now() - agent.startedAt);
 

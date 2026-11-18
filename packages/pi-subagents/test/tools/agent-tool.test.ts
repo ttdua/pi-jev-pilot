@@ -1,6 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Value } from "typebox/value";
 import { AgentTypeRegistry } from "#src/config/agent-types";
+import { resetDeprecationWarnings } from "#src/config/deprecations";
 import { AgentTool } from "#src/tools/agent-tool";
 import {
 	createToolDeps,
@@ -90,6 +92,40 @@ describe("AgentTool", () => {
 		reloadSpy.mockRestore();
 	});
 
+});
+
+describe("AgentTool — context", () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		resetDeprecationWarnings();
+	});
+
+	it("declares context as a fresh | fork enum in the schema", () => {
+		const def = makeTool(createToolDeps()).toToolDefinition();
+		const schema = JSON.stringify(def.parameters);
+		expect(schema).toContain('"context"');
+		expect(schema).toContain('"fresh"');
+		expect(schema).toContain('"fork"');
+		expect(Value.Check(def.parameters, { prompt: "p", description: "d", subagent_type: "Explore", context: "twin" })).toBe(false);
+		expect(Value.Check(def.parameters, { prompt: "p", description: "d", subagent_type: "Explore", context: "fork" })).toBe(true);
+	});
+
+	it("warns once per session for repeated inherit_context: true", async () => {
+		vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const deps = createToolDeps();
+		for (let i = 0; i < 3; i++) {
+			await execute(deps, { prompt: "p", description: "d", subagent_type: "Explore", inherit_context: true });
+		}
+		expect(warn.mock.calls.filter((c) => String(c[0]).includes("inherit_context"))).toHaveLength(1);
+		warn.mockRestore();
+	});
+
+	it("builds the parent snapshot for the resolved context", async () => {
+		const deps = createToolDeps();
+		await execute(deps, { prompt: "p", description: "d", subagent_type: "Explore", inherit_context: true });
+		expect(deps.runtime.buildSnapshot).toHaveBeenCalledWith("fork");
+	});
 });
 
 describe("AgentTool — resume path", () => {

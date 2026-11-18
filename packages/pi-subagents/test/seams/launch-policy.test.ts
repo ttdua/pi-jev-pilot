@@ -306,11 +306,15 @@ describe("when the policy runs", () => {
 		h.manager.spawn(snapshot, "Explore", "a", {
 			description: "a",
 			background: bg,
+			context: "fresh",
+			contextSource: "default",
 			origin: { kind: "service" },
 		});
 		const second = h.manager.spawn(snapshot, "Explore", "b", {
 			description: "b",
 			background: bg,
+			context: "fresh",
+			contextSource: "default",
 			origin: { kind: "service" },
 		});
 		await firstBinding.promise;
@@ -367,7 +371,7 @@ describe("launch request", () => {
 			parentSessionId: "p1",
 			prompt: "go",
 			description: "d",
-			inheritContext: false,
+			context: "fresh",
 			isBackground: false,
 		});
 		expect(request.agent.name).toBe("Explore");
@@ -375,6 +379,17 @@ describe("launch request", () => {
 		expect(request.toolSet.defaults).toEqual(["read"]);
 		expect(Object.isFrozen(request)).toBe(true);
 		expect(Object.isFrozen(request.toolSet)).toBe(true);
+	});
+
+	it("carries the resolved context and no inheritContext", async () => {
+		const h = harness();
+		const policy = register(h);
+
+		await h.call("call_8", { ...explore, context: "fork" });
+
+		const request = requestOf(policy);
+		expect(request.context).toBe("fork");
+		expect(request).not.toHaveProperty("inheritContext");
 	});
 
 	it("orchestration tools are never offered", async () => {
@@ -621,7 +636,7 @@ describe("the plan's accepted removals", () => {
 			prompt: "p",
 			description: "d",
 			requested: {},
-			inheritContext: false,
+			context: "fresh",
 			isBackground: false,
 			parentTools: ["read", "edit", "web_search"].map(topLevel),
 			excludedPackages: [],

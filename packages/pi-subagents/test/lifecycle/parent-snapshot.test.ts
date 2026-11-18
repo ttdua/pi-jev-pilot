@@ -27,59 +27,59 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
 
 describe("buildParentSnapshot", () => {
   it("captures cwd from ctx", () => {
-    const snapshot = buildParentSnapshot(makeCtx({ cwd: "/custom/path" }));
+    const snapshot = buildParentSnapshot(makeCtx({ cwd: "/custom/path" }), "fresh");
     expect(snapshot.cwd).toBe("/custom/path");
   });
 
   it("captures systemPrompt from ctx.getSystemPrompt()", () => {
-    const snapshot = buildParentSnapshot(makeCtx({ getSystemPrompt: () => "my prompt" }));
+    const snapshot = buildParentSnapshot(makeCtx({ getSystemPrompt: () => "my prompt" }), "fresh");
     expect(snapshot.systemPrompt).toBe("my prompt");
   });
 
   it("captures model from ctx", () => {
     const model = { id: "claude-haiku", provider: "anthropic" };
-    const snapshot = buildParentSnapshot(makeCtx({ model }));
+    const snapshot = buildParentSnapshot(makeCtx({ model }), "fresh");
     expect(snapshot.model).toBe(model);
   });
 
   it("captures modelRegistry from ctx", () => {
     const registry = { find: vi.fn(), getAvailable: vi.fn(() => []) };
-    const snapshot = buildParentSnapshot(makeCtx({ modelRegistry: registry }));
+    const snapshot = buildParentSnapshot(makeCtx({ modelRegistry: registry }), "fresh");
     expect(snapshot.modelRegistry).toBe(registry);
   });
 
-  it("sets parentContext to undefined when inheritContext is false", () => {
-    const snapshot = buildParentSnapshot(makeCtx(), false);
+  it("sets parentContext to undefined when context is false", () => {
+    const snapshot = buildParentSnapshot(makeCtx(), "fresh");
     expect(snapshot.parentContext).toBeUndefined();
     expect(buildParentContextMock).not.toHaveBeenCalled();
   });
 
-  it("sets parentContext to undefined when inheritContext is undefined", () => {
-    const snapshot = buildParentSnapshot(makeCtx());
+  it("sets parentContext to undefined when context is undefined", () => {
+    const snapshot = buildParentSnapshot(makeCtx(), "fresh");
     expect(snapshot.parentContext).toBeUndefined();
     expect(buildParentContextMock).not.toHaveBeenCalled();
   });
 
-  it("populates parentContext when inheritContext is true and conversation exists", () => {
+  it("populates parentContext when context is true and conversation exists", () => {
     buildParentContextMock.mockReturnValueOnce("# Parent Conversation\n...");
-    const snapshot = buildParentSnapshot(makeCtx(), true);
+    const snapshot = buildParentSnapshot(makeCtx(), "fork");
     expect(snapshot.parentContext).toBe("# Parent Conversation\n...");
     expect(buildParentContextMock).toHaveBeenCalledTimes(1);
   });
 
-  it("sets parentContext to undefined when inheritContext is true but conversation is empty", () => {
+  it("sets parentContext to undefined when context is true but conversation is empty", () => {
     buildParentContextMock.mockReturnValueOnce("");
-    const snapshot = buildParentSnapshot(makeCtx(), true);
+    const snapshot = buildParentSnapshot(makeCtx(), "fork");
     expect(snapshot.parentContext).toBeUndefined();
   });
 
   describe("portablePrompt", () => {
     it("is undefined when no prompt options were captured", () => {
-      expect(buildParentSnapshot(makeCtx(), false).portablePrompt).toBeUndefined();
+      expect(buildParentSnapshot(makeCtx(), "fresh").portablePrompt).toBeUndefined();
     });
 
     it("is undefined when the captured options carry no operator-authored parts", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {});
+      const snapshot = buildParentSnapshot(makeCtx(), "fresh", {});
       expect(snapshot.portablePrompt).toBeUndefined();
     });
 
@@ -92,13 +92,13 @@ describe("buildParentSnapshot", () => {
         contextFiles: [{ path: "/repo/AGENTS.md", content: "Repo rules." }],
       } as ParentPromptOptions;
 
-      const snapshot = buildParentSnapshot(makeCtx(), false, captured);
+      const snapshot = buildParentSnapshot(makeCtx(), "fresh", captured);
 
       expect(snapshot.portablePrompt).toBe("You are a specialist.");
     });
 
     it("orders the parts the way Pi composes them: custom, then append", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
+      const snapshot = buildParentSnapshot(makeCtx(), "fresh", {
         customPrompt: "You are a specialist.",
         appendSystemPrompt: "Extra instructions.",
       });
@@ -116,7 +116,7 @@ describe("buildParentSnapshot", () => {
     it("wraps an appended prompt alone in the addendum section", () => {
       // pi 0.86 and later render appendSystemPrompt as an <addendum> section; the
       // portable identity leaves out the base preamble Pi would put first.
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
+      const snapshot = buildParentSnapshot(makeCtx(), "fresh", {
         appendSystemPrompt: "Extra instructions.",
       });
       expect(snapshot.portablePrompt).toBe(
@@ -125,14 +125,14 @@ describe("buildParentSnapshot", () => {
     });
 
     it("omits a section whose input is absent", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
+      const snapshot = buildParentSnapshot(makeCtx(), "fresh", {
         customPrompt: "You are a specialist.",
       });
       expect(snapshot.portablePrompt).toBe("You are a specialist.");
     });
 
     it("treats a whitespace-only custom or append prompt as absent", () => {
-      const snapshot = buildParentSnapshot(makeCtx(), false, {
+      const snapshot = buildParentSnapshot(makeCtx(), "fresh", {
         customPrompt: "   ",
         appendSystemPrompt: "\n\n",
       });

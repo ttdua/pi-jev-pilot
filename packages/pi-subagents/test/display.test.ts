@@ -29,7 +29,6 @@ describe("getDisplayName", () => {
         displayName: "My Agent",
         description: "test",
         systemPrompt: "",
-        promptMode: "replace",
         toolsDeclared: false,
         disallowedTools: [],
       },
@@ -45,7 +44,6 @@ describe("getDisplayName", () => {
         name: "my-agent",
         description: "test",
         systemPrompt: "",
-        promptMode: "replace",
         toolsDeclared: false,
         disallowedTools: [],
       },
@@ -64,24 +62,12 @@ describe("getDisplayName", () => {
 });
 
 describe("getPromptModeLabel", () => {
-  it("returns 'twin' for append promptMode", () => {
-    const customAgents = new Map<string, AgentConfig>([[
-      "twin-agent",
-      {
-        name: "twin-agent",
-        description: "test",
-        systemPrompt: "",
-        promptMode: "append",
-        toolsDeclared: false,
-        disallowedTools: [],
-      },
-    ]]);
-    const registry = new AgentTypeRegistry(() => customAgents);
-    expect(getPromptModeLabel("twin-agent", registry)).toBe("twin");
+  it("returns 'fork' for a forked invocation", () => {
+    expect(getPromptModeLabel({ context: "fork" })).toBe("fork");
   });
 
-  it("returns undefined for replace promptMode", () => {
-    expect(getPromptModeLabel("Explore", testRegistry)).toBeUndefined();
+  it("returns undefined for a fresh invocation", () => {
+    expect(getPromptModeLabel({ context: "fresh" })).toBeUndefined();
   });
 });
 

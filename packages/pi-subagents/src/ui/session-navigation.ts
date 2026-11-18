@@ -198,7 +198,7 @@ export function liveSource(record: NavigableSubagent): TranscriptSource {
 function buildHeading(fields: Pick<LabelFields, "type" | "description">, registry: AgentConfigLookup): EntryHeading {
   return {
     name: getDisplayName(fields.type, registry),
-    modeLabel: getPromptModeLabel(fields.type, registry),
+    modeLabel: getPromptModeLabel(undefined) /* TODO(subagent-context-fresh-fork task 5): read the record context */,
     description: fields.description,
   };
 }

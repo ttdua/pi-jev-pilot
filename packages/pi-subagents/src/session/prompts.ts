@@ -70,7 +70,8 @@ export function buildAgentPrompt(
   const identity = inherited ? adoptedIdentity(inherited, cwd) : genericBase;
   const projectContext = ownProjectContext(inherited, cwd, loadProjectContext);
 
-  if (config.promptMode === "append") {
+  // TODO(subagent-context-fresh-fork task 3): the fresh prompt replaces both branches.
+  if (false as boolean) {
     const customSection = config.systemPrompt.trim()
       ? `\n\n<agent_instructions>\n${config.systemPrompt}\n</agent_instructions>`
       : "";

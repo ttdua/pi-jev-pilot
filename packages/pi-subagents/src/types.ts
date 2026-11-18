@@ -52,18 +52,19 @@ export interface SubscribableSession {
 /** Agent type: any string name (built-in defaults or user-defined). */
 export type SubagentType = string;
 
-/** UI display and agent listing — name, display name, description, prompt mode. */
+/** How a child starts: `fresh` is a new conversation, `fork` continues the parent's. */
+export type ContextMode = "fresh" | "fork";
+
+/** UI display and agent listing — name, display name, description. */
 export interface AgentIdentity {
   name: string;
   displayName?: string;
   description: string;
-  promptMode: "replace" | "append";
 }
 
-/** Prompt assembly — name, prompt mode, system prompt. */
+/** Prompt assembly — name, system prompt. */
 export interface AgentPromptConfig {
   name: string;
-  promptMode: "replace" | "append";
   systemPrompt: string;
 }
 
@@ -78,8 +79,8 @@ export interface AgentConfig extends AgentIdentity, AgentPromptConfig {
   model?: string;
   thinking?: ThinkingLevel;
   maxTurns?: number;
-  /** Default for spawn: fork parent conversation. undefined = caller decides. */
-  inheritContext?: boolean;
+  /** Default for spawn: fresh or fork. undefined = caller decides. */
+  context?: ContextMode;
   /** Default for spawn: run in background. undefined = caller decides. */
   runInBackground?: boolean;
   /** Fields a `subagent` tool caller may not override. Omitted — every field is overridable. */
@@ -97,7 +98,7 @@ export interface AgentConfig extends AgentIdentity, AgentPromptConfig {
 export interface AgentInvocation {
   thinking?: ThinkingLevel;
   maxTurns?: number;
-  inheritContext?: boolean;
+  context: ContextMode;
   runInBackground?: boolean;
 }
 

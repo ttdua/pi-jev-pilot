@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import type { ContextMode } from "#src/types";
 import type { Subagent } from "#src/lifecycle/subagent";
 import type { ResumeRefusalReason } from "#src/lifecycle/subagent-manager";
 import {
@@ -40,7 +41,7 @@ export type AgentToolFixture = {
  */
 export function createToolDeps(overrides: Partial<AgentToolFixture> = {}): AgentToolFixture {
 	const runtime: AgentToolRuntime = {
-		buildSnapshot: vi.fn((_inheritContext: boolean): ParentSnapshot => STUB_SNAPSHOT),
+		buildSnapshot: vi.fn((_context: ContextMode): ParentSnapshot => STUB_SNAPSHOT),
 		getModelInfo: vi.fn(() => ({
 			parentModel: makeModel({ id: "claude-sonnet", name: "Claude Sonnet" }),
 			modelRegistry: { find: () => undefined, getAll: () => [], getAvailable: () => [] },
@@ -105,7 +106,6 @@ export function createToolDepsWithDisabledBuiltInAgents(...names: string[]): Age
 					{
 						name,
 						description: "disabled built-in agent",
-						promptMode: "append" as const,
 						toolsDeclared: false,
 						disallowedTools: [],
 						systemPrompt: "",

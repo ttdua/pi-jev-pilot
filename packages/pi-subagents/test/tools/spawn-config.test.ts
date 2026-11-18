@@ -185,7 +185,7 @@ describe("resolveSpawnConfig — invocation fields", () => {
     expect(result.execution.agentInvocation).toEqual({
       thinking: "high",
       maxTurns: undefined,
-      inheritContext: false,
+      context: "fresh",
       runInBackground: false,
     });
   });
@@ -220,8 +220,8 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
     );
     if ("error" in result) return;
     expect(result.presentation.detailBase.thinking).toBe("high");
-    expect(result.presentation.agentTags).toEqual(["twin", "thinking: high", "inherit context"]);
-    expect(result.presentation.detailBase.tags).toEqual(["inherit context"]);
+    expect(result.presentation.agentTags).toEqual(["fork", "thinking: high"]);
+    expect(result.presentation.detailBase.tags).toBeUndefined();
   });
 
   it("omits mode label for replace-mode agents", () => {
@@ -232,22 +232,21 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
       defaultSettings,
     );
     if ("error" in result) return;
-    // Explore has promptMode: "replace" → no mode label, no invocation overrides
+    // Explore is fresh → no mode label, no invocation overrides
     expect(result.presentation.agentTags).toEqual([]);
   });
 
-  it("includes twin tag for append-mode agents like general-purpose", () => {
+  it("includes fork tag for a forked launch", () => {
     const result = resolveSpawnConfig(
-      { subagent_type: "general-purpose", prompt: "test", description: "d" },
+      { subagent_type: "general-purpose", prompt: "test", description: "d", context: "fork" },
       testRegistry,
       makeModelInfo(),
       defaultSettings,
     );
     if ("error" in result) return;
-    // general-purpose has promptMode: "append" → gets "twin" label
-    expect(result.presentation.agentTags).toContain("twin");
-    expect(result.presentation.detailBase.modeLabel).toBe("twin");
-    expect(result.presentation.detailBase.tags ?? []).not.toContain("twin");
+    expect(result.presentation.agentTags).toContain("fork");
+    expect(result.presentation.detailBase.modeLabel).toBe("fork");
+    expect(result.presentation.detailBase.tags ?? []).not.toContain("fork");
   });
 
   it("sets tags to undefined on detailBase for replace-mode agents with no invocation overrides", () => {
@@ -258,7 +257,7 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
       defaultSettings,
     );
     if ("error" in result) return;
-    // Explore has promptMode: "replace" and no invocation overrides → no tags
+    // Explore is fresh and no invocation overrides → no tags
     expect(result.presentation.detailBase.tags).toBeUndefined();
   });
 });
@@ -309,7 +308,7 @@ describe("resolveSpawnConfig — minimum turns note", () => {
     const registry = new AgentTypeRegistry(
       () =>
         new Map([
-          ["terse", { name: "terse", description: "Terse", systemPrompt: "", promptMode: "append" as const, toolsDeclared: false, disallowedTools: [], maxTurns: 1 }],
+          ["terse", { name: "terse", description: "Terse", systemPrompt: "", toolsDeclared: false, disallowedTools: [], maxTurns: 1 }],
         ]),
     );
     const result = resolveSpawnConfig(

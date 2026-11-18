@@ -167,10 +167,12 @@ export function getDisplayName(type: SubagentType, registry: AgentConfigLookup):
   return config.displayName ?? config.name;
 }
 
-/** Short label for prompt mode: "twin" for append, nothing for replace (the default). */
-export function getPromptModeLabel(type: SubagentType, registry: AgentConfigLookup): string | undefined {
-  const config = registry.resolveAgentConfig(type);
-  return config.promptMode === "append" ? "twin" : undefined;
+/**
+ * Short label for a launch's context: "fork" for a fork, nothing for fresh.
+ * TODO(subagent-context-fresh-fork task 5): becomes getContextLabel(context, fallback).
+ */
+export function getPromptModeLabel(invocation: AgentInvocation | undefined): string | undefined {
+  return invocation?.context === "fork" ? "fork" : undefined;
 }
 
 /** Mode label and thinking are not included — they are separate run facts. */
@@ -179,7 +181,6 @@ export function buildInvocationTags(
 ): { tags: string[] } {
   const tags: string[] = [];
   if (!invocation) return { tags };
-  if (invocation.inheritContext) tags.push("inherit context");
   if (invocation.runInBackground) tags.push("background");
   if (invocation.maxTurns != null) tags.push(`max turns: ${invocation.maxTurns}`);
   return { tags };

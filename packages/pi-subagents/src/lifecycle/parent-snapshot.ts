@@ -5,7 +5,7 @@
 import type { Model } from "@earendil-works/pi-ai";
 import { buildParentContext } from "#src/session/context";
 import type { ModelRegistry } from "#src/session/model-resolver";
-import type { SessionContext } from "#src/types";
+import type { ContextMode, SessionContext } from "#src/types";
 
 /**
  * The parent session's operator-authored prompt parts, as Pi reports them on
@@ -42,7 +42,7 @@ export interface ParentSnapshot {
   model: Model<any> | undefined;
   /** Model registry for resolving config.model strings and creating sessions. */
   modelRegistry: ModelRegistry;
-  /** Pre-built parent conversation text (when inheritContext was requested). */
+  /** Pre-built parent conversation text (when a fork was requested). */
   parentContext?: string;
   /**
    * The parent's operator-authored parts, rendered as an identity a child on a
@@ -63,10 +63,11 @@ export interface ParentSnapshot {
  */
 export function buildParentSnapshot(
   ctx: SessionContext,
-  inheritContext?: boolean,
+  context: ContextMode,
   promptOptions?: ParentPromptOptions,
 ): ParentSnapshot {
-  const parentContext = inheritContext ? buildParentContext(ctx) : undefined;
+  // TODO(subagent-context-fresh-fork task 4): the fork session replaces the text transcript.
+  const parentContext = context === "fork" ? buildParentContext(ctx) : undefined;
   return {
     cwd: ctx.cwd,
     systemPrompt: ctx.getSystemPrompt(),

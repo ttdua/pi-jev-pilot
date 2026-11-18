@@ -11,7 +11,6 @@ const mockResolveAgentConfig = vi.fn((): AgentConfig => ({
   description: "Fast codebase exploration agent",
   toolNames: ["read"],
   systemPrompt: "You are Explore.",
-  promptMode: "replace",
   toolsDeclared: true,
   disallowedTools: [],
 }));
@@ -237,7 +236,6 @@ describe("assembleSessionConfig — unknown type fallback", () => {
       name: "general-purpose",
       description: "General-purpose",
       systemPrompt: "",
-      promptMode: "append" as const,
       toolsDeclared: false,
       disallowedTools: [],
     });

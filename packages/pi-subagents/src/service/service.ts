@@ -10,6 +10,7 @@
  */
 
 import type { LockableField } from "#src/config/invocation-config";
+import type { ContextMode } from "#src/types";
 import type { SubagentThinkingLevel } from "#src/config/thinking-level";
 import type { ResumeRefusal, SubagentStatus } from "#src/lifecycle/subagent";
 import type { ResumeRefusalReason } from "#src/lifecycle/subagent-manager";
@@ -126,7 +127,7 @@ export interface AgentTypeSnapshot {
   locked?: true | readonly LockableField[];
   maxTurns?: number;
   runInBackground?: boolean;
-  inheritContext?: boolean;
+  context?: ContextMode;
 }
 
 export type { LockableField };
@@ -152,7 +153,8 @@ export interface LaunchRequest {
   requested: { model?: string; thinking?: SubagentThinkingLevel };
   /** The lockable fields the agent locks; the policy cannot change them. */
   locked: readonly LockableField[];
-  inheritContext: boolean;
+  /** The resolved context, after any fallback. */
+  context: ContextMode;
   isBackground: boolean;
   toolSet: {
     /** The agent's declared tools, or `null` when it declares none. */
@@ -229,6 +231,9 @@ export interface SpawnOptions {
    */
   maxTurns?: number;
   thinkingLevel?: string;
+  /** `fresh` (default) starts a new conversation; `fork` continues the parent's. Anything else makes `spawn` throw. */
+  context?: ContextMode;
+  /** @deprecated Use `context`. `true` means `fork`, `false` means `fresh`; `context` wins when both are given. */
   inheritContext?: boolean;
   foreground?: boolean;
   bypassQueue?: boolean;

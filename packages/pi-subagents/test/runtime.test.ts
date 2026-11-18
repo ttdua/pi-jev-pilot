@@ -92,23 +92,23 @@ describe("SubagentRuntime context query methods", () => {
     mockBuildParentSnapshot.mockReset();
   });
 
-  it("buildSnapshot delegates to buildParentSnapshot with the current context and inheritContext flag", () => {
+  it("buildSnapshot delegates to buildParentSnapshot with the current context and context", () => {
     const runtime = createSubagentRuntime();
     const ctx = makeSessionCtx();
     runtime.setSessionContext(ctx);
     mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
-    const result = runtime.buildSnapshot(true);
-    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, true, undefined);
+    const result = runtime.buildSnapshot("fork");
+    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, "fork", undefined);
     expect(result).toBe(STUB_SNAPSHOT);
   });
 
-  it("buildSnapshot passes false inheritContext correctly", () => {
+  it("buildSnapshot passes fresh context correctly", () => {
     const runtime = createSubagentRuntime();
     const ctx = makeSessionCtx();
     runtime.setSessionContext(ctx);
     mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
-    runtime.buildSnapshot(false);
-    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, false, undefined);
+    runtime.buildSnapshot("fresh");
+    expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, "fresh", undefined);
   });
 
   describe("prompt-options capture", () => {
@@ -120,9 +120,9 @@ describe("SubagentRuntime context query methods", () => {
       runtime.setSystemPromptOptions(options);
       mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
 
-      runtime.buildSnapshot(false);
+      runtime.buildSnapshot("fresh");
 
-      expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, false, options);
+      expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, "fresh", options);
     });
 
     it("keeps only the most recent capture", () => {
@@ -134,9 +134,9 @@ describe("SubagentRuntime context query methods", () => {
       runtime.setSystemPromptOptions(latest);
       mockBuildParentSnapshot.mockReturnValueOnce(STUB_SNAPSHOT);
 
-      runtime.buildSnapshot(false);
+      runtime.buildSnapshot("fresh");
 
-      expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, false, latest);
+      expect(mockBuildParentSnapshot).toHaveBeenCalledWith(ctx, "fresh", latest);
     });
   });
 

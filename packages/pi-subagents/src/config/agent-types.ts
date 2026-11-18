@@ -119,7 +119,6 @@ export class AgentTypeRegistry implements AgentConfigLookup {
       toolsDeclared: false,
       disallowedTools: [],
       systemPrompt: "",
-      promptMode: "append",
     };
   }
 

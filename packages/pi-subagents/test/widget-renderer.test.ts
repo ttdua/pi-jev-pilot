@@ -265,19 +265,19 @@ describe("model tag", () => {
 	it("follows the running agent's name and mode", () => {
 		const agent = makeAgent({ status: "running", completedAt: undefined, model });
 		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
-		expect(header).toContain("**Agent** [dim:(twin)] [dim:[anthropic/claude-sonnet-5]]  [muted:test task]");
+		expect(header).toContain("**Agent** [dim:[anthropic/claude-sonnet-5]]  [muted:test task]");
 	});
 
 	it("follows the finished agent's name and mode", () => {
 		const line = renderFinishedLine(makeAgent({ model }), testRegistry, theme);
-		expect(line).toContain("[dim:Agent] [dim:(twin)] [dim:[anthropic/claude-sonnet-5]]  [dim:test task]");
+		expect(line).toContain("[dim:Agent] [dim:[anthropic/claude-sonnet-5]]  [dim:test task]");
 	});
 
 	it("is absent while the model is unknown", () => {
 		const [header] = renderRunningLines(makeAgent({ status: "running", completedAt: undefined }), testRegistry, 0, theme);
 		const line = renderFinishedLine(makeAgent(), testRegistry, theme);
-		expect(header).toContain("**Agent** [dim:(twin)]  [muted:test task]");
-		expect(line).toContain("[dim:Agent] [dim:(twin)]  [dim:test task]");
+		expect(header).toContain("**Agent**  [muted:test task]");
+		expect(line).toContain("[dim:Agent]  [dim:test task]");
 	});
 });
 
@@ -475,7 +475,7 @@ describe("run-facts tag", () => {
 
 	it("shows the run-facts tag after name and mode label on the finished line", () => {
 		const line = renderFinishedLine(makeAgent({ toolUses: 3, ...facts }), testRegistry, theme);
-		expect(line).toContain("[dim:Agent] [dim:(twin)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
+		expect(line).toContain("[dim:Agent] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [dim:test task]");
 		expect(line).toContain("3 tool uses");
 	});
 

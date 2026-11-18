@@ -559,7 +559,7 @@ describe("SessionNavigatorHandler", () => {
   it("heads the pane with the picked agent's name and task", async () => {
     const ui = makeUI("Agent (Test task) · 2 tools · completed · 3.0s");
     await handleWith(ui, [makeNavigable()]);
-    expect(stripAnsi(renderCapturedPane(ui)[0] ?? "").startsWith("── Agent (twin)  Test task ")).toBe(true);
+    expect(stripAnsi(renderCapturedPane(ui)[0] ?? "").startsWith("── Agent  Test task ")).toBe(true);
   });
 
   it("mounts the transcript outside Pi's overlay compositor", async () => {

@@ -29,7 +29,7 @@ import type { RunConfig } from "#src/runtime";
 import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
 import { LaunchPolicySlot } from "#src/seams/launch-policy";
 import type { LaunchOrigin, LaunchPolicy } from "#src/service/service";
-import type { AgentConfig, CompactionInfo, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
+import type { AgentConfig, CompactionInfo, ContextMode, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
 /**
  * The agent-registry slice the manager needs to resolve a spawn. Deliberately
@@ -196,7 +196,8 @@ export interface AgentSpawnConfig {
   description: string;
   model?: Model<any>;
   maxTurns?: number;
-  inheritContext?: boolean;
+  context: ContextMode;
+  contextSource: "call" | "agent" | "default";
   thinkingLevel?: ThinkingLevel;
   /**
    * Whether this door has committed to a background mode or is offering a
@@ -400,7 +401,8 @@ export class SubagentManager {
         parentSession: options.parentSession,
         signal: options.signal,
         origin: options.origin,
-        inheritContext: options.inheritContext,
+        context: options.context,
+        contextSource: options.contextSource,
         launchGate: this.launchGate,
       },
     });

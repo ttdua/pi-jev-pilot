@@ -13,7 +13,7 @@ import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-lev
 import { isBelowMinimumTurns, MIN_MAX_TURNS, normalizeMaxTurns } from "#src/lifecycle/turn-limits";
 import type { ModelRegistry } from "#src/session/model-resolver";
 import { resolveInvocationModel } from "#src/session/model-resolver";
-import type { AgentInvocation, SubagentType, ThinkingLevel } from "#src/types";
+import type { AgentInvocation, ContextMode, SubagentType, ThinkingLevel } from "#src/types";
 import {
   type AgentDetails,
   buildInvocationTags,
@@ -43,7 +43,8 @@ export interface SpawnExecution {
   model: Model<any> | undefined;
   effectiveMaxTurns: number | undefined;
   thinking: ThinkingLevel | undefined;
-  inheritContext: boolean;
+  context: ContextMode;
+  contextSource: "call" | "agent" | "default";
   runInBackground: boolean;
   agentInvocation: AgentInvocation;
 }
@@ -119,7 +120,7 @@ export function resolveSpawnConfig(
   const model = resolution.model;
 
   const thinking = resolvedConfig.thinking;
-  const inheritContext = resolvedConfig.inheritContext;
+  const { context, contextSource } = resolvedConfig;
   const runInBackground = resolvedConfig.runInBackground;
 
   const modelName = modelLabel(model);
@@ -131,11 +132,11 @@ export function resolveSpawnConfig(
   const agentInvocation: AgentInvocation = {
     thinking,
     maxTurns: normalizeMaxTurns(resolvedConfig.maxTurns),
-    inheritContext,
+    context,
     runInBackground,
   };
 
-  const modeLabel = getPromptModeLabel(subagentType, registry);
+  const modeLabel = getPromptModeLabel(agentInvocation);
   const { tags: invocationTags } = buildInvocationTags(agentInvocation);
   // agentTags keeps its historical content for its other readers: mode label, thinking, invocation tags.
   const agentTags = [
@@ -167,7 +168,8 @@ export function resolveSpawnConfig(
       model,
       effectiveMaxTurns,
       thinking,
-      inheritContext,
+      context,
+      contextSource,
       runInBackground,
       agentInvocation,
     },

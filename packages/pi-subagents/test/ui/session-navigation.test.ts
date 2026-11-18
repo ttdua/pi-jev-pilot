@@ -58,7 +58,7 @@ describe("listNavigableAgents", () => {
     it("names a live entry's agent, mode, and task", () => {
       const record = makeNavigable({ type: "general-purpose", description: "Investigate the bug" });
       const [entry] = listNavigableAgents([record], registry, []);
-      expect(entry.heading).toEqual({ name: "Agent", modeLabel: "twin", description: "Investigate the bug" });
+      expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
     });
 
     it("names a snapshot entry's agent, mode, and task", () => {
@@ -68,7 +68,7 @@ describe("listNavigableAgents", () => {
         description: "Investigate the bug",
       });
       const [entry] = listNavigableAgents([released], registry, []);
-      expect(entry.heading).toEqual({ name: "Agent", modeLabel: "twin", description: "Investigate the bug" });
+      expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
     });
 
     it("carries no mode label for a replace-mode agent", () => {
@@ -94,7 +94,7 @@ describe("listNavigableAgents", () => {
         {
           kind: "snapshot",
           outputFile: "/tasks/earlier.jsonl",
-          heading: { name: "Agent", modeLabel: "twin", description: "Earlier task" },
+          heading: { name: "Agent", description: "Earlier task" },
           label: "Agent (Earlier task) · 7 tools · completed · 3.0s · session released (snapshot)",
         },
       ]);

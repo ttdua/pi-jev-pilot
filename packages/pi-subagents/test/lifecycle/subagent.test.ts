@@ -144,6 +144,8 @@ function createRunnableAgent(overrides?: {
 			observer,
 			snapshot: STUB_SNAPSHOT,
 			prompt: "do something",
+			context: "fresh",
+			contextSource: "default",
 			getRunConfig: overrides?.getRunConfig,
 			maxTurns: overrides?.maxTurns,
 			parentSession: overrides?.parentSession,

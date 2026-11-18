@@ -103,3 +103,19 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/tools/result-renderer.test.ts` | edit | Run-facts order tests; thinking comes from `details.thinking`. |
 | `test/tools/helpers.test.ts` | edit | `buildDetails` copies thinking and tool facts. |
 | `test/tools/progress-stream.test.ts` | edit | Streamed update uses the record's live thinking. |
+| `src/config/deprecations.ts` | seam | One-shot deprecation warnings (once per session, once per file per load) for the `context` aliases. |
+| `src/config/invocation-config.ts` | edit | `context: fresh | fork` replaces `inherit_context`; `locked: inherit_context` reads as `context`; deprecated caller alias. |
+| `src/lifecycle/parent-snapshot.ts` | edit | `buildParentSnapshot` takes the `ContextMode` (temporary bridge until the fork session). |
+| `src/runtime.ts` | edit | `buildSnapshot(context)`. |
+| `src/session/prompts.ts` | edit | Every agent takes the replace branch (temporary bridge until the fresh prompt). |
+| `test/config/agent-types.test.ts` | edit | Follows the `promptMode` removal. |
+| `test/config/custom-agents.test.ts` | edit | Cover `context`, the deprecated aliases and their warnings. |
+| `test/config/invocation-config.test.ts` | edit | Cover `context` resolution and the deprecated `inherit_context`. |
+| `test/helpers/make-spawn-config.test.ts` | edit | Fixture carries `context`/`contextSource`. |
+| `test/helpers/make-spawn-config.ts` | edit | Fixture carries `context`/`contextSource`. |
+| `test/helpers/make-subagent.ts` | edit | Fixture carries `context`/`contextSource`. |
+| `test/helpers/subagent-session-io.test.ts` | edit | Follows the `promptMode` removal. |
+| `test/lifecycle/parent-snapshot.test.ts` | edit | Snapshot takes the `ContextMode`. |
+| `test/lifecycle/subagent.test.ts` | edit | Execution carries `context`/`contextSource`. |
+| `test/runtime.test.ts` | edit | `buildSnapshot(context)`. |
+| `test/session/prompts.test.ts` | edit | Follows the `promptMode` removal. |

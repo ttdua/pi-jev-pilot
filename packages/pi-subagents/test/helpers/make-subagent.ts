@@ -18,6 +18,8 @@ export function makeStubExecution(overrides: Partial<SubagentExecution> = {}): S
 		snapshot: STUB_SNAPSHOT,
 		prompt: "do something",
 		baseCwd: "",
+		context: "fresh",
+		contextSource: "default",
 		...overrides,
 	};
 }

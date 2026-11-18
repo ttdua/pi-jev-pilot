@@ -11,7 +11,7 @@ import { lockedFields } from "#src/seams/locked-launch";
 import { finalToolNames, snapshotOf } from "#src/seams/registry";
 import type { LaunchOrigin, LaunchRequest } from "#src/service/service";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
-import type { AgentConfig, ThinkingLevel } from "#src/types";
+import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /**
  * Tools the executor installs or owns itself; never offered as grants. The
@@ -43,7 +43,7 @@ export interface LaunchRequestInput {
 	description: string;
 	/** The model (`provider/id`) and thinking level the launch would run without a policy. */
 	requested: { model?: string; thinking?: ThinkingLevel };
-	inheritContext: boolean;
+	context: ContextMode;
 	isBackground: boolean;
 	parentTools: readonly ParentToolInfo[];
 	excludedPackages: readonly string[];
@@ -64,7 +64,7 @@ export function buildLaunchRequest(input: LaunchRequestInput): LaunchRequest {
 		description: input.description,
 		requested: Object.freeze(definedOnly(input.requested)),
 		locked: Object.freeze(lockedFields(input.config)),
-		inheritContext: input.inheritContext,
+		context: input.context,
 		isBackground: input.isBackground,
 		toolSet: Object.freeze({
 			declared: input.config.toolsDeclared

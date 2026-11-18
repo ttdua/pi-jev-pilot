@@ -24,7 +24,7 @@ import type { RunConfig } from "#src/runtime";
 import type { EffectiveFacts, ToolFacts } from "#src/seams/identity";
 import type { LaunchOverrides, LaunchPolicyGate } from "#src/seams/launch-gate";
 import type { LaunchOrigin } from "#src/service/service";
-import type { CompactionInfo, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
+import type { CompactionInfo, ContextMode, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 
 /** Per-subagent lifecycle observer — created by SubagentManager for each spawn. */
 export interface SubagentLifecycleObserver {
@@ -109,8 +109,10 @@ export interface SubagentExecution {
 	signal?: AbortSignal;
 	/** What started the launch; handed to the launch policy. */
 	origin?: LaunchOrigin;
-	/** Whether the child forks the parent conversation; handed to the launch policy. */
-	inheritContext?: boolean;
+	/** Whether the child starts fresh or forks the parent conversation; handed to the launch policy. */
+	context: ContextMode;
+	/** Which input decided `context`. */
+	contextSource: "call" | "agent" | "default";
 	/** Consults the registered launch policy before the session is created. */
 	launchGate?: LaunchPolicyGate;
 }
@@ -503,7 +505,7 @@ export class Subagent {
 			description: this.description,
 			model: execution.model,
 			thinkingLevel: execution.thinkingLevel,
-			inheritContext: execution.inheritContext ?? false,
+			context: execution.context,
 			isBackground: run.inBackground,
 			parentModel: execution.snapshot.model,
 			modelRegistry: execution.snapshot.modelRegistry,

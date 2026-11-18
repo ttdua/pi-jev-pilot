@@ -26,7 +26,7 @@ import {
 	resolveSpawnConfig,
 	type SpawnPresentation,
 } from "#src/tools/spawn-config";
-import type { ParentSessionInfo, Subagent } from "#src/types";
+import type { ContextMode, ParentSessionInfo, Subagent } from "#src/types";
 import { type AgentDetails, getDisplayName, type Theme } from "#src/ui/display";
 import { GLYPHS } from "#src/ui/glyphs";
 
@@ -42,7 +42,7 @@ export interface AgentToolManager {
 
 /** Narrow runtime interface — the Agent tool's slice of SubagentRuntime. */
 export interface AgentToolRuntime {
-	buildSnapshot(inheritContext: boolean): ParentSnapshot;
+	buildSnapshot(context: ContextMode): ParentSnapshot;
 	getModelInfo(): ModelInfo;
 	getSessionInfo(): { parentSessionFile: string; parentSessionId: string };
 }
@@ -91,8 +91,8 @@ export class AgentTool {
 		);
 		if ("error" in config) return textResult(config.error);
 
-		// ---- Boundary extraction (after config so inheritContext is resolved) ----
-		const snapshot = this.runtime.buildSnapshot(config.execution.inheritContext);
+		// ---- Boundary extraction (after config so context is resolved) ----
+		const snapshot = this.runtime.buildSnapshot(config.execution.context);
 		const { parentSessionFile, parentSessionId } = this.runtime.getSessionInfo();
 		const parentSession: ParentSessionInfo = { parentSessionFile, parentSessionId, toolCallId };
 		const origin = { kind: "tool", toolCallId } as const;
@@ -207,7 +207,7 @@ export class AgentTool {
 			"- Use steer_subagent to send mid-run messages to a running background agent.",
 			'- Use model to specify a different model (as "provider/modelId", or fuzzy e.g. "haiku", "sonnet").',
 			"- Use thinking to control extended thinking level.",
-			"- Use inherit_context if the agent needs the parent conversation history.",
+			"- Use context: \"fork\" if the agent needs the parent conversation history.",
 		].join("\n");
 
 		return defineTool({
@@ -265,10 +265,15 @@ ${guidelines}
 							"Optional agent ID to resume from. Continues from previous context. Combine with run_in_background: true to resume without waiting.",
 					}),
 				),
+				context: Type.Optional(
+					Type.Union([Type.Literal("fresh"), Type.Literal("fork")], {
+						description:
+							"fresh (default): a new conversation with the agent's own prompt. fork: continues this conversation with the same prompt and tools.",
+					}),
+				),
 				inherit_context: Type.Optional(
 					Type.Boolean({
-						description:
-							"If true, fork parent conversation into the agent. Omit to use the agent's own default, which is fresh context unless it declares otherwise.",
+						description: "Deprecated: use context. true means fork, false means fresh.",
 					}),
 				),
 			}),

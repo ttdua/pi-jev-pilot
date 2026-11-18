@@ -12,7 +12,7 @@ import {
   type ParentSnapshot,
 } from "#src/lifecycle/parent-snapshot";
 import type { ModelInfo } from "#src/tools/spawn-config";
-import type { SessionContext } from "#src/types";
+import type { ContextMode, SessionContext } from "#src/types";
 
 /**
  * Narrow config subset read by Agent when driving the turn loop (defaultMaxTurns, wrapUpTurns).
@@ -69,9 +69,8 @@ export class SubagentRuntime {
    * Build a parent snapshot from the current session context.
    * Only valid during an active session (currentCtx is defined).
    */
-  buildSnapshot(inheritContext: boolean): ParentSnapshot {
-
-    return buildParentSnapshot(this.currentCtx!, inheritContext, this.lastPromptOptions);
+  buildSnapshot(context: ContextMode): ParentSnapshot {
+    return buildParentSnapshot(this.currentCtx!, context, this.lastPromptOptions);
   }
 
   /** Extract model info from the current session context. */

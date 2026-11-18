@@ -6,11 +6,12 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import { BUILTIN_TOOL_NAMES } from "#src/config/agent-types";
-import { isLockableField, type LockDeclaration } from "#src/config/invocation-config";
+import { warnDeprecatedIn } from "#src/config/deprecations";
+import { isLockableField, type LockDeclaration, lockedFieldName } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import { debugLog } from "#src/debug";
 import { noteDeclaredAndDisallowed } from "#src/seams/registry";
-import type { AgentConfig } from "#src/types";
+import type { AgentConfig, ContextMode } from "#src/types";
 
 /**
  * Scan for custom agent .md files from multiple locations.
@@ -26,13 +27,14 @@ export function loadCustomAgents(cwd: string): Map<string, AgentConfig> {
   const projectDir = join(cwd, ".pi", "agents");
 
   const agents = new Map<string, AgentConfig>();
-  loadFromDir(globalDir, agents, "global");   // lower priority
-  loadFromDir(projectDir, agents, "project");  // higher priority (overwrites)
+  const warned = new Set<string>();
+  loadFromDir(globalDir, agents, "global", warned);   // lower priority
+  loadFromDir(projectDir, agents, "project", warned);  // higher priority (overwrites)
   return agents;
 }
 
 /** Load agent configs from a directory into the map. */
-function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "project" | "global"): void {
+function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "project" | "global", warned: Set<string>): void {
   if (!existsSync(dir)) return;
 
   let files: string[];
@@ -71,8 +73,7 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
       thinking: thinkingLevel(fm.thinking, name),
       maxTurns: nonNegativeInt(fm.max_turns),
       systemPrompt: body.trim(),
-      promptMode: fm.prompt_mode === "replace" ? "replace" : "append",
-      inheritContext: fm.inherit_context != null ? fm.inherit_context === true : undefined,
+      context: contextField(fm, join(dir, file), warned),
       runInBackground: fm.run_in_background != null ? fm.run_in_background === true : undefined,
       locked: lockDeclaration(fm.locked, name),
       enabled: fm.enabled !== false,  // default true; explicitly false disables
@@ -83,6 +84,29 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
 
 // ---- Field parsers ----
 // All follow the same convention: omitted → default, "none"/empty → nothing, value → exact.
+
+/**
+ * Parse `context`, falling back to the deprecated `inherit_context`; `prompt_mode` is ignored.
+ *
+ * Each problem warns once per file per load. An unrecognized `context` declares nothing.
+ */
+function contextField(fm: Record<string, unknown>, path: string, warned: Set<string>): ContextMode | undefined {
+  if (fm.prompt_mode != null) {
+    warnDeprecatedIn(warned, `${path}:prompt_mode`, `${path}: prompt_mode is deprecated and ignored`);
+  }
+  if (fm.inherit_context != null) {
+    warnDeprecatedIn(warned, `${path}:inherit_context`, `${path}: inherit_context is deprecated; use context: fork | fresh`);
+  }
+  if (fm.context != null) return declaredContext(fm.context, path, warned);
+  if (fm.inherit_context == null) return undefined;
+  return fm.inherit_context === true ? "fork" : "fresh";
+}
+
+function declaredContext(val: unknown, path: string, warned: Set<string>): ContextMode | undefined {
+  if (val === "fresh" || val === "fork") return val;
+  warnDeprecatedIn(warned, `${path}:context`, `${path}: invalid context ${JSON.stringify(val)}; expected fresh or fork`);
+  return undefined;
+}
 
 /** Extract a string or undefined. */
 function str(val: unknown): string | undefined {
@@ -102,8 +126,9 @@ function lockDeclaration(val: unknown, agentName: string): LockDeclaration | und
   const entries = parseListField(val);
   if (entries === undefined) return undefined;
 
-  const fields = entries.filter(isLockableField);
-  const unknownEntries = entries.filter((entry) => !isLockableField(entry));
+  const names = entries.map(lockedFieldName);
+  const fields = names.filter(isLockableField);
+  const unknownEntries = names.filter((entry) => !isLockableField(entry));
   if (unknownEntries.length > 0) {
     debugLog(`agent ${agentName} frontmatter locked`, `unknown fields: ${unknownEntries.join(", ")}`);
   }
