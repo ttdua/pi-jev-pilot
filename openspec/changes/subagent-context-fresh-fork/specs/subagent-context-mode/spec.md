@@ -268,7 +268,7 @@ The change SHALL ship:
 - **THEN** ADR 0014 exists and ADR 0008's status names it as superseded by 0014
 
 ### Requirement: Old names gone from current docs
-No current document in `docs/` or `packages/pi-subagents/` SHALL present `twin`, `prompt_mode` or `inherit_context` as current behaviour. Dated evidence, archived changes, accepted ADRs, changelog entries and sections that describe the deprecated aliases are exempt.
+No current document in `docs/` or `packages/pi-subagents/` SHALL present `twin`, `prompt_mode` or `inherit_context` as current behaviour. Exempt: dated evidence, archived changes, decision records (ADRs), changelog entries, historical plan, retrospective and architecture-history records (`packages/pi-subagents/docs/plans/`, `docs/retro/`, `docs/architecture/history/`), and sections that describe the deprecated aliases.
 
 #### Scenario: Old names gone from current docs
 - **WHEN** the docs are searched for `twin`, `prompt_mode` and `inherit_context`
