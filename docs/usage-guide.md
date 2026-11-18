@@ -24,7 +24,7 @@ This package ships its own executor (vendored from `@gotgenes/pi-subagents`), so
 pi install git:github.com/ttdua/pi-jev-pilot@v0.4.1
 ```
 
-If you installed `@gotgenes/pi-subagents`, uninstall it first. Pi refuses to start when two extensions register the `subagent` tool, so the session fails at startup and names the conflict. `@gotgenes/pi-subagents-worktrees` keeps working. `/jev` reports `duplicate executor` only in the narrower case where this package's Jev extension runs with the original executor but without the vendored one; worker routing and tool assessment stay off until the original is removed.
+If you installed `@gotgenes/pi-subagents`, uninstall it first. Pi refuses to start when two extensions register the `subagent` tool, so the session fails at startup and names the conflict. `@gotgenes/pi-subagents-worktrees` keeps working. `/jev` reports `duplicate executor` only in the narrower case where this package's Jev extension runs with the original executor but without the vendored one; worker routing stays off until the original is removed.
 
 ```bash
 export TYPESAFE_API_KEY="…"
@@ -54,10 +54,10 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 | `Jev · standard` | Working. The word is the current mode |
 | `Jev · no key` | `TYPESAFE_API_KEY` (or the variable named in config) is not set in this shell |
 | `Jev · config error` | `config.json` is malformed or invalid. `/jev` names the field |
-| `Jev · off` | All six decision features are switched off |
+| `Jev · off` | All five decision features are switched off |
 | `Jev · premium (local)` | A directory mode is set for this directory. It overrides the global mode in every session started here |
-| `no executor` in `/jev` | Worker routing and tool assessment are off |
-| `duplicate executor` in `/jev` | Jev's extension runs with the original `@gotgenes/pi-subagents` but without the vendored one. Routing and assessment are off. Uninstall the original |
+| `no executor` in `/jev` | Worker routing is off |
+| `duplicate executor` in `/jev` | Jev's extension runs with the original `@gotgenes/pi-subagents` but without the vendored one. Routing is off. Uninstall the original |
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
 
@@ -190,11 +190,11 @@ A CLI review does not depend on the Jev key or the feature switches, only on its
 ```text
 /jev                     status and session tally
 /jev skills off          one feature
-/jev all off             the six decision features
+/jev all off             the five decision features
 /jev reset               switches, mode (global and this directory) and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 ```
 
-Features: `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`. `/jev all on|off` sets the six decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
+Features: `effort`, `subagents`, `skills`, `strategy`, `expert`, `status`, `verbose`. `/jev all on|off` sets the five decision features (`effort`, `subagents`, `skills`, `strategy`, `expert`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
 
 `/jev` ends with the session tally, which starts empty in each new or resumed session:
 
@@ -210,20 +210,6 @@ session:
 
 Any other form prints the usage text.
 
-## Tool assessment
-
-For every worker launch, Jev can block tools the task does not need and grant tools it does. It never touches an agent's declared `tools`, and never adds a tool the agent lists in `disallowed_tools`. Candidates are the tools the worker would have by default (blocked when Jev scores `tool::` at 0.5 or more) and the tools in your main session it would not have (granted when `grant::` reaches `tools.grantAt`, default 0.8, at most 32 candidates, blocks first). By default this only records: the launch's `worker` ledger line carries `toolsScored`, `toolsFlagged` and `toolsGranted`, so you can see what it would have done before enabling it. `/jev tools off` stops it.
-
-Assessment runs at launch, in the main session. With the switch on, each launch with candidates costs one extra Jev request, sent at the same time as the worker request, under one `classifier.timeoutMs` deadline. If Jev fails, the worker keeps its default tools and nothing is recorded.
-
-To apply blocks and grants:
-
-```json
-{ "tools": { "mode": "enforce" } }
-```
-
-The executor drops a grant outside your session's tools, and a tool the child cannot load; `toolsGranted` counts only what took effect. Blocked and granted tools stay that way on every turn of that worker, including a resumed run. A wrongly blocked tool can leave a worker stuck, and a grant widens what a worker can do, so try it on low-stakes work first.
-
 To keep a tool away from an agent for good, list it in the agent file:
 
 ```markdown
@@ -232,7 +218,7 @@ disallowed_tools: bash, write
 ---
 ```
 
-It takes the same forms as `tools` (a list or a comma string), wins over `tools` and over any grant, and is applied by the executor itself.
+It takes the same forms as `tools` (a list or a comma string), and is applied by the executor itself.
 
 ## Tuning
 
@@ -264,14 +250,14 @@ The last line appears once at session start, and only when a change was not show
 
 Tuning pauses while your config is invalid, or while `tuning.json` or the ledger cannot be read.
 
-Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling, the expert rules or the tool threshold. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
+Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling or the expert rules. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
 
 ## All commands
 
 ```text
 /jev                                         status and session tally
-/jev <feature> on|off                        effort, subagents, skills, strategy, tools, expert, status, verbose
-/jev all on|off                              the six decision features, not status or verbose
+/jev <feature> on|off                        effort, subagents, skills, strategy, expert, status, verbose
+/jev all on|off                              the five decision features, not status or verbose
 /jev reset                                   switches, mode (global and this directory) and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 /jev mode budget|standard|premium [global]
 /jev mode clear                              remove the directory mode

@@ -62,10 +62,6 @@ Use these words consistently in code, docs and the user interface.
 | **Locked** | An agent file field a caller cannot override. |
 | **Declared tools** | The `tools` list in an agent file. Treated as a contract. |
 | **Disallowed tools** | The `disallowed_tools` list in an agent file. Never added, and wins over a grant. |
-| **Tool assessment** | Jev scoring a launch's undecided tools, at launch. |
-| **Block candidate** | A tool the worker would have by default, asked as `tool::<name>`. |
-| **Grant** | A tool the worker would not have, added because Jev scored `grant::<name>` at `tools.grantAt` or more. |
-| **Observe / enforce** | Record what assessment would block or grant, or actually apply it. |
 
 ## Records and control
 

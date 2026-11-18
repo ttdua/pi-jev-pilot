@@ -44,11 +44,10 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 | Slots | Jev can pick a model you named, such as a `reviewer`, when its description fits the task. | `/jev remove <slot>` |
 | Fallback | When the chosen model cannot run, the launch moves to a tier that can. It never falls back to `expert`. | `/jev subagents off` |
 
-### Tools and reviews
+### Reviews
 
 | Feature | When it is on | Turn it off |
 |---|---|---|
-| Tool assessment | At each launch, Jev scores which tools the task needs, and can block default tools or grant tools from your session. Declared `tools` are kept and `disallowed_tools` are never added. Costs one extra request per launch. By default this only records. | `/jev tools off` |
 | CLI review | The `jev_review` tool runs Codex or OpenCode, read-only, when you ask for it in words. Off by default. | `/jev cli-review off` |
 
 ### Visibility and tuning
@@ -86,7 +85,7 @@ One command shifts the whole tier mix, for this directory or for all of them:
 
 ## All switches at once
 
-- `/jev all off` turns off the six decision features: effort, subagents, skills, strategy, tools and expert.
+- `/jev all off` turns off the five decision features: effort, subagents, skills, strategy and expert.
 - `/jev reset` puts switches, modes and the CLI review default back to your config.
 
 ## Documentation

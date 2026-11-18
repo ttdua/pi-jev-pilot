@@ -11,7 +11,6 @@ const SWITCHES = [
   "/jev subagents off",
   "/jev skills off",
   "/jev strategy off",
-  "/jev tools off",
   "/jev expert off",
   "/jev cli-review off",
 ];
