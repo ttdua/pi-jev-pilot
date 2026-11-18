@@ -69,6 +69,18 @@ const SDK_TOOL = defineTool({
 
 /** A tool from an extension the child's loader does not load. */
 const EXTENSION_TOOL = "parent_ext_tool";
+/** The child loads the same extension, but it registers its tool only on `session_start`. */
+const lateExtension: ExtensionFactory = (pi) => {
+  pi.on("session_start", () => {
+    pi.registerTool({
+      name: EXTENSION_TOOL,
+      label: EXTENSION_TOOL,
+      description: "A tool from an excluded package.",
+      parameters: Type.Object({ n: Type.Number() }),
+      execute: async () => ({ content: [{ type: "text" as const, text: "LATE-REAL-RAN" }], details: undefined }),
+    });
+  });
+};
 const parentOnlyExtension: ExtensionFactory = (pi) => {
   pi.registerTool({
     name: EXTENSION_TOOL,
@@ -125,7 +137,7 @@ describe("fork child (real SDK loader and session)", () => {
   }
 
   /** Run one parent turn, then fork it; return the parent, the fork, and the factory's mocks. */
-  async function parentThenFork(opts: { parentOnly?: boolean; grants?: string[]; onToolFacts?: (f: unknown) => void } = {}) {
+  async function parentThenFork(o: { parentOnly?: boolean; late?: boolean; grants?: string[]; onToolFacts?: (f: unknown) => void } = {}) {
     const { rt, model } = await runtime();
     const settings = SettingsManager.create(cwd, agentDir);
     const parentLoader = new DefaultResourceLoader({
@@ -134,7 +146,7 @@ describe("fork child (real SDK loader and session)", () => {
       settingsManager: settings,
       noExtensions: true,
       noSkills: true,
-      extensionFactories: opts.parentOnly ? [parentOnlyExtension] : [],
+      extensionFactories: o.parentOnly ? [parentOnlyExtension] : [],
     });
     await parentLoader.reload();
     const parentManager = SessionManager.inMemory(cwd);
@@ -146,8 +158,8 @@ describe("fork child (real SDK loader and session)", () => {
       sessionManager: parentManager,
       settingsManager: settings,
       resourceLoader: parentLoader,
-      tools: opts.parentOnly ? ["read", "grep", "edit", SDK_TOOL.name, EXTENSION_TOOL] : ["read", "grep", "edit"],
-      customTools: opts.parentOnly ? [SDK_TOOL] : [],
+      tools: o.parentOnly ? ["read", "grep", "edit", SDK_TOOL.name, EXTENSION_TOOL] : ["read", "grep", "edit"],
+      customTools: o.parentOnly ? [SDK_TOOL] : [],
     });
     await parent.bindExtensions({});
     await parent.prompt("PARENT-TURN-MARKER");
@@ -167,7 +179,15 @@ describe("fork child (real SDK loader and session)", () => {
     const io = createSubagentSessionIO();
     io.getAgentDir.mockReturnValue(agentDir);
     io.createSettingsManager.mockImplementation(() => SettingsManager.create(cwd, agentDir));
-    io.createResourceLoader.mockImplementation((opts) => new DefaultResourceLoader({ ...opts, noExtensions: true, noSkills: true }));
+    io.createResourceLoader.mockImplementation(
+      (opts) =>
+        new DefaultResourceLoader({
+          ...opts,
+          noExtensions: true,
+          noSkills: true,
+          extensionFactories: [...(opts.extensionFactories ?? []), ...(o.late ? [lateExtension] : [])],
+        }),
+    );
     io.deriveSessionDir.mockReturnValue(join(root, "sessions"));
     io.createForkSessionManager.mockImplementation(createForkSessionManager);
     let fork: AgentSession | undefined;
@@ -197,8 +217,8 @@ describe("fork child (real SDK loader and session)", () => {
         // An isolated child: its own loader would render another <cwd> and no project marker.
         cwd: childCwd,
         askParent: vi.fn(),
-        tools: opts.grants ? { toolNames: ["read"], grants: opts.grants, removed: [] } : undefined,
-        onToolFacts: opts.onToolFacts,
+        tools: o.grants ? { toolNames: ["read"], grants: o.grants, removed: [] } : undefined,
+        onToolFacts: o.onToolFacts,
         parentSession: { parentSessionId: parentManager.getSessionId() },
       },
       createSubagentSessionDeps({
@@ -282,5 +302,30 @@ describe("fork child (real SDK loader and session)", () => {
     expect(sub.forkGuard?.callable.has("read")).toBe(true);
     // Only read and the granted grep run; the stubs and edit count as blocked.
     expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 2, blockedToolCount: 3 });
+  });
+
+  it("a tool an extension registers in session_start is not shadowed: it runs, can be granted and is counted", async () => {
+    const onToolFacts = vi.fn();
+    const { fork, sub } = await parentThenFork({
+      parentOnly: true,
+      late: true,
+      grants: [EXTENSION_TOOL, SDK_TOOL.name],
+      onToolFacts,
+    });
+    await sub.runTurnLoop("FORK-TASK", {});
+
+    const tool = fork.agent.state.tools.find((t) => t.name === EXTENSION_TOOL)!;
+    const result = await tool.execute("c1", { n: 1 });
+    expect(JSON.stringify(result.content)).toContain("LATE-REAL-RAN");
+    expect(sub.forkGuard?.callable.has(EXTENSION_TOOL)).toBe(true);
+    // The never-registered SDK tool stays a refusing stub.
+    expect(sub.forkGuard?.callable.has(SDK_TOOL.name)).toBe(false);
+    await expect(fork.agent.state.tools.find((t) => t.name === SDK_TOOL.name)!.execute("c2", { q: "x" })).rejects.toThrow(
+      "not available",
+    );
+    // read plus the late tool run; edit, grep and the SDK stub are blocked.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 2, blockedToolCount: 3 });
+    const [parentRequest, forkRequest] = loopback.requests;
+    expect(JSON.stringify(forkRequest!.body.tools)).toBe(JSON.stringify(parentRequest!.body.tools));
   });
 });

@@ -17,15 +17,24 @@ import { builtinExtensionsFor } from "#src/session/builtin-extensions";
 /** The tools the SDK builds into every session. */
 const SDK_TOOLS: ReadonlySet<string> = new Set(["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"]);
 
-/** A tool that declares like the parent's and refuses when run. */
-export function refusingStub(declaration: ToolDeclaration): ToolDefinition {
+/** Looks up what an extension registered under a name in the bound session. */
+export type RealToolLookup = (name: string) => ToolDefinition | undefined;
+
+/**
+ * A tool that declares like the parent's. At call time it runs the real
+ * implementation if the session registered one (an extension may register in
+ * `session_start`, after the stub was declared), and refuses otherwise.
+ */
+export function refusingStub(declaration: ToolDeclaration, real: () => RealToolLookup | undefined): ToolDefinition {
   return {
     name: declaration.name,
     label: declaration.name,
     description: declaration.description,
     parameters: declaration.parameters,
-    execute: async () => {
-      throw new Error(refusalReason(declaration.name));
+    execute: async (...args: Parameters<ToolDefinition["execute"]>) => {
+      const impl = real()?.(declaration.name);
+      if (!impl) throw new Error(refusalReason(declaration.name));
+      return impl.execute(...args);
     },
   } as ToolDefinition;
 }
@@ -38,9 +47,10 @@ export function refusingStub(declaration: ToolDeclaration): ToolDefinition {
 export function missingToolStubs(
   declarations: readonly ToolDeclaration[],
   loaded: ReadonlySet<string>,
+  real: () => RealToolLookup | undefined,
 ): ToolDefinition[] {
   return declarations
     .filter((tool) => !SDK_TOOLS.has(tool.name) && !loaded.has(tool.name))
     .filter((tool) => builtinExtensionsFor([tool.name]).length === 0)
-    .map(refusingStub);
+    .map((tool) => refusingStub(tool, real));
 }

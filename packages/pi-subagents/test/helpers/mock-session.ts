@@ -16,7 +16,10 @@ export interface MockSession {
 	sessionManager: { getSessionFile: Mock<() => unknown> };
 	getToolDefinition: Mock<(name: string) => unknown>;
 	hasExtensionHandlers: Mock<(eventType: string) => boolean>;
-	extensionRunner: { emit: Mock<(event: unknown) => Promise<unknown>> };
+	extensionRunner: {
+		emit: Mock<(event: unknown) => Promise<unknown>>;
+		getAllRegisteredTools: Mock<() => { definition: { name: string } }[]>;
+	};
 	/** The child's current model, as `AgentSession.model` reports it. */
 	model: { provider: string; id: string } | undefined;
 	/** The child's current thinking level, as `AgentSession.thinkingLevel` reports it. */
@@ -130,6 +133,7 @@ export function createMockSession(overrides: Record<string, unknown> = {}): Mock
 		hasExtensionHandlers: vi.fn((_eventType: string): boolean => true),
 		extensionRunner: {
 			emit: vi.fn((_event: unknown): Promise<unknown> => Promise.resolve(undefined)),
+			getAllRegisteredTools: vi.fn((): { definition: { name: string } }[] => []),
 		},
 		model: undefined,
 		thinkingLevel: "off",

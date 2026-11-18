@@ -23,7 +23,7 @@ import {
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugLog, debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
-import { missingToolStubs } from "#src/lifecycle/fork-stubs";
+import { missingToolStubs, type RealToolLookup } from "#src/lifecycle/fork-stubs";
 import type { ParentSnapshot, ToolDeclaration } from "#src/lifecycle/parent-snapshot";
 import { buildForkSession } from "#src/lifecycle/fork-session";
 import { forkCallableTools, forkGuardExtension, type ForkGuardState } from "#src/lifecycle/fork-guard";
@@ -365,8 +365,7 @@ function forkSetup(input: SetupInput): ContextSetup {
     parentSessionId: snapshot.sessionId,
     systemPrompt: plan.systemPrompt,
   };
-  const stubbed = new Set<string>();
-  // A stub cannot run here, so a grant never makes it callable.
+  const stubs = new ForkStubs(snapshot.declarations, state);
   const grants = input.grants.filter((name) => !input.disallowed.includes(name));
   return {
     loader: {
@@ -375,16 +374,18 @@ function forkSetup(input: SetupInput): ContextSetup {
       extensionFactories: [...builtinExtensionsFor(plan.toolNames), forkGuardExtension(state)],
     },
     tools: [...plan.toolNames],
-    customTools: (loader) => forkStubs(loader, snapshot.declarations, state, stubbed),
+    customTools: (loader) => stubs.define(loader),
     // The orchestration tools the parent declares stay declared; the guard refuses them.
     excludeTools: [],
     createSessionManager: (cwd, sessionDir) =>
       deps.io.createForkSessionManager(cwd, sessionDir, params.parentSession?.parentSessionId, plan.entries),
     firstMessage: plan.firstMessage,
-    checkGrants: (session) =>
-      grants.length === 0
+    checkGrants: (session) => {
+      stubs.settle(session);
+      return grants.length === 0
         ? []
-        : enforceForkGrants(state, grants, session.getAllTools().filter((tool) => !stubbed.has(tool.name))),
+        : enforceForkGrants(state, grants, session.getAllTools().filter((tool) => !stubs.refusing.has(tool.name)));
+    },
     callable: () => [...state.callable],
     forkGuard: state,
   };
@@ -392,23 +393,42 @@ function forkSetup(input: SetupInput): ContextSetup {
 
 /**
  * The refusing stubs for the parent tools this fork's registry cannot build.
- * A stub is never callable, so it leaves the callable set.
+ * Declared before bind, they cannot tell a tool that never exists from one an
+ * extension registers in `session_start`; `settle` decides after bind from what
+ * actually registered. A stub never shadows a real implementation: it delegates.
  */
-function forkStubs(
-  loader: ResourceLoaderLike,
-  declarations: readonly ToolDeclaration[],
-  state: ForkGuardState,
-  stubbed: Set<string>,
-): ToolDefinition[] {
-  const loaded = new Set(
-    (loader.getExtensions?.().extensions ?? []).flatMap((extension) => [...extension.tools.keys()]),
-  );
-  const stubs = missingToolStubs(declarations, loaded);
-  for (const stub of stubs) {
-    state.callable.delete(stub.name);
-    stubbed.add(stub.name);
+class ForkStubs {
+  /** Stub names with no real implementation in the bound session. */
+  readonly refusing = new Set<string>();
+  private declared: string[] = [];
+  private lookup: RealToolLookup | undefined;
+
+  constructor(
+    private readonly declarations: readonly ToolDeclaration[],
+    private readonly state: ForkGuardState,
+  ) {}
+
+  define(loader: ResourceLoaderLike): ToolDefinition[] {
+    const loaded = new Set(
+      (loader.getExtensions?.().extensions ?? []).flatMap((extension) => [...extension.tools.keys()]),
+    );
+    const stubs = missingToolStubs(this.declarations, loaded, () => this.lookup);
+    this.declared = stubs.map((stub) => stub.name);
+    for (const name of this.declared) this.refusing.add(name);
+    return stubs;
   }
-  return stubs;
+
+  /** After bind: a stub whose tool registered is callable again if the agent allows it. */
+  settle(session: AgentSession): void {
+    const registered = new Map(
+      session.extensionRunner.getAllRegisteredTools().map((tool) => [tool.definition.name, tool.definition]),
+    );
+    this.lookup = (name) => registered.get(name);
+    for (const name of this.declared) {
+      if (registered.has(name)) this.refusing.delete(name);
+      else this.state.callable.delete(name);
+    }
+  }
 }
 
 /**

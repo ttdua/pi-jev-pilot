@@ -61,6 +61,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/display.test.ts` | edit | `AgentConfig` fixtures carry the new required fields. |
 | `test/helpers/make-agent-config.ts` | edit | Fixture builder sets `toolsDeclared`/`disallowedTools`. |
 | `test/helpers/make-agent-config.test.ts` | edit | Expected default fixture includes the new fields. |
+| `test/helpers/mock-session.ts` | edit | The mock extension runner lists registered tools, which a fork reads after bind. |
 | `test/helpers/make-deps.ts` | edit | Disabled-agent fixture carries the new required fields. |
 | `test/helpers/subagent-session-io.ts` | edit | Default lookup config carries the new required fields. |
 | `test/service/service-adapter.test.ts` | edit | Construct the adapter with a no-op agent-type catalog; the manager stub has `registerLaunchPolicy`. |
