@@ -59,19 +59,19 @@ function keysDeep(v: unknown, skip: string): unknown {
 describe("writeSlots", () => {
   test("Slot writer refuses an invalid file", () =>
     withDir((dir) => {
-      const text = '{ "tools": { "mode": "remove" } }';
+      const text = '{ "skills": { "inject": "full" } }';
       writeFileSync(join(dir, "config.json"), text);
       const r = writeSlots(dir, [slot("a")]);
       expect(r).toEqual({
         ok: false,
-        issues: [{ path: "tools.mode", message: expect.any(String) }],
+        issues: [{ path: "skills.inject", message: expect.any(String) }],
       });
       expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
     }));
 
   test("writeSlots validates what it rewrites", () =>
     withDir((dir) => {
-      for (const text of ['{ "tools": { "mode": "remove" } }', "{ not json", "[]"]) {
+      for (const text of ['{ "skills": { "inject": "full" } }', "{ not json", "[]"]) {
         writeFileSync(join(dir, "config.json"), text);
         const r = writeSlots(dir, [slot("a")]);
         expect(r.ok).toBe(false);
@@ -133,6 +133,17 @@ describe("writeSlots", () => {
       expect(writeSlots(dir, [slot("a")])).toEqual({ ok: true });
       const after = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
       expect(Object.keys(after)).toEqual(["classifier", "review", "crew"]);
+    }));
+
+  test("slot writer keeps an opaque tools section", () =>
+    withDir((dir) => {
+      writeFileSync(
+        join(dir, "config.json"),
+        JSON.stringify({ tools: { mode: "enforce" }, crew: { slots: [slot("a")] } }),
+      );
+      expect(writeSlots(dir, [slot("b")])).toEqual({ ok: true });
+      const after = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+      expect(after.tools).toEqual({ mode: "enforce" });
     }));
 
   test("Last slot removed", () =>

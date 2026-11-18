@@ -10,16 +10,7 @@ import {
 import { tempDir } from "../helpers.ts";
 
 const isRoot = process.getuid?.() === 0;
-const FEATURES = [
-  "effort",
-  "subagents",
-  "skills",
-  "strategy",
-  "tools",
-  "expert",
-  "status",
-  "verbose",
-];
+const FEATURES = ["effort", "subagents", "skills", "strategy", "expert", "status", "verbose"];
 
 function withDir(fn: (dir: string) => void): void {
   const dir = tempDir("jev-state-");
@@ -115,6 +106,35 @@ describe("state content", () => {
       expect(raw.cliReviewEnabled).toBe(true);
       expect(raw.switches).toEqual({ skills: false });
       expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
+    }));
+
+  test("Legacy tools switch accepted and dropped", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"mode":"budget","switches":{"tools":false,"skills":false}}');
+      expect(readState(dir)).toEqual({
+        kind: "ok",
+        state: { mode: "budget", switches: { skills: false } },
+      });
+      put(dir, '{"version":1,"switches":{"review":true,"tools":false}}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: {} });
+    }));
+
+  test("Legacy tools switch gone after a write", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"mode":"budget","switches":{"tools":false,"skills":false}}');
+      expect(updateState(dir, (s) => ({ ...s, mode: "premium" })).ok).toBe(true);
+      const raw = JSON.parse(readFileSync(join(dir, "state.json"), "utf8"));
+      expect(raw.mode).toBe("premium");
+      expect(raw.switches).toEqual({ skills: false });
+      expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
+    }));
+
+  test("Non-boolean legacy tools switch", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"tools":"off"}}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["switches.tools"]);
     }));
 
   test("Non-boolean legacy review switch", () =>

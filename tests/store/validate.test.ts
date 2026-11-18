@@ -119,7 +119,6 @@ describe("defaults", () => {
       "subagents",
       "skills",
       "strategy",
-      "tools",
       "expert",
       "status",
       "verbose",
@@ -160,7 +159,6 @@ describe("defaults", () => {
     });
     expect(DEFAULTS.effort.holdProviders).toEqual(["9router"]);
     expect(DEFAULTS.skills.inject).toBe("content");
-    expect(DEFAULTS.tools.mode).toBe("observe");
     expect(DEFAULTS.state.parentRequest).toBe(false);
     expect(DEFAULTS.review.cli).toBe("codex");
     expect(DEFAULTS.mode).toBe("standard");

@@ -11,7 +11,6 @@ import {
   resolveSubagents,
   resolveSwitches,
   resolveTiers,
-  resolveTools,
 } from "./settings-sections.ts";
 import type { State } from "./state-file.ts";
 
@@ -25,7 +24,6 @@ export type Settings = {
   crew: { slots: Slot[] };
   effort: { holdProviders: string[] };
   skills: { inject: "content" | "suggest" };
-  tools: { mode: "observe" | "enforce"; grantAt: number };
   state: { parentRequest: boolean };
   subagents: { forkedLaunch: "untouched" | "thinking" };
   review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
@@ -50,7 +48,6 @@ export function resolveSettings(input: {
     crew: resolveCrew(config),
     effort: resolveEffort(config),
     skills: resolveSkills(config),
-    tools: resolveTools(config),
     state: resolveStateSection(config),
     subagents: resolveSubagents(config),
     review: resolveReview(config, state),

@@ -11,7 +11,6 @@ import {
   resolveSubagents,
   resolveSwitches,
   resolveTiers,
-  resolveTools,
 } from "../../src/store/settings-sections.ts";
 
 describe("settings sections", () => {
@@ -26,7 +25,7 @@ describe("settings sections", () => {
   });
 
   test("switches: only booleans override, result is fresh", () => {
-    const s = resolveSwitches({ switches: { effort: false, tools: 1 as never } });
+    const s = resolveSwitches({ switches: { effort: false, skills: 1 as never } });
     expect(s).toEqual({ ...DEFAULTS.switches, effort: false });
     expect(s).not.toBe(DEFAULTS.switches);
   });
@@ -68,11 +67,6 @@ describe("settings sections", () => {
 
   test("scalar sections fall back to defaults", () => {
     expect(resolveSkills({})).toEqual({ inject: "content" });
-    expect(resolveTools({ tools: { mode: "enforce" } })).toEqual({
-      mode: "enforce",
-      grantAt: 0.8,
-    });
-    expect(resolveTools({ tools: { grantAt: 0.6 } })).toEqual({ mode: "observe", grantAt: 0.6 });
     expect(resolveStateSection({})).toEqual({ parentRequest: false });
     expect(resolveSubagents({})).toEqual({ forkedLaunch: "untouched" });
   });
