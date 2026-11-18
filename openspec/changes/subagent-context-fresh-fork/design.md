@@ -238,3 +238,62 @@ Callers that take the label from the record or invocation, not the registry:
 ## Open Questions
 
 - The spike (plan task 1) lists, per `pi-ai` provider API, where the session id reaches the provider (headers, `prompt_cache_key`, other payload fields). It confirms that the D3 rewrite handlers cover each one. A field the extension hooks cannot reach is recorded as a known gap in the evidence document.
+
+## Spike results
+
+Plan task 1. Run against `@earendil-works/pi-coding-agent` 1.5.0 and `pi-ai` 1.5.0 with a local loopback provider (`openai-completions`) and a real probe through the 9router. The probe code was throwaway and is deleted.
+
+### Where the session id reaches the provider
+
+Source: `node_modules/@earendil-works/pi-ai/dist/api/*.js`. `options.sessionId` is the session's own id; `cacheRetention: "none"` drops it.
+
+| API | Headers | Payload | Condition |
+| --- | --- | --- | --- |
+| `anthropic-messages` | `x-session-affinity` (or `x-session-id` when `compat.sessionAffinityFormat === "openrouter"`) | none (`metadata.user_id` is a separate option, not the session id) | only when `compat.sendSessionAffinityHeaders` (default: OpenRouter only) |
+| `openai-completions` | `x-client-request-id` + `x-session-affinity`; plus `session_id` when `sessionAffinityFormat === "openai"`; `x-session-id` only for `openrouter` format | `prompt_cache_key` (clamped) | headers only when `compat.sendSessionAffinityHeaders` (default: OpenRouter only); payload key only when `baseUrl` contains `api.openai.com` and retention is not `none`, or retention is `long` and `compat.supportsLongCacheRetention` |
+| `openai-responses` | `x-client-request-id`; `session_id` for `openai` format (the default for non-OpenRouter); `x-session-id` for `openrouter` | `prompt_cache_key` (clamped, unless retention `none`) | headers always when a session id exists |
+| `openai-codex-responses` | `session-id` and `x-client-request-id` (SSE); the WebSocket path sets the same two from the request id, which equals the cache session id | `prompt_cache_key` | always when a session id exists; the WebSocket session cache is also keyed by this id |
+| `azure-openai-responses`, `mistral-conversations` (not registered here) | Mistral: `x-affinity` | `prompt_cache_key` / `promptCacheKey` | listed for completeness |
+
+Header-name set the D3 handler must cover: `x-session-affinity`, `x-session-id`, `session_id`, `session-id`, `x-client-request-id`, and `x-affinity`. Payload: `prompt_cache_key` (and Mistral's `promptCacheKey`).
+
+### Can the hooks rewrite them
+
+- **`before_provider_headers`.** Pi calls it through `transformHeaders` in `ModelRuntime.prepareRequest`, **before** the provider builds its client. The handler sees only `{}` plus auth/option headers, so there is nothing to rewrite in place: it must **set** the headers. `pi-ai` merges `options.headers` last (`Object.assign(headers, optionsHeaders)`), so the handler's values win over the provider's own session headers. Verified on the wire: a handler that set `session_id`, `x-session-affinity`, `x-client-request-id` and `x-session-id` to the parent id changed every one (fork's own id replaced). Consequence: the handler must set all names unconditionally; where the parent sent none (`sendSessionAffinityHeaders` off), the fork adds harmless extra headers. `null` deletes a header. A Codex WebSocket connection is chosen from `options.sessionId` before headers are built, so it keys on the fork id: it is not covered by this hook (known gap; only SSE honours the override).
+- **`before_provider_request`.** Verified: a handler returning `{ ...payload, prompt_cache_key: parentId }` changed the wire value (`openai-completions`, retention `long`). The handler must only rewrite the key when present, so as not to add it where the parent had none.
+- Anthropic puts nothing in the payload, so headers cover it. A provider that derives routing from something other than these fields (e.g. `metadata.user_id`) is not covered.
+
+### Fork mechanics
+
+- **Declarations identical.** A second session built through the real `createAgentSession` with `systemPromptOverride: () => parentPrompt`, `appendSystemPromptOverride: () => []`, `noContextFiles: true` and `tools: parentToolNames` sent a first request whose system messages and `tools` JSON were byte-identical to the parent's last request (`JSON.stringify` equal, tools `read, edit`).
+- **`tool_call` block.** A handler returning `{ block: true, reason }` for `edit`, with the scripted model calling `edit`: the tool did not execute (the file was unchanged), the next request carried a tool message with the reason text, and the session's `toolResult` message had `isError: true`.
+- **Session id.** A second `SessionManager.create(cwd, dir)` + `newSession({ parentSession })` has its own id (differs from the parent's), with parent branch messages appended via `appendMessage`.
+- The copied tool-call branch (assistant `toolCall` + tool results) is accepted as the prefix without modification.
+
+### SDK API relied on (reuse in Task 4)
+
+- `import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, type ExtensionFactory } from "@earendil-works/pi-coding-agent"`.
+- `new DefaultResourceLoader({ cwd, agentDir, settingsManager, noExtensions, noSkills, noPromptTemplates, noThemes, noContextFiles, systemPromptOverride: () => string, appendSystemPromptOverride: () => [], extensionFactories: [{ name, factory }] })`, then `await loader.reload()`.
+- `SessionManager.create(cwd, sessionDir)`, `.newSession({ parentSession })`, `.appendMessage(message)`, `.getBranch()` (entries with `type: "message"` carry `.message`), `.getSessionId()`.
+- `createAgentSession({ cwd, agentDir, modelRuntime, model, sessionManager, settingsManager, resourceLoader, tools })` then `await session.bindExtensions({})`; `session.prompt(text)`, `session.messages`, `session.sessionId`.
+- `ModelRuntime.create({ authPath, modelsPath })`, `.getModel(providerId, modelId)`.
+- In an extension factory: `pi.on("tool_call", (ev) => ({ block: true, reason }))` (`ev.toolName`, `ev.input`), `pi.on("before_provider_headers", (ev) => { ev.headers[name] = value })` (mutate in place, return ignored), `pi.on("before_provider_request", (ev) => newPayload)` (return replaces the payload; `undefined` keeps it).
+- Message shape of Pi branches is the `AgentMessage` union; usage fields are `input`, `output`, `cacheRead`, `cacheWrite`.
+
+### Real-provider probe (9router, `gpt-6-luna`)
+
+Through a recording pass-through proxy to `http://127.0.0.1:20128` (key read from `~/.pi/agent/9router-config.json`, never printed). The 9router extension registers `openai-completions`; the probe's provider entry set `compat.sendSessionAffinityHeaders: true` and `sessionAffinityFormat: "openai"` because the default (non-OpenRouter) sends none.
+
+| Value | Result |
+| --- | --- |
+| Parent first turn | 18394 input tokens (P), `cacheRead` 0 |
+| Fork first turn, guard active | `input` 2153, `cacheRead` 16256 |
+| `cacheRead / P` | **0.884** |
+| `session_id`, `x-session-affinity`, `x-client-request-id` received | all equal the parent id: **yes** |
+| `prompt_cache_key` in body | absent (9router base URL is not `api.openai.com`) |
+
+The ratio is below 0.90: reported, not a stop condition (Task 7 enforces the bound). The shortfall is block granularity: `16256 = 127 × 128`, and the fork's own new user turn plus the parent's last assistant text sit after the cached prefix. One parent turn with a long system prompt, no tool results.
+
+### Outcome
+
+No stop condition: declarations stay identical, and `{ block: true }` prevents execution. Design impact: (1) D3's `before_provider_headers` handler sets the full header-name set, it cannot "rewrite"; (2) Codex WebSocket sessions are a known gap, recorded here for the evidence document; (3) a provider with default affinity headers off gets extra headers, which is harmless.
