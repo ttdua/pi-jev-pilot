@@ -113,6 +113,8 @@ export interface SubagentExecution {
 	context: ContextMode;
 	/** Which input decided `context`. */
 	contextSource: "call" | "agent" | "default";
+	/** Set when a fork from the agent file ran fresh because the parent had no session to copy. */
+	contextFallback?: "no-parent-session";
 	/** Consults the registered launch policy before the session is created. */
 	launchGate?: LaunchPolicyGate;
 }
@@ -278,6 +280,16 @@ export class Subagent {
 	/** The thinking level this agent runs at, resolved in the same order as `model`. */
 	get thinkingLevel(): ThinkingLevel | undefined {
 		return this.subagentSession?.thinkingLevel ?? this._releasedThinkingLevel ?? this.execution.thinkingLevel;
+	}
+
+	/** The context the launch runs with, after any fallback. */
+	get context(): ContextMode {
+		return this.execution.context;
+	}
+
+	/** Why a requested fork ran fresh; undefined when it did not fall back. */
+	get contextFallback(): "no-parent-session" | undefined {
+		return this.execution.contextFallback;
 	}
 
 	/** The tool call ID that spawned this background agent, if any. */
@@ -463,6 +475,8 @@ export class Subagent {
 				onToolFacts: (facts) => { this._toolFacts = facts; },
 				snapshot: this.execution.snapshot,
 				type: this.type,
+				context: this.execution.context,
+				task: this.execution.prompt,
 				cwd,
 				parentSession: this.execution.parentSession,
 				// With a policy registered the gate's values are authoritative (locks and
@@ -508,6 +522,7 @@ export class Subagent {
 			context: execution.context,
 			isBackground: run.inBackground,
 			parentModel: execution.snapshot.model,
+			parentThinking: execution.snapshot.thinking,
 			modelRegistry: execution.snapshot.modelRegistry,
 		}, run.signal);
 	}

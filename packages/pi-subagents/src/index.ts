@@ -43,6 +43,7 @@ import { AgentTypeCatalog } from "#src/seams/registry";
 import { SubagentsServiceAdapter } from "#src/service/service-adapter";
 import { ServicePublication } from "#src/seams/service-identity";
 import { detectEnv } from "#src/session/env";
+import { createForkSessionManager } from "#src/session/fork-session-manager";
 import { resolveModel } from "#src/session/model-resolver";
 import { createExcludedPackagesStorage } from "#src/session/package-exclusions";
 import { buildAgentPrompt } from "#src/session/prompts";
@@ -74,7 +75,7 @@ export default function (pi: ExtensionAPI) {
   const registry = new AgentTypeRegistry(() => loadCustomAgents(process.cwd()));
 
   // ---- Runtime: all mutable extension state in one place ----
-  const runtime = createSubagentRuntime();
+  const runtime = createSubagentRuntime(() => pi.getActiveTools());
 
   // ---- Notification system ----
   // Owns completion nudges and live-activity cleanup. The widget detects finished
@@ -121,6 +122,7 @@ export default function (pi: ExtensionAPI) {
       createResourceLoader: (opts) => new DefaultResourceLoader(opts),
       deriveSessionDir: deriveSubagentSessionDir,
       createSessionManager: (cwd, dir) => SessionManager.create(cwd, dir),
+      createForkSessionManager,
       createSettingsManager: (cwd, dir) => SdkSettingsManager.create(cwd, dir),
       // The exclusion policy is resolved here, at the composition root, so the
       // assembly factory stays free of it and gets a ready-made settings view.
@@ -256,14 +258,6 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", () => widgetEvents.handleSessionShutdown());
   // Same ordering reason for the fleet list.
   pi.on("session_shutdown", () => fleet.dispose());
-
-  // Capture the prompt parts Pi assembled for the parent's turn. This is the
-  // only event carrying them — `getSystemPromptOptions()` is attached to a
-  // command context, not to the session context the runtime holds — and a spawn
-  // renders the parent's portable identity from the latest capture.
-  pi.on("before_agent_start", (event) => {
-    runtime.setSystemPromptOptions(event.systemPromptOptions);
-  });
 
   // Abort all subagents when the parent agent loop is interrupted (ESC), unless
   // the user has turned that policy off. The predicate is read at abort time.

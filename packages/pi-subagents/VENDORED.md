@@ -110,8 +110,8 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/tools/progress-stream.test.ts` | edit | Streamed update uses the record's live thinking. |
 | `src/config/deprecations.ts` | seam | One-shot deprecation warnings (once per session, once per file per load) for the `context` aliases. |
 | `src/config/invocation-config.ts` | edit | `context: fresh | fork` replaces `inherit_context`; `locked: inherit_context` reads as `context`; deprecated caller alias. |
-| `src/lifecycle/parent-snapshot.ts` | edit | `buildParentSnapshot` takes the `ContextMode` (temporary bridge until the fork session). |
-| `src/runtime.ts` | edit | `buildSnapshot(context)`. |
+| `src/lifecycle/parent-snapshot.ts` | edit | Snapshot carries the parent session id, live branch (fork only), active tool names and thinking; the text parent context and portable prompt are removed. |
+| `src/runtime.ts` | edit | `buildSnapshot(context)` with the parent's active tools; no prompt-options capture. |
 | `src/session/prompts.ts` | edit | Fresh prompt: `composeAgentSection(header, body)` and the `<active_agent>`/env header; the inherited-identity machinery is removed. |
 | `test/config/agent-types.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/config/custom-agents.test.ts` | edit | Cover `context`, the deprecated aliases and their warnings. |
@@ -120,8 +120,21 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/helpers/make-spawn-config.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/make-subagent.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/subagent-session-io.test.ts` | edit | Follows the `promptMode` removal. |
-| `test/lifecycle/parent-snapshot.test.ts` | edit | Snapshot takes the `ContextMode`. |
+| `test/lifecycle/parent-snapshot.test.ts` | edit | Session id, live branch, tool names and thinking; no text parent context. |
 | `test/lifecycle/subagent.test.ts` | edit | Execution carries `context`/`contextSource`. |
-| `test/runtime.test.ts` | edit | `buildSnapshot(context)`. |
+| `test/runtime.test.ts` | edit | `buildSnapshot(context)` passes the parent's active tools. |
 | `test/session/prompts.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/types/public-context.test.ts` | seam | Type check that the public entry exports `ContextMode` and the `context` fields. |
+| `src/lifecycle/fork-guard.ts` | seam | Fork child extension: forces the parent's system prompt each run, refuses calls outside the callable set, sets the session headers and payload cache keys to the parent id; the callable-set rule. |
+| `src/lifecycle/fork-session.ts` | seam | Pure fork plan: parent branch, synthetic results for pending calls, the `<subagent_instructions>` message. |
+| `src/session/fork-session-manager.ts` | seam | Create a fork's session file with its own header and the copied parent entries. |
+| `src/lifecycle/subagent-session.ts` | edit | `firstMessage` replaces the first run's prompt (was the text parent-context prefix); keeps the fork guard state. |
+| `src/session/context.ts` | edit | `buildParentContext` removed; `extractText` kept. |
+| `src/session/model-resolver.ts` | edit | Fork branch in `resolveInvocationModel`; `resolveForkThinking`. |
+| `test/helpers/stub-ctx.ts` | edit | Snapshot fixture carries `sessionId`, `branch`, `toolNames`. |
+| `test/lifecycle/fork-prompt.test.ts` | seam | Real SDK fork against a loopback provider: byte-identical system message and tools, prefix extended, prompt kept on a second turn, own session id, parent id in headers. |
+| `test/lifecycle/fork-session.test.ts` | seam | Tests for the pure fork plan. |
+| `test/lifecycle/fork-tools.test.ts` | seam | Fork callable set, guard handlers, fork grants, the factory's fork path and fork model/thinking. |
+| `test/lifecycle/subagent-session.test.ts` | edit | `firstMessage` replaces the parent-context prefix tests. |
+| `test/session/context.test.ts` | edit | `buildParentContext` tests removed. |
+| `test/session/model-resolver.test.ts` | edit | Fork model and thinking precedence. |

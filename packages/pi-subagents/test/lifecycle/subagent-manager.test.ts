@@ -2005,3 +2005,55 @@ describe("resolveRetentionWindow", () => {
     });
   });
 });
+
+describe("fork without a parent session", () => {
+  const forkOptions = (contextSource: "call" | "agent") => ({
+    origin: { kind: "service" } as const,
+    context: "fork" as const,
+    contextSource,
+    description: "d",
+  });
+
+  it("Explicit fork fails: a call fork with an empty branch rejects and creates no session", async () => {
+    const { manager, createSubagentSession } = createManager();
+    await expect(manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "task", forkOptions("call"))).rejects.toThrow(
+      "Cannot fork: the parent has no session to fork from.",
+    );
+    expect(() =>
+      manager.spawn(STUB_SNAPSHOT, "general-purpose", "task", {
+        ...forkOptions("call"),
+        background: { kind: "explicit", isBackground: true },
+      }),
+    ).toThrow("Cannot fork: the parent has no session to fork from.");
+    expect(createSubagentSession).not.toHaveBeenCalled();
+    expect(manager.listAgents()).toEqual([]);
+  });
+
+  it("Agent default falls back: an agent fork with an empty branch runs fresh and records the fallback", async () => {
+    const { manager, createSubagentSession } = createManager();
+    const record = await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "task", forkOptions("agent"));
+
+    expect(record.context).toBe("fresh");
+    expect(record.contextFallback).toBe("no-parent-session");
+    const params = (createSubagentSession as Mock).mock.calls[0]![0] as CreateSubagentSessionParams;
+    expect(params.context).toBe("fresh");
+    expect(params.task).toBe("task");
+  });
+
+  it("Fallen-back fork: the launch policy receives context fresh", async () => {
+    const policy = vi.fn(() => undefined);
+    const { manager } = createManager();
+    manager.registerLaunchPolicy(policy, { timeoutMs: 1000 });
+    await manager.spawnAndWait(STUB_SNAPSHOT, "general-purpose", "task", forkOptions("agent"));
+    expect((policy.mock.calls[0] as unknown[])[0]).toEqual(expect.objectContaining({ context: "fresh" }));
+  });
+
+  it("a fork from a parent with a branch keeps context fork and no fallback", async () => {
+    const { manager, createSubagentSession } = createManager();
+    const snapshot = { ...STUB_SNAPSHOT, branch: [{ type: "message", id: "e1" } as never] };
+    const record = await manager.spawnAndWait(snapshot, "general-purpose", "task", forkOptions("call"));
+    expect(record.context).toBe("fork");
+    expect(record.contextFallback).toBeUndefined();
+    expect(((createSubagentSession as Mock).mock.calls[0]![0] as CreateSubagentSessionParams).context).toBe("fork");
+  });
+});

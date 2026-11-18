@@ -68,7 +68,11 @@ export interface AssemblerOptions {
 export interface SessionConfig {
   /** Resolved working directory (`options.cwd ?? ctx.cwd`). */
   effectiveCwd: string;
-  /** Fully-assembled system prompt string (ready for `systemPromptOverride`). */
+  /**
+   * The per-call header only (`<active_agent>` tag + environment block). A fresh
+   * child's factory composes it with the agent body into the `<agent>` section;
+   * Pi builds the rest of the prompt.
+   */
   systemPrompt: string;
   /** Built-in tool name allowlist for this agent type. */
   toolNames: string[];

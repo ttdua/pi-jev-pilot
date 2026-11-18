@@ -105,6 +105,10 @@ export interface SubagentRecord {
   toolCount?: number;
   /** Tools in the run's total (parent's tools plus the child's own) that the child cannot call; absent until it binds. */
   blockedToolCount?: number;
+  /** The context the launch runs with, after any fallback. */
+  context: ContextMode;
+  /** Set when a fork from the agent file ran fresh because the parent had no session to copy. */
+  contextFallback?: "no-parent-session";
 }
 
 /**

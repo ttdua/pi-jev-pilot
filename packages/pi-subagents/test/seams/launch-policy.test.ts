@@ -9,6 +9,7 @@ import { AgentTypeRegistry } from "#src/config/agent-types";
 import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
+import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import { SubagentManager } from "#src/lifecycle/subagent-manager";
 import { applyAdjustment } from "#src/seams/launch-plan";
 import { LaunchPolicySlot, validAdjustment } from "#src/seams/launch-policy";
@@ -44,7 +45,7 @@ const modelRegistry = {
 	getAll: () => [FAST, DEEP, MAIN],
 	getAvailable: () => [FAST, DEEP, MAIN],
 };
-const snapshot = { ...STUB_SNAPSHOT, model: MAIN, modelRegistry };
+const snapshot: ParentSnapshot = { ...STUB_SNAPSHOT, model: MAIN, modelRegistry };
 
 type Event = { channel: string; data: Record<string, any> };
 
@@ -76,6 +77,8 @@ interface Options {
 	parentToolsThrow?: boolean;
 	/** Runs inside `bindExtensions`; may hold the launch open. */
 	bind?: (index: number) => void | Promise<void>;
+	/** The parent snapshot spawns are made from; `snapshot` (no branch) by default. */
+	snapshot?: ParentSnapshot;
 }
 
 function harness(options: Options = {}) {
@@ -144,7 +147,7 @@ function harness(options: Options = {}) {
 	});
 	const runtime = {
 		currentCtx: { modelRegistry } as never,
-		buildSnapshot: () => snapshot,
+		buildSnapshot: () => options.snapshot ?? snapshot,
 		getModelInfo: () => ({ parentModel: MAIN, modelRegistry }),
 		getSessionInfo: () => ({
 			parentSessionFile: "/sessions/p.jsonl",
@@ -382,7 +385,7 @@ describe("launch request", () => {
 	});
 
 	it("carries the resolved context and no inheritContext", async () => {
-		const h = harness();
+		const h = harness({ snapshot: { ...snapshot, branch: [{ type: "message", id: "e1" } as never] } });
 		const policy = register(h);
 
 		await h.call("call_8", { ...explore, context: "fork" });
@@ -926,5 +929,68 @@ describe("validAdjustment", () => {
 		};
 
 		expect(validAdjustment(value)).toEqual(value);
+	});
+});
+
+describe("fork launch request", () => {
+	const forkSnapshot = {
+		...snapshot,
+		branch: [{ type: "message", id: "e1" } as never],
+		thinking: "high" as const,
+		toolNames: ["read", "bash", "edit"],
+	};
+
+	it("Fork request: no caller model → requested is the parent's model and thinking", async () => {
+		const h = harness({ agent: { model: "fixture/fixture-deep", thinking: "low" } });
+		const policy = register(h);
+
+		const id = h.manager.spawn(forkSnapshot, "Explore", "go", {
+			origin: { kind: "service" },
+			context: "fork",
+			contextSource: "call",
+			description: "d",
+			background: { kind: "explicit", isBackground: false },
+		});
+		await h.manager.getRecord(id)!.promise;
+
+		expect(requestOf(policy).context).toBe("fork");
+		expect(requestOf(policy).requested).toEqual({ model: "fixture/fixture-main", thinking: "high" });
+		expect(h.sessionOpts().model?.id).toBe("fixture-main");
+		expect(h.sessionOpts().thinkingLevel).toBe("high");
+	});
+
+	it("Locked fork request: the agent's locked model is requested over the caller's", async () => {
+		const h = harness({ agent: { model: "fixture/fixture-deep", locked: ["model"] } });
+		const policy = register(h);
+
+		const id = h.manager.spawn(forkSnapshot, "Explore", "go", {
+			origin: { kind: "service" },
+			context: "fork",
+			contextSource: "call",
+			description: "d",
+			model: FAST,
+			background: { kind: "explicit", isBackground: false },
+		});
+		await h.manager.getRecord(id)!.promise;
+
+		expect(requestOf(policy).requested.model).toBe("fixture/fixture-deep");
+		expect(h.sessionOpts().model?.id).toBe("fixture-deep");
+	});
+
+	it("Policy over caller: the policy's thinking wins over the caller's for a fork", async () => {
+		const h = harness();
+		register(h, () => ({ thinking: "medium" }));
+
+		const id = h.manager.spawn(forkSnapshot, "Explore", "go", {
+			origin: { kind: "service" },
+			context: "fork",
+			contextSource: "call",
+			description: "d",
+			thinkingLevel: "low",
+			background: { kind: "explicit", isBackground: false },
+		});
+		await h.manager.getRecord(id)!.promise;
+
+		expect(h.sessionOpts().thinkingLevel).toBe("medium");
 	});
 });

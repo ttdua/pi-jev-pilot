@@ -239,6 +239,7 @@ export function toSubagentRecord(record: Subagent): SubagentRecord {
     // agent's totals.
     lifetimeUsage: { ...record.lifetimeUsage },
     compactionCount: record.compactionCount,
+    context: record.context,
   };
 
   if (record.result !== undefined) out.result = record.result;
@@ -249,6 +250,7 @@ export function toSubagentRecord(record: Subagent): SubagentRecord {
   if (record.turnBudget !== undefined) out.turnBudget = { ...record.turnBudget };
   if (record.outputFile !== undefined) out.outputFile = record.outputFile;
   if (record.resumeRefusal !== undefined) out.resumeRefusal = record.resumeRefusal;
+  if (record.contextFallback !== undefined) out.contextFallback = record.contextFallback;
   const { effectiveModel, effectiveThinking } = record.effective;
   if (effectiveModel !== undefined) out.effectiveModel = effectiveModel;
   if (effectiveThinking !== undefined) out.effectiveThinking = effectiveThinking;

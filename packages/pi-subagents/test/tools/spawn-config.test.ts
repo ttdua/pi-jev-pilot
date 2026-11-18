@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AgentTypeRegistry } from "#src/config/agent-types";
 import { resolveSpawnConfig } from "#src/tools/spawn-config";
+import { makeAgentConfig } from "#test/helpers/make-agent-config";
 import { makeModel } from "#test/helpers/make-model";
 
 /** Minimal registry with default agents only. */
@@ -471,5 +472,62 @@ describe("resolveSpawnConfig — prompt and rawType passthrough", () => {
     if ("error" in result) return;
     expect(result.execution.prompt).toBe("search for bugs");
     expect(result.identity.rawType).toBe("Explore");
+  });
+});
+
+describe("resolveSpawnConfig — fork model and thinking", () => {
+  const parentModel = makeModel({ id: "parent-m", name: "Parent", provider: "p" });
+  const agentModel = makeModel({ id: "agent-m", name: "Agent", provider: "a" });
+  const modelRegistry = {
+    find: (provider: string, id: string) => [parentModel, agentModel].find((m) => m.provider === provider && m.id === id),
+    getAll: () => [parentModel, agentModel],
+    getAvailable: () => [parentModel, agentModel],
+  };
+  const registryOf = (locked?: true) =>
+    new AgentTypeRegistry(
+      () =>
+        new Map([
+          [
+            "Forker",
+            makeAgentConfig({ name: "Forker", model: "a/agent-m", thinking: "low", context: "fork", locked }),
+          ],
+        ]),
+    );
+
+  it("Agent default ignored: an unlocked agent model and thinking do not apply to a fork", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d" },
+      registryOf(),
+      { parentModel, modelRegistry },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.context).toBe("fork");
+    expect(result.execution.model).toBe(parentModel);
+    expect(result.execution.thinking).toBeUndefined();
+  });
+
+  it("Locked agent model applies to a fork", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d" },
+      registryOf(true),
+      { parentModel, modelRegistry },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(agentModel);
+    expect(result.execution.thinking).toBe("low");
+  });
+
+  it("a fresh launch of the same agent keeps its defaults", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d", context: "fresh" },
+      registryOf(),
+      { parentModel, modelRegistry },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(agentModel);
+    expect(result.execution.thinking).toBe("low");
   });
 });

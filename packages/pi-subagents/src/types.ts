@@ -116,6 +116,8 @@ export interface SessionContext {
   readonly cwd: string;
   readonly model: Model<any> | undefined;
   readonly modelRegistry: ModelRegistry;
+  /** The parent's current thinking level, when the session runtime provides it. */
+  readonly thinkingLevel?: ThinkingLevel;
   getSystemPrompt(): string;
   readonly sessionManager: {
     getSessionFile(): string | undefined;

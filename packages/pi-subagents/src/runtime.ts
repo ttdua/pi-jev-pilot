@@ -6,11 +6,7 @@
  * Follows the same pattern as pi-permission-system's ExtensionRuntime.
  */
 
-import {
-  buildParentSnapshot,
-  type ParentPromptOptions,
-  type ParentSnapshot,
-} from "#src/lifecycle/parent-snapshot";
+import { buildParentSnapshot, type ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { ModelInfo } from "#src/tools/spawn-config";
 import type { ContextMode, SessionContext } from "#src/types";
 
@@ -37,10 +33,10 @@ export class SubagentRuntime {
   currentCtx: SessionContext | undefined = undefined;
 
   /**
-   * Prompt options Pi assembled for the parent's latest turn, captured from
-   * `before_agent_start`. Undefined until the parent has run one.
+   * @param listActiveTools The tools the parent declares to the model, read per
+   *   snapshot (a fork declares exactly these).
    */
-  private lastPromptOptions: ParentPromptOptions | undefined = undefined;
+  constructor(private readonly listActiveTools: () => readonly string[] = () => []) {}
 
   // ── Session-context methods ──────────────────────────────────────────────
 
@@ -55,22 +51,11 @@ export class SubagentRuntime {
   }
 
   /**
-   * Record the prompt options Pi assembled for the parent's latest turn.
-   *
-   * Captured from `before_agent_start`, which is the only event carrying them:
-   * `getSystemPromptOptions()` is attached to a command context, not to the
-   * session context this runtime holds.
-   */
-  setSystemPromptOptions(options: ParentPromptOptions): void {
-    this.lastPromptOptions = options;
-  }
-
-  /**
    * Build a parent snapshot from the current session context.
    * Only valid during an active session (currentCtx is defined).
    */
   buildSnapshot(context: ContextMode): ParentSnapshot {
-    return buildParentSnapshot(this.currentCtx!, context, this.lastPromptOptions);
+    return buildParentSnapshot(this.currentCtx!, context, this.listActiveTools());
   }
 
   /** Extract model info from the current session context. */
@@ -95,6 +80,6 @@ export class SubagentRuntime {
  *
  * Call once at extension startup; pass the result to factories and handlers.
  */
-export function createSubagentRuntime(): SubagentRuntime {
-  return new SubagentRuntime();
+export function createSubagentRuntime(listActiveTools?: () => readonly string[]): SubagentRuntime {
+  return new SubagentRuntime(listActiveTools);
 }

@@ -221,6 +221,24 @@ export interface AgentSpawnConfig {
   origin: LaunchOrigin;
 }
 
+/** The message an explicit fork fails with when the parent has nothing to copy. */
+export const NO_PARENT_SESSION_ERROR = "Cannot fork: the parent has no session to fork from.";
+
+/**
+ * The context a launch runs with. A fork needs a parent branch to copy: one
+ * the caller asked for fails before anything is created; one the agent file
+ * asked for runs fresh and records why.
+ */
+export function resolveLaunchContext(
+  snapshot: Pick<ParentSnapshot, "branch">,
+  context: ContextMode,
+  contextSource: "call" | "agent" | "default",
+): { context: ContextMode; contextFallback?: "no-parent-session" } {
+  if (context !== "fork" || snapshot.branch.length > 0) return { context };
+  if (contextSource === "call") throw new Error(NO_PARENT_SESSION_ERROR);
+  return { context: "fresh", contextFallback: "no-parent-session" };
+}
+
 export class SubagentManager {
   private agents = new Map<string, Subagent>();
   private sweepInterval: ReturnType<typeof setInterval>;
@@ -381,6 +399,7 @@ export class SubagentManager {
     options: AgentSpawnConfig,
   ): string {
     const { type, isBackground } = resolved;
+    const launch = resolveLaunchContext(snapshot, options.context, options.contextSource);
     const id = randomUUID().slice(0, 17);
     const record = new Subagent({
       id,
@@ -401,8 +420,9 @@ export class SubagentManager {
         parentSession: options.parentSession,
         signal: options.signal,
         origin: options.origin,
-        context: options.context,
+        context: launch.context,
         contextSource: options.contextSource,
+        contextFallback: launch.contextFallback,
         launchGate: this.launchGate,
       },
     });

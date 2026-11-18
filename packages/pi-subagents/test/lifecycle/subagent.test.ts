@@ -1508,7 +1508,6 @@ describe("Subagent", () => {
 					sessionDir: "/sessions",
 					agentName: "Explore",
 					turnLimits: { wrapUpTurns: 2 },
-					parentContext: undefined,
 					lifecycle: createChildLifecycleMock(),
 				}),
 			);

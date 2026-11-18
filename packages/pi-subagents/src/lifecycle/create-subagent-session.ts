@@ -16,6 +16,7 @@ import type { Model } from "@earendil-works/pi-ai";
 import {
   type AgentSession,
   type InlineExtension,
+  type SessionEntry,
   type SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
@@ -23,7 +24,10 @@ import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugLog, debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
-import { enforceGrants } from "#src/seams/grant-check";
+import { buildForkSession } from "#src/lifecycle/fork-session";
+import { forkCallableTools, forkGuardExtension, type ForkGuardState } from "#src/lifecycle/fork-guard";
+import { enforceForkGrants, enforceGrants } from "#src/seams/grant-check";
+import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import { type EffectiveFacts, effectiveFacts, launchIdentity, type ToolFacts } from "#src/seams/identity";
 import { blockedToolCount, finalToolNames } from "#src/seams/registry";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
@@ -32,12 +36,13 @@ import { AskParentTool, type QuestionRecorder } from "#src/session/ask-parent-to
 import { builtinExtensionsFor } from "#src/session/builtin-extensions";
 import type { EnvInfo } from "#src/session/env";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
-import type { ModelRegistry } from "#src/session/model-resolver";
+import { type ModelRegistry, resolveForkThinking } from "#src/session/model-resolver";
 import { NotifyParentTool, type UpdateAnnouncer } from "#src/session/notify-parent-tool";
 import { freshPromptExtension } from "#src/session/fresh-prompt-extension";
 import { composeAgentSection } from "#src/session/prompts";
-import { type AssemblerIO, assembleSessionConfig } from "#src/session/session-config";
+import { type AssemblerIO, assembleSessionConfig, type SessionConfig } from "#src/session/session-config";
 import type {
+  ContextMode,
   ParentSessionInfo,
   ShellExec,
   SubagentType,
@@ -126,6 +131,16 @@ export interface EnvironmentIO {
 export interface SessionFactoryIO {
   createResourceLoader: (opts: ResourceLoaderOptions) => ResourceLoaderLike;
   createSessionManager: (cwd: string, sessionDir: string) => SessionManagerLike;
+  /**
+   * Create a fork's session manager: its own id, holding a copy of the
+   * parent's branch entries.
+   */
+  createForkSessionManager: (
+    cwd: string,
+    sessionDir: string,
+    parentSession: string | undefined,
+    entries: readonly SessionEntry[],
+  ) => SessionManagerLike;
   createSettingsManager: (cwd: string, agentDir: string) => SettingsManager;
   /**
    * Settings view the child's resource loader resolves packages from.
@@ -170,6 +185,10 @@ export interface CreateSubagentSessionParams {
   type: SubagentType;
   /** Resolved workspace cwd; undefined → parent cwd. */
   cwd?: string;
+  /** The launch's resolved context; undefined → `fresh`. */
+  context?: ContextMode;
+  /** The task: a fresh child's first prompt, and what a fork's instructions message ends with. */
+  task?: string;
   /** Parent session identity (file path + session ID). */
   parentSession?: ParentSessionInfo;
   model?: Model<any>;
@@ -214,7 +233,7 @@ export interface CreateSubagentSessionParams {
  * supplied. An agent's `tools:` list is its complete capability allowlist, so
  * these are appended to it rather than drawn from it: they are protocol the
  * core installs in every child, and neither reaches the filesystem, the shell,
- * or the network.
+ * or the network. A fork gets none: they would change its declarations.
  */
 function buildChildTools(params: CreateSubagentSessionParams): ToolDefinition[] {
   const tools: ToolDefinition[] = [];
@@ -224,29 +243,158 @@ function buildChildTools(params: CreateSubagentSessionParams): ToolDefinition[] 
   return tools;
 }
 
-/** What the tool facts are computed from. */
-interface ToolFactsInput {
-  session: Pick<AgentSession, "getActiveToolNames">;
-  parentToolNames: readonly string[];
-}
-
 /** The child's callable tool count and blocked tool count. */
-function computeToolFacts(input: ToolFactsInput): ToolFacts {
-  const activeToolNames = input.session.getActiveToolNames();
+function computeToolFacts(callable: readonly string[], parentToolNames: readonly string[]): ToolFacts {
   return {
-    toolCount: activeToolNames.length,
-    blockedToolCount: blockedToolCount({ parentToolNames: input.parentToolNames, activeToolNames }),
+    toolCount: callable.length,
+    blockedToolCount: blockedToolCount({ parentToolNames, activeToolNames: callable }),
   };
 }
 
 /** Report the tool facts; a failure leaves them unknown and never affects the launch. */
-function reportToolFacts(input: ToolFactsInput, report: ((facts: ToolFacts) => void) | undefined): void {
+function reportToolFacts(
+  readCallable: () => readonly string[],
+  parentToolNames: readonly string[],
+  report: ((facts: ToolFacts) => void) | undefined,
+): void {
   try {
-    const facts = computeToolFacts(input);
+    const facts = computeToolFacts(readCallable(), parentToolNames);
     report?.(facts);
   } catch (err) {
     debugLog("tool facts unavailable; launch unaffected", err);
   }
+}
+
+/** What one context contributes to the child session; built before the SDK objects. */
+interface ContextSetup {
+  /** Extra extension factories and loader prompt options. */
+  loader: Pick<ResourceLoaderOptions, "noContextFiles" | "appendSystemPromptOverride" | "extensionFactories">;
+  /** The tools the session declares, and the custom tool definitions among them. */
+  tools: string[];
+  customTools: ToolDefinition[];
+  excludeTools: string[];
+  /** The session manager, created once the session directory is known. */
+  createSessionManager: (cwd: string, sessionDir: string) => SessionManagerLike;
+  /** Replaces the first run's prompt; undefined sends the prompt as given. */
+  firstMessage?: string;
+  /** Check the grants after bind; returns the grants that took effect. */
+  checkGrants: (session: AgentSession) => string[];
+  /** The tools the child can call, read after the grant check. */
+  callable: (session: AgentSession) => readonly string[];
+  forkGuard?: ForkGuardState;
+}
+
+/** What both context setups read. */
+interface SetupInput {
+  params: CreateSubagentSessionParams;
+  deps: SubagentSessionDeps;
+  cfg: SessionConfig;
+  /** The child's tools as the fresh pipeline gives them, before protocol tools. */
+  baseTools: readonly string[];
+  disallowed: readonly string[];
+  grants: readonly string[];
+}
+
+/**
+ * Fresh: Pi builds the child's own prompt (base, project context for the
+ * child's cwd, append file); the agent header and body go in the last section.
+ */
+function freshSetup(input: SetupInput): ContextSetup {
+  const { params, deps, cfg } = input;
+  const protocolTools = buildChildTools(params);
+  const toolNames = finalToolNames(
+    [...input.baseTools, ...protocolTools.map((tool) => tool.name)],
+    input.grants,
+    input.disallowed,
+  );
+  const grants = input.grants.filter((name) => toolNames.includes(name));
+  const agentBody = deps.registry.resolveAgentConfig(params.type).systemPrompt;
+  return {
+    loader: {
+      noContextFiles: false,
+      appendSystemPromptOverride: (base) => base,
+      extensionFactories: [
+        ...builtinExtensionsFor(toolNames),
+        freshPromptExtension(composeAgentSection(cfg.systemPrompt, agentBody)),
+      ],
+    },
+    tools: toolNames,
+    // The SDK drops a custom tool missing from `tools`; keep the two consistent.
+    customTools: protocolTools.filter((tool) => toolNames.includes(tool.name)),
+    excludeTools: EXCLUDED_TOOL_NAMES,
+    createSessionManager: (cwd, sessionDir) => {
+      const manager = deps.io.createSessionManager(cwd, sessionDir);
+      manager.newSession({ parentSession: params.parentSession?.parentSessionId });
+      return manager;
+    },
+    checkGrants: (session) => enforceGrants(session, grants),
+    callable: (session) => session.getActiveToolNames(),
+  };
+}
+
+/**
+ * Fork: the parent's branch, prompt and tool declarations, so the first
+ * request shares the parent's cached prefix. Tools the fork may not use stay
+ * declared and are refused by the guard; nothing changes the active set.
+ */
+function forkSetup(input: SetupInput): ContextSetup {
+  const { params, deps, cfg } = input;
+  const { snapshot } = params;
+  const agent = deps.registry.resolveAgentConfig(params.type);
+  const { callable, agentOnly } = forkCallableTools({
+    agentTools: input.baseTools,
+    disallowed: input.disallowed,
+    parentTools: snapshot.toolNames,
+  });
+  const plan = buildForkSession({
+    parent: snapshot,
+    agent,
+    cwd: cfg.effectiveCwd,
+    task: params.task ?? "",
+    callableTools: callable,
+    agentOnlyTools: agentOnly,
+  });
+  const state: ForkGuardState = {
+    callable: new Set(callable),
+    parentSessionId: snapshot.sessionId,
+    systemPrompt: plan.systemPrompt,
+  };
+  const grants = input.grants.filter((name) => !input.disallowed.includes(name));
+  return {
+    loader: {
+      noContextFiles: false,
+      appendSystemPromptOverride: (base) => base,
+      extensionFactories: [...builtinExtensionsFor(plan.toolNames), forkGuardExtension(state)],
+    },
+    tools: [...plan.toolNames],
+    customTools: [],
+    // The orchestration tools the parent declares stay declared; the guard refuses them.
+    excludeTools: [],
+    createSessionManager: (cwd, sessionDir) =>
+      deps.io.createForkSessionManager(cwd, sessionDir, params.parentSession?.parentSessionId, plan.entries),
+    firstMessage: plan.firstMessage,
+    checkGrants: (session) => (grants.length === 0 ? [] : enforceForkGrants(state, grants, session.getAllTools())),
+    callable: () => [...state.callable],
+    forkGuard: state,
+  };
+}
+
+/**
+ * A fork's model and thinking before the session exists: the agent's locked
+ * values, then the launch's (caller or policy), then the parent's. An unlocked
+ * agent default never applies, so the assembler's fallback to it is bypassed.
+ */
+function forkLaunchValues(params: CreateSubagentSessionParams, deps: SubagentSessionDeps): LaunchValues {
+  const { snapshot } = params;
+  const locked = applyLocks(
+    deps.registry.resolveAgentConfig(params.type),
+    { model: params.model, thinkingLevel: params.thinkingLevel },
+    { model: snapshot.model, modelRegistry: snapshot.modelRegistry },
+  );
+  return {
+    model: locked.model ?? snapshot.model,
+    thinkingLevel: resolveForkThinking({ caller: locked.thinkingLevel, parent: snapshot.thinking }),
+  };
 }
 
 /**
@@ -258,6 +406,7 @@ export async function createSubagentSession(
   deps: SubagentSessionDeps,
 ): Promise<SubagentSession> {
   const { snapshot, type } = params;
+  const context = params.context ?? "fresh";
   const parentSessionId = params.parentSession?.parentSessionId;
   const identity = launchIdentity({
     id: params.agentId,
@@ -280,36 +429,33 @@ export async function createSubagentSession(
     },
     {
       cwd: params.cwd,
-      model: params.model,
-      thinkingLevel: params.thinkingLevel,
+      ...(context === "fork" ? forkLaunchValues(params, deps) : { model: params.model, thinkingLevel: params.thinkingLevel }),
     },
     env,
     deps.registry,
     deps.io.assemblerIO,
   );
 
-  const { toolNames: expandedToolNames, unmatchedPatterns } = expandMcpToolPatterns(
+  const parentToolNames = deps.listParentToolNames();
+  const { toolNames: baseTools, unmatchedPatterns } = expandMcpToolPatterns(
     params.tools?.toolNames ?? cfg.toolNames,
-    deps.listParentToolNames(),
+    parentToolNames,
   );
   for (const pattern of unmatchedPatterns) {
     debugNote(`agent ${type}: tools pattern ${pattern} matched no tool the parent has`);
   }
   // `disallowed_tools` applies last to the complete allowlist, child protocol
   // tools and policy grants included, before the recursion denylist.
-  const protocolTools = buildChildTools(params);
-  const parentToolNames = deps.listParentToolNames();
-  const disallowed = deps.registry.resolveAgentConfig(type).disallowedTools;
-  const toolNames = finalToolNames(
-    [...expandedToolNames, ...protocolTools.map((tool) => tool.name)],
-    params.tools?.grants ?? [],
-    disallowed,
-  );
-  const grants = (params.tools?.grants ?? []).filter((name) => toolNames.includes(name));
-  // The SDK drops a custom tool missing from `tools`; keep the two consistent.
-  const childTools = protocolTools.filter((tool) => toolNames.includes(tool.name));
+  const setupInput: SetupInput = {
+    params,
+    deps,
+    cfg,
+    baseTools,
+    disallowed: deps.registry.resolveAgentConfig(type).disallowedTools,
+    grants: params.tools?.grants ?? [],
+  };
+  const setup = context === "fork" ? forkSetup(setupInput) : freshSetup(setupInput);
 
-  const agentBody = deps.registry.resolveAgentConfig(type).systemPrompt;
   const agentDir = deps.io.getAgentDir();
   const sessionSettings = deps.io.createSettingsManager(cfg.effectiveCwd, agentDir);
   const loaderSettings = deps.io.createLoaderSettingsManager(sessionSettings);
@@ -317,30 +463,21 @@ export async function createSubagentSession(
   // Children inherit the parent's skills and every extension the composition
   // root did not exclude (#696), plus the Pi built-ins their tools call for —
   // Pi supplies those to its own CLI session only.
-  //
-  // Pi builds the child's own prompt: base, project context from the child's
-  // cwd and the append file. The agent header and body go in the last section.
   const loader = deps.io.createResourceLoader({
     cwd: cfg.effectiveCwd,
     agentDir,
     settingsManager: loaderSettings,
     noPromptTemplates: true,
     noThemes: true,
-    noContextFiles: false,
-    appendSystemPromptOverride: (base) => base,
-    extensionFactories: [
-      ...builtinExtensionsFor(toolNames),
-      freshPromptExtension(composeAgentSection(cfg.systemPrompt, agentBody)),
-    ],
+    ...setup.loader,
   });
   await loader.reload();
 
   // Create a persisted SessionManager so transcripts are written in Pi's
   // official JSONL format. Falls back to a temp directory when the parent
-  // session is not persisted (e.g. headless/API mode).
+  // session is not persisted (e.g. headless/API mode). A fork gets its own id.
   const sessionDir = deps.io.deriveSessionDir(params.parentSession?.parentSessionFile, cfg.effectiveCwd);
-  const sessionManager = deps.io.createSessionManager(cfg.effectiveCwd, sessionDir);
-  sessionManager.newSession({ parentSession: params.parentSession?.parentSessionId });
+  const sessionManager = setup.createSessionManager(cfg.effectiveCwd, sessionDir);
   const sessionId = sessionManager.getSessionId();
 
   const { session } = await deps.io.createSession({
@@ -350,9 +487,9 @@ export async function createSubagentSession(
     settingsManager: sessionSettings,
     modelRegistry: snapshot.modelRegistry,
     model: cfg.model,
-    tools: toolNames,
-    customTools: childTools,
-    excludeTools: EXCLUDED_TOOL_NAMES,
+    tools: setup.tools,
+    customTools: setup.customTools,
+    excludeTools: setup.excludeTools,
     resourceLoader: loader,
     thinkingLevel: cfg.thinkingLevel,
   });
@@ -363,7 +500,8 @@ export async function createSubagentSession(
     sessionDir,
     agentName: type,
     turnLimits: resolveTurnLimits(params.turnLimits, cfg.agentMaxTurns),
-    parentContext: snapshot.parentContext,
+    firstMessage: setup.firstMessage,
+    forkGuard: setup.forkGuard,
     lifecycle: deps.lifecycle,
   });
 
@@ -374,7 +512,7 @@ export async function createSubagentSession(
   // subscriber completes before this returns.
   const facts = Object.freeze(effectiveFacts(session));
   params.onEffectiveFacts?.(facts);
-  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, ...identity, ...facts });
+  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, context, ...identity, ...facts });
 
   try {
     // Bind extensions so that session_start fires and extensions can initialize.
@@ -392,14 +530,14 @@ export async function createSubagentSession(
   // Deliberately outside the try above: a child whose binding threw never ran.
   let grantedTools: string[];
   try {
-    grantedTools = enforceGrants(session, grants);
+    grantedTools = setup.checkGrants(session);
   } catch (err) {
     // Not even the pre-grant tool set could be restored: the child cannot be
     // returned safely, so tear it down as a failed bind is torn down.
     await subagentSession.dispose();
     throw err;
   }
-  reportToolFacts({ session, parentToolNames }, params.onToolFacts);
+  reportToolFacts(() => setup.callable(session), parentToolNames, params.onToolFacts);
   deps.lifecycle.bound({ sessionId, parentSessionId, ...identity, grantedTools });
 
   return subagentSession;

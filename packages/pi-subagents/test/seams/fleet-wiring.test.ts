@@ -45,6 +45,7 @@ function makePi() {
     sendMessage: vi.fn(),
     exec: vi.fn(),
     getAllTools: vi.fn(() => []),
+    getActiveTools: vi.fn(() => []),
   } as any;
   const fire = async (event: string, ...args: any[]) => {
     for (const handler of handlers.get(event) ?? []) await handler(...args);

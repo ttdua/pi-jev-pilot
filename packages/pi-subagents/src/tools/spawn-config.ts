@@ -13,7 +13,8 @@ import { type LockableField, resolveAgentInvocationConfig } from "#src/config/in
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import { isBelowMinimumTurns, MIN_MAX_TURNS, normalizeMaxTurns } from "#src/lifecycle/turn-limits";
 import type { ModelRegistry } from "#src/session/model-resolver";
-import { resolveInvocationModel } from "#src/session/model-resolver";
+import { resolveForkThinking, resolveInvocationModel } from "#src/session/model-resolver";
+import { lockedFields } from "#src/seams/locked-launch";
 import type { AgentInvocation, ContextMode, SubagentType, ThinkingLevel } from "#src/types";
 import {
   type AgentDetails,
@@ -111,18 +112,27 @@ export function resolveSpawnConfig(
     thinking: thinkingFromParams,
   }, warnings);
 
-  // Resolve model
+  // Resolve model. A fork ignores an unlocked agent model and thinking: it
+  // runs on the parent's unless the caller or a lock names one.
+  const { context, contextSource } = resolvedConfig;
+  const locked = lockedFields(customConfig);
+  const fork = context === "fork";
   const resolution = resolveInvocationModel(
     modelInfo.parentModel,
     resolvedConfig.modelInput,
     resolvedConfig.modelFromParams,
     modelInfo.modelRegistry,
+    { fork, modelLocked: locked.includes("model") },
   );
   if (resolution.error) return { error: resolution.error };
   const model = resolution.model;
 
-  const thinking = resolvedConfig.thinking;
-  const { context, contextSource } = resolvedConfig;
+  const thinking = fork
+    ? resolveForkThinking({
+        locked: locked.includes("thinking") ? customConfig.thinking : undefined,
+        caller: thinkingFromParams,
+      })
+    : resolvedConfig.thinking;
   const runInBackground = resolvedConfig.runInBackground;
 
   const modelName = modelLabel(model);

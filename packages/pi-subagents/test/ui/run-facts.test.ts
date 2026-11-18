@@ -37,3 +37,11 @@ describe("runFactsOf", () => {
     expect(runFactsOf({})).toEqual({});
   });
 });
+
+describe("fork tool facts", () => {
+  it("Fork tool count: a read-only fork of a 30-tool parent shows its 2 callable tools and 28 blocked", () => {
+    // The factory counts a fork's callable set, not its 30 declarations.
+    const parts = runFactParts(runFactsOf({ toolFacts: { toolCount: 2, blockedToolCount: 28 } }));
+    expect(parts).toEqual(["🔧2", "⊘28"]);
+  });
+});

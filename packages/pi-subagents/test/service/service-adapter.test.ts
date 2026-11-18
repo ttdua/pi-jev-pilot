@@ -40,6 +40,7 @@ describe("toSubagentRecord", () => {
       completedAt: 2000,
       lifetimeUsage: { input: 100, output: 200, cacheWrite: 50 },
       compactionCount: 1,
+      context: "fresh",
       // The fixture never ran, so it has no session to continue.
       resumeRefusal: "no-session",
     });
@@ -49,6 +50,28 @@ describe("toSubagentRecord", () => {
     const agent = createTestSubagent({ sessionReady: true });
     await agent.releaseSession();
     expect(toSubagentRecord(agent).resumeRefusal).toBe("session-released");
+  });
+
+  it("carries a fork's context and a fallback when one happened", () => {
+    const fallback = new Subagent({
+      id: "fb",
+      type: "Explore",
+      description: "d",
+      isBackground: true,
+      execution: { ...makeStubExecution(), context: "fresh", contextFallback: "no-parent-session" },
+    });
+    expect(toSubagentRecord(fallback)).toEqual(
+      expect.objectContaining({ context: "fresh", contextFallback: "no-parent-session" }),
+    );
+    const fork = new Subagent({
+      id: "fk",
+      type: "Explore",
+      description: "d",
+      isBackground: true,
+      execution: { ...makeStubExecution(), context: "fork" },
+    });
+    expect(toSubagentRecord(fork).context).toBe("fork");
+    expect(toSubagentRecord(fork)).not.toHaveProperty("contextFallback");
   });
 
   it("omits resumeRefusal when a resume would start", () => {
@@ -178,6 +201,7 @@ describe("toSubagentRecord", () => {
       startedAt: 500,
       lifetimeUsage: { input: 0, output: 0, cacheWrite: 0 },
       compactionCount: 0,
+      context: "fresh",
       resumeRefusal: "still-running",
     });
     expect(result).not.toHaveProperty("result");
@@ -769,6 +793,7 @@ describe("SubagentsServiceAdapter — resume", () => {
         completedAt: 2000,
         lifetimeUsage: { input: 100, output: 200, cacheWrite: 50 },
         compactionCount: 0,
+        context: "fresh",
         resumeRefusal: "no-session",
       },
     });

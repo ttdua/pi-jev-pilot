@@ -18,6 +18,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { emitChildSessionShutdown } from "#src/lifecycle/child-shutdown";
+import type { ForkGuardState } from "#src/lifecycle/fork-guard";
 import {
   type TurnBudget,
   type TurnBudgetAction,
@@ -55,8 +56,13 @@ export interface SubagentSessionMeta {
   agentName: string;
   /** The limits every run of this session is held to, resolved at creation. */
   turnLimits: TurnLimits;
-  /** Parent context prepended to the first run's prompt, captured at spawn time. */
-  parentContext: string | undefined;
+  /**
+   * Sent instead of the first run's prompt: a fork's instructions message,
+   * which already ends with the task. Undefined sends the prompt unchanged.
+   */
+  firstMessage?: string;
+  /** A fork's guard state, kept with the session so a resume reuses it. */
+  forkGuard?: ForkGuardState;
   lifecycle: ChildLifecyclePublisher;
 }
 
@@ -68,7 +74,7 @@ export class SubagentSession {
 
   /**
    * Set as the session's first run starts, settled or not: only that run
-   * carries the parent context and announces the child's completion.
+   * sends the first message and announces the child's completion.
    */
   private hasRun = false;
 
@@ -112,19 +118,25 @@ export class SubagentSession {
     return this._session.thinkingLevel;
   }
 
+  /** A fork's guard state; undefined for a fresh child. */
+  get forkGuard(): ForkGuardState | undefined {
+    return this.meta.forkGuard;
+  }
+
   /**
    * Drive one run's turn loop under a fresh budget at the session's limits:
    * the initial run, or a resume, whose parent asked for more work and for
    * which an exhausted run's remainder would be none.
    *
-   * The session's first run prefixes the parent context captured at spawn and
-   * emits `completed` once its prompt resolves; a later run does neither.
+   * The session's first run sends the first message in place of the prompt
+   * when one is set, and emits `completed` once its prompt resolves; a later
+   * run does neither.
    */
   async runTurnLoop(prompt: string, opts: TurnLoopOptions): Promise<TurnLoopResult> {
     const firstRun = !this.hasRun;
     this.hasRun = true;
     const tracker = new TurnBudgetTracker(this.meta.turnLimits);
-    const responseText = await this.promptForAnswer(firstRun ? this.withParentContext(prompt) : prompt, tracker, opts);
+    const responseText = await this.promptForAnswer(firstRun ? (this.meta.firstMessage ?? prompt) : prompt, tracker, opts);
     if (firstRun) {
       this.meta.lifecycle.completed({
         sessionDir: this.meta.sessionDir,
@@ -133,10 +145,6 @@ export class SubagentSession {
       });
     }
     return { responseText, turnBudget: tracker.budget };
-  }
-
-  private withParentContext(prompt: string): string {
-    return this.meta.parentContext ? this.meta.parentContext + prompt : prompt;
   }
 
   /**

@@ -165,7 +165,7 @@ function makeSubagentSession(
     sessionDir: string;
     agentName: string;
     turnLimits: TurnLimitRequest;
-    parentContext: string | undefined;
+    firstMessage: string | undefined;
     lifecycle: ReturnType<typeof createChildLifecycleMock>;
   }>,
 ) {
@@ -177,7 +177,7 @@ function makeSubagentSession(
     sessionDir: metaOverrides?.sessionDir ?? "/sessions/dir",
     agentName: metaOverrides?.agentName ?? "Explore",
     turnLimits: resolveTurnLimits(metaOverrides?.turnLimits, undefined),
-    parentContext: metaOverrides?.parentContext,
+    firstMessage: metaOverrides?.firstMessage,
     lifecycle,
   });
   return { sub, lifecycle };
@@ -250,11 +250,11 @@ describe("SubagentSession — runTurnLoop response capture", () => {
     expect(result.responseText).toBe("hello world");
   });
 
-  it("prepends parentContext to the prompt", async () => {
+  it("sends the first message in place of the first run's prompt", async () => {
     const { session } = createSession("DONE");
-    const { sub } = makeSubagentSession(session, { parentContext: "CTX\n" });
+    const { sub } = makeSubagentSession(session, { firstMessage: "INSTRUCTIONS\n\nthe task" });
     await sub.runTurnLoop("the task", {});
-    expect(session.prompt).toHaveBeenCalledWith("CTX\nthe task");
+    expect(session.prompt).toHaveBeenCalledWith("INSTRUCTIONS\n\nthe task");
   });
 });
 
@@ -545,20 +545,20 @@ describe("SubagentSession — a later run", () => {
     expect(result).toEqual({ responseText: "RESUMED", turnBudget: { used: 0, phase: "within" } });
   });
 
-  it("takes no parent-context prefix, which the first run already delivered", async () => {
+  it("sends the first message only on the first run", async () => {
     const { session } = createSession("RESUMED");
-    const { sub } = makeSubagentSession(session, { parentContext: "CTX\n" });
+    const { sub } = makeSubagentSession(session, { firstMessage: "FIRST" });
     await sub.runTurnLoop("go", {});
     await sub.runTurnLoop("Continue", {});
-    expect(session.prompt).toHaveBeenNthCalledWith(1, "CTX\ngo");
+    expect(session.prompt).toHaveBeenNthCalledWith(1, "FIRST");
     expect(session.prompt).toHaveBeenLastCalledWith("Continue");
   });
 
   // The first run is the session's first call, whether or not it settled: a
-  // later run neither delivers the parent context again nor announces completion.
+  // later run neither sends the first message again nor announces completion.
   it("stays a later run when the first run threw", async () => {
     const { session } = createSession("RESUMED");
-    const { sub } = makeSubagentSession(session, { parentContext: "CTX\n", lifecycle });
+    const { sub } = makeSubagentSession(session, { firstMessage: "FIRST", lifecycle });
     session.prompt.mockRejectedValueOnce(new Error("prompt failed"));
     await expect(sub.runTurnLoop("go", {})).rejects.toThrow("prompt failed");
 
