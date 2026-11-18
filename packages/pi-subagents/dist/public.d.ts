@@ -326,7 +326,7 @@ interface SubagentRecord {
  */
 interface AgentTypeSnapshot {
     name: string;
-    source: "builtin" | "global" | "project";
+    source: "builtin" | "package" | "global" | "project";
     description: string;
     /** The agent file's body (a built-in's prompt for built-ins). */
     instructions: string;

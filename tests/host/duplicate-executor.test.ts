@@ -235,6 +235,18 @@ describe("duplicate executor through the real CLI", () => {
             .map((r) => r.sessionId),
         ).size;
       await session.waitFor(() => disposed() >= 2, "two children disposed");
+      // `general-purpose` is an alias of `general`: the child's system prompt carries its role text.
+      // A child's first user message is its task; the main session's is START-MAIN.
+      const childPrompts = fixture.requests
+        .filter((r) => {
+          const messages = (r.body.messages ?? []) as { role?: string; content?: unknown }[];
+          const first = messages.find((m) => m.role === "user");
+          return JSON.stringify(first?.content ?? "").includes("CHILD-TASK");
+        })
+        .map((r) => JSON.stringify(r.body));
+      expect(childPrompts.length).toBeGreaterThanOrEqual(2);
+      for (const prompt of childPrompts)
+        expect(prompt).toContain("You are a general-purpose agent");
       const text = await status(session);
       expect(text).not.toContain("duplicate executor");
       expect(text).toContain("executor: present");

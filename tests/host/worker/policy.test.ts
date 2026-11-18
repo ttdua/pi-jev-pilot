@@ -344,12 +344,12 @@ describe("Worker request content", () => {
     const h = harness();
     await h.launch({
       origin: { kind: "service" },
-      agent: { name: "Plan", source: "builtin", description: "Planner" },
+      agent: { name: "implementer", source: "builtin", description: "Implementer" },
       prompt: "brief text",
       description: "probe",
     });
     const state = h.asks[0]!.state as { task: { brief: string; description: string } };
-    expect(state).toMatchObject({ agent: { name: "Plan" } });
+    expect(state).toMatchObject({ agent: { name: "implementer" } });
     expect(state.task).toMatchObject({ brief: "brief text", description: "probe" });
   });
 
