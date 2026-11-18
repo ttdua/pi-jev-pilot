@@ -59,8 +59,8 @@ The policy SHALL receive:
 `parentTools` MUST exclude the executor's own orchestration tools: `subagent`, `get_subagent_result`, `steer_subagent`, `ask_parent` and `notify_parent`. The request MUST NOT carry `inheritContext`.
 
 #### Scenario: Tool-call origin
-- **WHEN** `subagent` call `call_7` launches agent `Explore` with `model` `fixture/fixture-main`
-- **THEN** the policy receives `origin` `{ kind: "tool", toolCallId: "call_7" }`, `agentType` `Explore`, `context` `fresh` and `requested.model` `fixture/fixture-main`
+- **WHEN** `subagent` call `call_7` launches agent `explore` with `model` `fixture/fixture-main`
+- **THEN** the policy receives `origin` `{ kind: "tool", toolCallId: "call_7" }`, `agentType` `explore`, `context` `fresh` and `requested.model` `fixture/fixture-main`
 
 #### Scenario: Orchestration tools never offered
 - **WHEN** the parent session has `read`, `subagent` and `web_search`
@@ -75,7 +75,7 @@ The policy SHALL receive:
 - **THEN** `requested.model` is the agent's model and `locked` contains `model`
 
 #### Scenario: Fork request
-- **WHEN** a caller forks `Explore` with no model from a parent on `fixture/fixture-main`
+- **WHEN** a caller forks `explore` with no model from a parent on `fixture/fixture-main`
 - **THEN** the policy receives `context` `fork` and `requested.model` `fixture/fixture-main`
 
 #### Scenario: Locked fork request

@@ -1,3 +1,6 @@
+## Purpose
+The executor ships six markdown role agents (`general`, `implementer`, `explore`, `scout`, `reviewer`, `verifier`) with minimal tool boundaries and flow-neutral bodies; process and task come from the caller's launch.
+
 ## ADDED Requirements
 
 ### Requirement: Built-in agents are markdown files

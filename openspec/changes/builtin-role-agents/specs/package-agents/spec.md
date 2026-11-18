@@ -1,3 +1,6 @@
+## Purpose
+An installed pi package can ship agent files through one `package.json` key, `pi.subagents.agents`; the executor reads only packages pi has configured, keeps every path inside the package, respects project trust, and fails quiet.
+
 ## ADDED Requirements
 
 ### Requirement: Package agent manifest key
