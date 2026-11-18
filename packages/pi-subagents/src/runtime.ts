@@ -6,7 +6,7 @@
  * Follows the same pattern as pi-permission-system's ExtensionRuntime.
  */
 
-import { buildParentSnapshot, type ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import { buildParentSnapshot, type ParentSnapshot, type ToolDeclaration } from "#src/lifecycle/parent-snapshot";
 import type { ModelInfo } from "#src/tools/spawn-config";
 import type { ContextMode, SessionContext } from "#src/types";
 
@@ -33,10 +33,10 @@ export class SubagentRuntime {
   currentCtx: SessionContext | undefined = undefined;
 
   /**
-   * @param listActiveTools The tools the parent declares to the model, read per
+   * @param listActiveTools The tools (with declarations) the parent declares to the model, read per
    *   snapshot (a fork declares exactly these).
    */
-  constructor(private readonly listActiveTools: () => readonly string[] = () => []) {}
+  constructor(private readonly listActiveTools: () => readonly ToolDeclaration[] = () => []) {}
 
   // ── Session-context methods ──────────────────────────────────────────────
 
@@ -63,6 +63,7 @@ export class SubagentRuntime {
     return {
       parentModel: this.currentCtx?.model,
       modelRegistry: this.currentCtx?.modelRegistry,
+      parentHasBranch: (this.currentCtx?.sessionManager.getBranch().length ?? 0) > 0,
     };
   }
 
@@ -80,6 +81,6 @@ export class SubagentRuntime {
  *
  * Call once at extension startup; pass the result to factories and handlers.
  */
-export function createSubagentRuntime(listActiveTools?: () => readonly string[]): SubagentRuntime {
+export function createSubagentRuntime(listActiveTools?: () => readonly ToolDeclaration[]): SubagentRuntime {
   return new SubagentRuntime(listActiveTools);
 }

@@ -23,7 +23,8 @@ import {
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import { debugLog, debugNote } from "#src/debug";
 import type { ChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
-import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import { missingToolStubs } from "#src/lifecycle/fork-stubs";
+import type { ParentSnapshot, ToolDeclaration } from "#src/lifecycle/parent-snapshot";
 import { buildForkSession } from "#src/lifecycle/fork-session";
 import { forkCallableTools, forkGuardExtension, type ForkGuardState } from "#src/lifecycle/fork-guard";
 import { enforceForkGrants, enforceGrants } from "#src/seams/grant-check";
@@ -63,6 +64,8 @@ const EXCLUDED_TOOL_NAMES = ["subagent", "get_subagent_result", "steer_subagent"
 /** Minimal resource-loader contract used by the factory. */
 export interface ResourceLoaderLike {
   reload(): Promise<void>;
+  /** The extensions the loader loaded; read by a fork to see which tools it can build. */
+  getExtensions?(): { extensions: readonly { tools: ReadonlyMap<string, unknown> }[] };
 }
 
 /** Minimal session-manager contract used by the factory. */
@@ -141,6 +144,8 @@ export interface SessionFactoryIO {
     parentSession: string | undefined,
     entries: readonly SessionEntry[],
   ) => SessionManagerLike;
+  /** Delete a session file; used to drop a fork's transcript when its launch fails. */
+  removeSessionFile: (file: string) => void;
   createSettingsManager: (cwd: string, agentDir: string) => SettingsManager;
   /**
    * Settings view the child's resource loader resolves packages from.
@@ -269,9 +274,10 @@ function reportToolFacts(
 interface ContextSetup {
   /** Extra extension factories and loader prompt options. */
   loader: Pick<ResourceLoaderOptions, "noContextFiles" | "appendSystemPromptOverride" | "extensionFactories">;
-  /** The tools the session declares, and the custom tool definitions among them. */
+  /** The tools the session declares. */
   tools: string[];
-  customTools: ToolDefinition[];
+  /** The custom tool definitions among them, read once the loader has loaded. */
+  customTools: (loader: ResourceLoaderLike) => ToolDefinition[];
   excludeTools: string[];
   /** The session manager, created once the session directory is known. */
   createSessionManager: (cwd: string, sessionDir: string) => SessionManagerLike;
@@ -320,7 +326,7 @@ function freshSetup(input: SetupInput): ContextSetup {
     },
     tools: toolNames,
     // The SDK drops a custom tool missing from `tools`; keep the two consistent.
-    customTools: protocolTools.filter((tool) => toolNames.includes(tool.name)),
+    customTools: () => protocolTools.filter((tool) => toolNames.includes(tool.name)),
     excludeTools: EXCLUDED_TOOL_NAMES,
     createSessionManager: (cwd, sessionDir) => {
       const manager = deps.io.createSessionManager(cwd, sessionDir);
@@ -359,6 +365,8 @@ function forkSetup(input: SetupInput): ContextSetup {
     parentSessionId: snapshot.sessionId,
     systemPrompt: plan.systemPrompt,
   };
+  const stubbed = new Set<string>();
+  // A stub cannot run here, so a grant never makes it callable.
   const grants = input.grants.filter((name) => !input.disallowed.includes(name));
   return {
     loader: {
@@ -367,16 +375,40 @@ function forkSetup(input: SetupInput): ContextSetup {
       extensionFactories: [...builtinExtensionsFor(plan.toolNames), forkGuardExtension(state)],
     },
     tools: [...plan.toolNames],
-    customTools: [],
+    customTools: (loader) => forkStubs(loader, snapshot.declarations, state, stubbed),
     // The orchestration tools the parent declares stay declared; the guard refuses them.
     excludeTools: [],
     createSessionManager: (cwd, sessionDir) =>
       deps.io.createForkSessionManager(cwd, sessionDir, params.parentSession?.parentSessionId, plan.entries),
     firstMessage: plan.firstMessage,
-    checkGrants: (session) => (grants.length === 0 ? [] : enforceForkGrants(state, grants, session.getAllTools())),
+    checkGrants: (session) =>
+      grants.length === 0
+        ? []
+        : enforceForkGrants(state, grants, session.getAllTools().filter((tool) => !stubbed.has(tool.name))),
     callable: () => [...state.callable],
     forkGuard: state,
   };
+}
+
+/**
+ * The refusing stubs for the parent tools this fork's registry cannot build.
+ * A stub is never callable, so it leaves the callable set.
+ */
+function forkStubs(
+  loader: ResourceLoaderLike,
+  declarations: readonly ToolDeclaration[],
+  state: ForkGuardState,
+  stubbed: Set<string>,
+): ToolDefinition[] {
+  const loaded = new Set(
+    (loader.getExtensions?.().extensions ?? []).flatMap((extension) => [...extension.tools.keys()]),
+  );
+  const stubs = missingToolStubs(declarations, loaded);
+  for (const stub of stubs) {
+    state.callable.delete(stub.name);
+    stubbed.add(stub.name);
+  }
+  return stubs;
 }
 
 /**
@@ -478,6 +510,46 @@ export async function createSubagentSession(
   // session is not persisted (e.g. headless/API mode). A fork gets its own id.
   const sessionDir = deps.io.deriveSessionDir(params.parentSession?.parentSessionFile, cfg.effectiveCwd);
   const sessionManager = setup.createSessionManager(cfg.effectiveCwd, sessionDir);
+  try {
+    return await startSession({ params, deps, cfg, setup, loader, sessionManager, sessionDir, sessionSettings, agentDir, parentToolNames, identity });
+  } catch (err) {
+    // A fork's file already holds the parent's whole history and no record
+    // links it yet; a launch that fails leaves nothing behind.
+    discardForkFile(context, sessionManager.getSessionFile(), deps);
+    throw err;
+  }
+}
+
+function discardForkFile(context: ContextMode, file: string | undefined, deps: SubagentSessionDeps): void {
+  if (context !== "fork" || !file) return;
+  try {
+    deps.io.removeSessionFile(file);
+  } catch (err) {
+    debugLog("fork transcript not removed", err);
+  }
+}
+
+/** What `startSession` needs from the assembly above it. */
+interface StartInput {
+  params: CreateSubagentSessionParams;
+  deps: SubagentSessionDeps;
+  cfg: SessionConfig;
+  setup: ContextSetup;
+  loader: ResourceLoaderLike;
+  sessionManager: SessionManagerLike;
+  sessionDir: string;
+  sessionSettings: SettingsManager;
+  agentDir: string;
+  parentToolNames: readonly string[];
+  identity: ReturnType<typeof launchIdentity>;
+}
+
+/** Create the SDK session on the prepared manager, bind it and publish its lifecycle. */
+async function startSession(input: StartInput): Promise<SubagentSession> {
+  const { params, deps, cfg, setup, loader, sessionManager, sessionDir, sessionSettings, agentDir, parentToolNames, identity } = input;
+  const { snapshot, type } = params;
+  const context = params.context ?? "fresh";
+  const parentSessionId = params.parentSession?.parentSessionId;
   const sessionId = sessionManager.getSessionId();
 
   const { session } = await deps.io.createSession({
@@ -488,7 +560,7 @@ export async function createSubagentSession(
     modelRegistry: snapshot.modelRegistry,
     model: cfg.model,
     tools: setup.tools,
-    customTools: setup.customTools,
+    customTools: setup.customTools(loader),
     excludeTools: setup.excludeTools,
     resourceLoader: loader,
     thinkingLevel: cfg.thinkingLevel,

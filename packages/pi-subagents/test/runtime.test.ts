@@ -112,18 +112,19 @@ describe("SubagentRuntime context query methods", () => {
   });
 
   it("buildSnapshot passes the parent's active tools, read per snapshot", () => {
-    let active = ["read"];
+    const decl = (name: string) => ({ name, description: name, parameters: {} });
+    let active = [decl("read")];
     const runtime = createSubagentRuntime(() => active);
     const ctx = makeSessionCtx();
     runtime.setSessionContext(ctx);
     mockBuildParentSnapshot.mockReturnValue(STUB_SNAPSHOT);
 
     runtime.buildSnapshot("fork");
-    active = ["read", "edit"];
+    active = [decl("read"), decl("edit")];
     runtime.buildSnapshot("fork");
 
-    expect(mockBuildParentSnapshot).toHaveBeenNthCalledWith(1, ctx, "fork", ["read"]);
-    expect(mockBuildParentSnapshot).toHaveBeenNthCalledWith(2, ctx, "fork", ["read", "edit"]);
+    expect(mockBuildParentSnapshot).toHaveBeenNthCalledWith(1, ctx, "fork", [decl("read")]);
+    expect(mockBuildParentSnapshot).toHaveBeenNthCalledWith(2, ctx, "fork", [decl("read"), decl("edit")]);
   });
 
   it("getModelInfo returns model and modelRegistry from current context", () => {

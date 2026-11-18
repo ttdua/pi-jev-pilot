@@ -42,6 +42,7 @@ export function createSubagentSessionIO() {
 			getSessionFile: vi.fn().mockReturnValue("/sessions/child.jsonl"),
 			getSessionId: vi.fn().mockReturnValue("child-session-id"),
 		}),
+		removeSessionFile: vi.fn(),
 		createForkSessionManager: vi.fn().mockReturnValue({
 			newSession: vi.fn(),
 			getSessionFile: vi.fn().mockReturnValue("/sessions/fork.jsonl"),

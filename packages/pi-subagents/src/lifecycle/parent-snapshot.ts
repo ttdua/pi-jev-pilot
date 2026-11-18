@@ -7,6 +7,13 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { ModelRegistry } from "#src/session/model-resolver";
 import type { ContextMode, SessionContext, ThinkingLevel } from "#src/types";
 
+/** A tool as the parent declares it to the model. */
+export interface ToolDeclaration {
+  name: string;
+  description: string;
+  parameters: unknown;
+}
+
 /**
  * Plain data snapshot of the parent session state captured at spawn time.
  * Replaces live `ExtensionContext` references so queued agents don't read stale state.
@@ -29,6 +36,8 @@ export interface ParentSnapshot {
   branch: readonly SessionEntry[];
   /** The tools the parent declares to the model; a fork declares exactly these. */
   toolNames: readonly string[];
+  /** The parent's declaration of each of those tools, to rebuild any the fork lacks. */
+  declarations: readonly ToolDeclaration[];
   /** Parent's current thinking level. */
   thinking?: ThinkingLevel;
 }
@@ -42,7 +51,7 @@ export interface ParentSnapshot {
 export function buildParentSnapshot(
   ctx: SessionContext,
   context: ContextMode,
-  toolNames: readonly string[],
+  tools: readonly ToolDeclaration[],
 ): ParentSnapshot {
   return {
     cwd: ctx.cwd,
@@ -51,7 +60,8 @@ export function buildParentSnapshot(
     modelRegistry: ctx.modelRegistry,
     sessionId: ctx.sessionManager.getSessionId(),
     branch: context === "fork" ? [...(ctx.sessionManager.getBranch() as SessionEntry[])] : [],
-    toolNames: [...toolNames],
+    toolNames: tools.map((tool) => tool.name),
+    declarations: [...tools],
     thinking: ctx.thinkingLevel,
   };
 }

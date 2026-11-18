@@ -519,6 +519,42 @@ describe("resolveSpawnConfig — fork model and thinking", () => {
     expect(result.execution.thinking).toBe("low");
   });
 
+  it("an agent-file fork without a branch runs fresh on the agent default", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d" },
+      registryOf(),
+      { parentModel, modelRegistry, parentHasBranch: false },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.context).toBe("fork");
+    expect(result.execution.model).toBe(agentModel);
+    expect(result.execution.thinking).toBe("low");
+  });
+
+  it("a caller model still wins for an agent-file fork without a branch", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d", model: "p/parent-m", thinking: "high" },
+      registryOf(),
+      { parentModel, modelRegistry, parentHasBranch: false },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(parentModel);
+    expect(result.execution.thinking).toBe("high");
+  });
+
+  it("a caller fork without a branch keeps fork resolution (the manager refuses it)", () => {
+    const result = resolveSpawnConfig(
+      { subagent_type: "Forker", prompt: "t", description: "d", context: "fork" },
+      registryOf(),
+      { parentModel, modelRegistry, parentHasBranch: false },
+      defaultSettings,
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.execution.model).toBe(parentModel);
+  });
+
   it("a fresh launch of the same agent keeps its defaults", () => {
     const result = resolveSpawnConfig(
       { subagent_type: "Forker", prompt: "t", description: "d", context: "fresh" },

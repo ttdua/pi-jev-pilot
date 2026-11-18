@@ -8,7 +8,7 @@
  * (ids kept, so a compaction's `firstKeptEntryId` still resolves), then opened.
  */
 
-import { writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { type SessionEntry, SessionManager } from "@earendil-works/pi-coding-agent";
 
 export function createForkSessionManager(
@@ -24,5 +24,10 @@ export function createForkSessionManager(
   if (!file || !header) throw new Error("Cannot fork: the fork session has no file.");
   const lines = [header, ...entries].map((entry) => `${JSON.stringify(entry)}\n`).join("");
   writeFileSync(file, lines, { flag: "wx" });
-  return SessionManager.open(file, sessionDir);
+  try {
+    return SessionManager.open(file, sessionDir);
+  } catch (err) {
+    rmSync(file, { force: true });
+    throw err;
+  }
 }

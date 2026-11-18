@@ -127,6 +127,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/types/public-context.test.ts` | seam | Type check that the public entry exports `ContextMode` and the `context` fields. |
 | `src/lifecycle/fork-guard.ts` | seam | Fork child extension: forces the parent's system prompt each run, refuses calls outside the callable set, sets the session headers and payload cache keys to the parent id; the callable-set rule. |
 | `src/lifecycle/fork-session.ts` | seam | Pure fork plan: parent branch, synthetic results for pending calls, the `<subagent_instructions>` message. |
+| `src/lifecycle/fork-stubs.ts` | seam | Refusing stubs that declare the parent tools the fork's own registry cannot build. |
 | `src/session/fork-session-manager.ts` | seam | Create a fork's session file with its own header and the copied parent entries. |
 | `src/lifecycle/subagent-session.ts` | edit | `firstMessage` replaces the first run's prompt (was the text parent-context prefix); keeps the fork guard state. |
 | `src/session/context.ts` | edit | `buildParentContext` removed; `extractText` kept. |
@@ -134,6 +135,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/helpers/stub-ctx.ts` | edit | Snapshot fixture carries `sessionId`, `branch`, `toolNames`. |
 | `test/lifecycle/fork-prompt.test.ts` | seam | Real SDK fork against a loopback provider: byte-identical system message and tools, prefix extended, prompt kept on a second turn, own session id, parent id in headers. |
 | `test/lifecycle/fork-session.test.ts` | seam | Tests for the pure fork plan. |
+| `test/session/fork-session-manager.test.ts` | seam | Tests for the fork's session file: ids, files, compaction replay. |
 | `test/lifecycle/fork-tools.test.ts` | seam | Fork callable set, guard handlers, fork grants, the factory's fork path and fork model/thinking. |
 | `test/lifecycle/subagent-session.test.ts` | edit | `firstMessage` replaces the parent-context prefix tests. |
 | `test/session/context.test.ts` | edit | `buildParentContext` tests removed. |

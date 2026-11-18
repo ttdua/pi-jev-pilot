@@ -40,6 +40,7 @@ function makePi() {
       },
       appendEntry: vi.fn(),
       getActiveTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => []),
       sendMessage: vi.fn(() => {
         throw new Error("stale extension context");
       }),

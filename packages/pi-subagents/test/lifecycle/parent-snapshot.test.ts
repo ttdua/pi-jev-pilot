@@ -23,6 +23,8 @@ function makeCtx(overrides: Partial<SessionContext> = {}): SessionContext {
   };
 }
 
+const decl = (name: string) => ({ name, description: `${name} tool`, parameters: {} });
+
 describe("buildParentSnapshot", () => {
   it("captures cwd, system prompt, model and registry", () => {
     const ctx = makeCtx({ cwd: "/custom" });
@@ -33,7 +35,7 @@ describe("buildParentSnapshot", () => {
   });
 
   it("carries the parent session id, tool names and thinking", () => {
-    const snapshot = buildParentSnapshot(makeCtx(), "fork", ["read", "edit"]);
+    const snapshot = buildParentSnapshot(makeCtx(), "fork", [decl("read"), decl("edit")]);
     expect(snapshot.sessionId).toBe("parent-id");
     expect(snapshot.toolNames).toEqual(["read", "edit"]);
     expect(snapshot.thinking).toBe("high");

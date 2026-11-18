@@ -9,7 +9,7 @@
  * Commands:
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createAgentSession,
@@ -75,7 +75,10 @@ export default function (pi: ExtensionAPI) {
   const registry = new AgentTypeRegistry(() => loadCustomAgents(process.cwd()));
 
   // ---- Runtime: all mutable extension state in one place ----
-  const runtime = createSubagentRuntime(() => pi.getActiveTools());
+  const runtime = createSubagentRuntime(() => {
+    const all = pi.getAllTools();
+    return pi.getActiveTools().flatMap((name) => all.filter((tool) => tool.name === name));
+  });
 
   // ---- Notification system ----
   // Owns completion nudges and live-activity cleanup. The widget detects finished
@@ -123,6 +126,7 @@ export default function (pi: ExtensionAPI) {
       deriveSessionDir: deriveSubagentSessionDir,
       createSessionManager: (cwd, dir) => SessionManager.create(cwd, dir),
       createForkSessionManager,
+      removeSessionFile: (file) => rmSync(file, { force: true }),
       createSettingsManager: (cwd, dir) => SdkSettingsManager.create(cwd, dir),
       // The exclusion policy is resolved here, at the composition root, so the
       // assembly factory stays free of it and gets a ready-made settings view.

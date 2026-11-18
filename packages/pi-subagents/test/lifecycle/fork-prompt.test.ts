@@ -13,10 +13,13 @@ import {
   type AgentSession,
   createAgentSession,
   DefaultResourceLoader,
+  defineTool,
+  type ExtensionFactory,
   ModelRuntime,
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateSessionOptions } from "#src/lifecycle/create-subagent-session";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
@@ -54,6 +57,27 @@ async function startLoopback() {
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
+
+/** A tool the parent registers through the SDK: the child's loader has no definition of it. */
+const SDK_TOOL = defineTool({
+  name: "parent_sdk_tool",
+  label: "parent_sdk_tool",
+  description: "A tool only the parent has.",
+  parameters: Type.Object({ q: Type.String() }),
+  execute: async () => ({ content: [{ type: "text" as const, text: "PARENT-RAN" }], details: undefined }),
+});
+
+/** A tool from an extension the child's loader does not load. */
+const EXTENSION_TOOL = "parent_ext_tool";
+const parentOnlyExtension: ExtensionFactory = (pi) => {
+  pi.registerTool({
+    name: EXTENSION_TOOL,
+    label: EXTENSION_TOOL,
+    description: "A tool from an excluded package.",
+    parameters: Type.Object({ n: Type.Number() }),
+    execute: async () => ({ content: [{ type: "text" as const, text: "PARENT-EXT-RAN" }], details: undefined }),
+  });
+};
 
 describe("fork child (real SDK loader and session)", () => {
   let root: string;
@@ -101,10 +125,17 @@ describe("fork child (real SDK loader and session)", () => {
   }
 
   /** Run one parent turn, then fork it; return the parent, the fork, and the factory's mocks. */
-  async function parentThenFork() {
+  async function parentThenFork(opts: { parentOnly?: boolean; grants?: string[]; onToolFacts?: (f: unknown) => void } = {}) {
     const { rt, model } = await runtime();
     const settings = SettingsManager.create(cwd, agentDir);
-    const parentLoader = new DefaultResourceLoader({ cwd, agentDir, settingsManager: settings, noExtensions: true, noSkills: true });
+    const parentLoader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager: settings,
+      noExtensions: true,
+      noSkills: true,
+      extensionFactories: opts.parentOnly ? [parentOnlyExtension] : [],
+    });
     await parentLoader.reload();
     const parentManager = SessionManager.inMemory(cwd);
     const { session: parent } = await createAgentSession({
@@ -115,7 +146,8 @@ describe("fork child (real SDK loader and session)", () => {
       sessionManager: parentManager,
       settingsManager: settings,
       resourceLoader: parentLoader,
-      tools: ["read", "grep", "edit"],
+      tools: opts.parentOnly ? ["read", "grep", "edit", SDK_TOOL.name, EXTENSION_TOOL] : ["read", "grep", "edit"],
+      customTools: opts.parentOnly ? [SDK_TOOL] : [],
     });
     await parent.bindExtensions({});
     await parent.prompt("PARENT-TURN-MARKER");
@@ -129,7 +161,7 @@ describe("fork child (real SDK loader and session)", () => {
         sessionManager: parentManager,
       },
       "fork",
-      parent.getActiveToolNames(),
+      parent.getActiveToolNames().flatMap((name) => parent.getAllTools().filter((tool) => tool.name === name)),
     );
 
     const io = createSubagentSessionIO();
@@ -150,6 +182,7 @@ describe("fork child (real SDK loader and session)", () => {
         model,
         tools: opts.tools,
         excludeTools: opts.excludeTools,
+        customTools: opts.customTools,
       });
       fork = created.session;
       return { session: created.session };
@@ -164,13 +197,15 @@ describe("fork child (real SDK loader and session)", () => {
         // An isolated child: its own loader would render another <cwd> and no project marker.
         cwd: childCwd,
         askParent: vi.fn(),
+        tools: opts.grants ? { toolNames: ["read"], grants: opts.grants, removed: [] } : undefined,
+        onToolFacts: opts.onToolFacts,
         parentSession: { parentSessionId: parentManager.getSessionId() },
       },
       createSubagentSessionDeps({
         io,
         registry: createAgentLookup({ toolNames: ["read"] }),
         lifecycle: createChildLifecycleMock(),
-        listParentToolNames: () => ["read", "grep", "edit"],
+        listParentToolNames: () => parent.getActiveToolNames(),
       }),
     );
     if (!fork) throw new Error("factory did not create a session");
@@ -228,5 +263,24 @@ describe("fork child (real SDK loader and session)", () => {
     expect(text).toContain("<subagent_instructions>");
     expect(text).toContain("FORK-TASK");
     expect(text).toContain(`Working directory: ${childCwd}`);
+  });
+
+  it("declares a parent-only tool and an excluded-package tool exactly as the parent does, and refuses them", async () => {
+    const onToolFacts = vi.fn();
+    const { parent, fork, sub } = await parentThenFork({
+      parentOnly: true,
+      grants: [SDK_TOOL.name, EXTENSION_TOOL, "grep"],
+      onToolFacts,
+    });
+    await sub.runTurnLoop("FORK-TASK", {});
+
+    const [parentRequest, forkRequest] = loopback.requests;
+    expect(JSON.stringify(forkRequest!.body.tools)).toBe(JSON.stringify(parentRequest!.body.tools));
+    expect(fork.getActiveToolNames()).toEqual(parent.getActiveToolNames());
+    expect(sub.forkGuard?.callable.has(SDK_TOOL.name)).toBe(false);
+    expect(sub.forkGuard?.callable.has(EXTENSION_TOOL)).toBe(false);
+    expect(sub.forkGuard?.callable.has("read")).toBe(true);
+    // Only read and the granted grep run; the stubs and edit count as blocked.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 2, blockedToolCount: 3 });
   });
 });

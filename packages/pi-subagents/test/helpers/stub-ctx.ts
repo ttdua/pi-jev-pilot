@@ -18,4 +18,5 @@ export const STUB_SNAPSHOT: ParentSnapshot = {
   sessionId: "parent-session-id",
   branch: [],
   toolNames: [],
+  declarations: [],
 };

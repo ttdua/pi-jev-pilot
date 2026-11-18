@@ -386,6 +386,7 @@ describe("composition root: parent snapshot wiring", () => {
     );
     const { pi, tools, fire } = makePi();
     vi.mocked(pi.getActiveTools).mockReturnValue(activeTools);
+    vi.mocked(pi.getAllTools).mockReturnValue(activeTools.map((name) => ({ name, description: `${name} tool`, parameters: {} })) as never);
     subagentsExtension(pi);
     await fire("session_start", {}, makeSessionStartCtx(makeParentRegistry().registry, makeRecordingUI()));
 

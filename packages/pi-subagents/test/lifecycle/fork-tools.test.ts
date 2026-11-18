@@ -258,6 +258,43 @@ describe("createSubagentSession: fork path", () => {
     expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 1, blockedToolCount: PARENT.length - 1 });
   });
 
+  it("removes the fork transcript when the launch fails after the file exists", async () => {
+    const io = createSubagentSessionIO();
+    io.createSession.mockRejectedValue(new Error("boom"));
+    await expect(
+      createSubagentSession(
+        {
+          agentId: "a1",
+          snapshot: { ...STUB_SNAPSHOT, toolNames: PARENT, sessionId: "parent-id" },
+          type: "Explore",
+          context: "fork",
+          task: "TASK",
+        },
+        createSubagentSessionDeps({ io, registry: createAgentLookup({ toolNames: ["read"] }), listParentToolNames: () => PARENT }),
+      ),
+    ).rejects.toThrow("boom");
+    expect(io.removeSessionFile).toHaveBeenCalledWith("/sessions/fork.jsonl");
+  });
+
+  it("keeps a fresh child's file when its launch fails", async () => {
+    const io = createSubagentSessionIO();
+    io.createSession.mockRejectedValue(new Error("boom"));
+    await expect(
+      createSubagentSession(
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", context: "fresh" },
+        createSubagentSessionDeps({ io, registry: createAgentLookup({ toolNames: ["read"] }) }),
+      ),
+    ).rejects.toThrow("boom");
+    expect(io.removeSessionFile).not.toHaveBeenCalled();
+  });
+
+  it("registers only the fork's own id on every lifecycle event, never the parent's", async () => {
+    const { lifecycle } = await launchFork({ agentTools: ["read"] });
+    expect(lifecycle.sessionCreated.mock.calls[0]![0].sessionId).toBe("fork-session-id");
+    expect(lifecycle.bound.mock.calls[0]![0].sessionId).toBe("fork-session-id");
+    expect(JSON.stringify([lifecycle.sessionCreated.mock.calls, lifecycle.bound.mock.calls])).not.toMatch(/"sessionId":"parent-id"/);
+  });
+
   it("publishes context fork on session-created", async () => {
     const { lifecycle } = await launchFork({ agentTools: ["read"] });
     expect(lifecycle.sessionCreated.mock.calls[0]![0]).toEqual(expect.objectContaining({ context: "fork" }));

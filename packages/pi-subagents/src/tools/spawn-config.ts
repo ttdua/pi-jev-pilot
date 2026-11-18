@@ -28,6 +28,12 @@ import {
 export interface ModelInfo {
   parentModel: Model<any> | undefined;
   modelRegistry: ModelRegistry | undefined;
+  /**
+   * Whether the parent has a branch to fork. False makes an agent-file fork run
+   * fresh (the manager's fallback), so its model and thinking resolve as fresh.
+   * Absent means true.
+   */
+  parentHasBranch?: boolean;
 }
 
 /** Identity: who is being spawned. */
@@ -116,7 +122,8 @@ export function resolveSpawnConfig(
   // runs on the parent's unless the caller or a lock names one.
   const { context, contextSource } = resolvedConfig;
   const locked = lockedFields(customConfig);
-  const fork = context === "fork";
+  // An agent-file fork without a branch runs fresh: resolve it as fresh.
+  const fork = context === "fork" && (contextSource === "call" || modelInfo.parentHasBranch !== false);
   const resolution = resolveInvocationModel(
     modelInfo.parentModel,
     resolvedConfig.modelInput,
