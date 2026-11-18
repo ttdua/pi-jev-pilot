@@ -85,7 +85,14 @@ function loadFromDir(
       continue;
     }
 
-    const { frontmatter: fm, body } = parseFrontmatter(content);
+    let parsed: ReturnType<typeof parseFrontmatter>;
+    try {
+      parsed = parseFrontmatter(content);
+    } catch (err) {
+      debugLog(`malformed frontmatter, skipping ${path}`, err);
+      continue;
+    }
+    const { frontmatter: fm, body } = parsed;
     const name = (typeof fm.name === "string" && fm.name.trim() !== "" ? fm.name.trim() : undefined) ?? basename(file, ".md");
     const toolNames = listField(fm.tools, BUILTIN_TOOL_NAMES);
     const toolsDeclared = fm.tools != null;

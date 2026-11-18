@@ -34,7 +34,7 @@ Each later entry replaces an earlier one with the same name compared case-insens
 - Each entry is resolved against the package root, both paths are canonicalised (realpath of the nearest existing ancestor), and an entry outside the root is dropped with a debug note. Only existing directories are kept. Each `.md` file is canonicalised again before it is read, so a file symlinked out of the root is skipped.
 - Project trust: `session_start` records `ctx.isProjectTrusted()`. Before the first session, the saved decision from `ProjectTrustStore` is read; with no saved decision, the global `defaultProjectTrust === "always"` decides. Untrusted hides project-scope packages.
 - Any failure (missing API, unreadable settings) yields no package directories. The loader never throws.
-- Results are not cached. `reload()` already re-reads directories on every query, and the package list is small.
+- The package listing is cached per (cwd, trust, lister) for the session and invalidated on a trust change and at `session_start`. Agent files are re-read on every load, so edits show up on `reload()`.
 
 **Frontmatter `name:`.** A non-empty string `name:` is the agent's name; otherwise the file name without `.md`. This is needed for `superspec.scout`-style names.
 

@@ -6,7 +6,7 @@
  *
  *   const { getSubagentsService } = await import("@gotgenes/pi-subagents");
  *   const svc = getSubagentsService();
- *   svc?.spawn("Explore", "Check for stale TODOs");
+ *   svc?.spawn("explore", "Check for stale TODOs");
  */
 
 import type { LockableField } from "#src/config/invocation-config";
@@ -146,7 +146,7 @@ export type LaunchOrigin = { kind: "tool"; toolCallId: string } | { kind: "servi
  */
 export interface LaunchRequest {
   agentId: string;
-  /** The agent type as resolved (canonical name, or `general-purpose`). */
+  /** The agent type as resolved (canonical name, or `general`). */
   agentType: string;
   agent: AgentTypeSnapshot;
   origin: LaunchOrigin;
@@ -286,7 +286,7 @@ export interface SubagentsService {
 
   /**
    * The agent a launch of `name` would run (exact, case-insensitive, then
-   * `general-purpose`); `undefined` when it resolves to a disabled agent.
+   * `general`); `undefined` when it resolves to a disabled agent.
    */
   getAgentType(name: string): AgentTypeSnapshot | undefined;
 

@@ -557,6 +557,21 @@ describe("loadCustomAgents — sources and overrides", () => {
     expect(agents.get("y")?.source).toBe("builtin");
   });
 
+  it("skips an agent file with malformed frontmatter and keeps loading the rest", () => {
+    const bad = "---\ndescription: [unclosed\n  : : :\n---\nbody";
+    const builtinDirs = [dirWith("b/agents", { "ok-builtin.md": agent("builtin") })];
+    const packageDirs = [dirWith("p/agents", { "bad.md": bad, "good.md": agent("good") })];
+    const globalDir = join(root, "global-home", "agents");
+    mkdirSync(globalDir, { recursive: true });
+    writeFileSync(join(globalDir, "bad-global.md"), bad);
+    writeFileSync(join(globalDir, "ok-global.md"), agent("global"));
+    let agents: ReturnType<typeof load> | undefined;
+    expect(() => {
+      agents = load({ builtinDirs, packageDirs });
+    }).not.toThrow();
+    expect([...agents!.keys()].sort()).toEqual(["good", "ok-builtin", "ok-global"]);
+  });
+
   it("replaces case-insensitively and keeps one entry", () => {
     const builtinDirs = [dirWith("b/agents", { "explore.md": agent("builtin") })];
     project("Explore", agent("project"));

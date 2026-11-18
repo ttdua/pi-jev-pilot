@@ -4,8 +4,12 @@
  * Reduced port of `src/package-resources.ts` from tintinweb/pi-subagents
  * 0.26.1 (commit 9a1b37dff9c6626a48912d23efabfa13e3c53ddb), MIT License,
  * Copyright (c) 2026 tintinweb. Kept: the configured-package listing, canonical
- * containment, and project-trust seeding. Dropped: the cache, the gate,
+ * containment, and project-trust seeding. Dropped: the gate,
  * workflows, `!` exclusions, single-file entries and alternate manifest spellings.
+ *
+ * The package listing is cached per (cwd, trust, lister) for the session and
+ * dropped at `session_start` and on a trust change; agent files are re-read on
+ * every load.
  *
  * Only `package.json` -> `pi.subagents.agents` (an array of strings) is read.
  * Pi's configured packages are the only source; `node_modules` is never scanned.

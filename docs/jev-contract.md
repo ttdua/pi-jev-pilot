@@ -70,7 +70,7 @@ Cost is estimated from $0.042 per million input tokens at about 4 bytes per toke
   },
   "capabilities": {
     "tools": [{ "name": "read", "summary": "<first sentence of the description>" }],
-    "subagents": [{ "name": "Explore", "description": "…", "tools": ["read", "bash"] }]
+    "subagents": [{ "name": "explore", "description": "…", "tools": ["read", "bash"] }]
   }
 }
 ```

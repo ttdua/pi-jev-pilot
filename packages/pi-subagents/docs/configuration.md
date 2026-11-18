@@ -36,6 +36,8 @@ Agents load from four sources. A later source overrides an earlier one with the 
 | 3     | global     | `$PI_CODING_AGENT_DIR/agents/<name>.md` (default `~/.pi/agent/agents/`) |
 | 4     | project    | `.pi/agents/<name>.md`                                                   |
 
+Each `agents` entry must be a sub-directory of the package; `"."` (the package root itself) is ignored.
+
 An agent's name is its frontmatter `name:` if set, otherwise the file name.
 
 Built-in agents can be **overridden** by a file with the same name in a later source (e.g. `.pi/agents/general.md`), or **disabled** per-project with `enabled: false` frontmatter.

@@ -175,3 +175,9 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `docs/comparison-with-upstream.md` | edit | Role agents and the `pi.subagents.agents` package manifest listed as fork features, not common ground. |
 | `README.md` (role agents) | edit | Case-insensitive bullet and custom-agent bullet name role agents and the package manifest; `spawn` contract documents the `general` fallback and the missing or disabled `general` refusal. |
 | `src/tools/get-result-renderer.ts` | edit | Comment sample uses the `explore` agent name. |
+| `src/config/custom-agents.ts` (malformed frontmatter) | edit | A file whose frontmatter fails to parse is logged and skipped instead of throwing. |
+| `src/config/package-agents.ts` (header) | edit | Header comment describes the per-session package listing cache. |
+| `src/service/service.ts` (comments) | edit | Examples use `general` / `explore`. |
+| `docs/configuration.md` (package entries) | edit | Documents that `agents` entries must be sub-directories of the package. |
+| `test/config/custom-agents.test.ts` (malformed frontmatter) | edit | Malformed package and global files are skipped. |
+| `test/helpers/builtin-config.ts` (hermetic) | edit | Global agent dir pinned to an empty path. |
