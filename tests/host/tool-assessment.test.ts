@@ -301,3 +301,217 @@ describe("tool assessment through the real CLI", () => {
     TIMEOUT,
   );
 });
+
+// ---- Fork workers ----
+
+const READER = "probe-reader";
+const PROBE_TOOL = "probe_tool";
+const FORK_AGENTS = {
+  ...AGENTS,
+  [READER]:
+    "---\ndescription: Read-only probe\ntools: read, grep\n---\nYou are a read-only probe.\n",
+};
+const REFUSED = (tool: string): string => `Tool "${tool}" is not available to this subagent.`;
+
+/** Flags `edit` and grants `probe_tool`; every other candidate scores low. */
+function forkRoute(): FixtureRoute {
+  return {
+    each: (body) => {
+      const answers: Record<string, object> = {
+        effort: choice("medium", ["low", "medium", "high", "xhigh", "max"]),
+        risky: { type: "noul", noul: 0.2 },
+        tier: choice("balanced", ["fast", "balanced"]),
+      };
+      for (const key of Object.keys((JSON.parse(body) as ToolBody).questions ?? {})) {
+        if (key.startsWith("tool::") || key.startsWith("grant::")) {
+          const hit = key === "tool::edit" || key === `grant::${PROBE_TOOL}`;
+          answers[key] = { type: "noul", noul: hit ? 0.9 : 0.1 };
+        }
+      }
+      return { json: { answers } };
+    },
+  };
+}
+
+const isFork = (r: RecordedRequest): boolean =>
+  JSON.stringify(r.body.messages).includes("<subagent_instructions>");
+const lastTool = (r: RecordedRequest): string =>
+  String(
+    messages(r)
+      .filter((m) => m.role === "tool")
+      .at(-1)?.content ?? "",
+  );
+
+/** The fork calls each of `calls` in turn, one per request, then answers in text. */
+function forkChild(calls: Call[]): ScriptEntry[] {
+  const steps = calls.map((call, i): ScriptEntry => ({
+    name: `fork-call-${i}`,
+    match: (r) =>
+      isFork(r) && messages(r).filter((m) => m.role === "tool").length === i + countPending(r),
+    reply: { toolCalls: [call] },
+    times: 1,
+  }));
+  return [...steps, { name: "fork-done", match: isFork, reply: { text: "fork done" } }];
+}
+/** Tool results already in a fork's first request: the parent's real ones plus synthetic ones. */
+const countPending = (r: RecordedRequest): number => {
+  const first = r.body.messages as Msg[];
+  const marker = first.findIndex((m) => JSON.stringify(m).includes("<subagent_instructions>"));
+  return first.slice(0, marker).filter((m) => m.role === "tool").length;
+};
+
+async function forkSession(opts: {
+  enforce: boolean;
+  type: string;
+  calls: Call[];
+  extra?: ScriptEntry[];
+}) {
+  const jev = await newJev(forkRoute());
+  const entries: ScriptEntry[] = [
+    ...(opts.extra ?? []),
+    ...forkChild(opts.calls),
+    { name: "child", match: isChild, reply: { text: "child done" } },
+    {
+      name: "main-call",
+      match: isMainFirst,
+      reply: { toolCalls: [launch(opts.type, "fork probe", { context: "fork" })] },
+      times: 1,
+    },
+    { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+  ];
+  const fixture = await startFixture(entries);
+  fixtures.push(fixture);
+  const session = await startHostSession({
+    fixture,
+    self: true,
+    probes: ["policy"],
+    agents: FORK_AGENTS,
+    env: { TYPESAFE_API_KEY: "test-key" },
+    timeoutMs: 60_000,
+  });
+  sessions.push(session);
+  writeJev(session.agentDir, jev, { enforce: opts.enforce });
+  return { jev, fixture, session };
+}
+
+const forkRequests = (f: Fixture): RecordedRequest[] => f.requests.filter(isFork);
+const executed = (s: HostSession): number =>
+  s.probeRecords().filter((r) => r.probe === "policy" && r.event === "tool:executed").length;
+
+describe("tool assessment in a fork", () => {
+  test(
+    "Observe in a fork",
+    async () => {
+      const edit = {
+        name: "edit",
+        arguments: { path: "x.txt", edits: [{ oldText: "a", newText: "b" }] },
+      };
+      const probe = { name: PROBE_TOOL, arguments: {} };
+      const { jev, fixture, session } = await forkSession({
+        enforce: false,
+        type: READER,
+        calls: [edit, probe],
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "worker line");
+      expect(toolRequests(jev)).toHaveLength(1);
+      const requests = forkRequests(fixture);
+      expect(requests[0]?.toolNames).toContain("edit");
+      expect(requests[0]?.toolNames).toContain(PROBE_TOOL);
+      expect(lastTool(requests[1] as RecordedRequest)).toContain(REFUSED("edit"));
+      expect(lastTool(requests[2] as RecordedRequest)).toContain(REFUSED(PROBE_TOOL));
+      expect(executed(session)).toBe(0);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Enforce in a fork",
+    async () => {
+      const edit = {
+        name: "edit",
+        arguments: { path: "x.txt", edits: [{ oldText: "a", newText: "b" }] },
+      };
+      const { jev, fixture, session } = await forkSession({
+        enforce: true,
+        type: OPEN,
+        calls: [edit],
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "worker line");
+      expect(toolRequests(jev)).toHaveLength(1);
+      const requests = forkRequests(fixture);
+      for (const r of requests) expect(r.toolNames).toContain("edit");
+      expect(lastTool(requests[1] as RecordedRequest)).toContain(REFUSED("edit"));
+      expect(workerLines(session)[0]).toMatchObject({ toolsFlagged: 1 });
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Resumed fork keeps refusals",
+    async () => {
+      const edit = {
+        name: "edit",
+        arguments: { path: "x.txt", edits: [{ oldText: "a", newText: "b" }] },
+      };
+      const resume: ScriptEntry = {
+        name: "main-resume",
+        match: (r) => r.model === "fixture-main" && !isFork(r) && hasTool(r),
+        reply: (r) => {
+          const id = /Agent ID: (\S+)/.exec(lastTool(r))?.[1] ?? "missing";
+          return {
+            toolCalls: [
+              {
+                name: "subagent",
+                arguments: {
+                  prompt: "RESUME-TASK again",
+                  description: "resume",
+                  subagent_type: OPEN,
+                  resume: id,
+                },
+              },
+            ],
+          };
+        },
+        times: 1,
+      };
+      const resumedEdit: ScriptEntry = {
+        name: "resumed-edit",
+        match: (r) => isFork(r) && JSON.stringify(messages(r).at(-1)).includes("RESUME-TASK"),
+        reply: { toolCalls: [edit] },
+        times: 1,
+      };
+      const { jev, fixture, session } = await forkSession({
+        enforce: true,
+        type: OPEN,
+        calls: [],
+        extra: [
+          resumedEdit,
+          {
+            name: "resumed-done",
+            match: (r) =>
+              isFork(r) &&
+              lastTool(r).includes(REFUSED("edit")) &&
+              JSON.stringify(r.body.messages).includes("RESUME-TASK"),
+            reply: { text: "resumed done" },
+          },
+          resume,
+        ],
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(
+        () => fixture.requests.some((r) => r.matched === "resumed-done"),
+        "resumed fork finished",
+      );
+      expect(toolRequests(jev)).toHaveLength(1);
+      const resumed = fixture.requests.filter(
+        (r) => isFork(r) && JSON.stringify(r.body.messages).includes("RESUME-TASK"),
+      );
+      expect(resumed.length).toBeGreaterThanOrEqual(2);
+      for (const r of resumed) expect(r.toolNames).toContain("edit");
+      expect(lastTool(resumed.at(-1) as RecordedRequest)).toContain(REFUSED("edit"));
+    },
+    TIMEOUT,
+  );
+});
