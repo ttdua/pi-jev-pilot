@@ -191,7 +191,15 @@ The slot writer SHALL validate the new slot list against the rules for `crew.slo
 - **THEN** `config.json` is created with mode `0600`, holding only `crew.slots` with that slot
 
 ### Requirement: Optional field rules
-These fields SHALL be optional and MUST follow these rules: `effort.holdProviders` is up to 32 unique provider names of 1–64 characters from letters, digits, `.`, `_`, `-`; `skills.inject` is `content` or `suggest`; `state.parentRequest` is a boolean; `review.cli` is `codex` or `opencode`; `review.enabled` is a boolean; `subagents.forkedLaunch` is `untouched` or `thinking`.
+These fields SHALL be optional and MUST follow these rules:
+- `effort.holdProviders` is up to 32 unique provider names of 1–64 characters from letters, digits, `.`, `_`, `-`;
+- `skills.inject` is `content` or `suggest`;
+- `state.parentRequest` is a boolean;
+- `review.cli` is `codex` or `opencode`;
+- `review.enabled` is a boolean;
+- `subagents.forkLaunch` is `untouched` or `thinking`.
+
+For one minor release, `subagents.forkedLaunch` SHALL be accepted, under the same rule, as a deprecated alias of `subagents.forkLaunch`. A valid read that used the alias SHALL return the value as `subagents.forkLaunch`, together with a deprecation notice naming `subagents.forkLaunch`. The `/jev` status SHALL show that notice. When both keys are present, the whole read MUST be invalid, with a problem at `subagents.forkedLaunch`, as for any other invalid config.
 
 #### Scenario: Duplicate hold provider
 - **WHEN** `effort.holdProviders` is `["9router", "9router"]`
@@ -218,12 +226,20 @@ These fields SHALL be optional and MUST follow these rules: `effort.holdProvider
 - **THEN** the read is invalid with a problem at `review.enabled`
 
 #### Scenario: Forked launch setting accepted
-- **WHEN** `subagents.forkedLaunch` is `"thinking"`
+- **WHEN** `subagents.forkLaunch` is `"thinking"`
 - **THEN** the read is valid and returns that value
 
 #### Scenario: Forked launch setting rejected
-- **WHEN** `subagents.forkedLaunch` is `"skip"` in one read, and `subagents` holds an unknown key `inheritContext` in another
-- **THEN** the first read is invalid at `subagents.forkedLaunch` and the second at `subagents.inheritContext`
+- **WHEN** `subagents.forkLaunch` is `"skip"` in one read, and `subagents` holds an unknown key `inheritContext` in another
+- **THEN** the first read is invalid at `subagents.forkLaunch` and the second at `subagents.inheritContext`
+
+#### Scenario: Deprecated forkedLaunch accepted
+- **WHEN** `subagents.forkedLaunch` is `"thinking"` and `subagents.forkLaunch` is absent
+- **THEN** the read is valid, returns `forkLaunch` `thinking`, and carries a deprecation notice naming `subagents.forkLaunch`
+
+#### Scenario: Both keys present
+- **WHEN** `subagents` holds both `forkLaunch` and `forkedLaunch`
+- **THEN** the read is invalid with a problem at `subagents.forkedLaunch`, and no config value is returned
 
 ### Requirement: Deprecated tools section
 A top-level `tools` key, left from the removed tool assessment, SHALL be accepted with any value. It MUST NOT make the read invalid and MUST NOT contribute any setting. The read SHALL report `tools` as deprecated so `/jev` can name it.

@@ -45,7 +45,12 @@ Worker routing SHALL act only inside its launch policy, for launches started fro
 - **THEN** no worker request is sent and the child runs with the requested model and thinking
 
 ### Requirement: Worker request content
-Each worker request SHALL use the agent facts built from the launch request's agent snapshot, the worker state from the launch request's `prompt` and `description`, and its `isBackground`. The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
+Each worker request SHALL be built from:
+- the agent facts built from the launch request's agent snapshot;
+- the worker state, from the launch request's `prompt` and `description`;
+- its `isBackground`.
+
+The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
 
 #### Scenario: Display name prefix
 - **WHEN** `tiers.fast` names a registry model whose display name is `Fixture Fast`
@@ -60,7 +65,7 @@ Each worker request SHALL use the agent facts built from the launch request's ag
 - **THEN** the request state has no `parent_request`
 
 #### Scenario: Forked launch with thinking asks fewer questions
-- **WHEN** a launch inherits context and `subagents.forkedLaunch` is `thinking`
+- **WHEN** a launch's context is `fork` and `subagents.forkLaunch` is `thinking`
 - **THEN** the request asks exactly `effort` and `risky`
 
 #### Scenario: Service launch content
