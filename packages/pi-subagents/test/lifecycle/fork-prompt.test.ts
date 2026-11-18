@@ -91,6 +91,20 @@ const parentOnlyExtension: ExtensionFactory = (pi) => {
   });
 };
 
+/** Registers the tool in `session_start` with an exposure the model cannot call. */
+const lateHiddenExtension: ExtensionFactory = (pi) => {
+  pi.on("session_start", () => {
+    pi.registerTool({
+      name: EXTENSION_TOOL,
+      label: EXTENSION_TOOL,
+      description: "A tool from an excluded package.",
+      parameters: Type.Object({ n: Type.Number() }),
+      exposure: "hidden",
+      execute: async () => ({ content: [{ type: "text" as const, text: "HIDDEN-RAN" }], details: undefined }),
+    });
+  });
+};
+
 describe("fork child (real SDK loader and session)", () => {
   let root: string;
   let cwd: string;
@@ -137,7 +151,7 @@ describe("fork child (real SDK loader and session)", () => {
   }
 
   /** Run one parent turn, then fork it; return the parent, the fork, and the factory's mocks. */
-  async function parentThenFork(o: { parentOnly?: boolean; late?: boolean; grants?: string[]; onToolFacts?: (f: unknown) => void } = {}) {
+  async function parentThenFork(o: { parentOnly?: boolean; late?: boolean | "hidden"; grants?: string[]; onToolFacts?: (f: unknown) => void } = {}) {
     const { rt, model } = await runtime();
     const settings = SettingsManager.create(cwd, agentDir);
     const parentLoader = new DefaultResourceLoader({
@@ -185,7 +199,7 @@ describe("fork child (real SDK loader and session)", () => {
           ...opts,
           noExtensions: true,
           noSkills: true,
-          extensionFactories: [...(opts.extensionFactories ?? []), ...(o.late ? [lateExtension] : [])],
+          extensionFactories: [...(opts.extensionFactories ?? []), ...(o.late ? [o.late === "hidden" ? lateHiddenExtension : lateExtension] : [])],
         }),
     );
     io.deriveSessionDir.mockReturnValue(join(root, "sessions"));
@@ -327,5 +341,22 @@ describe("fork child (real SDK loader and session)", () => {
     expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 2, blockedToolCount: 3 });
     const [parentRequest, forkRequest] = loopback.requests;
     expect(JSON.stringify(forkRequest!.body.tools)).toBe(JSON.stringify(parentRequest!.body.tools));
+  });
+
+  it("a tool registered late with a hidden exposure stays refused, ungranted and blocked", async () => {
+    const onToolFacts = vi.fn();
+    const { fork, sub } = await parentThenFork({
+      parentOnly: true,
+      late: "hidden",
+      grants: [EXTENSION_TOOL, "grep"],
+      onToolFacts,
+    });
+    await sub.runTurnLoop("FORK-TASK", {});
+
+    expect(sub.forkGuard?.callable.has(EXTENSION_TOOL)).toBe(false);
+    const tool = fork.agent.state.tools.find((t) => t.name === EXTENSION_TOOL);
+    if (tool) await expect(tool.execute("c1", { n: 1 })).rejects.toThrow("not available");
+    // read and the granted grep run; edit, the SDK stub and the hidden tool are blocked.
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 2, blockedToolCount: 3 });
   });
 });

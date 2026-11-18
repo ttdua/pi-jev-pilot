@@ -18,6 +18,11 @@ const MODEL_CALLABLE: ReadonlySet<ToolExposure> = new Set([
 	"model-only",
 ]);
 
+/** Whether the model can call a tool of this exposure; an unset exposure is `direct`. */
+export function isModelCallable(exposure: ToolExposure | undefined): boolean {
+	return MODEL_CALLABLE.has(exposure ?? "direct");
+}
+
 /** The granted names the child registered with a model-callable exposure, in grant order. */
 export function checkGrants(
 	granted: readonly string[],

@@ -27,7 +27,7 @@ import { missingToolStubs, type RealToolLookup } from "#src/lifecycle/fork-stubs
 import type { ParentSnapshot, ToolDeclaration } from "#src/lifecycle/parent-snapshot";
 import { buildForkSession } from "#src/lifecycle/fork-session";
 import { forkCallableTools, forkGuardExtension, type ForkGuardState } from "#src/lifecycle/fork-guard";
-import { enforceForkGrants, enforceGrants } from "#src/seams/grant-check";
+import { enforceForkGrants, enforceGrants, isModelCallable } from "#src/seams/grant-check";
 import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import { type EffectiveFacts, effectiveFacts, launchIdentity, type ToolFacts } from "#src/seams/identity";
 import { blockedToolCount, finalToolNames } from "#src/seams/registry";
@@ -420,8 +420,12 @@ class ForkStubs {
 
   /** After bind: a stub whose tool registered is callable again if the agent allows it. */
   settle(session: AgentSession): void {
+    // A registered tool the model cannot call (`hidden`) is no real implementation here.
     const registered = new Map(
-      session.extensionRunner.getAllRegisteredTools().map((tool) => [tool.definition.name, tool.definition]),
+      session.extensionRunner
+        .getAllRegisteredTools()
+        .filter((tool) => isModelCallable(tool.definition.exposure))
+        .map((tool) => [tool.definition.name, tool.definition]),
     );
     this.lookup = (name) => registered.get(name);
     for (const name of this.declared) {
