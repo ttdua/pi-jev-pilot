@@ -128,10 +128,10 @@ export function bodyWith(tier: string, probabilities: Record<string, number>, ef
 }
 export const ok = (b: unknown): JevOutcome => ({ kind: "ok", body: b, ms: 1 });
 
-/** An agent snapshot as the executor's registry returns it; `general-purpose` by default. */
+/** An agent snapshot as the executor's registry returns it; `general` by default. */
 export function agentSnapshot(over: Partial<AgentTypeSnapshot> = {}): AgentTypeSnapshot {
   return {
-    name: "general-purpose",
+    name: "general",
     source: "builtin",
     description: "General-purpose agent",
     instructions: "",

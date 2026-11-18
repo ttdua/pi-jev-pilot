@@ -147,6 +147,11 @@ describe("snapshot element validation", () => {
     });
   }
 
+  test("accepts a package-source agent", () => {
+    const ok = load({ v: 1, tools: [], agents: [{ ...agent, source: "package" }] });
+    expect(ok.agents[0]!.source).toBe("package");
+  });
+
   test("accepts well-formed elements", () => {
     const ok = load({
       v: 1,

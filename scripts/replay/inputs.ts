@@ -47,7 +47,7 @@ function isLocked(v: unknown): boolean {
   return Array.isArray(v) && v.every((f) => (LOCKABLE_FIELDS as readonly unknown[]).includes(f));
 }
 
-const AGENT_SOURCES: readonly unknown[] = ["project", "global", "builtin"];
+const AGENT_SOURCES: readonly unknown[] = ["project", "global", "builtin", "package"];
 
 function hasAgentStrings(v: Rec): boolean {
   return (
