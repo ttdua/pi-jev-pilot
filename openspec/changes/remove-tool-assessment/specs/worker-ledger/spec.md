@@ -1,0 +1,89 @@
+## ADDED Requirements
+
+### Requirement: Worker decision fields
+The line SHALL carry the route fields: `score` when scored; `rubric` and `expertOffered` whenever `tier` was asked; `tier` and `fallback` as a tier or `slot::<name>`; and `tierP` keyed by every offered target Jev returned. It SHALL also carry `effectiveModel` and `effectiveThinking` as joined from the executor.
+
+#### Scenario: Routed fields
+- **WHEN** a launch is routed by rule `cut` to `balanced` with thinking `high`, with score 1.3, and the caller asked for `fixture/fixture-main`
+- **THEN** the line has `tier` `balanced`, `reason` `cut`, `score` 1.3, `rubric` 2, `model` the `balanced` model, `effort` `high` and `callerModel` `fixture/fixture-main`
+
+#### Scenario: Expert offered recorded
+- **WHEN** all four tiers are offered and the launch is routed
+- **THEN** the line has `expertOffered` true
+
+#### Scenario: Expert switched off recorded
+- **WHEN** the `expert` switch is off and the launch is routed
+- **THEN** the line has `expertOffered` false
+
+#### Scenario: Fallback recorded
+- **WHEN** a launch cascades from `deep` to `balanced`
+- **THEN** the line has `tier` `balanced` and `fallback` `deep`
+
+#### Scenario: Nothing could run recorded
+- **WHEN** rule `cut` decides `balanced` and no tier from `balanced` down can run
+- **THEN** the line has `tier` `balanced`, `reason` `cut`, `fallback` `balanced`, and no `model` or `effort`
+
+#### Scenario: Thinking-only recorded
+- **WHEN** a forked launch with the setting `thinking` is asked and thinking `high` is written
+- **THEN** the line has `answered` true, `reason` `untouched`, `effort` `high`, and no `tier`, `model`, `score` or `rubric`
+
+#### Scenario: Untouched recorded
+- **WHEN** a launch whose agent locks both `model` and `thinking` completes
+- **THEN** the line has `reason` `untouched`, `answered` false, and no `tier`, `model`, `score` or `rubric`
+
+#### Scenario: Tier asked, nothing decided
+- **WHEN** tiers are offered, Jev answers `effort` but not `tier`, and no target is decided
+- **THEN** the line has `reason` `untouched`, `rubric` 2, `expertOffered`, and no `tier` or `score`
+
+#### Scenario: Locked recorded
+- **WHEN** a launch's agent locks `model`
+- **THEN** the line has `locked` true and no `model`
+
+#### Scenario: Not locked
+- **WHEN** a launch's agent locks nothing and the launch is not a service launch naming a model
+- **THEN** the line has no `locked` field
+
+#### Scenario: Slot decision recorded
+- **WHEN** a launch is routed to slot `reviewer` with thinking `high`
+- **THEN** the line has `tier` `slot::reviewer`, `reason` `slot`, `model` the slot's model, `effort` `high`, and `tierP` with a `slot::reviewer` key
+
+#### Scenario: Slot fallback recorded
+- **WHEN** a launch decided for slot `reviewer` falls back to `balanced`
+- **THEN** the line has `tier` `balanced`, `reason` `slot` and `fallback` `slot::reviewer`, and it passes the ledger schema
+
+### Requirement: Worker request fields
+The line SHALL carry `mode` (captured at classification, see `worker-routing`), `agent`, `briefChars` (the brief's code points), the raw `tierP`, `effortP` and `risky`, and `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent.
+
+#### Scenario: Mode recorded
+- **WHEN** a launch is classified while the mode is `budget`
+- **THEN** its line has `mode` `budget`
+
+#### Scenario: Miss recorded
+- **WHEN** Jev times out for a launch
+- **THEN** the line has `answered` false, `miss` `timeout`, `reason` `miss`, `rubric` 2, `expertOffered` as offered, and no `tier` or `score`
+
+### Requirement: Retired worker fields not written
+New `worker` lines MUST NOT carry `expertNeeded`, `toolsScored`, `toolsFlagged` or `toolsGranted`.
+
+#### Scenario: No expert needed field
+- **WHEN** any new worker line is written
+- **THEN** it has no `expertNeeded`
+
+#### Scenario: No tool counts
+- **WHEN** a routed launch completes, and when a launch resumes an earlier worker and completes
+- **THEN** the routed launch's line has no `toolsScored`, `toolsFlagged` or `toolsGranted`, and no line is written for the resume
+
+### Requirement: Worker line holds no text
+The `worker` line MUST NOT contain the brief, the description, tool names or tool arguments.
+
+#### Scenario: No prompt text
+- **WHEN** a launch with a brief containing a unique marker is recorded
+- **THEN** no ledger file contains that marker
+
+## REMOVED Requirements
+
+### Requirement: Decision fields
+
+**Reason**: Restated under a new name because tool assessment is removed and its count scenarios no longer apply; OpenSpec cannot drop a scenario through MODIFIED.
+
+**Migration**: Replaced by "Worker decision fields" in this capability.
