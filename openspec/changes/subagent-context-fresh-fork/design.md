@@ -117,7 +117,7 @@ The entries are copied from the parent's live branch, not from the session file,
 
 The spike (plan task 1) confirms which fields each `pi-ai` provider sends.
 
-**System prompt.** `systemPromptOverride: () => parentSystemPrompt`, unchanged. Context files and extension prompt sections stay as Pi builds them, but the override returns the parent text.
+**System prompt.** The fork's internal extension returns `{ systemPrompt: parentSystemPrompt }` from `before_agent_start` on every run (Pi's forced-prompt projection), so each request's leading system message is the parent's text. *Changed at Task 4:* the planned `systemPromptOverride: () => parentSystemPrompt` does not work on SDK 1.5.0, which treats the override as the preamble and still renders its own `<cwd>` section after it; the fork's system message then differed from the parent's. The fork sets no `systemPromptOverride`.
 
 **Tools.** The parent's tool names are the session's `tools`.
 
