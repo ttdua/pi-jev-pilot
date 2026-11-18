@@ -13,12 +13,12 @@ Run the spike with model `9router/gpt-6-luna`, both for the agent doing this gro
 
 Blocked by: 1
 
-- [ ] 2.1 `ContextMode` type and `context` on `AgentConfig`, `AgentInvocation`, the record and `LaunchRequest`; remove `promptMode` and `inheritContext` (`types.ts`, `seams/launch-request.ts`, `seams/launch-gate.ts`).
-- [ ] 2.2 Frontmatter `context` parsing, the `inherit_context` alias, `prompt_mode` ignored, invalid-value warning, and the once-per-file-per-load warning (`config/custom-agents.ts`, `config/default-agents.ts`, `config/agent-types.ts`).
-- [ ] 2.3 Resolution order (locked agent, call, deprecated call field, agent, `fresh`) with source tracking, plus `context` in the lock list (`config/invocation-config.ts`, `seams/locked-launch.ts`).
-- [ ] 2.4 `subagent` tool parameter `context`, the `inherit_context` alias with a once-per-session warning, and the updated guideline text (`tools/agent-tool.ts`, `tools/spawn-config.ts`).
-- [ ] 2.5 Service `spawn(..., { context })`, the `inheritContext` alias, and a validation error for invalid values (`service/service.ts`, `service/service-adapter.ts`).
-- [ ] 2.6 Agent snapshot `context` (`seams/registry.ts`).
+- [x] 2.1 `ContextMode` type and `context` on `AgentConfig`, `AgentInvocation`, the record and `LaunchRequest`; remove `promptMode` and `inheritContext` (`types.ts`, `seams/launch-request.ts`, `seams/launch-gate.ts`).
+- [x] 2.2 Frontmatter `context` parsing, the `inherit_context` alias, `prompt_mode` ignored, invalid-value warning, and the once-per-file-per-load warning (`config/custom-agents.ts`, `config/default-agents.ts`, `config/agent-types.ts`).
+- [x] 2.3 Resolution order (locked agent, call, deprecated call field, agent, `fresh`) with source tracking, plus `context` in the lock list (`config/invocation-config.ts`, `seams/locked-launch.ts`).
+- [x] 2.4 `subagent` tool parameter `context`, the `inherit_context` alias with a once-per-session warning, and the updated guideline text (`tools/agent-tool.ts`, `tools/spawn-config.ts`).
+- [x] 2.5 Service `spawn(..., { context })`, the `inheritContext` alias, and a validation error for invalid values (`service/service.ts`, `service/service-adapter.ts`).
+- [x] 2.6 Agent snapshot `context` (`seams/registry.ts`).
 
 ## 3. Executor: fresh prompt
 
