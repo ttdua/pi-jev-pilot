@@ -24,9 +24,9 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 Fresh path in `lifecycle/create-subagent-session.ts`: context files enabled for the child's cwd, `systemPromptOverride: (base) => base + header + body`, `appendSystemPromptOverride: () => []`.
-- [ ] 3.2 Replace `buildAgentPrompt` with a fresh composer; delete the inherited-identity, portable and `genericBase` code (`session/prompts.ts`, `session/session-config.ts`, and `session/project-context.ts` if unused).
-- [ ] 3.3 Tests: no parent marker, project `AGENTS.md` present, `APPEND_SYSTEM.md` applied once, body last, no parent conversation.
+- [x] 3.1 Fresh path in `lifecycle/create-subagent-session.ts`: context files enabled for the child's cwd, `systemPromptOverride: (base) => base + header + body`, `appendSystemPromptOverride: () => []`.
+- [x] 3.2 Replace `buildAgentPrompt` with a fresh composer; delete the inherited-identity, portable and `genericBase` code (`session/prompts.ts`, `session/session-config.ts`, and `session/project-context.ts` if unused).
+- [x] 3.3 Tests: no parent marker, project `AGENTS.md` present, `APPEND_SYSTEM.md` applied once, body last, no parent conversation.
 
 ## 4. Executor: fork session
 
