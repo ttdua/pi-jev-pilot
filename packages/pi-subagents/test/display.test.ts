@@ -6,7 +6,8 @@ import {
   formatRunDuration,
   formatSessionTokens,
   getDisplayName,
-  getPromptModeLabel,
+  buildInvocationTags,
+  getContextLabel,
   modelLabel,
   type Theme,
 } from "#src/ui/display";
@@ -61,13 +62,24 @@ describe("getDisplayName", () => {
   });
 });
 
-describe("getPromptModeLabel", () => {
-  it("returns 'fork' for a forked invocation", () => {
-    expect(getPromptModeLabel({ context: "fork" })).toBe("fork");
+describe("getContextLabel", () => {
+  it("returns 'fork' for a fork", () => {
+    expect(getContextLabel("fork")).toBe("fork");
   });
 
-  it("returns undefined for a fresh invocation", () => {
-    expect(getPromptModeLabel({ context: "fresh" })).toBeUndefined();
+  it("returns 'fork → fresh' for a fresh run that fell back from a fork", () => {
+    expect(getContextLabel("fresh", "no-parent-session")).toBe("fork → fresh");
+  });
+
+  it("returns undefined for a fresh run", () => {
+    expect(getContextLabel("fresh")).toBeUndefined();
+  });
+});
+
+describe("buildInvocationTags", () => {
+  it("never emits 'inherit context'", () => {
+    const { tags } = buildInvocationTags({ context: "fork", runInBackground: true, maxTurns: 9 });
+    expect(tags).toEqual(["background", "max turns: 9"]);
   });
 });
 

@@ -380,8 +380,8 @@ describe("SubagentsServiceAdapter — spawn", () => {
       const mgr = createManagerStub();
       const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub(), NO_AGENT_TYPES);
 
-      expect(() => svc.spawn("Explore", "task", { context: "twin" as never })).toThrow(
-        'Invalid context "twin": expected "fresh" or "fork".',
+      expect(() => svc.spawn("Explore", "task", { context: "nested" as never })).toThrow(
+        'Invalid context "nested": expected "fresh" or "fork".',
       );
       expect(mgr.spawn).not.toHaveBeenCalled();
     });

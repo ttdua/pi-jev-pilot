@@ -151,7 +151,7 @@ describe("TranscriptPane", () => {
     it("never paints a row wider than it was given", () => {
       const source = fakeSource({ sessionModel: () => SONNET_HIGH });
       for (const width of [6, 20, 57, 80]) {
-        const pane = makePane({ source, heading: { name: "Agent", modeLabel: "twin", description: "Refactor the auth module" } });
+        const pane = makePane({ source, heading: { name: "Agent", modeLabel: "fork", description: "Refactor the auth module" } });
         for (const line of pane.render(width)) expect(visibleWidth(line), `width ${width}`).toBeLessThanOrEqual(width);
       }
     });
@@ -170,12 +170,12 @@ describe("TranscriptPane", () => {
   });
 
   describe("header rule", () => {
-    const heading: EntryHeading = { name: "Agent", modeLabel: "twin", description: "Refactor auth" };
+    const heading: EntryHeading = { name: "Agent", modeLabel: "fork", description: "Refactor auth" };
     const headerAt = (width: number, sessionModel: SessionModel = SONNET_HIGH): string =>
       stripAnsi(makePane({ heading, source: fakeSource({ sessionModel: () => sessionModel }) }).render(width)[0] ?? "");
 
     it("names the agent, its mode, its task, its model, and its thinking level", () => {
-      expect(headerAt(80)).toBe(`── Agent (twin)  Refactor auth · anthropic/claude-sonnet-5 • high ${"─".repeat(14)}`);
+      expect(headerAt(80)).toBe(`── Agent (fork)  Refactor auth · anthropic/claude-sonnet-5 • high ${"─".repeat(14)}`);
     });
 
     it("says 'thinking off' rather than a bare 'off'", () => {
@@ -187,11 +187,11 @@ describe("TranscriptPane", () => {
     });
 
     it("drops the task first as the width shrinks", () => {
-      expect(headerAt(55)).toBe(`── Agent (twin) · anthropic/claude-sonnet-5 • high ${"─".repeat(4)}`);
+      expect(headerAt(55)).toBe(`── Agent (fork) · anthropic/claude-sonnet-5 • high ${"─".repeat(4)}`);
     });
 
     it("drops the model next, keeping the agent's name", () => {
-      expect(headerAt(30)).toBe(`── Agent (twin) ${"─".repeat(14)}`);
+      expect(headerAt(30)).toBe(`── Agent (fork) ${"─".repeat(14)}`);
     });
   });
 

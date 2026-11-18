@@ -344,9 +344,9 @@ Extra instructions.`);
     });
 
     it("declares nothing and warns for an invalid value", () => {
-      writeAgent("twinned", "---\ncontext: twin\n---\n\nBody.");
-      expect(loadCustomAgents(tmpDir).get("twinned")!.context).toBeUndefined();
-      const found = warnings().filter((w: string) => w.includes("twinned.md") && w.includes("context"));
+      writeAgent("nested", "---\ncontext: nested\n---\n\nBody.");
+      expect(loadCustomAgents(tmpDir).get("nested")!.context).toBeUndefined();
+      const found = warnings().filter((w: string) => w.includes("nested.md") && w.includes("context"));
       expect(found).toHaveLength(1);
     });
 

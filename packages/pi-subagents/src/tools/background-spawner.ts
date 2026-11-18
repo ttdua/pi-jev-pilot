@@ -3,8 +3,8 @@ import type { AgentSpawnConfig } from "#src/lifecycle/subagent-manager";
 import type { LaunchOrigin } from "#src/service/service";
 import { renderSpawnNotes, textResult } from "#src/tools/helpers";
 import type { ResolvedSpawnConfig, SpawnPresentation } from "#src/tools/spawn-config";
-import type { ParentSessionInfo, Subagent } from "#src/types";
-import type { AgentDetails } from "#src/ui/display";
+import type { ContextMode, ParentSessionInfo, Subagent } from "#src/types";
+import { type AgentDetails, getContextLabel } from "#src/ui/display";
 
 /** Narrow manager interface for the background spawner. */
 export interface BackgroundManagerDeps {
@@ -30,6 +30,9 @@ export interface BackgroundLaunch {
   displayName: string;
   description: string;
   detailBase: SpawnPresentation["detailBase"];
+  /** The run's resolved context and any fallback, from the run the launch created. */
+  context: ContextMode;
+  contextFallback?: "no-parent-session";
   /** Advisories that lead the result; omitted when the door has none. */
   notes?: readonly string[];
   outputFile?: string;
@@ -74,6 +77,8 @@ export function spawnBackground(
     displayName: identity.displayName,
     description: execution.description,
     detailBase: presentation.detailBase,
+    context: execution.context,
+    contextFallback: record?.contextFallback,
     notes,
     outputFile: record?.outputFile,
     queuePosition: isQueued ? { maxConcurrent: params.settings.maxConcurrent } : undefined,
@@ -91,6 +96,7 @@ export function renderBackgroundLaunch(launch: BackgroundLaunch) {
   // against it.
   const details: AgentDetails = {
     ...launch.detailBase,
+    modeLabel: getContextLabel(launch.context, launch.contextFallback),
     toolUses: 0,
     tokens: "",
     durationMs: 0,

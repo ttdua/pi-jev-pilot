@@ -28,6 +28,7 @@ function makeAgent(overrides: Partial<WidgetAgent> = {}): WidgetAgent {
 		toolUses: 5,
 		startedAt: 1000,
 		completedAt: 6000,
+		context: "fresh",
 		compactionCount: 0,
 		// Activity fields (folded from the former WidgetActivity)
 		turnBudget: { maxTurns: 10, used: 3, phase: "within" },
@@ -455,6 +456,33 @@ describe("renderWidgetLines", () => {
 		// Dim heading with open circle
 		expect(lines[0]).toContain("[dim:\u25cb]");
 		expect(lines[0]).toContain("[dim:Agents]");
+	});
+});
+
+describe("context label", () => {
+	const theme = stubTheme();
+	const facts = {
+		model: { provider: "openai", id: "gpt-6" },
+		thinkingLevel: "medium" as const,
+		toolFacts: { toolCount: 9, blockedToolCount: 2 },
+	};
+
+	it("shows '(fork)' after the name, then the bracket tag, on a running fork", () => {
+		const agent = makeAgent({ status: "running", completedAt: undefined, context: "fork", ...facts });
+		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
+		expect(header).toContain("**Agent** [dim:(fork)] [dim:[openai/gpt-6 · thinking: medium · 🔧9 · ⊘2]]  [muted:test task]");
+	});
+
+	it("shows '(fork → fresh)' after a fallback", () => {
+		const agent = makeAgent({ status: "running", completedAt: undefined, context: "fresh", contextFallback: "no-parent-session" });
+		const [header] = renderRunningLines(agent, testRegistry, 0, theme);
+		expect(header).toContain("[dim:(fork → fresh)]");
+	});
+
+	it("shows no context label on a fresh run's finished line", () => {
+		const line = renderFinishedLine(makeAgent({ context: "fresh" }), testRegistry, theme);
+		expect(line).not.toContain("(fork)");
+		expect(line).not.toContain("(fork → fresh)");
 	});
 });
 

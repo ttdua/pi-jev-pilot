@@ -101,9 +101,15 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/ui/agent-widget.test.ts` | edit | Tests that the widget snapshot carries thinking and tool facts into the rendered tag. |
 | `test/widget-renderer.test.ts` | edit | Tests for the run-facts tag on running and finished lines, and omission of unknown facts. |
 | `src/session/builtin-extensions.ts` | edit | Export `BUILTIN_EXTENSION_TOOL_NAMES`, the fixed tool names the built-in extensions supply; the `supplies` predicates reuse it. Selection behavior unchanged. |
-| `src/ui/display.ts` | edit | `AgentDetails` gains `modeLabel`, `thinking`, `toolCount`, `blockedToolCount`; `buildInvocationTags` no longer emits the thinking tag. |
-| `src/tools/spawn-config.ts` | edit | `detailBase` carries `modeLabel` and `thinking`; its `tags` hold invocation tags only. |
-| `src/tools/helpers.ts` | edit | `buildDetails` copies the live thinking and tool facts. |
+| `src/ui/display.ts` | edit | `AgentDetails` gains `modeLabel`, `thinking`, `toolCount`, `blockedToolCount`; `buildInvocationTags` no longer emits the thinking tag. `getContextLabel` replaces `getPromptModeLabel`: the label is read from the run (`fork`, `fork → fresh`), not the agent type. |
+| `src/tools/spawn-config.ts` | edit | `detailBase` carries `thinking`; its `tags` hold invocation tags only. The context label is set from the run, not here. |
+| `src/tools/helpers.ts` | edit | `buildDetails` copies the live thinking and tool facts and labels the run from its context. |
+| `src/tools/progress-stream.ts` | edit | The streamed details label the run from its context, read from the record. |
+| `src/tools/background-spawner.ts` | edit | A background launch labels the run from its context and fallback. |
+| `src/tools/agent-tool.ts` | edit | A background resume passes the resumed run's context to the launch report. |
+| `src/ui/agent-widget.ts` | edit | `toWidgetAgent` carries the record's `context` and `contextFallback` into the widget snapshot. |
+| `src/ui/session-navigation.ts` | edit | The navigator heading takes its context label from the live record. Persisted runs carry no context, so their heading shows none. |
+| `test/helpers/make-navigable.ts` | edit | Fixture carries `context` and `contextFallback`. |
 | `src/tools/progress-stream.ts` | edit | Streamed updates carry the record's live thinking and tool facts. |
 | `src/tools/result-renderer.ts` | edit | `renderStats` places mode label, thinking and tool parts in the existing order. |
 | `test/tools/result-renderer.test.ts` | edit | Run-facts order tests; thinking comes from `details.thinking`. |

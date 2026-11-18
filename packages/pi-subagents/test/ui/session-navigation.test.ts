@@ -71,6 +71,17 @@ describe("listNavigableAgents", () => {
       expect(entry.heading).toEqual({ name: "Agent", description: "Investigate the bug" });
     });
 
+    it("labels a fork's heading 'fork' and a fallen-back run 'fork → fresh'", () => {
+      const [fork] = listNavigableAgents([makeNavigable({ context: "fork" })], registry, []);
+      expect(fork.heading.modeLabel).toBe("fork");
+      const [fallback] = listNavigableAgents(
+        [makeNavigable({ context: "fresh", contextFallback: "no-parent-session" })],
+        registry,
+        [],
+      );
+      expect(fallback.heading.modeLabel).toBe("fork → fresh");
+    });
+
     it("carries no mode label for a replace-mode agent", () => {
       const [entry] = listNavigableAgents([makeNavigable({ type: "Explore", description: "Find auth files" })], registry, []);
       expect(entry.heading).toEqual({ name: "Explore", modeLabel: undefined, description: "Find auth files" });

@@ -1,9 +1,9 @@
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
 import type { ToolFacts } from "#src/seams/identity";
-import type { ThinkingLevel } from "#src/types";
+import type { ContextMode, ThinkingLevel } from "#src/types";
 import { getLifetimeTotal, type LifetimeUsage } from "#src/lifecycle/usage";
-import { type AgentDetails, formatTokens, type ModelIdentity, modelLabel } from "#src/ui/display";
+import { type AgentDetails, formatTokens, getContextLabel, type ModelIdentity, modelLabel } from "#src/ui/display";
 
 /** Build AgentDetails from a base + record-specific fields. */
 export function buildDetails(
@@ -25,11 +25,15 @@ export function buildDetails(
     /** The live thinking level; unknown until the session exists. */
     thinkingLevel?: ThinkingLevel;
     toolFacts?: ToolFacts;
+    /** The run's resolved context and any fallback, read from the record. */
+    context: ContextMode;
+    contextFallback?: "no-parent-session";
   },
   overrides?: Partial<AgentDetails>,
 ): AgentDetails {
   return {
     ...base,
+    modeLabel: getContextLabel(record.context, record.contextFallback),
     modelName: modelLabel(record.model) ?? base.modelName,
     thinking: record.thinkingLevel ?? base.thinking,
     toolCount: record.toolFacts?.toolCount,

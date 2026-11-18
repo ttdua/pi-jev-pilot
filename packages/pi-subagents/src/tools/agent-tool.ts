@@ -189,6 +189,8 @@ export class AgentTool {
 			displayName: config.identity.displayName,
 			description: config.execution.description,
 			detailBase: config.presentation.detailBase,
+			context: start.record.context,
+			contextFallback: start.record.contextFallback,
 			outputFile: start.record.outputFile,
 			queuePosition: queued ? { maxConcurrent: this.settings.maxConcurrent } : undefined,
 		});

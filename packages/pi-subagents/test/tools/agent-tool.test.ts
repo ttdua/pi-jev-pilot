@@ -106,7 +106,7 @@ describe("AgentTool — context", () => {
 		expect(schema).toContain('"context"');
 		expect(schema).toContain('"fresh"');
 		expect(schema).toContain('"fork"');
-		expect(Value.Check(def.parameters, { prompt: "p", description: "d", subagent_type: "Explore", context: "twin" })).toBe(false);
+		expect(Value.Check(def.parameters, { prompt: "p", description: "d", subagent_type: "Explore", context: "nested" })).toBe(false);
 		expect(Value.Check(def.parameters, { prompt: "p", description: "d", subagent_type: "Explore", context: "fork" })).toBe(true);
 	});
 

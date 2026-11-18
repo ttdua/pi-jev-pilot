@@ -44,6 +44,7 @@ describe("renderBackgroundLaunch", () => {
       displayName: "Explore",
       description: "answer",
       detailBase,
+      context: "fresh",
       outputFile: "/sessions/agent-7.jsonl",
     });
 
@@ -74,6 +75,7 @@ describe("renderBackgroundLaunch", () => {
       displayName: "Explore",
       description: "answer",
       detailBase,
+      context: "fresh",
     });
 
     expect(textOf(result)).toBe(

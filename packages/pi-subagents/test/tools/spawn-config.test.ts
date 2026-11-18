@@ -221,7 +221,7 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
     );
     if ("error" in result) return;
     expect(result.presentation.detailBase.thinking).toBe("high");
-    expect(result.presentation.agentTags).toEqual(["fork", "thinking: high"]);
+    expect(result.presentation.agentTags).toEqual(["thinking: high"]);
     expect(result.presentation.detailBase.tags).toBeUndefined();
   });
 
@@ -245,9 +245,9 @@ describe("resolveSpawnConfig — detailBase and tags", () => {
       defaultSettings,
     );
     if ("error" in result) return;
-    expect(result.presentation.agentTags).toContain("fork");
-    expect(result.presentation.detailBase.modeLabel).toBe("fork");
-    expect(result.presentation.detailBase.tags ?? []).not.toContain("fork");
+    // The label comes from the run's record (see buildDetails), not from the spawn config.
+    expect(result.presentation.agentTags).not.toContain("fork");
+    expect(result.presentation.detailBase.modeLabel).toBeUndefined();
   });
 
   it("sets tags to undefined on detailBase for replace-mode agents with no invocation overrides", () => {

@@ -20,7 +20,6 @@ import {
   type AgentDetails,
   buildInvocationTags,
   getDisplayName,
-  getPromptModeLabel,
   modelLabel,
 } from "#src/ui/display";
 
@@ -155,21 +154,16 @@ export function resolveSpawnConfig(
     runInBackground,
   };
 
-  const modeLabel = getPromptModeLabel(agentInvocation);
   const { tags: invocationTags } = buildInvocationTags(agentInvocation);
-  // agentTags keeps its historical content for its other readers: mode label, thinking, invocation tags.
-  const agentTags = [
-    ...(modeLabel ? [modeLabel] : []),
-    ...(thinking ? [`thinking: ${thinking}`] : []),
-    ...invocationTags,
-  ];
+  const agentTags = [...(thinking ? [`thinking: ${thinking}`] : []), ...invocationTags];
 
+  // The context label is not set here: a fork may fall back to fresh only once the
+  // run exists, so buildDetails reads it from the record.
   const detailBase = {
     displayName,
     description: params.description as string,
     subagentType,
     modelName,
-    modeLabel,
     thinking,
     tags: invocationTags.length > 0 ? invocationTags : undefined,
   };

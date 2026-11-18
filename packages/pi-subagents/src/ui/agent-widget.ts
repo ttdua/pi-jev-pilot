@@ -230,6 +230,8 @@ export class AgentWidget implements SubagentManagerObserver {
       responseText: record.responseText,
       contextPercent: record.getContextPercent(),
       model: record.model,
+      context: record.context,
+      contextFallback: record.contextFallback,
       thinkingLevel: record.thinkingLevel,
       toolFacts: record.toolFacts,
     };

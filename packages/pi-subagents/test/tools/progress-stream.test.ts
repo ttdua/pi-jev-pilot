@@ -81,6 +81,8 @@ describe("startProgressStream", () => {
 			responseText: "",
 			thinkingLevel: "low",
 			toolFacts: { toolCount: 4, blockedToolCount: 1 },
+			context: "fresh",
+			contextFallback: undefined,
 		};
 
 		const stop = startProgressStream({

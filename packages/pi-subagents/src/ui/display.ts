@@ -9,7 +9,7 @@ import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import type { SubagentStatus } from "#src/lifecycle/subagent-state";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
-import type { AgentInvocation, SubagentType, ThinkingLevel } from "#src/types";
+import type { AgentInvocation, ContextMode, SubagentType, ThinkingLevel } from "#src/types";
 import { GLYPHS } from "#src/ui/glyphs";
 
 // ---- Types ----
@@ -40,7 +40,7 @@ export interface AgentDetails {
   spinnerFrame?: number;
   /** The `provider/id` of the model the agent runs (e.g. "anthropic/claude-haiku-4-5"). */
   modelName?: string;
-  /** The prompt-mode label (e.g. "twin"); absent for replace-mode agents. */
+  /** The context label: "fork", or "fork → fresh" after a fallback; absent for a fresh run. */
   modeLabel?: string;
   /** The run's thinking level: the record's live value, else the launch's resolved one. */
   thinking?: ThinkingLevel;
@@ -48,7 +48,7 @@ export interface AgentDetails {
   toolCount?: number;
   /** Tools in the run's total that the child cannot call; absent until its session exists. */
   blockedToolCount?: number;
-  /** Invocation tags (e.g. ["inherit context", "background", "max turns: 9"]). */
+  /** Invocation tags (e.g. ["background", "max turns: 9"]). */
   tags?: string[];
   agentId?: string;
   error?: string;
@@ -168,11 +168,14 @@ export function getDisplayName(type: SubagentType, registry: AgentConfigLookup):
 }
 
 /**
- * Short label for a launch's context: "fork" for a fork, nothing for fresh.
- * TODO(subagent-context-fresh-fork task 5): becomes getContextLabel(context, fallback).
+ * Context label for a run: "fork" for a fork, "fork → fresh" for a fork that fell back, nothing for fresh.
  */
-export function getPromptModeLabel(invocation: AgentInvocation | undefined): string | undefined {
-  return invocation?.context === "fork" ? "fork" : undefined;
+export function getContextLabel(
+  context: ContextMode,
+  fallback?: "no-parent-session",
+): "fork" | "fork → fresh" | undefined {
+  if (context === "fork") return "fork";
+  return fallback ? "fork → fresh" : undefined;
 }
 
 /** Mode label and thinking are not included — they are separate run facts. */

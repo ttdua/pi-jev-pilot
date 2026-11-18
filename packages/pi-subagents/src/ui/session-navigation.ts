@@ -16,8 +16,8 @@ import { buildSessionContext, parseSessionEntries, type SessionEntry, type ToolD
 import type { AgentConfigLookup } from "#src/config/agent-types";
 import { isRunningStatus, type SubagentStatus } from "#src/lifecycle/subagent-state";
 import type { PersistedRunSummary } from "#src/persisted-record";
-import type { AgentSessionEvent, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
-import { formatRunDuration, getDisplayName, getPromptModeLabel, type ModelIdentity, type RunTiming } from "#src/ui/display";
+import type { AgentSessionEvent, ContextMode, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
+import { formatRunDuration, getContextLabel, getDisplayName, type ModelIdentity, type RunTiming } from "#src/ui/display";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -37,6 +37,9 @@ export interface NavigableSubagent {
   readonly agentMessages: readonly SessionMessage[];
   /** Persisted transcript path, retained after the live session is released. */
   readonly outputFile: string | undefined;
+  /** The run's resolved context and any fallback, for the heading's context label. */
+  readonly context: ContextMode;
+  readonly contextFallback: "no-parent-session" | undefined;
   /** The model the agent runs, when known. */
   readonly model: ModelIdentity | undefined;
   /** The thinking level the agent runs at, when known. */
@@ -60,7 +63,7 @@ export type NavigationEntry =
 /** Who produced a transcript, for the pane's header. Fixed for the life of the entry. */
 export interface EntryHeading {
   readonly name: string;
-  /** `twin` for an append-mode agent; undefined otherwise. */
+  /** `fork` or `fork → fresh`; undefined for a fresh run. */
   readonly modeLabel: string | undefined;
   readonly description: string;
 }
@@ -195,10 +198,10 @@ export function liveSource(record: NavigableSubagent): TranscriptSource {
   };
 }
 
-function buildHeading(fields: Pick<LabelFields, "type" | "description">, registry: AgentConfigLookup): EntryHeading {
+function buildHeading(fields: Pick<LabelFields, "type" | "description"> & Partial<Pick<NavigableSubagent, "context" | "contextFallback">>, registry: AgentConfigLookup): EntryHeading {
   return {
     name: getDisplayName(fields.type, registry),
-    modeLabel: getPromptModeLabel(undefined) /* TODO(subagent-context-fresh-fork task 5): read the record context */,
+    modeLabel: fields.context ? getContextLabel(fields.context, fields.contextFallback) : undefined,
     description: fields.description,
   };
 }
