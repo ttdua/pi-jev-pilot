@@ -137,24 +137,29 @@ function load(dir: string): Loaded {
   }
   const issues: Issue[] = [];
   const config = configValidator()(raw, "", issues);
+  reportBothForkKeys(raw, issues);
   if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
-  const notices = applyDeprecatedAlias(config, issues);
-  if (issues.length > 0) return { kind: "invalid", issues };
+  const notices = applyDeprecatedAlias(config);
   return { kind: "ok", present: true, config, raw: raw as Record<string, unknown>, notices };
 }
 
-/** Moves the deprecated `subagents.forkedLaunch` onto `forkLaunch`; both present is an issue. */
-function applyDeprecatedAlias(config: Config, issues: Issue[]): string[] {
+/** Both fork keys in the raw `subagents` object is a problem at the deprecated key, whatever else is wrong. */
+function reportBothForkKeys(raw: unknown, issues: Issue[]): void {
+  if (typeof raw !== "object" || raw === null) return;
+  const sub = (raw as { subagents?: unknown }).subagents;
+  if (typeof sub !== "object" || sub === null || Array.isArray(sub)) return;
+  const has = (k: string): boolean => Object.prototype.hasOwnProperty.call(sub, k);
+  if (!has("forkLaunch") || !has("forkedLaunch")) return;
+  issues.push({
+    path: "subagents.forkedLaunch",
+    message: "expected only one of subagents.forkLaunch and the deprecated subagents.forkedLaunch",
+  });
+}
+
+/** Moves the deprecated `subagents.forkedLaunch` onto `forkLaunch`; both keys are rejected before this runs. */
+function applyDeprecatedAlias(config: Config): string[] {
   const sub = config.subagents;
   if (sub?.forkedLaunch === undefined) return [];
-  if (sub.forkLaunch !== undefined) {
-    issues.push({
-      path: "subagents.forkedLaunch",
-      message:
-        "expected only one of subagents.forkLaunch and the deprecated subagents.forkedLaunch",
-    });
-    return [];
-  }
   sub.forkLaunch = sub.forkedLaunch;
   delete sub.forkedLaunch;
   return ["subagents.forkedLaunch is deprecated; rename it to subagents.forkLaunch"];

@@ -439,6 +439,14 @@ describe("Routing fails open", () => {
     expect(h.lines[0]).toMatchObject({ reason: "miss" });
   });
 
+  test("Jev times out for a fork with thinking", async () => {
+    const h = harness({ forkLaunch: "thinking" });
+    h.setScript(() => ({ kind: "miss", miss: "timeout", reason: "t", ms: 1500 }));
+    const { adjustment } = await runToCompletion(h, { context: "fork" });
+    expect(adjustment).toBeUndefined();
+    expect(h.lines[0]).toMatchObject({ reason: "miss" });
+  });
+
   test("Unreadable answers", async () => {
     const h = harness();
     h.setScript(() => ok({ nope: 1 }));

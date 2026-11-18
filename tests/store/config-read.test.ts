@@ -341,6 +341,22 @@ describe("readConfig", () => {
     expect(paths(r)).toEqual(["subagents.forkedLaunch"]);
   });
 
+  test("Both keys present with one invalid", () => {
+    const r = readJson({ subagents: { forkLaunch: "skip", forkedLaunch: "thinking" } });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r).sort()).toEqual(["subagents.forkLaunch", "subagents.forkedLaunch"]);
+  });
+
+  test("Both keys present with another field invalid", () => {
+    const r = readJson({
+      subagents: { forkLaunch: "thinking", forkedLaunch: "untouched" },
+      tools: { mode: "remove" },
+    });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r).sort()).toEqual(["subagents.forkedLaunch", "tools.mode"]);
+    expect("config" in r).toBe(false);
+  });
+
   test("Forked launch setting rejected", () => {
     expect(paths(readJson({ subagents: { forkLaunch: "skip" } }))).toEqual([
       "subagents.forkLaunch",
