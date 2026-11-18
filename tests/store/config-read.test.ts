@@ -71,7 +71,7 @@ const slot = (name: string) => ({ name, model: "9router/gpt-6.1-sol", when: "Cho
 describe("readConfig", () => {
   test("Valid full example", () => {
     const r = readText(FULL);
-    expect(r).toEqual({ kind: "ok", present: true, config: JSON.parse(FULL) });
+    expect(r).toEqual({ kind: "ok", present: true, config: JSON.parse(FULL), notices: [] });
   });
 
   test("Several problems reported together", () => {
@@ -126,7 +126,7 @@ describe("readConfig", () => {
 
   test("No file", () => {
     withDir((dir) => {
-      expect(readConfig(dir)).toEqual({ kind: "ok", present: false, config: {} });
+      expect(readConfig(dir)).toEqual({ kind: "ok", present: false, config: {}, notices: [] });
     });
   });
 
@@ -137,6 +137,7 @@ describe("readConfig", () => {
       kind: "ok",
       present: true,
       config: { review: { cli: "opencode", enabled: true } },
+      notices: [],
     });
   });
 
@@ -238,7 +239,7 @@ describe("readConfig", () => {
   test("Router-style model keeps the other sections", () => {
     const full = JSON.parse(FULL);
     full.classifier.model = "openrouter/perplexity/pplx-decider-v1.3:free";
-    expect(readJson(full)).toEqual({ kind: "ok", present: true, config: full });
+    expect(readJson(full)).toEqual({ kind: "ok", present: true, config: full, notices: [] });
   });
 
   test("Tier without provider rejected", () => {
@@ -316,14 +317,33 @@ describe("readConfig", () => {
   });
 
   test("Forked launch setting accepted", () => {
+    const r = readJson({ subagents: { forkLaunch: "thinking" } });
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.config.subagents?.forkLaunch).toBe("thinking");
+      expect(r.notices).toEqual([]);
+    }
+  });
+
+  test("Deprecated forkedLaunch accepted", () => {
     const r = readJson({ subagents: { forkedLaunch: "thinking" } });
     expect(r.kind).toBe("ok");
-    if (r.kind === "ok") expect(r.config.subagents?.forkedLaunch).toBe("thinking");
+    if (r.kind === "ok") {
+      expect(r.config.subagents).toEqual({ forkLaunch: "thinking" });
+      expect(r.notices).toHaveLength(1);
+      expect(r.notices[0]).toContain("subagents.forkLaunch");
+    }
+  });
+
+  test("Both keys present", () => {
+    const r = readJson({ subagents: { forkLaunch: "thinking", forkedLaunch: "untouched" } });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r)).toEqual(["subagents.forkedLaunch"]);
   });
 
   test("Forked launch setting rejected", () => {
-    expect(paths(readJson({ subagents: { forkedLaunch: "skip" } }))).toEqual([
-      "subagents.forkedLaunch",
+    expect(paths(readJson({ subagents: { forkLaunch: "skip" } }))).toEqual([
+      "subagents.forkLaunch",
     ]);
     expect(paths(readJson({ subagents: { inheritContext: "skip" } }))).toEqual([
       "subagents.inheritContext",

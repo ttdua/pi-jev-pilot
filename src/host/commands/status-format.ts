@@ -63,6 +63,8 @@ export function formatStatus(
   problems.push(...issueLines(`local mode (${s.localMode.kind})`, s.localMode.issues));
   problems.push(...extra.map((p) => `  ${p}`));
   if (problems.length > 0) lines.push("problems:", ...problems);
+  if (s.config.valid) lines.push(...s.config.notices.map((n) => `notice: ${n}`));
+
   if (s.executor.kind === "present" && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");

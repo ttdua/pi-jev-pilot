@@ -99,6 +99,8 @@ interface ChildSessionCreatedEvent extends PublishedLaunchIdentity, EffectiveFac
      * siblings of the same parent occupy distinct keys. */
     sessionId: string;
     parentSessionId?: string;
+    /** The launch's resolved context; a fork's session id is still its own. */
+    context: ContextMode;
 }
 /** Payload for `subagents:child:bound`. */
 interface ChildBoundEvent extends PublishedLaunchIdentity {
@@ -222,12 +224,14 @@ type ResumeRefusal = "still-running" | "resume-queued" | "no-session" | "session
 type ThinkingLevel = SubagentThinkingLevel;
 /** Agent type: any string name (built-in defaults or user-defined). */
 type SubagentType = string;
+/** How a child starts: `fresh` is a new conversation, `fork` continues the parent's. */
+type ContextMode = "fresh" | "fork";
 
 /**
  * The fields a `subagent` tool caller may pass, spelled as the frontmatter key an
  * agent author writes rather than the camelCase `AgentConfig` property.
  */
-declare const LOCKABLE_FIELDS: readonly ["model", "thinking", "max_turns", "inherit_context", "run_in_background"];
+declare const LOCKABLE_FIELDS: readonly ["model", "thinking", "max_turns", "context", "run_in_background"];
 /** One field an agent file may withhold from its callers. */
 type LockableField = (typeof LOCKABLE_FIELDS)[number];
 
@@ -311,6 +315,10 @@ interface SubagentRecord {
     toolCount?: number;
     /** Tools in the run's total (parent's tools plus the child's own) that the child cannot call; absent until it binds. */
     blockedToolCount?: number;
+    /** The context the launch runs with, after any fallback. */
+    context: ContextMode;
+    /** Set when a fork from the agent file ran fresh because the parent had no session to copy. */
+    contextFallback?: "no-parent-session";
 }
 /**
  * Frozen, serializable snapshot of an agent definition as a launch resolves it.
@@ -332,7 +340,7 @@ interface AgentTypeSnapshot {
     locked?: true | readonly LockableField[];
     maxTurns?: number;
     runInBackground?: boolean;
-    inheritContext?: boolean;
+    context?: ContextMode;
 }
 
 /** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
@@ -363,7 +371,8 @@ interface LaunchRequest {
     };
     /** The lockable fields the agent locks; the policy cannot change them. */
     locked: readonly LockableField[];
-    inheritContext: boolean;
+    /** The resolved context, after any fallback. */
+    context: ContextMode;
     isBackground: boolean;
     toolSet: {
         /** The agent's declared tools, or `null` when it declares none. */
@@ -436,6 +445,9 @@ interface SpawnOptions {
      */
     maxTurns?: number;
     thinkingLevel?: string;
+    /** `fresh` (default) starts a new conversation; `fork` continues the parent's. Anything else makes `spawn` throw. */
+    context?: ContextMode;
+    /** @deprecated Use `context`. `true` means `fork`, `false` means `fresh`; `context` wins when both are given. */
     inheritContext?: boolean;
     foreground?: boolean;
     bypassQueue?: boolean;
@@ -516,4 +528,4 @@ declare function getSubagentsService(): SubagentsService | undefined;
 declare function unpublishSubagentsService(): void;
 
 export { SUBAGENT_EVENTS, getSubagentsService, publishSubagentsService, unpublishSubagentsService };
-export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSpawningEvent, LaunchAdjustment, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };
+export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };

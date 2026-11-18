@@ -62,7 +62,7 @@ describe("resolveSettings precedence", () => {
         skills: { inject: "suggest" },
         tools: { mode: "enforce" },
         state: { parentRequest: true },
-        subagents: { forkedLaunch: "thinking" },
+        subagents: { forkLaunch: "thinking" },
         review: { cli: "opencode", enabled: true },
       },
       state: {},
@@ -78,7 +78,7 @@ describe("resolveSettings precedence", () => {
     expect(s.skills.inject).toBe("suggest");
     expect(s.tools.mode).toBe("enforce");
     expect(s.state.parentRequest).toBe(true);
-    expect(s.subagents.forkedLaunch).toBe("thinking");
+    expect(s.subagents.forkLaunch).toBe("thinking");
     expect(s.review).toEqual({ cli: "opencode", enabled: true });
   });
 

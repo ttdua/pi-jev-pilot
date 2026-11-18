@@ -54,7 +54,7 @@ export default function (pi: ExtensionAPI): void {
           agentId: request.agentId,
           origin: request.origin.kind,
           bg: request.isBackground,
-          inherit: request.inheritContext,
+          inherit: request.context === "fork",
         },
       });
       if (script.delayMs !== undefined) await sleep(script.delayMs, signal);

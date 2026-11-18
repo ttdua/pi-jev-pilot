@@ -51,7 +51,7 @@ export const DEFAULTS = {
   skills: { inject: "content" },
   tools: { mode: "observe", grantAt: 0.8 },
   state: { parentRequest: false },
-  subagents: { forkedLaunch: "untouched" },
+  subagents: { forkLaunch: "untouched" },
   review: { cli: "codex", enabled: false },
   mode: "standard" as Mode,
   switches: {

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { BeforeAgentStartEvent } from "@earendil-works/pi-coding-agent";
 import { Value } from "typebox/value";
-import { CHILDREN_KEY } from "../../src/host/platform/child.ts";
+import { CHILDREN_KEY, CONTEXTS_KEY } from "../../src/host/platform/child.ts";
 import {
   hideReviewInChild,
   registerReviewTool,
@@ -165,6 +166,26 @@ describe("jev_review tool", () => {
     const c = calls.at(-1)!;
     expect(c.cmd).toBe("codex");
     expect(c.args).not.toContain("-m");
+  });
+});
+
+describe("hideReviewInChild in a fork", () => {
+  test("Declared but refused in a fork", async () => {
+    registry().add("fork-kid");
+    (globalThis as Record<symbol, Map<string, string> | undefined>)[CONTEXTS_KEY] = new Map([
+      ["fork-kid", "fork"],
+    ]);
+    const a = {
+      systemPromptOptions: { selectedTools: ["read", REVIEW_TOOL] },
+    } as never as BeforeAgentStartEvent;
+    hideReviewInChild(a, "fork-kid");
+    expect(a.systemPromptOptions?.selectedTools).toEqual(["read", REVIEW_TOOL]);
+    const calls: { cmd: string; args: string[] }[] = [];
+    const t = setupTool({ cli: "codex", enabled: true }, calls);
+    const r = await t.execute("1", { brief: "b" }, undefined, undefined, ctx("fork-kid"));
+    expect(r.isError).toBe(true);
+    expect(calls).toEqual([]);
+    delete (globalThis as Record<symbol, unknown>)[CONTEXTS_KEY];
   });
 });
 

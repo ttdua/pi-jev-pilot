@@ -20,18 +20,18 @@ describe("Effective launch fields", () => {
   const request = (over: Partial<Req> = {}): Req => ({
     origin: { kind: "tool", toolCallId: "call_1" },
     callerNamedModel: false,
-    inheritContext: false,
+    context: "fresh",
     isBackground: false,
     locked: [],
     ...over,
   });
 
-  test("inheritContext and runInBackground come from the request", () => {
-    const r = effectiveLaunch(request({ inheritContext: true, isBackground: true }));
-    expect(r.inheritContext).toBe(true);
+  test("context and runInBackground come from the request", () => {
+    const r = effectiveLaunch(request({ context: "fork", isBackground: true }));
+    expect(r.context).toBe("fork");
     expect(r.runInBackground).toBe(true);
     const plain = effectiveLaunch(request());
-    expect(plain.inheritContext).toBe(false);
+    expect(plain.context).toBe("fresh");
     expect(plain.runInBackground).toBe(false);
   });
 
@@ -54,7 +54,7 @@ describe("Effective launch fields", () => {
 
   test("Resume is not a launch field", () => {
     expect(Object.keys(effectiveLaunch(request())).sort()).toEqual(
-      ["inheritContext", "modelLocked", "runInBackground", "thinkingLocked"].sort(),
+      ["context", "modelLocked", "runInBackground", "thinkingLocked"].sort(),
     );
   });
 });

@@ -156,7 +156,7 @@ describe("Candidates and request", () => {
 
   test("Forked worker", async () => {
     const h = tools();
-    await h.launch({ inheritContext: true, prompt: "own prompt" });
+    await h.launch({ context: "fork", prompt: "own prompt" });
     const state = toolAsks(h)[0]!.state as { task: { brief: string } };
     expect(state.task.brief).toBe("own prompt");
   });

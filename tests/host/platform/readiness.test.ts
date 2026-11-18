@@ -20,6 +20,7 @@ const okConfig = (config: Config = {}): ConfigRead => ({
   kind: "ok",
   present: true,
   config,
+  notices: [],
 });
 const okState: StateRead = { kind: "missing", state: {} };
 const KEY = { TYPESAFE_API_KEY: "test-key" };

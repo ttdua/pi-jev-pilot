@@ -23,11 +23,14 @@ export function slotName(target: SlotTarget): string {
   return target.slice(SLOT_PREFIX.length);
 }
 
+/** How a child session starts: from scratch, or as a fork of the parent. */
+export type ContextMode = "fresh" | "fork";
+
 export const LOCKABLE_FIELDS = [
   "model",
   "thinking",
   "max_turns",
-  "inherit_context",
+  "context",
   "run_in_background",
 ] as const;
 
@@ -43,12 +46,12 @@ export type AgentFacts = {
   disallowedTools: readonly string[];
   maxTurns: number | null;
   runInBackground?: boolean;
-  inheritContext?: boolean;
+  context?: ContextMode;
   sets: { model: boolean; thinking: boolean };
 };
 
 export type EffectiveLaunch = {
-  inheritContext: boolean;
+  context: ContextMode;
   runInBackground: boolean;
   modelLocked: boolean;
   thinkingLocked: boolean;
@@ -62,7 +65,7 @@ export type LaunchRequestFacts = {
   origin: { kind: "tool"; toolCallId: string } | { kind: "service" };
   /** The caller named a model, rather than the agent's own `model` filling `requested.model`. */
   callerNamedModel: boolean;
-  inheritContext: boolean;
+  context: ContextMode;
   isBackground: boolean;
   locked: readonly LockableField[];
 };
@@ -76,7 +79,7 @@ function serviceModel(request: LaunchRequestFacts): boolean {
 export function effectiveLaunch(request: LaunchRequestFacts): EffectiveLaunch {
   const locks = (field: LockableField): boolean => request.locked.includes(field);
   return {
-    inheritContext: request.inheritContext,
+    context: request.context,
     runInBackground: request.isBackground,
     modelLocked: locks("model") || serviceModel(request),
     thinkingLocked: locks("thinking"),

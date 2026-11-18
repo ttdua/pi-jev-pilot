@@ -64,9 +64,10 @@ export function resolveStateSection(config: Config): Settings["state"] {
 
 export function resolveSubagents(config: Config): Settings["subagents"] {
   return {
-    forkedLaunch:
+    forkLaunch:
+      config.subagents?.forkLaunch ??
       config.subagents?.forkedLaunch ??
-      (DEFAULTS.subagents.forkedLaunch as "untouched" | "thinking"),
+      (DEFAULTS.subagents.forkLaunch as "untouched" | "thinking"),
   };
 }
 

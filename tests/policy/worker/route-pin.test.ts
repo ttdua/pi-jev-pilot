@@ -8,7 +8,7 @@ import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 import {
   launchKind,
   routeLaunch,
-  type ForkedLaunch,
+  type ForkLaunch,
   type Route,
   type RouteInput,
 } from "../../../src/policy/worker/route.ts";
@@ -17,7 +17,7 @@ const ALL: readonly TierName[] = ["fast", "balanced", "deep"];
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
-    inheritContext: false,
+    context: "fresh",
     runInBackground: false,
     modelLocked: false,
     thinkingLocked: false,
@@ -58,7 +58,7 @@ function build(
     launch: launch(),
     offered: ALL,
     cuts: SEED_CUTPOINTS.standard,
-    forkedLaunch: "untouched",
+    forkLaunch: "untouched",
     canRun: (t) => {
       spy.runs.push(t);
       return canRun(t);
@@ -83,7 +83,7 @@ function expectedKind(f: {
   mLock: boolean;
   tLock: boolean;
   noTier: boolean;
-  forked: ForkedLaunch;
+  forked: ForkLaunch;
 }): Record<string, unknown> {
   const locked = f.mLock || f.tLock;
   const forkedThinking = f.inherit && f.forked === "thinking";
@@ -106,7 +106,7 @@ describe("launchKind (exhaustive pin)", () => {
   test("all 32 launch combinations match the rule table", () => {
     for (const c of cases) {
       const l = launch({
-        inheritContext: c.inherit,
+        context: c.inherit ? "fork" : "fresh",
         modelLocked: c.mLock,
         thinkingLocked: c.tLock,
       });
@@ -138,7 +138,7 @@ describe("launchKind (exhaustive pin)", () => {
       "tierQuestion",
       "locked",
     ]);
-    expect(Object.keys(launchKind(launch({ inheritContext: true }), ALL, "untouched"))).toEqual([
+    expect(Object.keys(launchKind(launch({ context: "fork" }), ALL, "untouched"))).toEqual([
       "kind",
       "locked",
     ]);
@@ -149,7 +149,7 @@ describe("routeLaunch (pin)", () => {
   const good = read({ tier: ["balanced", 0.9], effort: "high" });
 
   test("untouched launch skips answers and deps", () => {
-    const { input, spy } = build({ launch: launch({ inheritContext: true }), answers: good });
+    const { input, spy } = build({ launch: launch({ context: "fork" }), answers: good });
     const r = routeLaunch(input);
     expect(r).toEqual({ kind: "untouched" });
     expect(Object.keys(r)).toEqual(["kind"]);
@@ -399,8 +399,8 @@ describe("routeLaunch (pin)", () => {
   test("forked thinking: thinking only; effort tier cap does not apply", () => {
     const { input } = build({
       answers: read({ tier: ["fast", 0.9], effort: "xhigh" }),
-      launch: launch({ inheritContext: true }),
-      forkedLaunch: "thinking",
+      launch: launch({ context: "fork" }),
+      forkLaunch: "thinking",
     });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
     expect(r.write).toEqual({ thinking: "xhigh" });
@@ -444,7 +444,7 @@ describe("routeLaunch (pin)", () => {
         throw new Error("answers read");
       },
     } as unknown as WorkerAnswers;
-    const { input } = build({ answers, launch: launch({ inheritContext: true }) });
+    const { input } = build({ answers, launch: launch({ context: "fork" }) });
     expect(routeLaunch(input)).toEqual({ kind: "untouched" });
     expect(reads).toBe(0);
   });

@@ -10,7 +10,7 @@ import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 
 export type Snapshot = {
-  config: { valid: true } | { valid: false; issues: Issue[] };
+  config: { valid: true; notices: string[] } | { valid: false; issues: Issue[] };
   state: { kind: StateRead["kind"]; issues: Issue[] };
   /** The directory mode file read, kept so the status can report a bad file. */
   localMode: { kind: LocalModeRead["kind"]; issues: Issue[] };
@@ -82,6 +82,12 @@ export function hasExecutor(toolNames: readonly string[]): boolean {
   return toolNames.includes("subagent");
 }
 
+function configState(read: ConfigRead): Snapshot["config"] {
+  return read.kind === "ok"
+    ? { valid: true, notices: read.notices }
+    : { valid: false, issues: read.issues };
+}
+
 /** Pure: combine the two store reads, the environment and the tool list. */
 export function buildSnapshot(input: {
   configRead: ConfigRead;
@@ -115,8 +121,7 @@ export function buildSnapshot(input: {
   });
   const keyVar = settings.classifier.apiKeyEnv;
   return {
-    config:
-      configRead.kind === "ok" ? { valid: true } : { valid: false, issues: configRead.issues },
+    config: configState(configRead),
     state: {
       kind: stateRead.kind,
       issues: "issues" in stateRead ? stateRead.issues : [],

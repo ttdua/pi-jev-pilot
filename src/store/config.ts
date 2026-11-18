@@ -27,12 +27,12 @@ export type Config = {
   skills?: { inject?: "content" | "suggest" };
   tools?: { mode?: "observe" | "enforce"; grantAt?: number };
   state?: { parentRequest?: boolean };
-  subagents?: { forkedLaunch?: "untouched" | "thinking" };
+  subagents?: { forkLaunch?: "untouched" | "thinking"; forkedLaunch?: "untouched" | "thinking" };
   review?: { cli?: "codex" | "opencode"; enabled?: boolean };
 };
 
 export type ConfigRead =
-  | { kind: "ok"; present: boolean; config: Config }
+  | { kind: "ok"; present: boolean; config: Config; notices: string[] }
   | { kind: "invalid"; issues: Issue[] };
 
 const modelId = string({ pattern: /^[A-Za-z0-9._-]+\/[^\s]+$/, max: 128 });
@@ -98,13 +98,22 @@ function configValidator(): V<Config> {
       grantAt: finiteNumber({ min: 0.5, max: 1 }),
     }),
     state: object({ parentRequest: boolean() }),
-    subagents: object({ forkedLaunch: oneOf(["untouched", "thinking"] as const) }),
+    subagents: object({
+      forkLaunch: oneOf(["untouched", "thinking"] as const),
+      forkedLaunch: oneOf(["untouched", "thinking"] as const),
+    }),
     review: object({ cli: oneOf(["codex", "opencode"] as const), enabled: boolean() }),
   }) as V<Config>;
 }
 
 type Loaded =
-  | { kind: "ok"; present: boolean; config: Config; raw: Record<string, unknown> }
+  | {
+      kind: "ok";
+      present: boolean;
+      config: Config;
+      raw: Record<string, unknown>;
+      notices: string[];
+    }
   | { kind: "invalid"; issues: Issue[] };
 
 /** Reads config.json once; the validated config and the parsed raw object come from the same text. */
@@ -114,7 +123,7 @@ function load(dir: string): Loaded {
     text = readFileSync(join(dir, "config.json"), "utf8");
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code ?? "EIO";
-    if (code === "ENOENT") return { kind: "ok", present: false, config: {}, raw: {} };
+    if (code === "ENOENT") return { kind: "ok", present: false, config: {}, raw: {}, notices: [] };
     return {
       kind: "invalid",
       issues: [{ path: "", message: `cannot read config.json (${code})` }],
@@ -129,13 +138,32 @@ function load(dir: string): Loaded {
   const issues: Issue[] = [];
   const config = configValidator()(raw, "", issues);
   if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
-  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown> };
+  const notices = applyDeprecatedAlias(config, issues);
+  if (issues.length > 0) return { kind: "invalid", issues };
+  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown>, notices };
+}
+
+/** Moves the deprecated `subagents.forkedLaunch` onto `forkLaunch`; both present is an issue. */
+function applyDeprecatedAlias(config: Config, issues: Issue[]): string[] {
+  const sub = config.subagents;
+  if (sub?.forkedLaunch === undefined) return [];
+  if (sub.forkLaunch !== undefined) {
+    issues.push({
+      path: "subagents.forkedLaunch",
+      message:
+        "expected only one of subagents.forkLaunch and the deprecated subagents.forkedLaunch",
+    });
+    return [];
+  }
+  sub.forkLaunch = sub.forkedLaunch;
+  delete sub.forkedLaunch;
+  return ["subagents.forkedLaunch is deprecated; rename it to subagents.forkLaunch"];
 }
 
 export function readConfig(dir: string): ConfigRead {
   const loaded = load(dir);
   if (loaded.kind === "invalid") return loaded;
-  return { kind: "ok", present: loaded.present, config: loaded.config };
+  return { kind: "ok", present: loaded.present, config: loaded.config, notices: loaded.notices };
 }
 
 /** Replaces only `crew.slots` in config.json, keeping every other key and its order. Never throws. */

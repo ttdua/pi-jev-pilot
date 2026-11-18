@@ -74,6 +74,6 @@ describe("settings sections", () => {
     });
     expect(resolveTools({ tools: { grantAt: 0.6 } })).toEqual({ mode: "observe", grantAt: 0.6 });
     expect(resolveStateSection({})).toEqual({ parentRequest: false });
-    expect(resolveSubagents({})).toEqual({ forkedLaunch: "untouched" });
+    expect(resolveSubagents({})).toEqual({ forkLaunch: "untouched" });
   });
 });

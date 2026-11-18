@@ -12,7 +12,7 @@ import type { CutPoints } from "./cutpoints.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
 import type { WorkerAnswers } from "./answers.ts";
 
-export type ForkedLaunch = "untouched" | "thinking";
+export type ForkLaunch = "untouched" | "thinking";
 
 export type LaunchKind =
   | { kind: "untouched"; locked: boolean }
@@ -28,7 +28,7 @@ export type RouteInput = {
   launch: EffectiveLaunch;
   offered: readonly TierName[];
   cuts: CutPoints;
-  forkedLaunch: ForkedLaunch;
+  forkLaunch: ForkLaunch;
   canRun: (t: Target) => boolean;
   thinkingOf: (t: Target) => ModelThinking | undefined;
   modelOf: (t: Target) => string;
@@ -53,11 +53,11 @@ export type Route =
 // Launches the router never touches: forked-as-is, fully locked, or thinking locked with no model to pick.
 function leavesUntouched(
   launch: EffectiveLaunch,
-  forkedLaunch: ForkedLaunch,
+  forkLaunch: ForkLaunch,
   forkedThinking: boolean,
   noTier: boolean,
 ): boolean {
-  if (launch.inheritContext && forkedLaunch === "untouched") return true;
+  if (launch.context === "fork" && forkLaunch === "untouched") return true;
   if (launch.modelLocked && launch.thinkingLocked) return true;
   return launch.thinkingLocked && (forkedThinking || noTier);
 }
@@ -65,13 +65,13 @@ function leavesUntouched(
 export function launchKind(
   launch: EffectiveLaunch,
   offered: readonly TierName[],
-  forkedLaunch: ForkedLaunch,
+  forkLaunch: ForkLaunch,
   slotCount = 0,
 ): LaunchKind {
   const locked = launch.modelLocked || launch.thinkingLocked;
-  const forkedThinking = launch.inheritContext && forkedLaunch === "thinking";
+  const forkedThinking = launch.context === "fork" && forkLaunch === "thinking";
   const noTier = offered.length === 0 && slotCount === 0;
-  if (leavesUntouched(launch, forkedLaunch, forkedThinking, noTier)) {
+  if (leavesUntouched(launch, forkLaunch, forkedThinking, noTier)) {
     return { kind: "untouched", locked };
   }
   return { kind: "ask", tierQuestion: !forkedThinking && !noTier, locked };
@@ -155,7 +155,7 @@ function decidedRoute(ctx: Ctx, decision: TierDecision): Route {
 
 export function routeLaunch(input: RouteInput): Route {
   const { answers } = input;
-  const kind = launchKind(input.launch, input.offered, input.forkedLaunch, input.slots.length);
+  const kind = launchKind(input.launch, input.offered, input.forkLaunch, input.slots.length);
   const locked = kind.locked ? ({ locked: true } as const) : {};
   if (kind.kind === "untouched") return { kind: "untouched", ...locked };
   if (answers === undefined || answers.kind === "cancelled") return { kind: "skip" };

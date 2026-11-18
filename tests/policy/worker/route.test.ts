@@ -13,7 +13,7 @@ import {
 import {
   launchKind,
   routeLaunch,
-  type ForkedLaunch,
+  type ForkLaunch,
   type Route,
   type RouteInput,
   type RouteReason,
@@ -28,7 +28,7 @@ const NO_EXPERT: readonly TierName[] = ["fast", "balanced", "deep"];
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
-    inheritContext: false,
+    context: "fresh",
     runInBackground: false,
     modelLocked: false,
     thinkingLocked: false,
@@ -43,7 +43,7 @@ function serviceRequest(over: Partial<LaunchReq> = {}): LaunchReq {
   return {
     origin: { kind: "service" },
     callerNamedModel: false,
-    inheritContext: false,
+    context: "fresh",
     isBackground: false,
     locked: [],
     ...over,
@@ -90,7 +90,7 @@ function input(overrides: Partial<RouteInput> = {}): RouteInput {
     launch: launch(),
     offered: NO_EXPERT,
     cuts: SEED_CUTPOINTS.standard,
-    forkedLaunch: "untouched",
+    forkLaunch: "untouched",
     canRun: () => true,
     thinkingOf: (): ModelThinking => ({ reasoning: true }),
     modelOf: (t) => `fx/${t}`,
@@ -105,7 +105,7 @@ function routed(r: Route): Extract<Route, { kind: "routed" }> {
 }
 
 describe("launchKind", () => {
-  const kind = (l: Partial<EffectiveLaunch>, offered = NO_EXPERT, f: ForkedLaunch = "untouched") =>
+  const kind = (l: Partial<EffectiveLaunch>, offered = NO_EXPERT, f: ForkLaunch = "untouched") =>
     launchKind(launch(l), offered, f);
   test("Slot alone with thinking locked", () => {
     expect(launchKind(launch({ thinkingLocked: true }), [], "untouched", 1)).toEqual({
@@ -115,7 +115,7 @@ describe("launchKind", () => {
     });
   });
   test("forked untouched is untouched", () => {
-    expect(kind({ inheritContext: true })).toEqual({
+    expect(kind({ context: "fork" })).toEqual({
       kind: "untouched",
       locked: false,
     });
@@ -127,13 +127,13 @@ describe("launchKind", () => {
     });
   });
   test("forked thinking with thinking locked is untouched", () => {
-    expect(kind({ inheritContext: true, thinkingLocked: true }, NO_EXPERT, "thinking")).toEqual({
+    expect(kind({ context: "fork", thinkingLocked: true }, NO_EXPERT, "thinking")).toEqual({
       kind: "untouched",
       locked: true,
     });
   });
   test("forked thinking asks without a tier question", () => {
-    expect(kind({ inheritContext: true }, NO_EXPERT, "thinking")).toEqual({
+    expect(kind({ context: "fork" }, NO_EXPERT, "thinking")).toEqual({
       kind: "ask",
       tierQuestion: false,
       locked: false,
@@ -203,7 +203,7 @@ describe("Launches left untouched", () => {
     expect("resume" in l).toBe(false);
   });
   test("Forked launch left alone", () => {
-    const r = routeLaunch(input({ answers: undefined, launch: launch({ inheritContext: true }) }));
+    const r = routeLaunch(input({ answers: undefined, launch: launch({ context: "fork" }) }));
     expect(r).toEqual({ kind: "untouched" });
   });
   test("Service launch with a model and locked thinking", () => {
@@ -224,8 +224,8 @@ describe("Launches left untouched", () => {
     const r = routeLaunch(
       input({
         answers: undefined,
-        launch: launch({ inheritContext: true, thinkingLocked: true }),
-        forkedLaunch: "thinking",
+        launch: launch({ context: "fork", thinkingLocked: true }),
+        forkLaunch: "thinking",
       }),
     );
     expect(r).toEqual({ kind: "untouched", locked: true });
@@ -257,8 +257,8 @@ describe("Route writes thinking only", () => {
   test("Forked launch with thinking", () => {
     const r = routeLaunch(
       input({
-        launch: launch({ inheritContext: true }),
-        forkedLaunch: "thinking",
+        launch: launch({ context: "fork" }),
+        forkLaunch: "thinking",
         answers: read({ effort: "medium", risky: 0.9 }),
       }),
     );

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { CHILDREN_KEY, isChild, subscribeChildren } from "../../../src/host/platform/child.ts";
+import {
+  CHILDREN_KEY,
+  CONTEXTS_KEY,
+  childContext,
+  isChild,
+  subscribeChildren,
+} from "../../../src/host/platform/child.ts";
 
 type Handler = (data: unknown) => void;
 
@@ -26,6 +32,7 @@ const registry = () => (globalThis as Record<symbol, Set<string> | undefined>)[C
 
 afterEach(() => {
   delete (globalThis as Record<symbol, unknown>)[CHILDREN_KEY];
+  delete (globalThis as Record<symbol, unknown>)[CONTEXTS_KEY];
 });
 
 describe("child registry", () => {
@@ -35,6 +42,20 @@ describe("child registry", () => {
     bus.emit(CREATED, { sessionId: "c1" });
     expect(isChild("c1")).toBe(true);
     expect(isChild("main")).toBe(false);
+  });
+
+  test("records the context from session-created", () => {
+    const bus = fakeBus();
+    subscribeChildren(bus);
+    bus.emit(CREATED, { sessionId: "f1", context: "fork" });
+    bus.emit(CREATED, { sessionId: "c1", context: "fresh" });
+    bus.emit(CREATED, { sessionId: "c2" });
+    expect(childContext("f1")).toBe("fork");
+    expect(childContext("c1")).toBe("fresh");
+    expect(childContext("c2")).toBe("fresh");
+    expect(childContext("main")).toBeUndefined();
+    bus.emit(DISPOSED, { sessionId: "f1" });
+    expect(childContext("f1")).toBeUndefined();
   });
 
   test("removes disposed id", () => {

@@ -412,7 +412,7 @@ describe("launch policy seam evidence", () => {
         env: probePolicy(POLICY_FAST),
         script: [
           ...childScript([]),
-          ...mainScript(`START-MAIN ${MARKER}`, [launch(WORKER, { inherit_context: true })]),
+          ...mainScript(`START-MAIN ${MARKER}`, [launch(WORKER, { context: "fork" })]),
         ],
       });
       await s.prompt(`START-MAIN ${MARKER}`);
