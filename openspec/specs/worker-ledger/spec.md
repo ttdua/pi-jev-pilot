@@ -56,18 +56,26 @@ The line's `status`, `durationMs`, `tokens` and `toolUses` SHALL come from the e
 - **WHEN** an extension's `spawn()` launch is routed and completes
 - **THEN** one `worker` line is written for it with its outcome
 
-### Requirement: Decision fields
-The line SHALL carry:
-- `mode`: the mode captured when the launch was classified (see `worker-routing`);
-- `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent;
-- `agent`, and `briefChars` (the code points of the brief);
-- the raw `tierP`, `effortP` and `risky`;
-- `score`, when the launch has a difficulty score; `rubric`, the rubric version, whenever the `tier` question was asked; and `expertOffered`, whether `expert` was among the offered tiers, whenever the `tier` question was asked;
-- the route's recorded fields, where `tier` and `fallback` hold a tier or a `slot::<name>` target and `tierP` holds a key for every offered tier and slot that Jev returned;
-- `toolsScored`, `toolsFlagged` and `toolsGranted`, when that launch's tool assessment got an answer, omitted otherwise;
-- `effectiveModel` and `effectiveThinking`, as joined from the executor.
+### Requirement: Caller model field
+The line's `callerModel` SHALL hold the caller's `model` input when it is present and fits the ledger's rule, and MUST be omitted otherwise.
 
-New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, the description, tool names or tool arguments.
+#### Scenario: Caller model outside the rule
+- **WHEN** the caller's `model` input contains a space
+- **THEN** the line has no `callerModel` and is otherwise written
+
+#### Scenario: No caller model
+- **WHEN** the caller sets no `model`
+- **THEN** the line has no `callerModel`
+
+### Requirement: Ledger failures do not affect the launch
+A ledger line that fails validation or cannot be written SHALL be dropped without affecting the launch or its result.
+
+#### Scenario: Agent name outside the ledger rule
+- **WHEN** a launch uses an agent named `my agent!` and completes
+- **THEN** the launch is routed normally and no line for it is written
+
+### Requirement: Worker decision fields
+The line SHALL carry the route fields: `score` when scored; `rubric` and `expertOffered` whenever `tier` was asked; `tier` and `fallback` as a tier or `slot::<name>`; and `tierP` keyed by every offered target Jev returned. It SHALL also carry `effectiveModel` and `effectiveThinking` as joined from the executor.
 
 #### Scenario: Routed fields
 - **WHEN** a launch is routed by rule `cut` to `balanced` with thinking `high`, with score 1.3, and the caller asked for `fixture/fixture-main`
@@ -93,10 +101,6 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 - **WHEN** a forked launch with the setting `thinking` is asked and thinking `high` is written
 - **THEN** the line has `answered` true, `reason` `untouched`, `effort` `high`, and no `tier`, `model`, `score` or `rubric`
 
-#### Scenario: Miss recorded
-- **WHEN** Jev times out for a launch
-- **THEN** the line has `answered` false, `miss` `timeout`, `reason` `miss`, `rubric` 2, `expertOffered` as offered, and no `tier` or `score`
-
 #### Scenario: Untouched recorded
 - **WHEN** a launch whose agent locks both `model` and `thinking` completes
 - **THEN** the line has `reason` `untouched`, `answered` false, and no `tier`, `model`, `score` or `rubric`
@@ -104,10 +108,6 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 #### Scenario: Tier asked, nothing decided
 - **WHEN** tiers are offered, Jev answers `effort` but not `tier`, and no target is decided
 - **THEN** the line has `reason` `untouched`, `rubric` 2, `expertOffered`, and no `tier` or `score`
-
-#### Scenario: No expert needed field
-- **WHEN** any new worker line is written
-- **THEN** it has no `expertNeeded`
 
 #### Scenario: Locked recorded
 - **WHEN** a launch's agent locks `model`
@@ -117,26 +117,6 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 - **WHEN** a launch's agent locks nothing and the launch is not a service launch naming a model
 - **THEN** the line has no `locked` field
 
-#### Scenario: No prompt text
-- **WHEN** a launch with a brief containing a unique marker is recorded
-- **THEN** no ledger file contains that marker
-
-#### Scenario: Mode recorded
-- **WHEN** a launch is classified while the mode is `budget`
-- **THEN** its line has `mode` `budget`
-
-#### Scenario: Tool counts recorded
-- **WHEN** a launch was assessed with 6 tools scored, 1 flagged and 2 granted
-- **THEN** the line has `toolsScored` 6, `toolsFlagged` 1 and `toolsGranted` 2
-
-#### Scenario: No assessment, no counts
-- **WHEN** a launch got no tool assessment answer, because it had no undecided tool, the `tools` switch is off, or the request failed
-- **THEN** the line has no `toolsScored`, `toolsFlagged` or `toolsGranted`
-
-#### Scenario: Resumed launch carries no counts
-- **WHEN** a launch resumes a worker that was assessed earlier and completes
-- **THEN** no line is written for the resume, so no counts are recorded for it
-
 #### Scenario: Slot decision recorded
 - **WHEN** a launch is routed to slot `reviewer` with thinking `high`
 - **THEN** the line has `tier` `slot::reviewer`, `reason` `slot`, `model` the slot's model, `effort` `high`, and `tierP` with a `slot::reviewer` key
@@ -145,20 +125,31 @@ New lines MUST NOT carry `expertNeeded`. The line MUST NOT contain the brief, th
 - **WHEN** a launch decided for slot `reviewer` falls back to `balanced`
 - **THEN** the line has `tier` `balanced`, `reason` `slot` and `fallback` `slot::reviewer`, and it passes the ledger schema
 
-### Requirement: Caller model field
-The line's `callerModel` SHALL hold the caller's `model` input when it is present and fits the ledger's rule, and MUST be omitted otherwise.
+### Requirement: Worker request fields
+The line SHALL carry `mode` (captured at classification, see `worker-routing`), `agent`, `briefChars` (the brief's code points), the raw `tierP`, `effortP` and `risky`, and `answered`, `ms` and `miss` from the worker request, with `answered` false and no `ms` or `miss` when no request was sent.
 
-#### Scenario: Caller model outside the rule
-- **WHEN** the caller's `model` input contains a space
-- **THEN** the line has no `callerModel` and is otherwise written
+#### Scenario: Mode recorded
+- **WHEN** a launch is classified while the mode is `budget`
+- **THEN** its line has `mode` `budget`
 
-#### Scenario: No caller model
-- **WHEN** the caller sets no `model`
-- **THEN** the line has no `callerModel`
+#### Scenario: Miss recorded
+- **WHEN** Jev times out for a launch
+- **THEN** the line has `answered` false, `miss` `timeout`, `reason` `miss`, `rubric` 2, `expertOffered` as offered, and no `tier` or `score`
 
-### Requirement: Ledger failures do not affect the launch
-A ledger line that fails validation or cannot be written SHALL be dropped without affecting the launch or its result.
+### Requirement: Retired worker fields not written
+New `worker` lines MUST NOT carry `expertNeeded`, `toolsScored`, `toolsFlagged` or `toolsGranted`.
 
-#### Scenario: Agent name outside the ledger rule
-- **WHEN** a launch uses an agent named `my agent!` and completes
-- **THEN** the launch is routed normally and no line for it is written
+#### Scenario: No expert needed field
+- **WHEN** any new worker line is written
+- **THEN** it has no `expertNeeded`
+
+#### Scenario: No tool counts
+- **WHEN** a routed launch completes, and when a launch resumes an earlier worker and completes
+- **THEN** the routed launch's line has no `toolsScored`, `toolsFlagged` or `toolsGranted`, and no line is written for the resume
+
+### Requirement: Worker line holds no text
+The `worker` line MUST NOT contain the brief, the description, tool names or tool arguments.
+
+#### Scenario: No prompt text
+- **WHEN** a launch with a brief containing a unique marker is recorded
+- **THEN** no ledger file contains that marker

@@ -6,7 +6,7 @@ The `/jev` command reports the status and changes feature switches through `stat
 ## Requirements
 
 ### Requirement: Status report
-`/jev` with no argument SHALL report the status: the status line text, the effective mode (as `mode: <m>`, or `mode: <m> (this directory; global <g>)` while a directory mode is set, with `<g>` the global mode), each of the eight feature switches with `on` or `off`, the CLI review on one line `cli review: <on|off> (<cli>, <details>)` where `<details>` is `model <m>` and `effort <e>` when set, joined by `, `, or `CLI defaults` when neither is set, whether the API key is set (naming the environment variable, never its value), whether the executor is present, the duplicate executor problem when one is detected (see `readiness-checks`), every config, state, directory mode and `tuning.json` problem with its field path, the recent worker mix when the executor is present, and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): fast <a>% / balanced <b>% / deep <c>% / expert <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. Without the executor, the report MUST say `no executor` and that worker routing and tool assessment are off. With a duplicate executor, the report MUST say `duplicate executor`, name the path of the other `subagent` tool's extension, say to uninstall `@gotgenes/pi-subagents`, and say that worker routing and tool assessment are off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
+`/jev` with no argument SHALL report the status: the status line text, the effective mode (as `mode: <m>`, or `mode: <m> (this directory; global <g>)` while a directory mode is set, with `<g>` the global mode), each of the seven feature switches with `on` or `off`, the CLI review on one line `cli review: <on|off> (<cli>, <details>)` where `<details>` is `model <m>` and `effort <e>` when set, joined by `, `, or `CLI defaults` when neither is set, whether the API key is set (naming the environment variable, never its value), whether the executor is present, the duplicate executor problem when one is detected (see `readiness-checks`), every config, state, directory mode and `tuning.json` problem with its field path, one line `deprecated: config tools is ignored` under the problems when the config read reports `tools` as deprecated (this report is the only place the deprecation is shown; it MUST NOT be notified on its own), the recent worker mix when the executor is present, and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): fast <a>% / balanced <b>% / deep <c>% / expert <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. Without the executor, the report MUST say `no executor` and that worker routing is off. With a duplicate executor, the report MUST say `duplicate executor`, name the path of the other `subagent` tool's extension, say to uninstall `@gotgenes/pi-subagents`, and say that worker routing is off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
 
 #### Scenario: Default status
 - **WHEN** the config is valid, the key is set, the executor is installed, and `/jev` runs
@@ -26,7 +26,7 @@ The `/jev` command reports the status and changes feature switches through `stat
 
 #### Scenario: No executor
 - **WHEN** the executor is not installed and `/jev` runs
-- **THEN** the report contains `no executor` and says worker routing and tool assessment are off
+- **THEN** the report contains `no executor` and says worker routing is off
 
 #### Scenario: Key name, never value
 - **WHEN** the key is set to a test value and `/jev` runs
@@ -39,6 +39,14 @@ The `/jev` command reports the status and changes feature switches through `stat
 #### Scenario: Invalid config reported
 - **WHEN** `config.json` has an invalid `classifier.timeoutMs` and `/jev` runs
 - **THEN** the report says `config error` and lists the problem at `classifier.timeoutMs`
+
+#### Scenario: Deprecated tools section reported
+- **WHEN** `config.json` is otherwise valid, holds a `tools` section and `/jev` runs
+- **THEN** the report contains `deprecated: config tools is ignored`, does not say `config error`, and the status line text is unchanged by the key
+
+#### Scenario: Deprecation never notified on its own
+- **WHEN** `config.json` holds a `tools` section and a session starts, prompts run and workers launch, without `/jev`
+- **THEN** no notification mentions the deprecated `tools` section
 
 #### Scenario: Malformed tuning reported
 - **WHEN** `tuning.json` is truncated and `/jev` runs
@@ -75,37 +83,18 @@ The `/jev` command reports the status and changes feature switches through `stat
 
 #### Scenario: Duplicate executor reported
 - **WHEN** jev-pilot's extension runs with `@gotgenes/pi-subagents` and without the vendored executor, and `/jev` runs
-- **THEN** the report contains `duplicate executor`, the other extension's path, the advice to uninstall `@gotgenes/pi-subagents`, and says worker routing and tool assessment are off
-
-### Requirement: Feature switches
-`/jev <feature> on|off`, where `<feature>` is one of `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`, SHALL set that switch in `state.json` through the state store, leaving other fields unchanged, then report the new status and refresh the status line. A switch set this way MUST still apply after Pi restarts. `review` is not a feature.
-
-#### Scenario: Turn a feature off
-- **WHEN** the operator runs `/jev skills off`
-- **THEN** `state.json` holds `switches.skills` `false`, other fields are unchanged, and the report shows `skills` `off`
-
-#### Scenario: Switch survives a restart
-- **WHEN** the operator runs `/jev skills off`, Pi exits, a new Pi process starts with the same agent directory and `/jev` runs
-- **THEN** the report shows `skills` `off`
-
-#### Scenario: Turn a feature back on
-- **WHEN** `skills` is off and the operator runs `/jev skills on`
-- **THEN** `state.json` holds `switches.skills` `true`
-
-#### Scenario: Status lists eight features
-- **WHEN** `/jev` runs
-- **THEN** the `features:` block lists exactly `effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`, `status`, `verbose`, in that order, and no `review`
+- **THEN** the report contains `duplicate executor`, the other extension's path, the advice to uninstall `@gotgenes/pi-subagents`, and says worker routing is off
 
 ### Requirement: All features
-`/jev all on|off` SHALL set the six decision features (`effort`, `subagents`, `skills`, `strategy`, `tools`, `expert`) in one state update, and MUST leave `status`, `verbose` and the CLI review on/off setting unchanged.
+`/jev all on|off` SHALL set the five decision features (`effort`, `subagents`, `skills`, `strategy`, `expert`) in one state update, and MUST leave `status`, `verbose` and the CLI review on/off setting unchanged.
 
 #### Scenario: All off
 - **WHEN** the operator runs `/jev all off`
-- **THEN** the six decision features are `false` in `state.json`, `status` and `verbose` keep their values, and, with the key set and the config valid, the status line reads `Jev · off`
+- **THEN** the five decision features are `false` in `state.json`, `status` and `verbose` keep their values, and, with the key set and the config valid, the status line reads `Jev · off`
 
 #### Scenario: All on
 - **WHEN** every decision feature is off and the operator runs `/jev all on`
-- **THEN** the six decision features are `true` in `state.json`
+- **THEN** the five decision features are `true` in `state.json`
 
 #### Scenario: All leaves the CLI review alone
 - **WHEN** the state holds `cliReviewEnabled` `true` and the operator runs `/jev all off`
@@ -146,7 +135,7 @@ When the state store refuses a change (an unreadable `state.json`, or a write er
 - **THEN** the old bytes move to `state.json.bad`, and `state.json` holds only `version` and `switches.skills` `false`
 
 ### Requirement: Usage text for other input
-Any other argument SHALL produce usage text as a warning and change nothing. The usage text MUST list exactly the forms `/jev`, `/jev <feature> on|off` with the eight feature names, `/jev all on|off`, `/jev mode budget|standard|premium [global]`, `/jev mode clear`, `/jev reset`, `/jev cli-review on|off`, `/jev cli-review <codex|opencode> [model|default] [effort|default]`, `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>`, `/jev remove <slot>` and `/jev tune [undo|reset|on|off]`. A first word that is `tune` MUST be handled by the tune forms (see `tune-command`). A first word that is a valid, non-reserved slot name, or `remove`, MUST be handled by the slot forms (see `slot-commands`), not by this requirement. Arguments are split on whitespace and matched case-sensitively; extra words make the input unknown, except the text after `when` in the slot add form.
+Any other argument SHALL produce usage text as a warning and change nothing. The usage text MUST list exactly the forms `/jev`, `/jev <feature> on|off` with the seven feature names, `/jev all on|off`, `/jev mode budget|standard|premium [global]`, `/jev mode clear`, `/jev reset`, `/jev cli-review on|off`, `/jev cli-review <codex|opencode> [model|default] [effort|default]`, `/jev <slot> <provider/model> [when <text>]`, `/jev <slot>`, `/jev remove <slot>` and `/jev tune [undo|reset|on|off]`. A first word that is `tune` MUST be handled by the tune forms (see `tune-command`). A first word that is a valid, non-reserved slot name, or `remove`, MUST be handled by the slot forms (see `slot-commands`), not by this requirement. Arguments are split on whitespace and matched case-sensitively; extra words make the input unknown, except the text after `when` in the slot add form.
 
 #### Scenario: Command from a later work group
 <!-- Intentional change: WG-18 adds the tune forms, so `/jev tune` is no longer usage. -->
@@ -365,3 +354,26 @@ When the model list cannot be read (non-zero exit, timeout, or nothing parsed), 
 #### Scenario: Refused switch
 - **WHEN** `state.json` has mode `0000` and the operator runs `/jev cli-review on`
 - **THEN** an error naming `EACCES` is reported and `state.json` is unchanged (skipped when the test runs as root)
+
+### Requirement: Feature switch commands
+`/jev <feature> on|off`, where `<feature>` is one of `effort`, `subagents`, `skills`, `strategy`, `expert`, `status`, `verbose`, SHALL set that switch in `state.json` through the state store, leaving other fields unchanged, then report the new status and refresh the status line. A switch set this way MUST still apply after Pi restarts. `review` and `tools` are not features: `/jev tools on|off` is unknown input (see "Usage text for other input") and changes nothing.
+
+#### Scenario: Turn a feature off
+- **WHEN** the operator runs `/jev skills off`
+- **THEN** `state.json` holds `switches.skills` `false`, other fields are unchanged, and the report shows `skills` `off`
+
+#### Scenario: Switch survives a restart
+- **WHEN** the operator runs `/jev skills off`, Pi exits, a new Pi process starts with the same agent directory and `/jev` runs
+- **THEN** the report shows `skills` `off`
+
+#### Scenario: Turn a feature back on
+- **WHEN** `skills` is off and the operator runs `/jev skills on`
+- **THEN** `state.json` holds `switches.skills` `true`
+
+#### Scenario: Status lists seven features
+- **WHEN** `/jev` runs
+- **THEN** the `features:` block lists exactly `effort`, `subagents`, `skills`, `strategy`, `expert`, `status`, `verbose`, in that order, and no `review` or `tools`
+
+#### Scenario: Tools is not a feature
+- **WHEN** the operator runs `/jev tools off`
+- **THEN** the usage text is shown as a warning and `state.json` is unchanged

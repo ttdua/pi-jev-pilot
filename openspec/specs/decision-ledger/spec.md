@@ -95,7 +95,7 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | correction | `turnId` | id | yes |
 | correction | `corrects` | probability | yes |
 
-The schema module MUST export the allowed field names per kind, so that tests can assert the exact field set.
+The schema module MUST export the allowed field names per kind, so that tests can assert the exact field set. `toolsScored`, `toolsFlagged` and `toolsGranted` stay allowed so lines written before tool assessment was removed still validate; no writer emits them (see `worker-ledger`).
 
 #### Scenario: Valid main line accepted
 - **WHEN** a main entry with `v` 1, `at`, `session`, `mode` `standard`, `answered` true, `turnId`, `effortP`, `requested` `high`, `effective` `high` and `outcome` `ok` is validated

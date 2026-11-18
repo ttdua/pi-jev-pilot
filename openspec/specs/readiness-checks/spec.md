@@ -26,7 +26,7 @@ The executor check SHALL run in a main session after its extensions are bound, a
 - `present`: not `duplicate`, and the service captured at the main session's `session_start` has `implementation` `@ttdua/pi-subagents` and offers `registerLaunchPolicy`.
 - `absent`: neither of the above holds.
 
-Worker routing and tool assessment SHALL treat `duplicate` as `absent`. Pi refuses to start a session in which two extensions register a tool with the same name, so this package and `@gotgenes/pi-subagents` never run together; `duplicate` therefore covers a session where another `subagent` provider runs instead of, or beside a renamed copy of, the vendored executor (for example jev-pilot's extension installed without its executor next to the original package). The check MUST NOT claim more.
+Worker routing SHALL treat `duplicate` as `absent`. Pi refuses to start a session in which two extensions register a tool with the same name, so this package and `@gotgenes/pi-subagents` never run together; `duplicate` therefore covers a session where another `subagent` provider runs instead of, or beside a renamed copy of, the vendored executor (for example jev-pilot's extension installed without its executor next to the original package). The check MUST NOT claim more.
 
 #### Scenario: Executor installed
 - **WHEN** this package is installed and a main session has started
