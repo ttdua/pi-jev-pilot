@@ -2,10 +2,10 @@
 
 Blocked by: none
 
-- [ ] 1.1 Add `src/seams/launch-metadata.ts` with `parseLaunchMetadata(input)`: plain-object check, only enumerable string keys, 32-key limit, key pattern, string values of at most 1024 characters; returns a frozen null-prototype copy, or `undefined` for `undefined` or an empty map; throws an `Error` naming the rule and the offending key (design D2)
-- [ ] 1.2 Add `test/seams/launch-metadata.test.ts` covering every limit scenario in `specs/launch-metadata` ("Metadata limits"), the empty-map case and the copy/freeze behavior
-- [ ] 1.3 Declare the public `LaunchMetadata` and `ChildSessionInfo` types in `src/service/service.ts` (the seams return them), then add `src/seams/child-sessions.ts`: a process-wide registry on `globalThis[Symbol.for("@ttdua/pi-subagents:child-sessions")]` with `enterChildSession`, `leaveChildSession`, `lookupChildSession` (frozen entry, shared frozen empty `metadata`) and a test-only `resetChildSessions` (design D3)
-- [ ] 1.4 Add `test/seams/child-sessions.test.ts`: entry shape and freezing, unknown id, removal, two module instances sharing one registry
+- [x] 1.1 Add `src/seams/launch-metadata.ts` with `parseLaunchMetadata(input)`: plain-object check, only enumerable string keys, 32-key limit, key pattern, string values of at most 1024 characters; returns a frozen null-prototype copy, or `undefined` for `undefined` or an empty map; throws an `Error` naming the rule and the offending key (design D2)
+- [x] 1.2 Add `test/seams/launch-metadata.test.ts` covering every limit scenario in `specs/launch-metadata` ("Metadata limits"), the empty-map case and the copy/freeze behavior
+- [x] 1.3 Declare the public `LaunchMetadata` and `ChildSessionInfo` types in `src/service/service.ts` (the seams return them), then add `src/seams/child-sessions.ts`: a process-wide registry on `globalThis[Symbol.for("@ttdua/pi-subagents:child-sessions")]` with `enterChildSession`, `leaveChildSession`, `lookupChildSession` (frozen entry, shared frozen empty `metadata`) and a test-only `resetChildSessions` (design D3)
+- [x] 1.4 Add `test/seams/child-sessions.test.ts`: entry shape and freezing, unknown id, removal, two module instances sharing one registry
 
 ## 2. Carry metadata through the launch path, events, record and policy request
 
