@@ -243,6 +243,19 @@ describe("structured result turn loop (real SDK session)", () => {
 		expect(launched.structuredResultError).toBeUndefined();
 	});
 
+	it.each([
+		["alone", [VALID]],
+		["beside read", [READ, VALID]],
+	])("settles completed when %s submits on the last permitted turn of 3", async (_kind, ceilingTurn) => {
+		const launched = await runChild([[READ], [READ], ceilingTurn, "unexpected next turn"], undefined, 3);
+
+		expect(loopback.requestCount()).toBe(3);
+		expect(launched.turnBudget?.phase).toBe("exhausted");
+		expect(launched.status).toBe("completed");
+		expect(launched.structuredResult).toEqual({ status: "done" });
+		expect(launched.structuredResultError).toBeUndefined();
+	});
+
 	describe("turn limit reached without a submission", () => {
 		const reads = [[READ], [READ], [READ], "late"];
 
