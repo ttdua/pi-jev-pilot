@@ -5,8 +5,8 @@
 > Overwritten on each apply iteration; iteration counter grows.
 
 **Change**: `structured-result`
-**Iteration**: `2`
-**Applied at**: `2026-11-19 13:30` (UTC)
+**Iteration**: `3`
+**Applied at**: `2026-11-19 12:19` (UTC)
 **Executor**: `subagent-driven-development` (implementer role: `implementer`; task reviewer role: `code-reviewer`)
 
 ---
@@ -22,9 +22,10 @@
 
 ## Commits
 
-- **Range**: `6f63917b..372c1639` (this receipt commit follows)
-- **Count**: `21`
-- **This iteration**: `f5bf47d9..372c1639` (fix iteration 2, from verify iteration 1 FAIL)
+- **Range**: `6f63917b..9c5d7c14` (this receipt commit follows)
+- **Count**: `26`
+- **This iteration**: `76b12bf7..9c5d7c14` (fix iteration 3, from verify iteration 2 FAIL)
+- **Iteration 2**: `f5bf47d9..372c1639` (from verify iteration 1 FAIL)
 
 ---
 
@@ -56,13 +57,15 @@
 | Final whole-branch (iter 1) | sequential | `6f63917b..e56c2af5`, fix wave `e56c2af5..445207ea` | with fixes → all addressed | n/a |
 | Verify fix C1/C2/W1/W2 (iter 2) | sequential | `f5bf47d9..33920354` | re-review: C1, C2 addressed; W1 except turn-limit addressed by Task 5; W2 completed in this receipt | n/a |
 | 5 (iter 2, user-approved) | sequential | `aa9adfff..372c1639` | approved after 2 fix rounds (approach changed by ruling) | n/a |
+| Verify fix C3/W1/W2 (iter 3) | sequential | `76b12bf7..9c5d7c14` | re-review: all addressed, no new breakage | n/a |
 
 ---
 
-## Verification (this iteration, worktree root, HEAD 372c1639)
+## Verification (iteration 3, implementer-reported, HEAD 9c5d7c14)
 
-- `bun run --cwd packages/pi-subagents check` exit 0; package `test` 116 files, 2760 passed.
+- `bun run --cwd packages/pi-subagents check` exit 0; package `test` 116 files, 2764 passed.
 - Root `bun run typecheck` exit 0, `bun run lint` exit 0, `bun test` 2637 pass, 0 fail.
+- Iteration 3 changes: `checkNode` no longer returns after a type violation, so every violation of a node is listed (verify C3); real-SDK `maxTurns: 3` ceiling-submit tests (W1); plan.md `TurnLoopOptions` row and tasks.md 5.1 wording aligned (W2). No contract change.
 
 ---
 
