@@ -21,11 +21,11 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 `src/service/service.ts`: `SpawnOptions.resultSchema`, `SubagentRecord.structuredResult` and `structuredResultError`, with doc comments
-- [ ] 3.2 `src/service/service-adapter.ts` `spawn()`: parse the schema first, refuse a resolved `fork` before anything is created, pass the schema through `AgentSpawnConfig` in `subagent-manager.ts`; snapshot copies both fields when set (specs: "Refused result schemas", "Structured outcome on records and events")
-- [ ] 3.3 `src/observation/notification.ts` `buildEventData()`: add both fields when set, so `subagents:completed`, `failed` and `resumed` carry them; `persisted-record.ts` unchanged (spec: "Structured outcome on records and events")
-- [ ] 3.4 `src/seams/launch-request.ts`: add `submit_result` to `OWNED_TOOLS` (executor-launch-policy delta)
-- [ ] 3.5 Tests: `test/service/service-adapter.test.ts` (refusals, policy not called, snapshot fields), `test/seams/launch-policy.test.ts` (parentTools exclusion), event payload and persisted-entry tests, and one end-to-end flow test in `test/seams/` driving spawn → submit → `subagents:completed`
+- [x] 3.1 `src/service/service.ts`: `SpawnOptions.resultSchema`, `SubagentRecord.structuredResult` and `structuredResultError`, with doc comments
+- [x] 3.2 `src/service/service-adapter.ts` `spawn()`: parse the schema first, refuse a resolved `fork` before anything is created, pass the schema through `AgentSpawnConfig` in `subagent-manager.ts`; snapshot copies both fields when set (specs: "Refused result schemas", "Structured outcome on records and events")
+- [x] 3.3 `src/observation/notification.ts` `buildEventData()`: add both fields when set, so `subagents:completed`, `failed` and `resumed` carry them; `persisted-record.ts` unchanged (spec: "Structured outcome on records and events")
+- [x] 3.4 `src/seams/launch-request.ts`: add `submit_result` to `OWNED_TOOLS` (executor-launch-policy delta)
+- [x] 3.5 Tests: `test/service/service-adapter.test.ts` (refusals, policy not called, snapshot fields), `test/seams/launch-policy.test.ts` (parentTools exclusion), event payload and persisted-entry tests, and one end-to-end flow test in `test/seams/` driving spawn → submit → `subagents:completed`
 
 ## 4. Docs and vendoring records
 
