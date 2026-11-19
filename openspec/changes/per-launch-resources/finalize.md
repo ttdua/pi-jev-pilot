@@ -16,7 +16,7 @@
 - **Branch**: `spec/per-launch-resources`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `TBD`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/94`
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `TBD`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/94#issuecomment-7005125864)
 
 ---
 
