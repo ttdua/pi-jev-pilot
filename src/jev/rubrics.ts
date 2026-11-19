@@ -18,12 +18,12 @@ export const RUBRIC_VERSION = 3;
 /** The one worker tier rubric, in every mode. */
 export const WORKER_TIER_CRITERIA: Readonly<Record<TierName, string>> = {
   basic:
-    "Common, well-documented knowledge. The syntax, standard library and tools most programmers know or can look up in the official docs. Choose when the task needs nothing beyond that. Length, number of steps, care and risk are effort, not tier.",
+    "Common, well-documented knowledge. The syntax, standard library and tools most programmers know or can look up in the official docs. Choose when the task needs nothing beyond that. Length, number of files, number of steps, care and risk are effort, not tier.",
   broad:
-    "Broad engineering knowledge across stacks and libraries: how common frameworks, databases, build tools and test runners behave, and the usual patterns for them. Choose when the task needs that knowledge, even across several of them. Length, number of steps, care and risk are effort, not tier.",
-  deep: "Specialist depth in one domain: the internals, edge cases and conventions of a particular system, runtime or protocol, which a generalist would get wrong without study. Choose when the task needs that depth. Length, number of steps, care and risk are effort, not tier.",
+    "Broad engineering knowledge across stacks and libraries: how common frameworks, databases, build tools and test runners behave, and the usual patterns for them. Choose when the task needs that knowledge, even across several of them. Length, number of files, number of steps, care and risk are effort, not tier.",
+  deep: "Specialist depth in one domain: the internals, edge cases and conventions of a particular system, runtime or protocol, which a generalist would get wrong without study. Choose when the task needs that depth. Length, number of files, number of steps, care and risk are effort, not tier.",
   frontier:
-    "Rare, frontier-level expertise. Knowledge that few practitioners hold and that weaker models are likely to get wrong, such as subtle interactions between systems or unusual failure modes. Choose only when the task needs that knowledge. Length, number of steps, care and risk are effort, not tier.",
+    "Rare, frontier-level expertise. Knowledge that few practitioners hold and that weaker models are likely to get wrong, such as subtle interactions between systems or unusual failure modes. Choose only when the task needs that knowledge. Length, number of files, number of steps, care and risk are effort, not tier.",
 };
 
 /** The main request's transitional `tier` question (rubric version 2 text, removed by Task 4). */
@@ -46,7 +46,7 @@ function orderedEffortCriteria(byLevel: Record<EffortLevel, string>): Record<str
 export const WORKER_EFFORT_QUESTION: WireQuestion = {
   type: "choice",
   instructions:
-    "How much work and care does a subagent need to put into carrying out this brief? Count the steps, the tracing, the tool calls and the verification. A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, tracing an unknown cause, or reasoning that is not already written out. Rare knowledge is a tier matter, not an effort signal. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
+    "How much work and care does a subagent need to put into carrying out this brief? Count the steps, the tracing, the tool calls and the verification, even when the brief names them. A brief that already names the files, the steps and the tests has settled the design, but carrying it out still rates by its total steps, tracing, tool use and verification. Rate higher when the brief itself asks for design, tracing an unknown cause, or reasoning that is not already written out. Rare knowledge is a tier matter, not an effort signal. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
   criteria: orderedEffortCriteria({
     low: "Little or no work: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, or a one-line change. Nothing to trace; the output is the check.",
     medium:
