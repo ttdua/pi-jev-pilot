@@ -14,12 +14,12 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Tier-only `difficultyScore` (`src/policy/worker/score.ts`)
-- [ ] 2.2 Frontier cut over all entries, `WindowEntry` without effort, window reasons `frontier`/`cut` (`src/policy/worker/{cutpoints,cut-window}.ts`)
-- [ ] 2.3 Mode targets 20/53/26/1 and 0/50/47/3 (`src/policy/worker/modes.ts`)
-- [ ] 2.4 Decision order `frontier`, `slot`, `cut`; risk rule removed; frontier rule without effort (`src/policy/worker/tier.ts`)
-- [ ] 2.5 `workerEffort` without the tier cap (`src/policy/effort.ts`, `src/policy/worker/route.ts`)
-- [ ] 2.6 Provisional seed from the new rules over a committed synthetic score fixture, marked provisional (`src/policy/worker/seed.ts`)
+- [x] 2.1 Tier-only `difficultyScore` (`src/policy/worker/score.ts`)
+- [x] 2.2 Frontier cut over all entries, `WindowEntry` without effort, window reasons `frontier`/`cut` (`src/policy/worker/{cutpoints,cut-window}.ts`)
+- [x] 2.3 Mode targets 20/53/26/1 and 0/50/47/3 (`src/policy/worker/modes.ts`)
+- [x] 2.4 Decision order `frontier`, `slot`, `cut`; risk rule removed; frontier rule without effort (`src/policy/worker/tier.ts`)
+- [x] 2.5 `workerEffort` without the tier cap (`src/policy/effort.ts`, `src/policy/worker/route.ts`)
+- [x] 2.6 Provisional seed from the new rules over a committed synthetic score fixture, marked provisional (`src/policy/worker/seed.ts`)
 
 ## 3. Rubric wording and worker request
 
