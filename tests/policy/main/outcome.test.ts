@@ -104,6 +104,20 @@ describe("planOutcome: answered", () => {
     expect(run("medium").patch).toMatchObject({ advised: true });
   });
 
+  test("Gate reads the raw choice", () => {
+    const plan = planOutcome(
+      flags({ supported: ["off", "minimal", "low", "medium", "high"] }),
+      ok,
+      read({ effort: choice("max", 0.9), strategy: choice("graph", 0.9) }),
+      undefined,
+    );
+    expect(plan).toMatchObject({
+      effort: { kind: "target", target: "high" },
+      nextAdvice: "graph",
+      patch: { requested: "xhigh", strategy: "graph", advised: true },
+    });
+  });
+
   test("keeps the effort suffix when effort was not asked", () => {
     const plan = planOutcome(flags({ applyEffort: false }), ok, read({}), undefined);
     expect(plan).toMatchObject({ effort: { kind: "unanswered", showNoAnswer: false } });

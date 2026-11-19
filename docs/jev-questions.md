@@ -29,17 +29,7 @@ One rubric for every mode.
 | `deep` | Specialist depth in one domain: the internals, edge cases and conventions of a particular system, runtime or protocol, which a generalist would get wrong without study. Choose when the task needs that depth. Length, number of files, number of steps, care and risk are effort, not tier. |
 | `frontier` | Rare, frontier-level expertise. Knowledge that few practitioners hold and that weaker models are likely to get wrong, such as subtle interactions between systems or unusual failure modes. Choose only when the task needs that knowledge. Length, number of files, number of steps, care and risk are effort, not tier. |
 
-The main request's `tier` question is transitional, kept as separate data until the main tier is removed (see below). It has no display-name prefix, no slots and no `expert`.
-
-### Main tier (transitional, rubric version 2)
-
-Instruction: "Which is the cheapest tier that can complete this coding task well?"
-
-| Tier | Criterion |
-|---|---|
-| `basic` | Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms. |
-| `broad` | The default for ordinary engineering. Choose when some working out is needed inside a clear spec: a feature or fix across a few files with a test, build or type check that shows it works, a bug whose cause is known, writing tests for existing code, a scoped refactor, reviewing a small or medium diff, or summarizing and explaining code. |
-| `deep` | For careful judgment or long work. Choose when the spec is open or nothing can check the result, the cause of a bug is unknown, the change spans many components or needs design decisions, or it touches security, data migrations, concurrency, production or money. A large cross-cutting review belongs here too. |
+The main request asks no `tier`; the strategy gate reads `effort` instead.
 
 ### Slots
 

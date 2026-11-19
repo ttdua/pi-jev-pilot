@@ -166,8 +166,11 @@ describe("Strategy docs", () => {
       "User and project instructions and a loaded skill keep authority over this advice.",
     );
   });
-  test("docs state no prefix", () => {
-    expect(DOC).toContain("It has no display-name prefix, no slots and no `expert`.");
+  test("Docs state no prefix for the main tier", () => {
+    expect(DOC).toContain(
+      "The main request asks no `tier`; the strategy gate reads `effort` instead.",
+    );
+    expect(DOC).not.toContain("transitional");
   });
 });
 const ALL = { basic: "a/b", broad: "c/d", deep: "e/f", frontier: "g/h" };
