@@ -457,15 +457,29 @@ Metadata is delivered on `pi.events` to every extension in the process; do not p
 Omit all four and the child is built as before.
 The `subagent` tool does not accept them.
 
-Launch resources apply to fresh launches only: a launch that carries any of them and resolves to `fork`, including the default `contextFiles: true`, throws.
+Launch resources apply to fresh launches only: a launch that carries any of the four fields and resolves to `fork`, including the default `contextFiles: true`, throws.
 A pinned agent (`inherit_skills: false` in its frontmatter) that resolves to `fork` throws too.
-For a fork that falls back to `fresh` because the parent has no session, the agent's own resources still apply.
+The one fallback is for an agent-declared fork: when an agent's `context: fork` (locked or not) finds no parent session, the launch runs `fresh` and keeps the caller's four fields and the agent's pin.
+A caller's own `context: "fork"` gets no fallback: with no parent session it fails, as the context rules above already say.
 
-`spawn` throws synchronously, before a record, event or policy call exists, when a field has the wrong shape, `cwd` is relative or missing, or a skill path is missing or loads no skill.
-It never drops an invalid entry and launches with the rest.
+`spawn` throws synchronously, before a record, event or policy call exists, in these cases:
+
+- a field has the wrong shape (`skills.inherit` not a boolean, `skills.paths` not an array of non-empty strings, an empty or non-string `excludeExtensionPackages` entry, `cwd` not a string, `contextFiles` not a boolean);
+- a `cwd` or skill path is not absolute;
+- `cwd` is not an existing directory;
+- a skill path does not exist or loads no skill;
+- a skill path loads with a diagnostic other than a name collision, such as a missing `description`; the message names the path and the reason;
+- two different files in `skills.paths` declare the same skill name: `Skill name collision: <name> (<winnerPath>, <loserPath>)`, naming the skill and both paths.
+
+The executor never drops an invalid entry and launches with the rest.
+
+The run fails before any child session exists in one more case: an explicit skill collides with a skill the child's catalog already holds, for example `~/.pi/agent/skills/plan/SKILL.md` against an explicit `plan` from another path.
+It fails with `Skill name collision: <name> (<winnerPath>, <loserPath>)`, naming the skill and both paths; no session is created.
+A skill that a child's extension discovers while binding never displaces an explicit skill; that is a debug note, not a failure.
 
 The executor re-checks the resources when the run starts, before the workspace provider is consulted.
-A `cwd` that no longer exists, or a skill file that is gone or no longer loads, fails the run with `Launch resources no longer valid:` naming the path; no session or workspace is created.
+A `cwd` that no longer exists, a skill file that is gone or no longer loads, or a listed skill file that now loads with a warning fails the run with `Launch resources no longer valid: <path> (<reason>)`; no session or workspace is created.
+The executor never falls back to the parent's cwd or drops a skill.
 
 A workspace provider receives `requestedCwd` and `metadata` in `prepare` when the launch has them, and decides the directory: returning a workspace at `requestedCwd` honours it, another directory wraps it, and a throw refuses the run.
 

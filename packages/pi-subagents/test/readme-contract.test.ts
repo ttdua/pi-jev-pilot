@@ -25,4 +25,12 @@ describe("README contract", () => {
 	it("documents the inherit_skills pin", () => {
 		expect(readme).toContain("inherit_skills");
 	});
+
+	it("documents the skill collision refusal and its prefix", () => {
+		expect(readme).toContain("Skill name collision: <name> (<winnerPath>, <loserPath>)");
+	});
+
+	it("documents the run-start refusal prefix", () => {
+		expect(readme).toContain("Launch resources no longer valid: <path> (<reason>)");
+	});
 });
