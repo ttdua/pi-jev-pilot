@@ -181,7 +181,7 @@ async function launchFork(opts: {
       askParent: vi.fn(),
       notifyParent: vi.fn(),
       resultSchema: { type: "string" },
-      submitResult: vi.fn(),
+      submitResult: { hasResult: () => false, submit: vi.fn() },
       tools: opts.grants ? { toolNames: opts.agentTools, grants: opts.grants, removed: [] } : undefined,
       onToolFacts,
     },

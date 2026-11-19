@@ -48,7 +48,7 @@ function createFactory() {
 		params,
 		ask: (question: string) => { params().askParent?.(question); },
 		notify: (message: string) => { params().notifyParent?.(message); },
-		submit: (value: unknown) => params().submitResult?.(value),
+		submit: (value: unknown) => params().submitResult?.submit(value),
 	};
 }
 
@@ -2622,6 +2622,20 @@ describe("Subagent", () => {
 			expect(params().resultSchema).toEqual(SCHEMA);
 			expect(agent.structuredResult).toEqual({ ok: true });
 			expect(agent.structuredResultError).toBeUndefined();
+		});
+
+		it("reports a stored result through the sink's hasResult", async () => {
+			const seen: boolean[] = [];
+			const { factory, stub, params, submit } = createFactory();
+			stub.runTurnLoop.mockImplementation(() => {
+				seen.push(params().submitResult?.hasResult() ?? false);
+				submit({ ok: true });
+				seen.push(params().submitResult?.hasResult() ?? false);
+				return Promise.resolve(turnLoopResult());
+			});
+			await createRunnableAgent({ createSubagentSession: factory, resultSchema: SCHEMA }).run();
+
+			expect(seen).toEqual([false, true]);
 		});
 
 		it("hands the factory neither without a schema", async () => {

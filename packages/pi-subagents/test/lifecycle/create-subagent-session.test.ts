@@ -426,7 +426,7 @@ describe("createSubagentSession — the core's own child tools", () => {
       arrangeFactory();
 
       await createSubagentSession(
-        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", resultSchema: schema, submitResult: vi.fn() },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", resultSchema: schema, submitResult: { hasResult: () => false, submit: vi.fn() } },
         defaultDeps(),
       );
 
@@ -441,7 +441,7 @@ describe("createSubagentSession — the core's own child tools", () => {
       arrangeFactory();
 
       await createSubagentSession(
-        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", resultSchema: schema, submitResult: vi.fn() },
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", resultSchema: schema, submitResult: { hasResult: () => false, submit: vi.fn() } },
         createSubagentSessionDeps({
           io,
           exec,
@@ -635,7 +635,7 @@ describe("createSubagentSession — tool facts", () => {
         type: "Explore",
         askParent: vi.fn(),
         resultSchema: { type: "string" },
-        submitResult: vi.fn(),
+        submitResult: { hasResult: () => false, submit: vi.fn() },
         onToolFacts,
       },
       createSubagentSessionDeps({

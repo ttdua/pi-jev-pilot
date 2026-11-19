@@ -19,10 +19,15 @@ import type { ResultSchema } from "#src/service/service";
 
 export const SUBMIT_RESULT_TOOL_NAME = "submit_result";
 
-/** Stores a validated value against the current run; refuses once one is stored. */
-export type StructuredResultSink = (
-	value: unknown,
-) => "stored" | "already-submitted";
+/**
+ * The current run's result slot. `hasResult` lets the tool answer "already
+ * submitted" before it validates; `submit` stores a validated value and refuses
+ * once one is stored.
+ */
+export interface StructuredResultSink {
+	hasResult(): boolean;
+	submit(value: unknown): "stored" | "already-submitted";
+}
 
 const STORED_TEXT = "Result submitted. Your run ends after this turn.";
 const ALREADY_SUBMITTED_TEXT =
@@ -48,6 +53,7 @@ export class SubmitResultTool {
 		_onUpdate: unknown,
 		_ctx: unknown,
 	): SubmitResultOutput {
+		if (this.sink.hasResult()) return this.error(ALREADY_SUBMITTED_TEXT);
 		const violations = validateResult(this.schema, params.result);
 		if (violations.length > 0) {
 			const lines = violations.map(
@@ -57,7 +63,7 @@ export class SubmitResultTool {
 				`The result does not match the required schema:\n${lines.join("\n")}\nFix it and call submit_result again.`,
 			);
 		}
-		if (this.sink(params.result) === "already-submitted")
+		if (this.sink.submit(params.result) === "already-submitted")
 			return this.error(ALREADY_SUBMITTED_TEXT);
 		return {
 			content: [{ type: "text" as const, text: STORED_TEXT }],

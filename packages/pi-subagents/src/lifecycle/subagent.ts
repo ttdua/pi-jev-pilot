@@ -534,7 +534,10 @@ export class Subagent {
 				resultSchema: this.execution.resultSchema,
 				// Like ask_parent, the sink writes to whichever run is under way.
 				submitResult: this.execution.resultSchema
-					? (value) => this.currentRun.submitStructuredResult(value)
+					? {
+						hasResult: () => this.currentRun.hasStructuredResult,
+						submit: (value) => this.currentRun.submitStructuredResult(value),
+					}
 					: undefined,
 				turnLimits: {
 					maxTurns: this.execution.maxTurns,
