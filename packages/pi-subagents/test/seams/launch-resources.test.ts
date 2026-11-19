@@ -61,6 +61,18 @@ describe("parseLaunchResources", () => {
 		);
 	});
 
+	it("checks absoluteness before cwd existence", () => {
+		expect(() =>
+			parseLaunchResources(
+				{
+					cwd: join(root, "gone"),
+					skills: { inherit: false, paths: ["rel/SKILL.md"] },
+				},
+				io,
+			),
+		).toThrow(/must be absolute.*rel\/SKILL\.md/);
+	});
+
 	it("refuses a missing cwd", () => {
 		const cwd = join(root, "gone");
 		expect(() => parseLaunchResources({ cwd }, io)).toThrow(
@@ -89,14 +101,14 @@ describe("parseLaunchResources", () => {
 		const p = join(root, "missing", "SKILL.md");
 		expect(() =>
 			parseLaunchResources({ skills: { inherit: false, paths: [p] } }, io),
-		).toThrow(new RegExp(p));
+		).toThrow(new RegExp(`skill path is invalid.*${p}`));
 	});
 
 	it("refuses a skill without description", () => {
 		const f = skill(join(root, "nodesc"), "nodesc", "");
 		expect(() =>
 			parseLaunchResources({ skills: { inherit: false, paths: [f] } }, io),
-		).toThrow(new RegExp(f));
+		).toThrow(new RegExp(`skill path is invalid.*${f}`));
 	});
 
 	it("refuses an empty skill directory", () => {
@@ -116,6 +128,18 @@ describe("parseLaunchResources", () => {
 			io,
 		);
 		expect([...(r?.skills?.skillFiles ?? [])].sort()).toEqual([a, b].sort());
+	});
+
+	it("accepts a directory whose skill is a symlink pointing outside it", () => {
+		const outside = skill(join(root, "outside", "real"), "real");
+		const dir = join(root, "skills");
+		mkdirSync(dir);
+		symlinkSync(join(root, "outside", "real"), join(dir, "linked"));
+		const r = parseLaunchResources(
+			{ skills: { inherit: false, paths: [dir] } },
+			io,
+		);
+		expect(r?.skills?.skillFiles).toEqual([outside]);
 	});
 
 	it("dedupes a repeated path keeping first order", () => {

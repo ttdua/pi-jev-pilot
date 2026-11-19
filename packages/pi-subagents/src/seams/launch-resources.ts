@@ -127,10 +127,21 @@ function parseShapes(options: ParseInput): void {
 	}
 }
 
-function parseCwd(cwd: string, io: LaunchResourcesIO): void {
-	if (!isAbsolute(cwd)) {
+function parseAbsolute(options: ParseInput): void {
+	const { cwd, skills } = options;
+	if (cwd !== undefined && !isAbsolute(cwd)) {
 		refuse(`Launch resources: cwd must be absolute: ${show(cwd)}`);
 	}
+	for (const p of skills?.paths ?? []) {
+		if (!isAbsolute(p)) {
+			refuse(
+				`Launch resources: skills.paths entry must be absolute: ${show(p)}`,
+			);
+		}
+	}
+}
+
+function parseCwd(cwd: string, io: LaunchResourcesIO): void {
 	if (!io.isDirectory(cwd)) {
 		refuse(`Launch resources: cwd is not an existing directory: ${show(cwd)}`);
 	}
@@ -162,13 +173,6 @@ function parseSkills(
 	io: LaunchResourcesIO,
 ): NonNullable<LaunchResources["skills"]> {
 	const requested = skills.paths ?? [];
-	for (const p of requested) {
-		if (!isAbsolute(p)) {
-			refuse(
-				`Launch resources: skills.paths entry must be absolute: ${show(p)}`,
-			);
-		}
-	}
 	const paths = dedupeByRealPath(requested, io);
 	const loaded = paths.length
 		? io.loadSkills(paths)
@@ -190,9 +194,10 @@ function parseSkills(
 	const skillFiles = [
 		...new Set(loaded.skills.map((s) => io.realPath(s.filePath))),
 	];
+	// Coverage uses the discovery path the loader reports, before symlinks are
+	// resolved: a skill reached through a symlink inside a directory still counts.
 	for (const p of paths) {
-		const root = io.realPath(p);
-		if (!skillFiles.some((f) => isUnder(f, root))) {
+		if (!loaded.skills.some((s) => isUnder(s.filePath, p))) {
 			refuse(`Launch resources: skill path loads no skill: ${show(p)}`);
 		}
 	}
@@ -221,6 +226,7 @@ export function parseLaunchResources(
 		return undefined;
 	}
 	parseShapes(options);
+	parseAbsolute(options);
 	if (cwd !== undefined) parseCwd(cwd, io);
 	const out: {
 		-readonly [K in keyof LaunchResources]: LaunchResources[K];
