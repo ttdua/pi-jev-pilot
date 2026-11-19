@@ -2,9 +2,9 @@
 
 Blocked by: none
 
-- [ ] 1.1 `src/types.ts`: `AgentConfig` gains `inheritSkills?: false`. `src/config/custom-agents.ts`: parse frontmatter `inherit_skills`; only `false` pins, a non-boolean value writes a debug note (design D3)
-- [ ] 1.2 `src/seams/registry.ts` and `src/service/service.ts`: `AgentTypeSnapshot.inheritSkills?: false`, copied into the frozen snapshot only when declared
-- [ ] 1.3 Tests in `test/seams/registry.test.ts`: the "Pinned skills in the snapshot" scenario (executor-agent-registry delta), the non-boolean debug note, and the existing snapshot scenarios unchanged
+- [x] 1.1 `src/types.ts`: `AgentConfig` gains `inheritSkills?: false`. `src/config/custom-agents.ts`: parse frontmatter `inherit_skills`; only `false` pins, a non-boolean value writes a debug note (design D3)
+- [x] 1.2 `src/seams/registry.ts` and `src/service/service.ts`: `AgentTypeSnapshot.inheritSkills?: false`, copied into the frozen snapshot only when declared
+- [x] 1.3 Tests in `test/seams/registry.test.ts`: the "Pinned skills in the snapshot" scenario (executor-agent-registry delta), the non-boolean debug note, and the existing snapshot scenarios unchanged
 
 ## 2. Launch-resource validation seam
 
