@@ -31,8 +31,8 @@ Blocked by: 2
 
 Blocked by: 4
 
-- [ ] 5.1 `src/lifecycle/subagent-session.ts`: when the turn budget's own stop aborted the run, do not treat the aborted turn's provider error as a failure, so `Subagent.complete()` settles `aborted` with `phase: "exhausted"`; a provider error not caused by the budget stop still fails the run (spec: "Structured outcome per run" scenario "Turn limit reached"; executor README turn-limit contract)
-- [ ] 5.2 Real-SDK loopback tests in `test/lifecycle/structured-result-loop.test.ts`: turn limit reached without submission → `aborted`, `phase: "exhausted"`, `structuredResultError` set; same without a schema → `aborted`; a genuine provider error on a turn → still `error`
+- [x] 5.1 `src/lifecycle/subagent-session.ts`: when the turn budget's own stop aborted the run, do not treat the aborted turn's provider error as a failure, so `Subagent.complete()` settles `aborted` with `phase: "exhausted"`; a provider error not caused by the budget stop still fails the run (spec: "Structured outcome per run" scenario "Turn limit reached"; executor README turn-limit contract)
+- [x] 5.2 Real-SDK loopback tests in `test/lifecycle/structured-result-loop.test.ts`: turn limit reached without submission → `aborted`, `phase: "exhausted"`, `structuredResultError` set; same without a schema → `aborted`; a genuine provider error on a turn → still `error`
 
 ## 4. Docs and vendoring records
 
