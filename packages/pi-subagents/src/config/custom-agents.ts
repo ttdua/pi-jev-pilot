@@ -10,7 +10,7 @@ import { warnDeprecatedIn } from "#src/config/deprecations";
 import { isLockableField, type LockDeclaration, lockedFieldName } from "#src/config/invocation-config";
 import { builtinAgentDirs, isInside, type PackageAgentDir, packageAgentDirs, realOrSelf } from "#src/config/package-agents";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
-import { debugLog } from "#src/debug";
+import { debugLog, debugNote } from "#src/debug";
 import { noteDeclaredAndDisallowed } from "#src/seams/registry";
 import type { AgentConfig, ContextMode } from "#src/types";
 
@@ -111,6 +111,7 @@ function loadFromDir(
       maxTurns: nonNegativeInt(fm.max_turns),
       systemPrompt: body.trim(),
       context: contextField(fm, path, warned),
+      inheritSkills: inheritSkillsField(fm.inherit_skills, name),
       runInBackground: fm.run_in_background != null ? fm.run_in_background === true : undefined,
       locked: lockDeclaration(fm.locked, name, path, warned),
       enabled: fm.enabled !== false,  // default true; explicitly false disables
@@ -189,6 +190,15 @@ function thinkingLevel(val: unknown, agentName: string): AgentConfig["thinking"]
     debugLog(`agent ${agentName} frontmatter thinking`, thinkingLevelError(val));
   }
   return level;
+}
+
+/** `inherit_skills: false` pins skill inheritance off; `true` and omission both leave it unpinned. */
+function inheritSkillsField(val: unknown, agentName: string): false | undefined {
+  if (val === false) return false;
+  if (val != null && val !== true) {
+    debugNote(`agent ${agentName}: inherit_skills must be a boolean; ignoring ${JSON.stringify(val)}`);
+  }
+  return undefined;
 }
 
 /** Extract a non-negative integer or undefined. 0 means unlimited for max_turns. */

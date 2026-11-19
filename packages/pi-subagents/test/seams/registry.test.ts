@@ -4,7 +4,7 @@
  * global agent directories. Allowlist scenarios run the real
  * `createSubagentSession` with only the SDK session factory stubbed.
  */
-import { readFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -520,6 +520,60 @@ describe("builtinExtensionsFor", () => {
 		expect(builtinExtensionsFor(["codemode"]).map((e) => e.name)).toEqual([
 			"codemode",
 		]);
+	});
+});
+
+describe("inherit_skills", () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	it("pins with inherit_skills: false", () => {
+		writeProjectAgent("planner", "---\ndescription: Planner\ninherit_skills: false\n---\nPlan.");
+
+		expect(makeCatalog().get("planner")?.inheritSkills).toBe(false);
+	});
+
+	it("is absent when not declared", () => {
+		writeProjectAgent("planner", "---\ndescription: Planner\n---\nPlan.");
+
+		const snapshot = makeCatalog().get("planner");
+		expect(snapshot).toBeDefined();
+		expect("inheritSkills" in snapshot!).toBe(false);
+	});
+
+	it("true is not a pin", () => {
+		writeProjectAgent("planner", "---\ndescription: Planner\ninherit_skills: true\n---\nPlan.");
+
+		const snapshot = makeCatalog().get("planner");
+		expect(snapshot).toBeDefined();
+		expect("inheritSkills" in snapshot!).toBe(false);
+	});
+
+	it("reports a package agent's source in the snapshot", () => {
+		const pkgRoot = join(root, "pkg");
+		const pkgDir = join(pkgRoot, "agents");
+		mkdirSync(pkgDir, { recursive: true });
+		writeFileSync(join(pkgDir, "packed.md"), "---\ndescription: Packed\n---\nPack.");
+		const registry = new AgentTypeRegistry(() =>
+			loadCustomAgents(projectDir, { packageDirs: [{ dir: pkgDir, root: realpathSync(pkgRoot) }] }),
+		);
+
+		expect(new AgentTypeCatalog(registry).get("packed")?.source).toBe("package");
+	});
+
+	it("notes a non-boolean value and leaves the field absent", () => {
+		vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
+		writeProjectAgent("planner", "---\ndescription: Planner\ninherit_skills: \"no\"\n---\nPlan.");
+		let snapshot: AgentTypeSnapshot | undefined;
+
+		const warnings = captureWarn(() => {
+			snapshot = makeCatalog().get("planner");
+		});
+
+		expect(snapshot).toBeDefined();
+		expect("inheritSkills" in snapshot!).toBe(false);
+		expect(warnings.some((w) => w.includes("planner") && w.includes("inherit_skills"))).toBe(true);
 	});
 });
 

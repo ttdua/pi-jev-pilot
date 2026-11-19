@@ -135,6 +135,8 @@ export interface AgentTypeSnapshot {
   maxTurns?: number;
   runInBackground?: boolean;
   context?: ContextMode;
+  /** Present only when the agent file declares `inherit_skills: false`. */
+  inheritSkills?: false;
 }
 
 export type { ContextMode, LockableField };

@@ -85,6 +85,8 @@ export interface AgentConfig extends AgentIdentity, AgentPromptConfig {
   runInBackground?: boolean;
   /** Fields a `subagent` tool caller may not override. Omitted — every field is overridable. */
   locked?: LockDeclaration;
+  /** false = agent pins inherit_skills off; absent otherwise */
+  inheritSkills?: false;
   /** false = agent is hidden from the registry */
   enabled?: boolean;
   /** Where this agent was loaded from */
