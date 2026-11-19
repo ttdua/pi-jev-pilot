@@ -437,6 +437,15 @@ interface ResumeOptions {
      */
     signal?: AbortSignal;
 }
+/** Options for waiting on one launch via the service. */
+interface WaitOptions {
+    /**
+     * Ends the wait early: the promise rejects with the signal's reason and the
+     * run keeps going, since a wait only observes. A run that has already settled
+     * resolves with its outcome even when the signal has fired.
+     */
+    signal?: AbortSignal;
+}
 /**
  * What a resume attempt produced.
  *
@@ -510,6 +519,28 @@ interface SubagentsService {
      * question before the call.
      */
     resume(id: string, prompt: string, options?: ResumeOptions): Promise<ResumeResult>;
+    /**
+     * Wait for one launch's current run to end, and resolve with the terminal
+     * snapshot of that run (`completed`, `aborted`, `stopped` or `error`); a
+     * failed run resolves with `status: "error"`, it does not reject. A run still
+     * queued is waited for through its queue time. A run already settled resolves
+     * at once.
+     *
+     * The snapshot describes the run the wait began on, even when a resume
+     * replaced it before the promise resolved. `pendingQuestion` carries a
+     * question the child asked and ended its turn with; answer it with
+     * `resume(id, answer)`, then `wait(id)` again for the resumed run. A question
+     * is seen when the run ends, not when it is asked (`subagents:asked` signals
+     * that moment).
+     *
+     * While a wait is pending the main session gets no completion notification
+     * and no update message for the run (`subagents:update` is still emitted); a
+     * settled outcome counts as collected. Rejects for an unknown `id`, and with
+     * `options.signal`'s reason when it aborts first. An abort releases only this
+     * wait's hold and does not stop the run: notifications then resume as if no
+     * wait had been made, unless another carrier still holds the run.
+     */
+    wait(id: string, options?: WaitOptions): Promise<SubagentRecord>;
     /** Every enabled agent type after file overrides; agent files are reloaded first. */
     listAgentTypes(): readonly AgentTypeSnapshot[];
     /**
@@ -547,6 +578,8 @@ declare const SUBAGENT_EVENTS: {
     readonly COMPACTED: "subagents:compacted";
     readonly CREATED: "subagents:created";
     readonly STEERED: "subagents:steered";
+    readonly UPDATE: "subagents:update";
+    readonly ASKED: "subagents:asked";
 };
 /** Publish the SubagentsService on globalThis for cross-extension access. */
 declare function publishSubagentsService(service: SubagentsService): void;
@@ -556,4 +589,4 @@ declare function getSubagentsService(): SubagentsService | undefined;
 declare function unpublishSubagentsService(): void;
 
 export { SUBAGENT_EVENTS, getSubagentsService, publishSubagentsService, unpublishSubagentsService };
-export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSessionInfo, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchMetadata, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, PublishedLaunchIdentity, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };
+export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSessionInfo, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchMetadata, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, PublishedLaunchIdentity, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, WaitOptions, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };

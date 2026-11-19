@@ -14,7 +14,8 @@ Vendor the executor into `packages/pi-subagents/` with `git subtree --squash`, f
 - an agent registry query;
 - one launch policy provider, consulted for every launch, with checked tool grants;
 - `disallowed_tools` in agent frontmatter;
-- caller launch metadata on events, records and launch requests, and a child-session lookup.
+- caller launch metadata on events, records and launch requests, and a child-session lookup;
+- a per-launch wait for service launches and a question event.
 
 The workspace is private (`@ttdua/pi-subagents`) but keeps the executor's service key, event names and `subagent` tool name. One `pi install` loads both extensions, executor first. `packages/pi-subagents/VENDORED.md` records the upstream tag and every local change.
 

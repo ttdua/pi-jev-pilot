@@ -330,6 +330,8 @@ Agent lifecycle events are emitted via `pi.events.emit()` so other extensions ca
 | `subagents:resuming`         | Resume started (a queued resume, once admitted)         | `id`, `type`, `description`, `metadata`                                                                                  |
 | `subagents:resumed`          | Resumed run ended (including one stopped while queued)  | same as completed + `error`, `status` (`buildEventData` shape) — `status`/`error` discriminate; `metadata` included |
 | `subagents:steered`          | Steering message sent                                   | `id`, `message`                                                                                                          |
+| `subagents:update`           | Progress message for a running agent (not sent while a `wait` is pending) | `id`, `type`, `description`, `message`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
+| `subagents:asked`            | Agent asked its parent a question (`ask_parent`)        | `id`, `type`, `description`, `question`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
 | `subagents:compacted`        | Agent's session successfully compacted                  | `id`, `type`, `description`, `reason` (`"manual"` / `"threshold"` / `"overflow"`), `tokensBefore`, `compactionCount`     |
 | `subagents:settings_loaded`  | Persisted settings applied at extension init            | `settings` (merged global + project)                                                                                     |
 | `subagents:settings_changed` | `/subagents:settings` mutation was applied              | `settings`, `persisted` (`boolean` — `false` on write failure)                                                           |
@@ -401,7 +403,7 @@ See `src/service/service.ts` for the full `SubagentsService` interface and the `
 #### `spawn` contract
 
 `spawn` returns the new agent's id immediately — it never waits for the run.
-Use `getRecord(id)` to poll, `steer` to send a message, and the `subagents:completed` event to learn when it finished.
+Use `wait(id)` to learn when it finished, `steer` to send a message, and `getRecord(id)` for a snapshot without waiting.
 
 The agent type is canonicalized, so `"explore"` and `"Explore"` reach the same agent.
 An unrecognized type falls back to `general`, matching the `subagent` tool's behavior, as long as `general` exists and is enabled.
@@ -423,6 +425,24 @@ Omit `foreground` and the agent's own `run_in_background` frontmatter decides, d
 Pass `foreground` explicitly and it wins outright, whatever the frontmatter says.
 
 A spawned agent is a first-class citizen of the runtime: it appears in the background widget, carries its parent's session identity so permission prompts route correctly, and nests its session file under the parent's.
+
+#### `wait` contract
+
+`wait(id, options?)` resolves when the agent's current run reaches a terminal status, with that run's snapshot (`completed`, `aborted`, `stopped` or `error`).
+A failed run resolves with `status: "error"`; it does not reject.
+A run already settled resolves at once.
+A run still queued is waited for through its queue time.
+
+An unknown `id` rejects.
+When `options.signal` aborts first, the promise rejects with the signal's reason and the run keeps going.
+A settled run resolves even when the signal has already fired.
+
+While a wait is pending, the main session gets no completion notification and no update message for that run; `subagents:update` is still emitted.
+A settled outcome counts as collected.
+When the wait is released by abort, notifications resume as if no wait had been made, unless another carrier still holds the run.
+
+To answer a question, read `pendingQuestion` from the resolved snapshot, call `resume(id, answer)`, then `wait(id)` again for the resumed run.
+`subagents:asked` announces the question as it is asked; `wait` returns it when the run ends.
 
 #### Launch metadata
 
