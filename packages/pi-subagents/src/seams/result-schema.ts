@@ -83,7 +83,7 @@ function parseNode(
 	ancestors.add(input);
 	const out: Record<string, unknown> = {};
 	if (hasOwn(input, "type") || isRoot) {
-		out.type = parseType(input.type, pointer, isRoot);
+		out.type = parseType(input.type, pointer);
 	}
 	if (hasOwn(input, "enum")) out.enum = parseEnum(input.enum, pointer);
 	if (hasOwn(input, "properties")) {
@@ -113,15 +113,7 @@ function parseNode(
 	return Object.freeze(out) as ResultSchema;
 }
 
-function parseType(
-	value: unknown,
-	pointer: Pointer,
-	isRoot: boolean,
-): string | undefined {
-	if (value === undefined) {
-		if (isRoot) refuse(pointer, "root schema must declare a type");
-		return undefined;
-	}
+function parseType(value: unknown, pointer: Pointer): string {
 	if (!TYPE_NAMES.includes(value as (typeof TYPE_NAMES)[number])) {
 		refuse(`${pointer}/type`, `type must be one of ${TYPE_NAMES.join(", ")}`);
 	}

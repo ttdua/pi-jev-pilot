@@ -43,6 +43,15 @@ describe("parseResultSchema", () => {
 		});
 	});
 
+	it("refuses a nested type key present with value undefined", () => {
+		expect(() =>
+			parseResultSchema({
+				type: "object",
+				properties: { status: { type: undefined } },
+			}),
+		).toThrow(/\/properties\/status\/type: type must be/);
+	});
+
 	it("names minimum and its pointer for an unsupported keyword", () => {
 		expect(() =>
 			parseResultSchema({
@@ -167,27 +176,36 @@ describe("parseResultSchema", () => {
 });
 
 describe("validateResult type matrix", () => {
-	const cases: [ResultSchema["type"], unknown, boolean][] = [
-		["object", { a: 1 }, true],
-		["object", [1], false],
-		["object", null, false],
-		["array", [1], true],
-		["array", { a: 1 }, false],
-		["array", null, false],
-		["string", "s", true],
-		["string", 1, false],
-		["number", 1.5, true],
-		["number", Number.NaN, false],
-		["number", Number.POSITIVE_INFINITY, false],
-		["number", "1", false],
-		["integer", 3, true],
-		["integer", 1.5, false],
-		["boolean", true, true],
-		["boolean", "true", false],
+	const samples: [string, unknown][] = [
+		["object", { a: 1 }],
+		["array", [1]],
+		["null", null],
+		["string", "s"],
+		["finite number", 1.5],
+		["integer", 3],
+		["NaN", Number.NaN],
+		["Infinity", Number.POSITIVE_INFINITY],
+		["boolean", true],
 	];
+	const accepts: Record<string, string[]> = {
+		object: ["object"],
+		array: ["array"],
+		string: ["string"],
+		number: ["finite number", "integer"],
+		integer: ["integer"],
+		boolean: ["boolean"],
+	};
+	const cases = Object.entries(accepts).flatMap(([type, ok]) =>
+		samples.map(
+			([label, value]) => [type, label, value, ok.includes(label)] as const,
+		),
+	);
 
-	it.each(cases)("type %s with %j valid=%s", (type, value, valid) => {
-		const violations = validateResult({ type }, value);
+	it.each(cases)("type %s vs %s: valid=%s", (type, _label, value, valid) => {
+		const violations = validateResult(
+			{ type: type as ResultSchema["type"] },
+			value,
+		);
 
 		expect(violations.length === 0).toBe(valid);
 	});
