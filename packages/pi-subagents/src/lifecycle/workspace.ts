@@ -12,6 +12,7 @@
  */
 
 import type { SubagentStatus } from "#src/lifecycle/subagent";
+import type { LaunchMetadata } from "#src/service/service";
 import type { SubagentType } from "#src/types";
 
 /** Context the core hands a provider when a child run starts. */
@@ -19,6 +20,10 @@ export interface WorkspacePrepareContext {
   agentId: string;
   agentType: SubagentType;
   baseCwd: string;
+  /** The directory the launch asked for; present only when it asked. */
+  requestedCwd?: string;
+  /** The launch's frozen metadata; present only when the launch has it. */
+  metadata?: LaunchMetadata;
 }
 
 /** Outcome the core reports to a workspace when the run ends. */

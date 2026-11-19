@@ -54,7 +54,7 @@ The policy SHALL receive:
   - `declared`: the agent's `tools`, or `null`;
   - `disallowed`;
   - `defaults`: the tools the child would get with no policy;
-  - `parentTools`: the parent session's tool names, minus tools of extensions excluded by `excludedExtensionPackages`. Being listed does not guarantee the child will have the tool; see "Grants are checked in the child".
+  - `parentTools`: the parent session's tool names, minus tools of extensions excluded by `excludedExtensionPackages` and by the launch's own `excludeExtensionPackages` (see `launch-resources`). Being listed does not guarantee the child will have the tool; see "Grants are checked in the child".
 - An `AbortSignal`.
 
 `parentTools` MUST exclude the executor's own orchestration tools: `subagent`, `get_subagent_result`, `steer_subagent`, `ask_parent` and `notify_parent`. The request MUST NOT carry `inheritContext`.
@@ -94,6 +94,10 @@ The policy SHALL receive:
 #### Scenario: No metadata in the request
 - **WHEN** a launch carries no metadata, or comes from a `subagent` tool call
 - **THEN** the request has no `metadata` field
+
+#### Scenario: Launch-excluded extension's tool not offered
+- **WHEN** the parent has tool `flow_tool` from package `npm:flow-pack`, which is not in `excludedExtensionPackages`, and an extension spawns with `excludeExtensionPackages` `["npm:flow-pack"]`
+- **THEN** `toolSet.parentTools` does not contain `flow_tool`, and a sibling launch without the field is offered it
 
 ### Requirement: Applying the policy's adjustment
 The policy SHALL return either nothing or an adjustment with optional `model`, `thinking`, `addTools` and `removeTools`. The executor SHALL apply these rules:

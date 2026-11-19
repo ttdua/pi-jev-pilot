@@ -13,6 +13,7 @@
  */
 
 import type { PackageSource, SettingsManager } from "@earendil-works/pi-coding-agent";
+import { debugNote } from "#src/debug";
 
 /** Pi does not export `Settings` from its package root; derive it from the accessor. */
 type PiSettings = ReturnType<SettingsManager["getGlobalSettings"]>;
@@ -72,4 +73,25 @@ function disableExtensionsIfExcluded(
   const source = typeof pkg === "string" ? pkg : pkg.source;
   if (!excluded.has(source)) return pkg;
   return typeof pkg === "string" ? { source, extensions: [] } : { ...pkg, extensions: [] };
+}
+
+/** The setting's packages in order, then the launch's not already listed. */
+export function excludedPackageUnion(
+  setting: readonly string[],
+  launch: readonly string[],
+): string[] {
+  return [...new Set([...setting, ...launch])];
+}
+
+/** One debug note for each launch-excluded entry that no configured package matches. */
+export function noteUnknownPackages(parent: ParentSettingsView, launch: readonly string[]): void {
+  if (launch.length === 0) return;
+  const known = new Set(
+    [...(parent.getGlobalSettings().packages ?? []), ...(parent.getProjectSettings().packages ?? [])].map((pkg) =>
+      typeof pkg === "string" ? pkg : pkg.source,
+    ),
+  );
+  for (const entry of launch) {
+    if (!known.has(entry)) debugNote(`launch excludes ${entry}, which matches no configured package`);
+  }
 }

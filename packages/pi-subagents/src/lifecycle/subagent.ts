@@ -23,6 +23,7 @@ import { WorkspaceBracket } from "#src/lifecycle/workspace-bracket";
 import type { RunConfig } from "#src/runtime";
 import type { EffectiveFacts, ToolFacts } from "#src/seams/identity";
 import type { LaunchOverrides, LaunchPolicyGate } from "#src/seams/launch-gate";
+import { type LaunchResources, type LaunchResourcesIO, recheckLaunchResources } from "#src/seams/launch-resources";
 import type { LaunchMetadata, LaunchOrigin } from "#src/service/service";
 import type { CompactionInfo, ContextMode, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 
@@ -111,6 +112,10 @@ export interface SubagentExecution {
 	origin?: LaunchOrigin;
 	/** The service launch's frozen metadata; absent for a tool launch. */
 	metadata?: LaunchMetadata;
+	/** The service launch's frozen resources; absent for a tool launch. */
+	resources?: LaunchResources;
+	/** Re-checks the resources at run start; absent skips the re-check (unit tests only). */
+	launchResourcesIO?: LaunchResourcesIO;
 	/** Whether the child starts fresh or forks the parent conversation; handed to the launch policy. */
 	context: ContextMode;
 	/** Which input decided `context`. */
@@ -455,17 +460,32 @@ export class Subagent {
 			}
 		}
 
+		// The resources were valid at spawn(); check again now, before any workspace
+		// or child session exists. Synchronous, so the no-provider timing is kept.
+		const resources = this.execution.resources;
+		if (resources && this.execution.launchResourcesIO) {
+			try {
+				recheckLaunchResources(resources, this.execution.launchResourcesIO);
+			} catch (err) {
+				this.fail(run, err);
+				return;
+			}
+		}
+
 		// Guard the await so the no-provider path stays synchronous, preserving
 		// the original run() timing: the factory is called in the same turn as
 		// spawn() when no workspace provider is registered.
-		let cwd: string | undefined;
+		let cwd: string | undefined = resources?.cwd;
 		if (this.workspaceBracket.hasProvider()) {
 			try {
-				cwd = await this.workspaceBracket.prepare({
-					agentId: this.id,
-					agentType: this.type,
-					baseCwd: this.execution.baseCwd,
-				});
+				cwd =
+					(await this.workspaceBracket.prepare({
+						agentId: this.id,
+						agentType: this.type,
+						baseCwd: this.execution.baseCwd,
+						...(resources?.cwd !== undefined && { requestedCwd: resources.cwd }),
+						...(this.execution.metadata !== undefined && { metadata: this.execution.metadata }),
+					})) ?? resources?.cwd;
 			} catch (err) {
 				// Nothing was prepared and no question asked yet, so failing the run
 				// disposes nothing and drops nothing.
@@ -487,6 +507,7 @@ export class Subagent {
 				cwd,
 				parentSession: this.execution.parentSession,
 				metadata: this.execution.metadata,
+				resources,
 				// With a policy registered the gate's values are authoritative (locks and
 				// adjustment applied); without one the door's values run, as upstream.
 				model: overrides ? overrides.model : this.execution.model,
@@ -524,6 +545,7 @@ export class Subagent {
 			origin: execution.origin ?? { kind: "service" },
 			parentSessionId: execution.parentSession?.parentSessionId,
 			metadata: execution.metadata,
+			excludeExtensionPackages: execution.resources?.excludeExtensionPackages,
 			prompt: execution.prompt,
 			description: this.description,
 			model: execution.model,

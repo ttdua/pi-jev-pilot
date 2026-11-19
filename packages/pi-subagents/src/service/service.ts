@@ -135,6 +135,8 @@ export interface AgentTypeSnapshot {
   maxTurns?: number;
   runInBackground?: boolean;
   context?: ContextMode;
+  /** Present only when the agent file declares `inherit_skills: false`. */
+  inheritSkills?: false;
 }
 
 export type { ContextMode, LockableField };
@@ -144,6 +146,18 @@ export type { ContextMode, LockableField };
  * null-prototype; must not carry secrets.
  */
 export type LaunchMetadata = Readonly<Record<string, string>>;
+
+/** Skill catalog choice for one fresh launch. */
+export interface LaunchSkills {
+  /** Keep the child's own discovered catalog. A pinned agent (`inherit_skills: false`) forces `false`. */
+  inherit: boolean;
+  /**
+   * Absolute skill files or directories to load, in order. Each must exist and
+   * load at least one skill without a warning; two files declaring one skill
+   * name are refused. Duplicates (by real path) are kept once.
+   */
+  paths?: readonly string[];
+}
 
 /** The live child session a consumer can look up by its session id. */
 export interface ChildSessionInfo {
@@ -266,6 +280,23 @@ export interface SpawnOptions {
    * A plain object has prototype `Object.prototype` or `null`.
    */
   metadata?: LaunchMetadata;
+  /**
+   * Skill choice for the child. Fresh launches only: a launch that resolves to
+   * `fork` is refused, never downgraded. An invalid entry makes `spawn` throw.
+   */
+  skills?: LaunchSkills;
+  /**
+   * Extension packages (exact source strings) to keep out of this child, in
+   * addition to the `excludedExtensionPackages` setting. Fresh launches only.
+   */
+  excludeExtensionPackages?: readonly string[];
+  /**
+   * Absolute, existing directory the child runs in unless a workspace provider
+   * decides otherwise. Fresh launches only; relative or missing makes `spawn` throw.
+   */
+  cwd?: string;
+  /** `false` loads no AGENTS.md/CLAUDE.md in the child. Fresh launches only. */
+  contextFiles?: boolean;
 }
 
 /** The public service contract for cross-extension subagent access. */
