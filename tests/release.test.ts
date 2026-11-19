@@ -123,6 +123,16 @@ describe("repository release metadata", () => {
   });
 });
 
+describe("README explains each feature's effect", () => {
+  test("Tier and effort explained", () => {
+    const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+    expect(readme).toMatch(/tier picks how much the model knows/i);
+    expect(readme).toMatch(/effort picks how hard it works/i);
+    expect(readme).toContain("`frontier`");
+    expect(readme).toContain("/jev frontier off");
+  });
+});
+
 describe("scenario documentation", () => {
   test("scenario documentation has its sections and is linked", () => {
     const text = readFileSync(join(REPO_ROOT, "docs/scenarios.md"), "utf8");

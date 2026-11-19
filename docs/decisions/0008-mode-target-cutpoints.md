@@ -1,6 +1,6 @@
 # 0008: Modes are target tables, with cut points from the ledger
 
-**Status:** Accepted, 2026-11-07. Replaces [0003](0003-rubric-per-mode.md).
+**Status:** Accepted, 2026-11-07. Replaces [0003](0003-rubric-per-mode.md). Partly superseded by [0010](0010-knowledge-tiers.md), 2026-11-20: the rubric, the effort term of the score and the effort condition on `expert`, and `risky` lifting the tier. Target tables, the rolling window and the seed rule still hold, with the tiers renamed and the caps lowered to 1% and 3%.
 
 ## Context
 
@@ -20,11 +20,11 @@ A mode is a **target table**: the share of tier-routed launches for `fast`, `bal
 
 Each share is meant to stay within ±10 points over recent tier-routed launches. Expert is a cap, not a quota.
 
-- **One worker rubric** for every mode. The worker request is the same in every mode, and `expert_needed` is no longer asked.
-- **Difficulty score:** the expected tier rank over Jev's `tier` probabilities (tier keys only, renormalised), plus `effortRank / 8`. An unanswered effort counts as `high`. Range 0–3.5.
+- **One worker rubric** for every mode (its wording superseded by 0010). The worker request is the same in every mode, and `expert_needed` is no longer asked.
+- **Difficulty score** (effort term superseded by 0010): the expected tier rank over Jev's `tier` probabilities (tier keys only, renormalised), plus `effortRank / 8`. An unanswered effort counts as `high`. Range 0–3.5.
 - **Cut points** are recomputed from the latest 200 eligible worker lines in the ledger, pooled across modes, and give each mode's target. With fewer than 100 such lines, a seed computed from the 2026-11-07 replay applies.
-- **Order:** `expert`, `risky`, `slot`, `cut`. `expert` needs a score at or above the expert cut **and** effort `xhigh` or `max`. `risky > .7` still gives `deep`, and a slot with probability ≥ .6 still wins over the cut.
-- **The main request is unchanged.** It keeps its own `fast`, `balanced` and `deep` wording, so strategy gates do not move when the worker rubric changes.
+- **Order** (superseded by 0010: `frontier`, `slot`, `cut`, with no effort condition and no risk rule): `expert`, `risky`, `slot`, `cut`. `expert` needs a score at or above the expert cut **and** effort `xhigh` or `max`. `risky > .7` still gives `deep`, and a slot with probability ≥ .6 still wins over the cut.
+- **The main request is unchanged** (superseded by 0010: the main request asks no `tier`, and the strategy gates read effort). It keeps its own `fast`, `balanced` and `deep` wording, so strategy gates do not move when the worker rubric changes.
 - **Not tuning under [ADR 0005](0005-bounded-auto-tuning.md).** The targets never change automatically, and nothing is stored: the window lives in memory and is rebuilt from the ledger at session start. Cut points only follow the workload to keep the operator's targets.
 
 ## Consequences

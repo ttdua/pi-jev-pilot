@@ -37,12 +37,12 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 
 | Feature | When it is on | Turn it off |
 |---|---|---|
-| Routing by difficulty | Each eligible `subagent` launch gets a model tier and thinking level chosen from how hard the task is, overriding what the main model asked for. Resumed launches and, by default, forked launches are left alone. An agent file that locks only the model still gets its thinking set; lock both to leave a launch untouched. | `/jev subagents off` |
+| Routing by knowledge and effort | Each eligible `subagent` launch gets a model tier chosen from the knowledge the task needs and a thinking level chosen from how much work and care it needs, overriding what the main model asked for. Resumed launches and, by default, forked launches are left alone. An agent file that locks only the model still gets its thinking set; lock both to leave a launch untouched. | `/jev subagents off` |
 | Modes | One command shifts the whole tier mix, for this directory or for all of them. | No off switch: `standard` is the default. `/jev mode clear` removes a directory mode; `/jev subagents off` stops routing. |
-| Frontier tier | Very hard work at top effort can run on your `frontier` model. | `/jev frontier off` |
+| Frontier tier | Work that needs the rarest knowledge can run on your `frontier` model, within a small cap per mode. | `/jev frontier off` |
 | Subagent list | While subagents run, a list appears below the editor; `↓` or `←` on an empty prompt enters it and `Enter` opens an agent's transcript. | `/subagents:settings` → `Fleet view` |
 | Slots | Jev can pick a model you named, such as a `reviewer`, when its description fits the task. | `/jev remove <slot>` |
-| Fallback | When the chosen model cannot run, the launch moves to a tier that can. It never falls back to `expert`. | `/jev subagents off` |
+| Fallback | When the chosen model cannot run, the launch moves to a tier that can. It never falls back to `frontier`. | `/jev subagents off` |
 
 ### Reviews
 
@@ -72,12 +72,16 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 - **Jev requests.** TypeSafe bills them, at about $0.042 per million input tokens, with free output.
 - **Data sent.** Your prompt and recent context go to TypeSafe; [privacy](docs/privacy.md) lists everything and how to limit it.
 
+## Tiers and effort
+
+A tier picks how much the model knows; effort picks how hard it works. The four tiers, from least to most knowledgeable, are `basic`, `broad`, `deep` and `frontier`, each mapped to a model in `config.json`. A long but familiar task gets a `basic` or `broad` model at high effort; a short task that needs rare expertise gets a `deep` or `frontier` model. Risky work raises effort, never the tier. `/jev frontier off` keeps every launch off the `frontier` tier.
+
 ## Modes
 
 One command shifts the whole tier mix, for this directory or for all of them:
 
 ```text
-/jev mode budget global      more work goes to the fast tier
+/jev mode budget global      more work goes to the basic tier
 /jev mode standard global    the default
 /jev mode premium global     more work goes to the deep and frontier tiers
 /jev mode premium            the same, for this directory only (`/jev mode clear` removes it)

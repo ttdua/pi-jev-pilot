@@ -2,7 +2,7 @@
 
 This is the seed replay of the `tier-knowledge-axis` change: rubric version 3, the knowledge tiers `basic`, `broad`, `deep` and `frontier`, a difficulty score without effort, and cut points from a rolling window. It replaces the seed published in the [2026-11-07 tier-mix replay](2026-11-07-tier-mix.md), which used rubric version 2. The figures are aggregates from one operator's data. Briefs, answers and scripts are not in this repository.
 
-**Read with care:** these results measure where Jev routes work, not whether the routed model does it well. One operator's workload over two weeks is a small sample, and a fifth of the sampled briefs were left out (see [Data](#data)).
+**Read with care:** these results measure where Jev routes work, not whether the routed model does it well. One operator's workload over two weeks is a small sample, and 281 of the 1101 sampled briefs (about a quarter) were left out (see [Data](#data)).
 
 ## Data
 
@@ -78,7 +78,7 @@ The plain rerun asked Jev the same 820 requests again. Then the decided target o
 ## Reading
 
 - **Every mode is in range** in both scopes, in the run and the rerun. With no slot, every tier is within 4 points of its target.
-- **With the reviewer slot,** the remaining launches lean to `deep`: `standard` sits near the edge of the range (`broad` −9.8, `deep` +9.4 points), and `budget` and `premium` move 5–6 points. The cut points hold the target for the launches that fill the window; the non-slot launches of this workload score higher than the reviews the slot takes away.
+- **With the reviewer slot,** the remaining launches lean to `deep`: `standard` sits near the edge of the range (`broad` −9.8, `deep` +9.4 points), and `budget` and `premium` move 5–6 points. *Hypothesis, not measured:* the first 100 launches of each stream are decided on the run's seed candidate, which was computed over all 820 answers, reviews included. If the non-slot launches score higher than the reviews the slot takes away, those early launches land above the cuts more often. Slot launches never enter the window, so the cuts computed later come from non-slot launches only. These aggregates have no per-window data, so the size of the seed-candidate effect is not known.
 - **Ties:** the scores are coarse, but no mode misses its target because many launches share one score. The effort tiebreak considered in the change's design is not needed.
 - **Noise:** 4.6–7.7% of launches change target between two identical runs, close to the 3.3–5.2% of the rubric-2 replay.
 
