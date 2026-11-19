@@ -4,16 +4,32 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
+Tag: v0.5.0
+
 ### Added
 
+- Executor service launches (`SubagentsService.spawn()`) gain:
+  - `metadata`: a string map the caller gets back on child events, record events, record snapshots and the launch policy request. `SubagentsService.childSession(sessionId)` tells a child session which launch it belongs to ([#83](https://github.com/ttdua/pi-jev-pilot/issues/83), [#93](https://github.com/ttdua/pi-jev-pilot/pull/93)).
+  - Per-launch resources: `skills`, `excludeExtensionPackages`, `cwd` and `contextFiles: false` decide what a child sees and where it runs. Invalid values refuse the launch instead of falling back. An agent file can pin `inherit_skills: false` ([#84](https://github.com/ttdua/pi-jev-pilot/issues/84), [#94](https://github.com/ttdua/pi-jev-pilot/pull/94)).
+  - `SubagentsService.wait(id)` waits for one launch. While a caller waits, the child's completion, `notify_parent` updates and `ask_parent` questions go to the caller only, not the main session. New event `subagents:asked`; `subagents:update` carries `toolCallId` and `metadata` ([#85](https://github.com/ttdua/pi-jev-pilot/issues/85), [#95](https://github.com/ttdua/pi-jev-pilot/pull/95)).
+  - `resultSchema`: the child gets a `submit_result` tool that validates its result against a JSON Schema subset before the run ends. The record carries `structuredResult` or `structuredResultError` ([#86](https://github.com/ttdua/pi-jev-pilot/issues/86), [#96](https://github.com/ttdua/pi-jev-pilot/pull/96)).
+- Fork launches: `context: fork` clones the parent's real conversation, system prompt and tools, so the fork reuses the parent's prompt cache ([#88](https://github.com/ttdua/pi-jev-pilot/issues/88), [#90](https://github.com/ttdua/pi-jev-pilot/pull/90)).
 - Six built-in role agents (`general`, `implementer`, `explore`, `scout`, `reviewer`, `verifier`) in the vendored executor, loaded from Markdown files. Each body states the role only; the process and task come from the launch ([#82](https://github.com/ttdua/pi-jev-pilot/issues/82), [#87](https://github.com/ttdua/pi-jev-pilot/issues/87), [#91](https://github.com/ttdua/pi-jev-pilot/issues/91)).
 - Package agents: an installed Pi package can add agents through `pi.subagents.agents` in its `package.json`. Only packages in the configured package list are read, and paths must stay inside the package ([#91](https://github.com/ttdua/pi-jev-pilot/issues/91)).
 
 ### Changed
 
+- **Breaking:** a subagent's starting context is one setting, `context: fresh | fork` (default `fresh`), on the `subagent` tool, agent frontmatter and service `spawn`. A fresh child gets Pi's own prompt for its session with the agent body last, and no longer inherits the parent identity. `prompt_mode` is ignored and `inherit_context` maps to `context: fork`; both warn and are removed in the next minor release. The `twin` label is replaced by `fork` ([#88](https://github.com/ttdua/pi-jev-pilot/issues/88), [#90](https://github.com/ttdua/pi-jev-pilot/pull/90)).
+- **Breaking:** the jev setting `subagents.forkedLaunch` is renamed `subagents.forkLaunch`. The old key still works with a warning for one minor release; a file with both keys is invalid ([#88](https://github.com/ttdua/pi-jev-pilot/issues/88), [#90](https://github.com/ttdua/pi-jev-pilot/pull/90)).
 - Agent names match case-insensitively, and a later source overrides an earlier one: built-in, package, global, then project ([#87](https://github.com/ttdua/pi-jev-pilot/issues/87)).
 - An agent's name is its frontmatter `name:`, falling back to the file name ([#87](https://github.com/ttdua/pi-jev-pilot/issues/87)).
 - Unknown agent types fall back to `general`, and `general-purpose` is accepted as an alias while no agent has that name. A missing or disabled `general` refuses the launch ([#82](https://github.com/ttdua/pi-jev-pilot/issues/82)).
+
+### Fixed
+
+- A run stopped by its turn limit settled `error` on real providers; it now settles `aborted` as documented ([#96](https://github.com/ttdua/pi-jev-pilot/pull/96)).
 
 ### Removed
 
