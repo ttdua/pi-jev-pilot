@@ -27,6 +27,13 @@ Blocked by: 2
 - [x] 3.4 `src/seams/launch-request.ts`: add `submit_result` to `OWNED_TOOLS` (executor-launch-policy delta)
 - [x] 3.5 Tests: `test/service/service-adapter.test.ts` (refusals, policy not called, snapshot fields), `test/seams/launch-policy.test.ts` (parentTools exclusion), event payload and persisted-entry tests, and one end-to-end flow test in `test/seams/` driving spawn → submit → `subagents:completed`
 
+## 5. Turn-limit stop settles aborted
+
+Blocked by: 4
+
+- [ ] 5.1 `src/lifecycle/subagent-session.ts`: when the turn budget's own stop aborted the run, do not treat the aborted turn's provider error as a failure, so `Subagent.complete()` settles `aborted` with `phase: "exhausted"`; a provider error not caused by the budget stop still fails the run (spec: "Structured outcome per run" scenario "Turn limit reached"; executor README turn-limit contract)
+- [ ] 5.2 Real-SDK loopback tests in `test/lifecycle/structured-result-loop.test.ts`: turn limit reached without submission → `aborted`, `phase: "exhausted"`, `structuredResultError` set; same without a schema → `aborted`; a genuine provider error on a turn → still `error`
+
 ## 4. Docs and vendoring records
 
 Blocked by: 3

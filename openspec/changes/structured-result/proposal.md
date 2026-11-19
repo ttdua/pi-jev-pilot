@@ -22,6 +22,12 @@ A child's result is free text. A caller that needs a contract (status, commits, 
 - To: it also excludes `submit_result`.
 - Impact: non-breaking; a parent rarely has a tool by that name.
 
+**Turn-limit stop settles `aborted` (fix found in verify, user-approved)**
+- From: on a real provider session, the turn-budget stop aborts the in-flight request; the provider reports that turn as `stopReason: "error"` ("This operation was aborted"), the turn loop treats it as a provider failure, and the run settles `error`, although the executor README promises `aborted` with `phase: "exhausted"`.
+- To: when the harness's own turn-budget stop ended the run, the aborted turn is not a provider failure; the run settles `aborted`, as documented, with or without a result schema.
+- Reason: the "Turn limit reached" scenario of this change depends on it; the same bug affects every launch.
+- Impact: bug fix to documented behaviour; a provider error unrelated to the budget stop still settles `error`.
+
 **Out of scope**
 - Schemas in agent frontmatter, a `subagent` tool parameter, structured results for forks, and full JSON Schema.
 
