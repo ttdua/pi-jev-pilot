@@ -65,12 +65,12 @@ Blocked by: 1, 2
 
 Blocked by: 3
 
-- [ ] 4.1 `packages/pi-subagents/VENDORED.md`: add rows for the new seam and test files and for every edited upstream file, each with a one-line reason
-- [ ] 4.2 Regenerate `dist/public.d.ts` with `bun run --cwd packages/pi-subagents build:types`, then run `verify:public-types`
-- [ ] 4.3 Update `packages/pi-subagents/README.md`:
+- [x] 4.1 `packages/pi-subagents/VENDORED.md`: add rows for the new seam and test files and for every edited upstream file, each with a one-line reason
+- [x] 4.2 Regenerate `dist/public.d.ts` with `bun run --cwd packages/pi-subagents build:types`, then run `verify:public-types`
+- [x] 4.3 Update `packages/pi-subagents/README.md`:
   - the `spawn` contract: the four fields, fresh-only, refusals and the run-start re-check;
   - Events: the new `session-created` fields;
   - Worktree Isolation: `requestedCwd` and `metadata` for providers.
-- [ ] 4.4 Update `packages/pi-subagents/docs/configuration.md`: the `inherit_skills` frontmatter row, and the per-launch `excludeExtensionPackages` next to "Excluding package extensions from children"
-- [ ] 4.5 Update the seam names in `docs/architecture.md` (seams line) and `docs/decisions/0009-vendored-executor.md` (seam list) to cover per-launch resources
-- [ ] 4.6 Run `bun run test`, `bun run test:executor`, `bun run lint`, `bun run typecheck` and the vendoring test; all must pass
+- [x] 4.4 Update `packages/pi-subagents/docs/configuration.md`: the `inherit_skills` frontmatter row, and the per-launch `excludeExtensionPackages` next to "Excluding package extensions from children"
+- [x] 4.5 Update the seam names in `docs/architecture.md` (seams line) and `docs/decisions/0009-vendored-executor.md` (seam list) to cover per-launch resources
+- [x] 4.6 Run `bun run test`, `bun run test:executor`, `bun run lint`, `bun run typecheck` and the vendoring test; all must pass
