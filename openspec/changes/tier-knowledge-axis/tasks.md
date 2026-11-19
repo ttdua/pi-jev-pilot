@@ -62,7 +62,7 @@ Blocked by: 6
 
 Blocked by: 5, 7
 
-- [ ] 8.1 `docs/decisions/0010-knowledge-tiers.md`; mark the superseded parts of ADR 0008
-- [ ] 8.2 Update `docs/configuration.md`, `docs/usage-guide.md`, `docs/glossary.md`, `docs/domain-model.md`, `docs/architecture.md`, `docs/jev-contract.md`, `docs/testing.md`, `docs/scenarios.md`, `README.md`
-- [ ] 8.3 `CHANGELOG.md` entry naming the renames and deprecated keys
-- [ ] 8.4 Full gate: `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`
+- [x] 8.1 `docs/decisions/0010-knowledge-tiers.md`; mark the superseded parts of ADR 0008
+- [x] 8.2 Update `docs/configuration.md`, `docs/usage-guide.md`, `docs/glossary.md`, `docs/domain-model.md`, `docs/architecture.md`, `docs/jev-contract.md`, `docs/testing.md`, `docs/scenarios.md`, `README.md`
+- [x] 8.3 `CHANGELOG.md` entry naming the renames and deprecated keys
+- [x] 8.4 Full gate: `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun test`
