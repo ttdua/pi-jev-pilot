@@ -24,7 +24,9 @@ import type {
   SpawnOptions,
   SubagentRecord,
   SubagentsService,
+  WaitOptions,
 } from "#src/service/service";
+import type { RunOutcome } from "#src/lifecycle/subagent-run";
 import type { ModelRegistry } from "#src/session/model-resolver";
 import type { ContextMode, SessionContext, Subagent, ThinkingLevel } from "#src/types";
 
@@ -182,6 +184,39 @@ export class SubagentsServiceAdapter implements SubagentsService {
     return this.agentTypes.get(name);
   }
 
+  wait(id: string, options?: WaitOptions): Promise<SubagentRecord> {
+    const record = this.manager.getRecord(id);
+    if (!record) return Promise.reject(new Error(`Unknown agent "${id}"`));
+    return this.waitForRun(record, options?.signal ?? NEVER_ABORTS);
+  }
+
+  /**
+   * Hold the record's current run as a carrier: claim it so nothing announces
+   * it, wait for it to end, then collect it. Any exit other than a settled
+   * outcome releases the claim.
+   */
+  private async waitForRun(record: Subagent, signal: AbortSignal): Promise<SubagentRecord> {
+    // A settled run wins over an aborted signal, as in get_subagent_result.
+    if (!record.latestRun.isActive()) {
+      record.latestRun.markConsumed();
+      return toWaitedRecord(record, record.latestRun);
+    }
+    const claim = record.claim();
+    let settled = false;
+    try {
+      const run = await record.waitForRunEnd(signal);
+      if (!run.isActive()) {
+        settled = true;
+        run.markConsumed();
+        return toWaitedRecord(record, run);
+      }
+      throw signal.reason;
+    } finally {
+      // A settled run is over; a resume starts a new, unclaimed run.
+      if (!settled) claim.release();
+    }
+  }
+
   async waitForAll(): Promise<void> {
     return this.manager.waitForAll();
   }
@@ -225,6 +260,31 @@ export class SubagentsServiceAdapter implements SubagentsService {
     }
     return resolved;
   }
+}
+
+/** The signal of a wait that was given none: it never fires. */
+const NEVER_ABORTS = new AbortController().signal;
+
+/**
+ * The snapshot of one run: `toSubagentRecord` with the per-run fields taken
+ * from `run`, which a resume may have replaced since. `pendingQuestion` is the
+ * question the run itself ended with (`run.question`).
+ */
+export function toWaitedRecord(record: Subagent, run: RunOutcome): SubagentRecord {
+  const out = toSubagentRecord(record);
+  out.status = run.status;
+  out.startedAt = run.startedAt;
+  setOrOmit(out, "result", run.result);
+  setOrOmit(out, "error", run.error);
+  setOrOmit(out, "completedAt", run.completedAt);
+  setOrOmit(out, "turnBudget", run.turnBudget && { ...run.turnBudget });
+  setOrOmit(out, "pendingQuestion", run.question);
+  return out;
+}
+
+function setOrOmit<K extends keyof SubagentRecord>(out: SubagentRecord, key: K, value: SubagentRecord[K] | undefined): void {
+  if (value === undefined) delete out[key];
+  else out[key] = value;
 }
 
 /**

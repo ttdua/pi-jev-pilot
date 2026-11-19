@@ -545,6 +545,28 @@ describe("SubagentRun", () => {
 		});
 	});
 
+	describe("question and finished", () => {
+		it("keeps the recorded question readable after the run is replaced", () => {
+			const run = new SubagentRun("initial", true);
+			run.setPendingQuestion("Q");
+			run.markReplaced();
+			expect(run.pendingQuestion).toBeUndefined();
+			expect(run.question).toBe("Q");
+		});
+
+		it("finished resolves once markFinished is called, idempotently", async () => {
+			const run = new SubagentRun("initial", true);
+			let settled = false;
+			void run.finished.then(() => { settled = true; });
+			await Promise.resolve();
+			expect(settled).toBe(false);
+			run.markFinished();
+			run.markFinished();
+			await run.finished;
+			expect(settled).toBe(true);
+		});
+	});
+
 	describe("release", () => {
 		it("clears both the signal listener and the observer unsubscribe", () => {
 			const controller = new AbortController();
