@@ -1,7 +1,7 @@
 /**
  * child-sessions.ts — Process-wide registry of live child sessions.
  *
- * The map lives on `globalThis` so that every executor instance in the
+ * The state lives on `globalThis` so that every executor instance in the
  * process (main and child) reads and writes the same registry. Only the
  * lifecycle publisher writes to it.
  */
@@ -14,46 +14,66 @@ interface ChildSessionEntry {
 	readonly metadata: LaunchMetadata;
 }
 
+interface RegistryState {
+	readonly sessions: Map<string, ChildSessionEntry>;
+	/** The canonical frozen empty metadata, shared by every module instance. */
+	readonly empty: LaunchMetadata;
+}
+
 const REGISTRY_KEY = Symbol.for("@ttdua/pi-subagents:child-sessions");
-const EMPTY_METADATA: LaunchMetadata = Object.freeze(Object.create(null));
 
-type Registry = Map<string, ChildSessionEntry>;
-
-function registry(): Registry {
-	const host = globalThis as unknown as Record<symbol, Registry | undefined>;
-	let map = host[REGISTRY_KEY];
-	if (!map) {
-		map = new Map();
-		host[REGISTRY_KEY] = map;
+function state(): RegistryState {
+	const host = globalThis as unknown as Record<
+		symbol,
+		RegistryState | undefined
+	>;
+	let current = host[REGISTRY_KEY];
+	if (!current) {
+		current = {
+			sessions: new Map(),
+			empty: Object.freeze(Object.create(null)),
+		};
+		host[REGISTRY_KEY] = current;
 	}
-	return map;
+	return current;
+}
+
+/** Reuse a frozen map as-is; copy anything else so the caller's object is untouched. */
+function ownedMetadata(
+	metadata: LaunchMetadata | undefined,
+	empty: LaunchMetadata,
+): LaunchMetadata {
+	if (metadata === undefined) return empty;
+	if (Object.isFrozen(metadata)) return metadata;
+	return Object.freeze(Object.assign(Object.create(null), metadata));
 }
 
 export function enterChildSession(
 	sessionId: string,
 	entry: { agentId: string; agentType: string; metadata?: LaunchMetadata },
 ): void {
-	registry().set(
+	const { sessions, empty } = state();
+	sessions.set(
 		sessionId,
 		Object.freeze({
 			agentId: entry.agentId,
 			agentType: entry.agentType,
-			metadata: Object.freeze(entry.metadata ?? EMPTY_METADATA),
+			metadata: ownedMetadata(entry.metadata, empty),
 		}),
 	);
 }
 
 export function leaveChildSession(sessionId: string): void {
-	registry().delete(sessionId);
+	state().sessions.delete(sessionId);
 }
 
 export function lookupChildSession(
 	sessionId: string,
 ): ChildSessionInfo | undefined {
-	return registry().get(sessionId);
+	return state().sessions.get(sessionId);
 }
 
 /** Test-only: clears every entry. */
 export function resetChildSessions(): void {
-	registry().clear();
+	state().sessions.clear();
 }

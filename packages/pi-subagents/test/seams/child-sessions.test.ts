@@ -62,4 +62,32 @@ describe("child-session registry", () => {
 			metadata: {},
 		});
 	});
+
+	it("shares the empty metadata object across module instances", async () => {
+		enterChildSession("s1", { agentId: "a1", agentType: "explore" });
+		const before = lookupChildSession("s1")?.metadata;
+
+		vi.resetModules();
+		const fresh = await import("#src/seams/child-sessions");
+		fresh.enterChildSession("s2", { agentId: "a2", agentType: "general" });
+		const after = fresh.lookupChildSession("s2")?.metadata;
+
+		expect(after).toBe(before);
+	});
+
+	it("does not freeze or retain the caller's metadata object", () => {
+		const input: Record<string, string> = { change: "c" };
+		enterChildSession("s1", {
+			agentId: "a1",
+			agentType: "explore",
+			metadata: input,
+		});
+
+		expect(Object.isFrozen(input)).toBe(false);
+
+		input.change = "changed";
+		input.extra = "e";
+
+		expect(lookupChildSession("s1")?.metadata).toEqual({ change: "c" });
+	});
 });
