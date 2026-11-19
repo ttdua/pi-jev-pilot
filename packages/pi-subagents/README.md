@@ -444,7 +444,7 @@ A failed run resolves with `status: "error"`; it does not reject.
 A run already settled resolves at once.
 A run still queued is waited for through its queue time.
 
-The per-run fields (`status`, `result`, `error`, `startedAt`, `completedAt`, `turnBudget` and `pendingQuestion`) describe the run the wait began on.
+The per-run fields (`status`, `result`, `error`, `startedAt`, `completedAt`, `turnBudget`, `pendingQuestion`, `structuredResult` and `structuredResultError`) describe the run the wait began on.
 When a resume replaces that run before the promise resolves, every other field, such as `resumeRefusal`, describes the record at resolve time.
 
 An unknown `id` rejects.

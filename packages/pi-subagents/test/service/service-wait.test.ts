@@ -539,6 +539,29 @@ describe("SubagentsService.wait", () => {
 			await h.settled(id);
 		});
 
+		it("resumed after a missing result", async () => {
+			const gate = Promise.withResolvers<void>();
+			const h = harness({
+				script: async (t) => {
+					if (t.n === 0) {
+						t.say("first");
+					} else {
+						await t.park(gate.promise);
+						t.say("second");
+					}
+				},
+			});
+			h.subscribe("subagents:completed", (data) => { void h.service.resume(data.id, "A"); });
+			const id = h.spawn({ resultSchema });
+
+			const record = await h.service.wait(id);
+
+			expect(record.structuredResultError).toBe("missing");
+			expect(h.service.getRecord(id)).not.toHaveProperty("structuredResultError");
+			gate.resolve();
+			await h.settled(id);
+		});
+
 		it("waited run submitted", async () => {
 			const h = harness({
 				script: async (t) => {
