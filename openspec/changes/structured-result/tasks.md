@@ -31,7 +31,7 @@ Blocked by: 2
 
 Blocked by: 3
 
-- [ ] 4.1 `packages/pi-subagents/README.md`: `resultSchema` in the `spawn` contract (subset, refusals, fork rule), `submit_result`, the two record fields and the Events table
-- [ ] 4.2 `docs/architecture.md` seams line and `docs/decisions/0009-vendored-executor.md` seam list name the result schema
-- [ ] 4.3 `packages/pi-subagents/VENDORED.md` rows for every edited or added upstream file; regenerate `dist/public.d.ts` and pass `verify:public-types`
-- [ ] 4.4 Run `bun run test:executor`, `bun run typecheck`, `bun run lint`, `bun test` at the repo root and the executor's `lint`/`lint:md`; all pass
+- [x] 4.1 `packages/pi-subagents/README.md`: `resultSchema` in the `spawn` contract (subset, refusals, fork rule), `submit_result`, the two record fields and the Events table
+- [x] 4.2 `docs/architecture.md` seams line and `docs/decisions/0009-vendored-executor.md` seam list name the result schema
+- [x] 4.3 `packages/pi-subagents/VENDORED.md` rows for every edited or added upstream file; regenerate `dist/public.d.ts` and pass `verify:public-types`
+- [x] 4.4 Run `bun run test:executor`, `bun run typecheck`, `bun run lint`, `bun test` at the repo root and the executor's `lint`/`lint:md`; all pass
