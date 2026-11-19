@@ -7,7 +7,7 @@
 
 **Change**: `service-wait-and-escalation`
 **Finalized at**: `2026-11-19 19:05`
-**Outcome**: `pr-updated` (merge done locally; push pending user approval, see Deviations)
+**Outcome**: `pr-created`
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `issue-85`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` (pending push: the worktree branch is fast-forward merged into `issue-85` locally; `issue-85` is not yet on the remote)
-- **PR URL**: N/A (no PR for `issue-85`; push and PR creation await user approval)
+- **Final state**: `pr-open`
+- **PR URL**: https://github.com/ttdua/pi-jev-pilot/pull/95
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/95#issuecomment-7007904055)
 
 ---
 
@@ -51,7 +51,7 @@
 
 ## Deviations from the canonical closeout
 
-- **Project policy overrides push and PR creation.** The global `AGENTS.md` says: "Git approval: do not push, merge or open a PR unless the user has explicitly allowed it in chat." Steps 10 (push) and 11 (open PR) are therefore held until the user approves them in chat. The local fast-forward merge of the worktree branch into the feature branch was done, because it is part of finalize's local closeout and changes no remote.
+- **Project policy gated push and PR creation.** The global `AGENTS.md` says: "Git approval: do not push, merge or open a PR unless the user has explicitly allowed it in chat." Steps 10 (push) and 11 (open PR) ran only after the user approved them in chat. Before pushing, the active `gh` account was switched to `ttdua` to match the remote owner. The push used SSH, and the PR was opened against `main`.
 - **Worktree tooling.** The worktree was removed with `wt remove`, as the project's worktree policy requires.
 - **No pull.** Step 3's `git pull` was skipped: `issue-85` has no remote branch yet (`git ls-remote --heads origin issue-85` printed nothing).
 
@@ -59,11 +59,8 @@
 
 ## Next step
 
-- Once the user approves:
-  - Push `issue-85`. Check the account first: run `gh auth status` against owner `ttdua`, and switch with `gh auth switch -h github.com -u ttdua` if needed. Push over HTTPS if SSH is refused.
-  - Optionally open a PR (suggested title: `feat(service-launch-wait): service-wait-and-escalation`) and post the code-reviewer orientation comment.
-- Then wait for the PR code review.
+- Wait for PR review on https://github.com/ttdua/pi-jev-pilot/pull/95.
 - After approval:
   - Run `/opsx-archive` on `issue-85`.
   - Push the archive commits.
-  - Merge the PR.
+  - Merge the PR (`gh pr merge --squash --delete-branch` or the GitHub UI). That single merge lands the implementation and the archive into `main`.
