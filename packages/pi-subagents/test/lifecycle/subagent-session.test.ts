@@ -913,33 +913,47 @@ describe("SubagentSession — structured result turn loop", () => {
     const agent = withAgent(session);
     let held = false;
     const seen: unknown[] = [];
+    const abortsAtHook: number[] = [];
     session.prompt = vi.fn(async () => {
       seen.push(await agent.finishTurn?.({}, SIGNAL));
+      abortsAtHook.push(session.abort.mock.calls.length);
       held = true;
       seen.push(await agent.finishTurn?.({}, SIGNAL));
+      abortsAtHook.push(session.abort.mock.calls.length);
     });
     const { sub } = makeSubagentSession(session);
 
     await sub.runTurnLoop("go", { hasStructuredResult: () => held });
 
     expect(seen).toEqual([undefined, { action: "end" }]);
+    // The session's own run is ended too, so no queued message continues it.
+    expect(abortsAtHook).toEqual([0, 1]);
   });
 
-  it("defers to a previous hook's end and its continue", async () => {
-    const { session } = createSession("X");
-    const previous = vi.fn<FinishTurn>(async () => ({ action: "end" }));
-    const agent = withAgent(session, previous);
-    let outcome: unknown;
-    session.prompt = vi.fn(async () => {
-      outcome = await agent.finishTurn?.({}, SIGNAL);
-    });
-    const { sub } = makeSubagentSession(session);
+  it.each([
+    ["end", false, { action: "end" }, 0],
+    ["continue", false, { action: "continue" }, 0],
+    ["end", true, { action: "end" }, 1],
+    ["continue", true, { action: "end" }, 1],
+  ] as const)(
+    "after a previous hook's %s with a result held: %s",
+    async (previousAction, held, expected, aborts) => {
+      const { session } = createSession("X");
+      const previous = vi.fn<FinishTurn>(async () => ({ action: previousAction }));
+      const agent = withAgent(session, previous);
+      let outcome: unknown;
+      session.prompt = vi.fn(async () => {
+        outcome = await agent.finishTurn?.({}, SIGNAL);
+      });
+      const { sub } = makeSubagentSession(session);
 
-    await sub.runTurnLoop("go", { hasStructuredResult: () => false });
+      await sub.runTurnLoop("go", { hasStructuredResult: () => held });
 
-    expect(previous).toHaveBeenCalledOnce();
-    expect(outcome).toEqual({ action: "end" });
-  });
+      expect(previous).toHaveBeenCalledOnce();
+      expect(outcome).toEqual(expected);
+      expect(session.abort).toHaveBeenCalledTimes(aborts);
+    },
+  );
 
   it("restores the previous hook after the loop, also when the prompt throws", async () => {
     const { session } = createSession("X");

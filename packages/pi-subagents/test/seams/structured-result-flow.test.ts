@@ -40,7 +40,7 @@ const snapshot: ParentSnapshot = {
 	modelRegistry,
 };
 
-type Event = { channel: string; data: Record<string, any> };
+type Event = { channel: string; data: unknown };
 type ToolResult = { content: { text: string }[]; isError?: boolean };
 type Tool = {
 	name: string;
@@ -100,7 +100,7 @@ function harness() {
 		},
 	);
 	const emit = (channel: string, data: unknown) => {
-		events.push({ channel, data: data as Record<string, any> });
+		events.push({ channel, data });
 	};
 	const sessionDeps = {
 		...createSubagentSessionDeps({
@@ -153,7 +153,18 @@ function harness() {
 	);
 	return {
 		service,
-		on: (channel: string) => events.filter((e) => e.channel === channel),
+		/** The payload of the first event on `channel`; fails the test when none was emitted. */
+		first(channel: string): Record<string, unknown> {
+			const event = events.find((e) => e.channel === channel);
+			expect(event, `no ${channel} event`).toBeDefined();
+			return event?.data as Record<string, unknown>;
+		},
+		/** The record `id`; fails the test when the service has none. */
+		record(id: string) {
+			const record = service.getRecord(id);
+			expect(record, `no record ${id}`).toBeDefined();
+			return record as NonNullable<typeof record>;
+		},
 		/** Spawn with `schema`, let the child run `childScript`, wait for the run. */
 		async run(schema: ResultSchema, childScript: ChildScript): Promise<string> {
 			script = childScript;
@@ -161,7 +172,7 @@ function harness() {
 				foreground: true,
 				resultSchema: schema,
 			});
-			await manager.getRecord(id)!.promise;
+			await manager.getRecord(id)?.promise;
 			return id;
 		},
 		spawnOnly(schema: ResultSchema, childScript: ChildScript): string {
@@ -197,15 +208,16 @@ describe("Structured result through the service door", () => {
 			replies.push(await submit({ status: "done" }));
 		});
 
-		expect(replies[0]!.isError).toBe(true);
-		expect(replies[0]!.content[0]!.text).toContain("result.status");
-		expect(replies[1]!.isError).toBeUndefined();
+		expect(replies).toHaveLength(2);
+		expect(replies[0]?.isError).toBe(true);
+		expect(replies[0]?.content[0]?.text).toContain("result.status");
+		expect(replies[1]?.isError).toBeUndefined();
 
-		const completed = h.on("subagents:completed")[0]!.data;
+		const completed = h.first("subagents:completed");
 		expect(completed.structuredResult).toEqual({ status: "done" });
 		expect(completed).not.toHaveProperty("structuredResultError");
 
-		const record = h.service.getRecord(id)!;
+		const record = h.record(id);
 		expect(record.structuredResult).toEqual({ status: "done" });
 		expect(Object.isFrozen(record.structuredResult)).toBe(true);
 		expect(record).not.toHaveProperty("structuredResultError");
@@ -215,10 +227,10 @@ describe("Structured result through the service door", () => {
 		const h = harness();
 		const id = await h.run(SCHEMA, async () => {});
 
-		const completed = h.on("subagents:completed")[0]!.data;
+		const completed = h.first("subagents:completed");
 		expect(completed.structuredResultError).toBe("missing");
 		expect(completed).not.toHaveProperty("structuredResult");
-		expect(h.service.getRecord(id)!.structuredResultError).toBe("missing");
+		expect(h.record(id).structuredResultError).toBe("missing");
 	});
 
 	it("validates against the schema copied at spawn, not the caller's later edits", async () => {
@@ -228,15 +240,14 @@ describe("Structured result through the service door", () => {
 			properties: { status: { enum: ["done", "blocked"] } },
 		} as { type: "object"; properties: { status: { enum: string[] } } };
 		let reply: ToolResult | undefined;
-		let release!: () => void;
-		const gate = new Promise<void>((resolve) => (release = resolve));
+		const gate = Promise.withResolvers<void>();
 		const id = h.spawnOnly(schema as ResultSchema, async (submit) => {
-			await gate;
+			await gate.promise;
 			reply = await submit({ status: "added" });
 		});
 		schema.properties.status.enum.push("added");
-		release();
-		await h.manager.getRecord(id)!.promise;
+		gate.resolve();
+		await h.manager.getRecord(id)?.promise;
 
 		expect(reply?.isError).toBe(true);
 		expect(h.service.getRecord(id)).not.toHaveProperty("structuredResult");
