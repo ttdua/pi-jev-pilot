@@ -54,9 +54,9 @@ Blocked by: 2, 4
 
 Blocked by: 6
 
-- [ ] 7.1 Dry-run the report pass and hand the operator the packet (corpus, snapshot, flags, estimate); run `--send` only after approval
-- [ ] 7.2 Check each mode's mix within ±10 points (frontier at most cap + 10); if scores clump, stop and ask about the effort tiebreak (design D3)
-- [ ] 7.3 Write `SEED_CUTPOINTS` from the `report` candidates and `docs/evidence/<date>-knowledge-tier-mix.md`; seed/evidence equality test
+- [x] 7.1 Dry-run the report pass and hand the operator the packet (corpus, snapshot, flags, estimate); run `--send` only after approval
+- [x] 7.2 Check each mode's mix within ±10 points (frontier at most cap + 10); if scores clump, stop and ask about the effort tiebreak (design D3)
+- [x] 7.3 Write `SEED_CUTPOINTS` from the `report` candidates and `docs/evidence/<date>-knowledge-tier-mix.md`; seed/evidence equality test
 
 ## 8. Docs, ADR and release notes
 
