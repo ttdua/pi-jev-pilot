@@ -213,9 +213,25 @@ describe("slot name frontier", () => {
       const r = writeSlots(dir, [slot("frontier")]);
       expect(r).toEqual({
         ok: false,
-        issues: [{ path: "crew.slots[0].name", message: expect.any(String) }],
+        issues: [
+          {
+            path: "crew.slots[0].name",
+            message: 'expected a name that is not reserved; rename the "frontier" slot',
+          },
+        ],
       });
       expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(FULL);
+    }));
+
+  test("slot writes emit only new tier keys", () =>
+    withDir((dir) => {
+      const file = join(dir, "config.json");
+      writeFileSync(file, '{"tiers":{"fast":"a/x","expert":"a/y"},"skills":{"inject":"content"}}');
+      expect(writeSlots(dir, [slot("reviewer")])).toEqual({ ok: true });
+      const out = JSON.parse(readFileSync(file, "utf8"));
+      expect(Object.keys(out)).toEqual(["tiers", "skills", "crew"]);
+      expect(out.tiers).toEqual({ basic: "a/x", frontier: "a/y" });
+      expect(Object.keys(out.tiers)).toEqual(["basic", "frontier"]);
     }));
 });
 
@@ -238,6 +254,15 @@ describe("migrateTierKeys", () => {
         skills: { inject: "content" },
       }),
     );
+  });
+
+  test("undefined when both fork keys are present", () => {
+    expect(
+      migrateTierKeys({
+        tiers: { fast: "a/x" },
+        subagents: { forkLaunch: "thinking", forkedLaunch: "thinking" },
+      }),
+    ).toBeUndefined();
   });
 
   test("undefined when clean, conflicting or invalid", () => {

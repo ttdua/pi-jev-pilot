@@ -56,7 +56,8 @@ function slotName(seen: Set<string>, strict: boolean): V<string> {
     const name = base(value, path, issues);
     if (name === undefined) return undefined;
     if (RESERVED_SLOT_NAMES.includes(name) && (strict || name !== LEGACY_SLOT_NAME)) {
-      issues.push({ path, message: "expected a name that is not reserved" });
+      const hint = name === LEGACY_SLOT_NAME ? `; rename the "${name}" slot` : "";
+      issues.push({ path, message: `expected a name that is not reserved${hint}` });
       return undefined;
     }
     if (seen.has(name)) {
@@ -150,13 +151,19 @@ function load(dir: string): Loaded {
   } catch {
     return { kind: "invalid", issues: [{ path: "", message: "config.json is not valid JSON" }] };
   }
+  const { config, issues } = validateRaw(raw);
+  if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
+  const notices = [...applyDeprecatedAlias(config), ...applyLegacyTierNames(config)];
+  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown>, notices };
+}
+
+/** The one validation a read and a migration share: schema plus the both-keys cross-field checks. */
+function validateRaw(raw: unknown): { config: Config | undefined; issues: Issue[] } {
   const issues: Issue[] = [];
   const config = configValidator()(raw, "", issues);
   reportBothForkKeys(raw, issues);
   reportBothTierKeys(raw, issues);
-  if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
-  const notices = [...applyDeprecatedAlias(config), ...applyLegacyTierNames(config)];
-  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown>, notices };
+  return { config, issues };
 }
 
 /** Both fork keys in the raw `subagents` object is a problem at the deprecated key, whatever else is wrong. */
@@ -244,7 +251,8 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
   if (issues.length > 0) return { ok: false, issues };
   if (!current.present && slots.length === 0) return { ok: true };
 
-  const raw = current.raw;
+  // DEPRECATED(remove next minor): a slot write never re-emits the legacy tier keys.
+  const raw = { ...(migrateTierKeys(current.raw)?.raw ?? current.raw) };
   const crew = { ...(raw.crew as Record<string, unknown> | undefined) };
   if (slots.length > 0) {
     crew.slots = slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
@@ -287,10 +295,7 @@ export function migrateTierKeys(
     }
   }
   if (renamed.length === 0) return undefined;
-  const issues: Issue[] = [];
-  configValidator()(raw, "", issues);
-  reportBothTierKeys(raw, issues);
-  if (issues.length > 0) return undefined;
+  if (validateRaw(raw).issues.length > 0) return undefined;
   return { raw: { ...raw, tiers: next }, renamed };
 }
 
