@@ -333,27 +333,34 @@ describe("Metadata is immutable", () => {
 			looked = h.service.childSession(data.sessionId);
 		});
 
-		const id = await h.run({ change: "c1" });
+		// Background: `subagents:created` is emitted only for background launches.
+		const id = h.service.spawn("Explore", "go", { metadata: { change: "c1" } });
+		await h.manager.getRecord(id)!.promise;
 		const record = h.service.getRecord(id);
 		await h.service.resume(id, "more");
 
-		const surfaces = [
+		const channels = [...CHILD_EVENTS, ...RECORD_EVENTS];
+		for (const channel of channels) {
+			expect(h.on(channel), channel).not.toHaveLength(0);
+			for (const e of h.on(channel)) {
+				expect(e.data.metadata, channel).toEqual({ change: "c1" });
+				expect(Object.isFrozen(e.data.metadata), channel).toBe(true);
+			}
+		}
+		const entry = h.service.childSession(h.sessionIdOf(id));
+		expect(requests).toHaveLength(1);
+		for (const surface of [
 			record?.metadata,
-			...metadataOn(h, [...CHILD_EVENTS, ...RECORD_EVENTS]),
+			h.service.getRecord(id)?.metadata,
 			requests[0]?.metadata,
 			looked,
 			looked?.metadata,
-			h.service.childSession(h.sessionIdOf(id)),
-			h.service.childSession(h.sessionIdOf(id))?.metadata,
-			h.service.getRecord(id)?.metadata,
-		];
-		expect(surfaces.length).toBeGreaterThan(10);
-		for (const surface of surfaces) {
+			entry,
+			entry?.metadata,
+		]) {
 			expect(surface).toBeDefined();
 			expect(Object.isFrozen(surface)).toBe(true);
 		}
-		expect(h.on("subagents:resumed")).toHaveLength(1);
-		expect(h.on("subagents:resuming")).toHaveLength(1);
 	});
 
 	it("Empty lookup metadata is frozen", async () => {
