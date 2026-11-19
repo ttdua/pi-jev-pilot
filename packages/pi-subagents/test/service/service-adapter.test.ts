@@ -74,6 +74,21 @@ describe("toSubagentRecord", () => {
     expect(toSubagentRecord(fork)).not.toHaveProperty("contextFallback");
   });
 
+  it("copies the structured outcome when set and omits it otherwise", () => {
+    const withResult = createTestSubagent();
+    Object.defineProperty(withResult, "structuredResult", { value: { status: "done" } });
+    expect(toSubagentRecord(withResult).structuredResult).toEqual({ status: "done" });
+    expect(toSubagentRecord(withResult)).not.toHaveProperty("structuredResultError");
+
+    const withError = createTestSubagent();
+    Object.defineProperty(withError, "structuredResultError", { value: "missing" });
+    expect(toSubagentRecord(withError).structuredResultError).toBe("missing");
+    expect(toSubagentRecord(withError)).not.toHaveProperty("structuredResult");
+
+    expect(toSubagentRecord(createTestSubagent())).not.toHaveProperty("structuredResult");
+    expect(toSubagentRecord(createTestSubagent())).not.toHaveProperty("structuredResultError");
+  });
+
   it("omits resumeRefusal when a resume would start", () => {
     expect(toSubagentRecord(createTestSubagent({ sessionReady: true }))).not.toHaveProperty("resumeRefusal");
   });
@@ -373,6 +388,65 @@ describe("SubagentsServiceAdapter — spawn", () => {
     expect(() => svc.spawn("Explore", "task", { model: "bad-model" })).toThrow(
       /Model not found/,
     );
+  });
+
+  describe("resultSchema", () => {
+    const SCHEMA = { type: "object", properties: { status: { enum: ["done", "blocked"] } } } as const;
+    const withAgent = (agent: Record<string, unknown>, runtime = makeRuntimeStub()) => {
+      const mgr = createManagerStub();
+      const types = { list: () => [], get: () => agent as never };
+      return { mgr, svc: new SubagentsServiceAdapter(mgr, vi.fn(), runtime, types) };
+    };
+
+    it("refuses an unsupported keyword before anything is created, even with no session", () => {
+      const mgr = createManagerStub();
+      const policy = vi.fn();
+      mgr.registerLaunchPolicy(policy, { timeoutMs: 10 });
+      const svc = new SubagentsServiceAdapter(mgr, vi.fn(), makeRuntimeStub({ currentCtx: undefined }), NO_AGENT_TYPES);
+      expect(() =>
+        svc.spawn("Explore", "t", { resultSchema: { type: "number", minimum: 0 } as never }),
+      ).toThrow(/minimum/);
+      expect(mgr.spawn).not.toHaveBeenCalled();
+      expect(mgr.listAgents()).toEqual([]);
+      expect(policy).not.toHaveBeenCalled();
+    });
+
+    it("refuses fork named by the caller", () => {
+      const { mgr, svc } = withAgent({});
+      expect(() => svc.spawn("Explore", "t", { context: "fork", resultSchema: SCHEMA })).toThrow(
+        /resultSchema.*fork|fork.*resultSchema/,
+      );
+      expect(mgr.spawn).not.toHaveBeenCalled();
+    });
+
+    it("refuses fork taken from the agent file", () => {
+      const { mgr, svc } = withAgent({ context: "fork" });
+      expect(() => svc.spawn("Explore", "t", { resultSchema: SCHEMA })).toThrow(/resultSchema.*fork|fork.*resultSchema/);
+      expect(mgr.spawn).not.toHaveBeenCalled();
+    });
+
+    it("refuses a locked fork agent against a caller asking fresh", () => {
+      const { mgr, svc } = withAgent({ context: "fork", locked: ["context"] });
+      expect(() => svc.spawn("Explore", "t", { context: "fresh", resultSchema: SCHEMA })).toThrow(
+        /resultSchema.*fork|fork.*resultSchema/,
+      );
+      expect(mgr.spawn).not.toHaveBeenCalled();
+    });
+
+    it("hands the manager a frozen copy of a valid schema", () => {
+      const { mgr, svc } = withAgent({});
+      svc.spawn("Explore", "t", { resultSchema: SCHEMA });
+      const passed = (mgr.spawn as ReturnType<typeof vi.fn>).mock.calls[0]![3].resultSchema;
+      expect(passed).toEqual(SCHEMA);
+      expect(passed).not.toBe(SCHEMA);
+      expect(Object.isFrozen(passed)).toBe(true);
+    });
+
+    it("passes no schema when none is given", () => {
+      const { mgr, svc } = withAgent({});
+      svc.spawn("Explore", "t");
+      expect((mgr.spawn as ReturnType<typeof vi.fn>).mock.calls[0]![3].resultSchema).toBeUndefined();
+    });
   });
 
   describe("context", () => {

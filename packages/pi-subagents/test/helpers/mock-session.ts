@@ -24,6 +24,8 @@ export interface MockSession {
 	model: { provider: string; id: string } | undefined;
 	/** The child's current thinking level, as `AgentSession.thinkingLevel` reports it. */
 	thinkingLevel: string;
+	/** The agent's completed-turn hook, which a turn loop composes and a turn runs before `turn_end`. */
+	agent: { finishTurn: ((turn: unknown, signal?: AbortSignal) => unknown) | undefined };
 }
 
 /**
@@ -137,6 +139,7 @@ export function createMockSession(overrides: Record<string, unknown> = {}): Mock
 		},
 		model: undefined,
 		thinkingLevel: "off",
+		agent: { finishTurn: undefined },
 	};
 
 	return { ...base, ...overrides };

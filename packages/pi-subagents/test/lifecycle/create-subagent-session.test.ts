@@ -419,6 +419,84 @@ describe("createSubagentSession — the core's own child tools", () => {
     });
   });
 
+  describe("when the run supplies a result schema and sink", () => {
+    const schema = { type: "object" } as const;
+
+    it("appends submit_result to the allowlist and installs its definition", async () => {
+      arrangeFactory();
+
+      await createSubagentSession(
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", resultSchema: schema, submitResult: { hasResult: () => false, submit: vi.fn() } },
+        defaultDeps(),
+      );
+
+      expect(io.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: ["read", "submit_result"] }),
+      );
+      const opts = io.createSession.mock.calls[0][0] as CreateSessionOptions;
+      expect(opts.customTools?.map((tool) => tool.name)).toEqual(["submit_result"]);
+    });
+
+    it("installs all three protocol tools for a background launch with mid-run updates", async () => {
+      arrangeFactory();
+
+      await createSubagentSession(
+        {
+          agentId: "a1",
+          snapshot: STUB_SNAPSHOT,
+          type: "Explore",
+          askParent: vi.fn(),
+          notifyParent: vi.fn(),
+          resultSchema: schema,
+          submitResult: { hasResult: () => false, submit: vi.fn() },
+        },
+        defaultDeps(),
+      );
+
+      expect(io.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: ["read", "ask_parent", "notify_parent", "submit_result"] }),
+      );
+      const opts = io.createSession.mock.calls[0][0] as CreateSessionOptions;
+      expect(opts.customTools?.map((tool) => tool.name).sort()).toEqual(["ask_parent", "notify_parent", "submit_result"]);
+    });
+
+    it("keeps submit_result when the agent disallows it", async () => {
+      arrangeFactory();
+
+      await createSubagentSession(
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore", resultSchema: schema, submitResult: { hasResult: () => false, submit: vi.fn() } },
+        createSubagentSessionDeps({
+          io,
+          exec,
+          registry: createAgentLookup({ toolNames: ["read"], disallowedTools: ["submit_result"] }),
+        }),
+      );
+
+      expect(io.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: ["read", "submit_result"] }),
+      );
+    });
+  });
+
+  describe("when the run supplies no result schema", () => {
+    it("lets the agent's own disallow remove a tool named submit_result", async () => {
+      arrangeFactory();
+
+      await createSubagentSession(
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
+        createSubagentSessionDeps({
+          io,
+          exec,
+          registry: createAgentLookup({ toolNames: ["read", "submit_result"], disallowedTools: ["submit_result"] }),
+        }),
+      );
+
+      expect(io.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: ["read"] }),
+      );
+    });
+  });
+
   describe("when the run supplies no callbacks", () => {
     it("leaves the agent's declared allowlist alone", async () => {
       arrangeFactory();
@@ -567,6 +645,31 @@ describe("createSubagentSession — tool facts", () => {
 
     // Total = {read, grep, web_search, bash, edit, ask_parent}; 4 active, bash and edit blocked.
     expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 4, blockedToolCount: 2 });
+  });
+
+  it("counts submit_result with the other protocol tools", async () => {
+    armSession(["read", "ask_parent", "submit_result"]);
+    const onToolFacts = vi.fn();
+
+    await createSubagentSession(
+      {
+        agentId: "a1",
+        snapshot: STUB_SNAPSHOT,
+        type: "Explore",
+        askParent: vi.fn(),
+        resultSchema: { type: "string" },
+        submitResult: { hasResult: () => false, submit: vi.fn() },
+        onToolFacts,
+      },
+      createSubagentSessionDeps({
+        io,
+        exec,
+        registry: createAgentLookup({ toolNames: ["read"] }),
+        listParentToolNames: () => ["read"],
+      }),
+    );
+
+    expect(onToolFacts).toHaveBeenCalledWith({ toolCount: 3, blockedToolCount: 0 });
   });
 
   it("does not count a tool registered after the parent list was read", async () => {

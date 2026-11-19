@@ -42,7 +42,7 @@ interface Turn {
 	n: number;
 	prompt: string;
 	session: Session;
-	tool(name: "ask_parent" | "notify_parent", params: Record<string, unknown>): Promise<void>;
+	tool(name: "ask_parent" | "notify_parent" | "submit_result", params: Record<string, unknown>): Promise<void>;
 	/** Append the assistant's final text, as Pi does when a turn settles. */
 	say(text: string): void;
 	/** Park until `gate` resolves or the session is aborted (an abort ends the child's turn). */
@@ -451,12 +451,14 @@ describe("SubagentsService.wait", () => {
 				script: async (t) => {
 					await t.tool("ask_parent", { question: "Q" });
 					for (let i = 0; i < 5 && t.session.abort.mock.calls.length === 0; i++) {
-						t.session.emit({ type: "turn_start" });
-						t.session.emit({
-							type: "turn_end",
+						// As Pi's agent loop: the completed-turn hook runs, then `turn_end`.
+						const turn = {
 							message: { role: "assistant", stopReason: "toolUse" },
 							toolResults: [{ role: "toolResult" }],
-						});
+						};
+						t.session.emit({ type: "turn_start" });
+						await t.session.agent.finishTurn?.(turn);
+						t.session.emit({ type: "turn_end", ...turn });
 					}
 					t.say("partial");
 				},
@@ -504,6 +506,75 @@ describe("SubagentsService.wait", () => {
 			} finally {
 				vi.useRealTimers();
 			}
+		});
+	});
+
+	describe("structured outcome", () => {
+		const resultSchema = { type: "object", properties: { status: { type: "string" } }, required: ["status"] };
+
+		it("resumed before the waiter reads it", async () => {
+			const gate = Promise.withResolvers<void>();
+			const h = harness({
+				script: async (t) => {
+					if (t.n === 0) {
+						await t.tool("ask_parent", { question: "Q" });
+						t.say("first");
+					} else {
+						await t.tool("submit_result", { result: { status: "done" } });
+						await t.park(gate.promise);
+						t.say("second");
+					}
+				},
+			});
+			h.subscribe("subagents:completed", (data) => { void h.service.resume(data.id, "A"); });
+			const id = h.spawn({ resultSchema });
+
+			const record = await h.service.wait(id);
+
+			expect(h.service.getRecord(id)!.structuredResult).toEqual({ status: "done" });
+			expect(record.pendingQuestion).toBe("Q");
+			expect(record).not.toHaveProperty("structuredResult");
+			expect(record).not.toHaveProperty("structuredResultError");
+			gate.resolve();
+			await h.settled(id);
+		});
+
+		it("resumed after a missing result", async () => {
+			const gate = Promise.withResolvers<void>();
+			const h = harness({
+				script: async (t) => {
+					if (t.n === 0) {
+						t.say("first");
+					} else {
+						await t.park(gate.promise);
+						t.say("second");
+					}
+				},
+			});
+			h.subscribe("subagents:completed", (data) => { void h.service.resume(data.id, "A"); });
+			const id = h.spawn({ resultSchema });
+
+			const record = await h.service.wait(id);
+
+			expect(record.structuredResultError).toBe("missing");
+			expect(h.service.getRecord(id)).not.toHaveProperty("structuredResultError");
+			gate.resolve();
+			await h.settled(id);
+		});
+
+		it("waited run submitted", async () => {
+			const h = harness({
+				script: async (t) => {
+					await t.tool("submit_result", { result: { status: "done" } });
+					t.say("done");
+				},
+			});
+			const id = h.spawn({ resultSchema });
+
+			const record = await h.service.wait(id);
+
+			expect([record.status, record.structuredResult]).toEqual(["completed", { status: "done" }]);
+			expect(record).not.toHaveProperty("structuredResultError");
 		});
 	});
 });

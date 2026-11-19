@@ -16,13 +16,14 @@ import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
 /**
  * Tools the executor installs or owns itself; never offered as grants. The
- * first three are the parent's orchestration tools, the last two the child
- * protocol tools the executor adds on its own.
+ * parent's orchestration tools, then the child protocol tools the executor
+ * adds on its own.
  */
 const OWNED_TOOLS: ReadonlySet<string> = new Set([
 	...ORCHESTRATION_TOOLS,
 	"ask_parent",
 	"notify_parent",
+	"submit_result",
 ]);
 
 /** The slice of Pi's `ToolInfo` the request reads to filter parent tools. */

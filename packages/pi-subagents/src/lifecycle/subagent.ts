@@ -24,7 +24,7 @@ import type { RunConfig } from "#src/runtime";
 import type { EffectiveFacts, ToolFacts } from "#src/seams/identity";
 import type { LaunchOverrides, LaunchPolicyGate } from "#src/seams/launch-gate";
 import { type LaunchResources, type LaunchResourcesIO, recheckLaunchResources } from "#src/seams/launch-resources";
-import type { LaunchMetadata, LaunchOrigin } from "#src/service/service";
+import type { LaunchMetadata, LaunchOrigin, ResultSchema, StructuredResultError } from "#src/service/service";
 import type { CompactionInfo, ContextMode, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 
 /** Per-subagent lifecycle observer — created by SubagentManager for each spawn. */
@@ -126,6 +126,8 @@ export interface SubagentExecution {
 	contextFallback?: "no-parent-session";
 	/** Consults the registered launch policy before the session is created. */
 	launchGate?: LaunchPolicyGate;
+	/** The schema every run of this launch owes a structured result for; absent for a plain launch. */
+	resultSchema?: ResultSchema;
 }
 
 /**
@@ -190,6 +192,8 @@ export class Subagent {
 	get consumed(): boolean { return this.currentRun.consumed; }
 	get claimed(): boolean { return this.currentRun.claimed; }
 	get pendingQuestion(): string | undefined { return this.currentRun.pendingQuestion; }
+	get structuredResult(): unknown { return this.currentRun.structuredResult; }
+	get structuredResultError(): StructuredResultError | undefined { return this.currentRun.structuredResultError; }
 	get runUpdates(): readonly string[] { return this.currentRun.runUpdates; }
 	/**
 	 * What the workspace reported at a teardown with no result text to fold it
@@ -416,7 +420,10 @@ export class Subagent {
 		this.id = init.id;
 		this.type = init.type;
 		this.description = init.description;
-		this.currentRun = new SubagentRun("initial", init.isBackground, init.outcome);
+		this.currentRun = new SubagentRun("initial", init.isBackground, {
+			...init.outcome,
+			expectsStructuredResult: init.execution.resultSchema !== undefined,
+		});
 
 		// Lifecycle status and metrics — fresh queued state unless one is supplied
 		this.state = init.state ?? new SubagentState();
@@ -524,6 +531,14 @@ export class Subagent {
 				notifyParent: this.canSendUpdates(runConfig)
 					? (message) => { this.announceUpdate(message); }
 					: undefined,
+				resultSchema: this.execution.resultSchema,
+				// Like ask_parent, the sink writes to whichever run is under way.
+				submitResult: this.execution.resultSchema
+					? {
+						hasResult: () => this.currentRun.hasStructuredResult,
+						submit: (value) => this.currentRun.submitStructuredResult(value),
+					}
+					: undefined,
 				turnLimits: {
 					maxTurns: this.execution.maxTurns,
 					defaultMaxTurns: runConfig?.defaultMaxTurns,
@@ -579,6 +594,9 @@ export class Subagent {
 			this.complete(run, await session.runTurnLoop(prompt, {
 				signal: run.signal,
 				onTurnBudget: (budget) => { run.setTurnBudget(budget); },
+				onSubmitAttempt: () => { run.recordSubmitAttempt(); },
+				// Without a schema the hook still ends the run at the turn budget's ceiling, but never for a result.
+				hasStructuredResult: this.execution.resultSchema ? () => run.hasStructuredResult : undefined,
 			}));
 		} catch (err) {
 			this.fail(run, err);
@@ -732,7 +750,9 @@ export class Subagent {
 		this.currentRun.release();
 		this.currentRun.markReplaced();
 		this._resumeToolCallId = options.toolCallId;
-		const run = new SubagentRun("resume", options.background);
+		const run = new SubagentRun("resume", options.background, {
+			expectsStructuredResult: this.execution.resultSchema !== undefined,
+		});
 		if (options.claimOutcome) run.claim();
 		this.currentRun = run;
 		return run;
@@ -857,7 +877,9 @@ export class Subagent {
 
 		// The harness ending the run at its turn limit is the one way a run that
 		// returned is not complete.
-		const exhausted = result.turnBudget.phase === "exhausted";
+		// A run that stored its structured result on the ceiling turn did what it was
+		// asked, so it is complete although the budget snapshot reports exhausted.
+		const exhausted = result.turnBudget.phase === "exhausted" && !run.hasStructuredResult;
 		const finalStatus: SubagentStatus = exhausted ? "aborted" : "completed";
 		// A completed child that declared a question is inviting a resume, so its
 		// workspace stays live for the resume to re-enter, including a run that

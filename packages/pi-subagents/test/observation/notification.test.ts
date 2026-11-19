@@ -213,6 +213,22 @@ describe("buildEventData", () => {
     expect(buildEventData(record).turnBudget).toEqual({ maxTurns: 2, used: 7, phase: "exhausted" });
   });
 
+  it("carries the structured outcome only when set", () => {
+    const withResult = createTestSubagent();
+    Object.defineProperty(withResult, "structuredResult", { value: { status: "done" } });
+    const data = buildEventData(withResult);
+    expect(data.structuredResult).toEqual({ status: "done" });
+    expect(data).not.toHaveProperty("structuredResultError");
+
+    const withError = createTestSubagent();
+    Object.defineProperty(withError, "structuredResultError", { value: "invalid" });
+    expect(buildEventData(withError).structuredResultError).toBe("invalid");
+    expect(buildEventData(withError)).not.toHaveProperty("structuredResult");
+
+    expect(buildEventData(baseRecord)).not.toHaveProperty("structuredResult");
+    expect(buildEventData(baseRecord)).not.toHaveProperty("structuredResultError");
+  });
+
   it("omits tokens when total is zero", () => {
     const record = createTestSubagent({ type: "Explore", description: "Search files", result: "Found 3 files", toolUses: 5, lifetimeUsage: { input: 0, output: 0, cacheWrite: 0 } });
     const data = buildEventData(record);

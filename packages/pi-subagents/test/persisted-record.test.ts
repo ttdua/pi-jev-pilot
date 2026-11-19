@@ -31,6 +31,17 @@ function recordEntry(data: unknown): SessionEntryLike {
 }
 
 describe("toPersistedRecord", () => {
+	it("persists neither structured field", () => {
+		const record = createTestSubagent();
+		Object.defineProperty(record, "structuredResult", { value: { status: "done" } });
+		Object.defineProperty(record, "structuredResultError", { value: "invalid" });
+
+		const persisted = toPersistedRecord(record);
+
+		expect(persisted).not.toHaveProperty("structuredResult");
+		expect(persisted).not.toHaveProperty("structuredResultError");
+	});
+
 	it("copies the persisted fields off the record, and no others", () => {
 		const turnBudget = { maxTurns: 5, used: 2, phase: "within" } as const;
 		const record = createTestSubagent({

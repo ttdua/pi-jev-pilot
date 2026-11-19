@@ -31,7 +31,7 @@ import { forkCallableTools, forkGuardExtension, type ForkGuardState, ORCHESTRATI
 import { enforceForkGrants, enforceGrants, isModelCallable } from "#src/seams/grant-check";
 import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import { type EffectiveFacts, effectiveFacts, launchIdentity, type ToolFacts } from "#src/seams/identity";
-import type { LaunchMetadata } from "#src/service/service";
+import type { LaunchMetadata, ResultSchema } from "#src/service/service";
 import { type EffectiveSkills, effectiveSkillChoice, type LaunchResources } from "#src/seams/launch-resources";
 import {
   assertNoCatalogCollision,
@@ -49,6 +49,7 @@ import { builtinExtensionsFor } from "#src/session/builtin-extensions";
 import type { EnvInfo } from "#src/session/env";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
 import { type ModelRegistry, resolveForkThinking } from "#src/session/model-resolver";
+import { type StructuredResultSink, SubmitResultTool, SUBMIT_RESULT_TOOL_NAME } from "#src/session/submit-result-tool";
 import { NotifyParentTool, type UpdateAnnouncer } from "#src/session/notify-parent-tool";
 import { freshPromptExtension } from "#src/session/fresh-prompt-extension";
 import { composeAgentSection } from "#src/session/prompts";
@@ -240,6 +241,13 @@ export interface CreateSubagentSessionParams {
    * installs no update tool.
    */
   notifyParent?: UpdateAnnouncer;
+  /**
+   * The schema the child's final result must match, and where a valid value
+   * goes. Both or neither: together they install `submit_result`, which no
+   * agent policy removes.
+   */
+  resultSchema?: ResultSchema;
+  submitResult?: StructuredResultSink;
   /** The caller's turn-limit inputs, resolved with the agent's own limit into the session's. */
   turnLimits?: TurnLimitRequest;
   /**
@@ -276,6 +284,8 @@ function buildChildTools(params: CreateSubagentSessionParams): ToolDefinition[] 
   if (params.askParent) tools.push(new AskParentTool(params.askParent).toToolDefinition());
   if (params.notifyParent)
     tools.push(new NotifyParentTool(params.notifyParent).toToolDefinition());
+  if (params.resultSchema && params.submitResult)
+    tools.push(new SubmitResultTool(params.resultSchema, params.submitResult).toToolDefinition());
   return tools;
 }
 
@@ -354,7 +364,11 @@ function freshSetup(input: SetupInput): ContextSetup {
   const toolNames = finalToolNames(
     [...input.baseTools, ...protocolTools.map((tool) => tool.name)],
     input.grants,
-    input.disallowed,
+    // With a schema, submit_result is the run's result channel: a policy removal never
+    // reaches it. Without one the name is an ordinary tool and policy applies as usual.
+    params.resultSchema
+      ? input.disallowed.filter((name) => name !== SUBMIT_RESULT_TOOL_NAME)
+      : input.disallowed,
   );
   const grants = input.grants.filter((name) => toolNames.includes(name));
   const agentBody = deps.registry.resolveAgentConfig(params.type).systemPrompt;

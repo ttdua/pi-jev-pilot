@@ -85,6 +85,32 @@ describe("SubagentEventsObserver", () => {
 				expect(emit).toHaveBeenCalledExactlyOnceWith("subagents:completed", buildEventData(record));
 			});
 
+			it("carries the structured outcome on completed and failed, and omits it for a plain launch", () => {
+				const done = makeObserver();
+				const ok = createTestSubagent({ status: "completed" });
+				Object.defineProperty(ok, "structuredResult", { value: { status: "done" } });
+				done.observer.onSubagentRunFinished(ok, "initial");
+				expect(done.emit).toHaveBeenCalledWith(
+					"subagents:completed",
+					expect.objectContaining({ structuredResult: { status: "done" } }),
+				);
+
+				const bad = makeObserver();
+				const failed = createTestSubagent({ status: "error", error: "boom" });
+				Object.defineProperty(failed, "structuredResultError", { value: "missing" });
+				bad.observer.onSubagentRunFinished(failed, "initial");
+				expect(bad.emit).toHaveBeenCalledWith(
+					"subagents:failed",
+					expect.objectContaining({ structuredResultError: "missing" }),
+				);
+
+				const plain = makeObserver();
+				plain.observer.onSubagentRunFinished(createTestSubagent({ status: "completed" }), "initial");
+				const payload = plain.emit.mock.calls[0]![1] as object;
+				expect(payload).not.toHaveProperty("structuredResult");
+				expect(payload).not.toHaveProperty("structuredResultError");
+			});
+
 			it("emits subagents:failed for an error agent", () => {
 				const { observer, emit } = makeObserver();
 				const record = createTestSubagent({ status: "error", error: "boom" });
@@ -176,6 +202,17 @@ describe("SubagentEventsObserver", () => {
 				observer.onSubagentRunFinished(record, "resume");
 
 				expect(emit).toHaveBeenCalledExactlyOnceWith("subagents:resumed", buildEventData(record));
+			});
+
+			it("carries the structured outcome on subagents:resumed", () => {
+				const { observer, emit } = makeObserver();
+				const record = createTestSubagent({ status: "completed" });
+				Object.defineProperty(record, "structuredResult", { value: { status: "done" } });
+				observer.onSubagentRunFinished(record, "resume");
+				expect(emit).toHaveBeenCalledWith(
+					"subagents:resumed",
+					expect.objectContaining({ structuredResult: { status: "done" } }),
+				);
 			});
 
 			it("emits subagents:resumed (not subagents:failed) for an error resume — payload discriminates", () => {

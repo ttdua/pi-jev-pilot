@@ -46,12 +46,17 @@ function emitTurnStart(session: TestSession) {
   session.emit({ type: "turn_start" });
 }
 
-function emitTurnEnd(session: TestSession, { stopReason = "toolUse", toolResults = 1 }: TurnSpec = {}) {
-  session.emit({
-    type: "turn_end",
-    message: { role: "assistant", stopReason },
-    toolResults: Array.from({ length: toolResults }, () => ({ role: "toolResult" })),
-  });
+/**
+ * End a turn the way Pi's agent loop does: the completed-turn hook runs first,
+ * with the turn's message and tool results, then `turn_end` is emitted. A hook
+ * that ends the run (a session abort follows it) is why no further turn runs.
+ */
+async function emitTurnEnd(session: TestSession, { stopReason = "toolUse", toolResults = 1 }: TurnSpec = {}) {
+  const message = { role: "assistant", stopReason };
+  const results = Array.from({ length: toolResults }, () => ({ role: "toolResult" }));
+  const decision = await session.agent.finishTurn?.({ message, toolResults: results });
+  session.emit({ type: "turn_end", message, toolResults: results });
+  return decision;
 }
 
 /**
@@ -72,7 +77,7 @@ function programTurns(
     for (const spec of specs) {
       if (session.abort.mock.calls.length > 0) break;
       emitTurnStart(session);
-      emitTurnEnd(session, spec);
+      await emitTurnEnd(session, spec);
     }
     session.messages.push(assistantMessage(finalText));
   });
@@ -283,15 +288,55 @@ describe("SubagentSession — runTurnLoop turn budget", () => {
       // The ceiling turn answered, yet another turn starts (a steer queued on it).
       session.prompt = vi.fn(async () => {
         emitTurnStart(session);
-        emitTurnEnd(session);
+        await emitTurnEnd(session);
         emitTurnStart(session);
-        emitTurnEnd(session, { stopReason: "stop", toolResults: 0 });
+        await emitTurnEnd(session, { stopReason: "stop", toolResults: 0 });
         emitTurnStart(session);
       });
       const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
       const result = await sub.runTurnLoop("go", {});
       expect(session.abort).toHaveBeenCalledOnce();
       expect(result.turnBudget).toEqual({ maxTurns: 2, used: 2, phase: "exhausted" });
+    });
+
+    it("ends the run at the ceiling turn's completed-turn hook, with no further turn started", async () => {
+      const { session } = createSession("done");
+      const decisions: unknown[] = [];
+      session.prompt = vi.fn(async () => {
+        for (let turn = 0; turn < 3; turn++) {
+          emitTurnStart(session);
+          decisions.push(await emitTurnEnd(session));
+          if (session.abort.mock.calls.length > 0) break;
+        }
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
+      const result = await sub.runTurnLoop("go", {});
+      expect(decisions).toEqual([undefined, { action: "end" }]);
+      expect(result.turnBudget).toEqual({ maxTurns: 2, used: 2, phase: "exhausted" });
+    });
+
+    it("reports a resume's provider error after a run that ended at the ceiling", async () => {
+      const { session } = createSession("done");
+      programTurns(session, 5);
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
+      await sub.runTurnLoop("go", {});
+      session.prompt = vi.fn(async () => {
+        emitTurnStart(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("resume boom") });
+      });
+      await expect(sub.runTurnLoop("more", {})).rejects.toThrow("resume boom");
+    });
+
+    it("still fails on a provider error when the budget issued no stop", async () => {
+      const { session } = createSession("done");
+      session.prompt = vi.fn(async () => {
+        emitTurnStart(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("boom") });
+        await emitTurnEnd(session, { stopReason: "error", toolResults: 0 });
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 5, wrapUpTurns: 1 } });
+      await expect(sub.runTurnLoop("go", {})).rejects.toThrow("boom");
+      expect(session.abort).not.toHaveBeenCalled();
     });
 
     it("does not count a turn whose response errored", async () => {
@@ -329,7 +374,7 @@ describe("SubagentSession — runTurnLoop turn budget", () => {
       session.prompt.mockImplementationOnce(async () => {
         expect(session.sendCustomMessage).toHaveBeenCalledOnce();
         emitTurnStart(session);
-        emitTurnEnd(session, { stopReason: "stop", toolResults: 0 });
+        await emitTurnEnd(session, { stopReason: "stop", toolResults: 0 });
       });
       const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 2 } });
       const result = await sub.runTurnLoop("go", {});
@@ -878,5 +923,121 @@ describe("SubagentSession — dispose", () => {
     await Promise.all([sub.dispose(), sub.dispose()]);
     expect(session.extensionRunner.emit).toHaveBeenCalledOnce();
     expect(session.dispose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("SubagentSession — structured result turn loop", () => {
+  type FinishTurn = (turn: unknown, signal: AbortSignal) => Promise<{ action: "continue" | "end" } | undefined>;
+
+  /** A session whose agent carries a completed-turn hook, as Pi's does. */
+  function withAgent(session: TestSession, previous?: FinishTurn) {
+    const agent: { finishTurn: FinishTurn | undefined } = { finishTurn: previous };
+    Object.assign(session, { agent });
+    return agent;
+  }
+
+  const SIGNAL = new AbortController().signal;
+  /** A completed turn that ran a tool, well inside the default budget. */
+  const TURN = { message: { role: "assistant", stopReason: "toolUse" }, toolResults: [{ role: "toolResult" }] };
+
+  it("counts one attempt per submit_result call and ignores other tools", async () => {
+    const { session } = createSession("X");
+    session.prompt = vi.fn(async () => {
+      session.emit({ type: "tool_execution_start", toolName: "submit_result", toolCallId: "1" });
+      session.emit({ type: "tool_execution_start", toolName: "read", toolCallId: "2" });
+      session.emit({ type: "tool_execution_start", toolName: "submit_result", toolCallId: "3" });
+    });
+    const { sub } = makeSubagentSession(session);
+    const onSubmitAttempt = vi.fn();
+
+    await sub.runTurnLoop("go", { onSubmitAttempt });
+
+    expect(onSubmitAttempt).toHaveBeenCalledTimes(2);
+  });
+
+  it("ends the run through the hook only once a result is held", async () => {
+    const { session } = createSession("X");
+    const agent = withAgent(session);
+    let held = false;
+    const seen: unknown[] = [];
+    const abortsAtHook: number[] = [];
+    session.prompt = vi.fn(async () => {
+      seen.push(await agent.finishTurn?.(TURN, SIGNAL));
+      abortsAtHook.push(session.abort.mock.calls.length);
+      held = true;
+      seen.push(await agent.finishTurn?.(TURN, SIGNAL));
+      abortsAtHook.push(session.abort.mock.calls.length);
+    });
+    const { sub } = makeSubagentSession(session);
+
+    await sub.runTurnLoop("go", { hasStructuredResult: () => held });
+
+    expect(seen).toEqual([undefined, { action: "end" }]);
+    // The session's own run is ended too, so no queued message continues it.
+    expect(abortsAtHook).toEqual([0, 1]);
+  });
+
+  it.each([
+    ["end", false, { action: "end" }, 0],
+    ["continue", false, { action: "continue" }, 0],
+    ["end", true, { action: "end" }, 1],
+    ["continue", true, { action: "end" }, 1],
+  ] as const)(
+    "after a previous hook's %s with a result held: %s",
+    async (previousAction, held, expected, aborts) => {
+      const { session } = createSession("X");
+      const previous = vi.fn<FinishTurn>(async () => ({ action: previousAction }));
+      const agent = withAgent(session, previous);
+      let outcome: unknown;
+      session.prompt = vi.fn(async () => {
+        outcome = await agent.finishTurn?.(TURN, SIGNAL);
+      });
+      const { sub } = makeSubagentSession(session);
+
+      await sub.runTurnLoop("go", { hasStructuredResult: () => held });
+
+      expect(previous).toHaveBeenCalledOnce();
+      expect(outcome).toEqual(expected);
+      expect(session.abort).toHaveBeenCalledTimes(aborts);
+    },
+  );
+
+  it("restores the previous hook after the loop, also when the prompt throws", async () => {
+    const { session } = createSession("X");
+    const previous: FinishTurn = async () => undefined;
+    const agent = withAgent(session, previous);
+    session.prompt = vi.fn(async () => {
+      expect(agent.finishTurn).not.toBe(previous);
+    });
+    const { sub } = makeSubagentSession(session);
+
+    await sub.runTurnLoop("go", { hasStructuredResult: () => false });
+    expect(agent.finishTurn).toBe(previous);
+
+    session.prompt = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    await expect(sub.runTurnLoop("go", { hasStructuredResult: () => false })).rejects.toThrow("boom");
+    expect(agent.finishTurn).toBe(previous);
+  });
+
+  it("composes one wrapper for result and budget, ending only when a reason holds", async () => {
+    const { session } = createSession("X");
+    const previous: FinishTurn = async () => undefined;
+    const agent = withAgent(session, previous);
+    let wrappers = 0;
+    session.prompt = vi.fn(async () => {
+      expect(agent.finishTurn).not.toBe(previous);
+      wrappers++;
+      // No result expected and no ceiling reached: the hook ends nothing.
+      expect(await agent.finishTurn?.(TURN, SIGNAL)).toBeUndefined();
+    });
+    const { sub } = makeSubagentSession(session);
+
+    await sub.runTurnLoop("go", {});
+
+    expect(wrappers).toBe(1);
+    expect(session.abort).not.toHaveBeenCalled();
+    expect(agent.finishTurn).toBe(previous);
   });
 });

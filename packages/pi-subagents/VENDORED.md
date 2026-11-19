@@ -197,9 +197,31 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/seams/launch-resources-flow.test.ts` | seam | Launch resources through the real service: refusals, fresh-only fallback, run-start re-check, policy cannot change them. |
 | `test/seams/launch-resources.test.ts` | seam | Tests for launch resource parsing, refusals, freezing and the run-start re-check. |
 | `test/session/launch-skills.test.ts` | seam | Tests for skill loader options, the collision check and the resource facts. |
-| `src/lifecycle/subagent-run.ts` | edit | `RunOutcome.question` keeps the recorded question after `replaced`; `finished` promise and idempotent `markFinished`, resolved at every terminal transition. |
+| `src/lifecycle/subagent-run.ts` | edit | `RunOutcome.question` keeps the recorded question after `replaced`; `finished` promise and idempotent `markFinished`, resolved at every terminal transition. Per-run `structuredResult`; `structuredResultError` is derived from the run's stored value, its own pending question and submission attempts. |
 | `src/observation/composite-subagent-observer.ts` | edit | Dispatch `onSubagentQuestion` to every observer. |
-| `test/lifecycle/subagent-run.test.ts` | edit | Tests for `RunOutcome.question` and `finished`/`markFinished`. |
+| `test/lifecycle/subagent-run.test.ts` | edit | Tests for `RunOutcome.question` and `finished`/`markFinished`. Tests for per-run structured outcome and error kinds. |
 | `test/observation/composite-subagent-observer.test.ts` | edit | Tests that `onSubagentQuestion` dispatches to every observer. |
-| `test/observation/subagent-events-observer.test.ts` | edit | Tests for `subagents:asked`, the update's `toolCallId`/`metadata`, and the absent-field omission. |
+| `test/observation/subagent-events-observer.test.ts` | edit | Tests for `subagents:asked`, the update's `toolCallId`/`metadata`, and the absent-field omission. Tests that no structured keys are emitted without a schema. |
 | `test/service/service-wait.test.ts` | add | Tests for `SubagentsService.wait`: outcomes, queue, abort, claims, concurrent waiters and resume races. |
+| `src/seams/result-schema.ts` | add | Structured results: parse and freeze the `resultSchema` subset (refusals name the keyword and JSON Pointer) and `validateResult`, the executor's own validator. |
+| `src/session/submit-result-tool.ts` | add | The `submit_result` child protocol tool: validates `result` (after asking the sink whether the run already holds one), stores the first valid value on the run through the `StructuredResultSink` object (`hasResult`/`submit`), returns `terminate` for a valid submission. |
+| `src/lifecycle/subagent.ts` | edit | Carries the launch's `resultSchema` into each run; ends a run on a valid submission after the current turn; `complete()` settles a stored value as `completed` even on the turn limit. |
+| `src/lifecycle/subagent-session.ts` | edit | Counts `submit_result` attempts from tool events; installs one `finishTurn` wrapper per run (restored in `finally`) that ends the turn loop and aborts the session run (not the run's lever) when a result is held or the turn budget's ceiling turn completed, so no queued steer or follow-up starts another turn and no provider request is aborted by the budget stop (the turn-budget decision moves from `turn_end` to that hook). A turn forced past the ceiling still aborts at `turn_start`. |
+| `src/lifecycle/create-subagent-session.ts` | edit | Installs `submit_result` beside `ask_parent` and `notify_parent` when the launch has a schema; With a schema, `disallowed_tools` and policy removals cannot remove it (without one the name is an ordinary tool); counted as the child's own tool. |
+| `src/lifecycle/subagent-manager.ts` | edit | Forwards the launch's `resultSchema` to the execution. |
+| `src/observation/notification.ts` | edit | Carries `structuredResult` and `structuredResultError` on the completed, failed and resumed payloads when set. |
+| `src/seams/launch-request.ts` | seam | `submit_result` is owned, so it never appears in `toolSet.parentTools`. |
+| `src/service/service.ts` | edit | `SpawnOptions.resultSchema`; `SubagentRecord.structuredResult` and `structuredResultError`. |
+| `src/service/service-adapter.ts` | edit | `spawn` parses the schema before the session check and throws on a `fork` context before the policy; the snapshot carries the structured fields. |
+| `test/seams/result-schema.test.ts` | add | Tests for the schema subset, refusals, annotations, frozen copy and validator. |
+| `test/session/submit-result-tool.test.ts` | add | Tests for `submit_result` validation, coercion, first-valid-wins and the error result. |
+| `test/lifecycle/structured-result-loop.test.ts` | add | Tests for the turn loop: submit alone, submit beside other tools, one model request after a valid submission. |
+| `test/seams/structured-result-flow.test.ts` | add | Structured results through the real service: refusals, events, invalid-then-valid, missing, persistence. |
+| `test/lifecycle/create-subagent-session.test.ts` | edit | Tests for the schema-installed `submit_result`, tool count and protected removal. |
+| `test/lifecycle/fork-tools.test.ts` | edit | A launch with a schema installs `submit_result` through the factory; a fork child is not given it. |
+| `test/lifecycle/subagent-session.test.ts` | edit | Tests for per-call submit attempt counting and the `finishTurn` wrapper restore. |
+| `test/lifecycle/subagent.test.ts` | edit | Tests for settlement with a stored value, the turn limit, external stops and resumes. |
+| `test/observation/notification.test.ts` | edit | Tests that structured fields appear on the payloads only when set. |
+| `test/persisted-record.test.ts` | edit | Tests that structured fields are not persisted. |
+| `test/seams/launch-policy.test.ts` | edit | `submit_result` excluded from `parentTools` and protected from `removeTools`. |
+| `test/service/service-adapter.test.ts` | edit | Tests for schema refusals before session and policy, and the record snapshot fields. |
