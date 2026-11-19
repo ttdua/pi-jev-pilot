@@ -260,14 +260,14 @@ describe("formatStatus", () => {
     expect(text).toContain("worker routing is off");
   });
   describe("mix", () => {
-    const entries = (n: number, fast: number, balanced: number, deep: number): WindowEntry[] => {
+    const entries = (n: number, basic: number, broad: number, deep: number): WindowEntry[] => {
       const tiers = [
-        ...Array<TierName>(fast).fill("fast"),
-        ...Array<TierName>(balanced).fill("balanced"),
+        ...Array<TierName>(basic).fill("basic"),
+        ...Array<TierName>(broad).fill("broad"),
         ...Array<TierName>(deep).fill("deep"),
       ];
-      const expert = n - tiers.length;
-      return [...tiers, ...Array<TierName>(expert).fill("expert")].map((decided) => ({
+      const frontier = n - tiers.length;
+      return [...tiers, ...Array<TierName>(frontier).fill("frontier")].map((decided) => ({
         score: 0.5,
         effort: "high",
         decided,
@@ -276,7 +276,7 @@ describe("formatStatus", () => {
     test("standard, full window", () => {
       const lines = formatStatus(snap(), undefined, entries(200, 38, 110, 48)).split("\n");
       expect(lines).toContain(
-        "mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2",
+        "mix (last 200, standard): basic 19% / broad 55% / deep 24% / frontier 2% · target 20/53/25/≤2",
       );
       expect(lines).not.toContain("cut points: seed");
     });
@@ -547,7 +547,7 @@ describe("runJev", () => {
       "subagents",
       "skills",
       "strategy",
-      "expert",
+      "frontier",
       "status",
       "verbose",
     ]);
@@ -723,7 +723,7 @@ describe("runJev slots", () => {
   const slotsOf = (dir: string) => load(dir)("main").settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
-      buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
+      buildWorkerQuestions(["basic", "broad", "deep"], {}, slotsOf(dir)).questions["tier"]!
         .criteria!,
     );
 

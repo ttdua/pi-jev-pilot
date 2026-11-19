@@ -69,7 +69,7 @@ describe("Routing is the executor's launch policy", () => {
     const executor = fakeService();
     const lines: unknown[] = [];
     const deps = {
-      ask: () => Promise.resolve(ok(body("fast"))),
+      ask: () => Promise.resolve(ok(body("basic"))),
       snapshot: () => snap(),
       append: (e: unknown) => void lines.push(e),
       service: () => executor.service,
@@ -133,7 +133,7 @@ describe("Launches routing acts on", () => {
 
   test("Service launch with an explicit model", async () => {
     const h = harness();
-    h.setScript(() => ok(body("fast", "high")));
+    h.setScript(() => ok(body("basic", "high")));
     const { adjustment, request } = await h.launch({
       origin: { kind: "service" },
       requested: { model: "fixture/fixture-deep" },
@@ -144,7 +144,7 @@ describe("Launches routing acts on", () => {
       effectiveThinking: "high",
     });
     h.completed(request.agentId);
-    expect(h.lines[0]).toMatchObject({ locked: true, tier: "fast", reason: "cut" });
+    expect(h.lines[0]).toMatchObject({ locked: true, tier: "basic", reason: "cut" });
     expect(h.lines[0]).not.toHaveProperty("model");
   });
 
@@ -275,8 +275,8 @@ describe("No tool assessment", () => {
     const h = harness({ config: legacyConfig() });
     h.setScript(() =>
       ok({
-        ...body("fast"),
-        answers: { ...body("fast").answers, "tool::edit": { type: "noul", noul: 0.9 } },
+        ...body("basic"),
+        answers: { ...body("basic").answers, "tool::edit": { type: "noul", noul: 0.9 } },
       }),
     );
     const { adjustment } = await h.launch({
@@ -305,7 +305,7 @@ describe("Worker request content", () => {
   test("Display name prefix", async () => {
     const h = harness();
     await h.launch();
-    expect(tierCriteria(h)["fast"]?.startsWith("Fixture Fast. ")).toBe(true);
+    expect(tierCriteria(h)["basic"]?.startsWith("Fixture Fast. ")).toBe(true);
   });
 
   test("Slot display name", async () => {
@@ -399,7 +399,7 @@ describe("Target check before writing", () => {
 
   test("Model id with a slash", async () => {
     const h = harness({
-      tiers: { ...TIERS, fast: "openrouter/anthropic/claude" },
+      tiers: { ...TIERS, basic: "openrouter/anthropic/claude" },
       reg: { "openrouter/anthropic/claude": {}, "fx/balanced": {}, "fx/deep": {} },
     });
     const { adjustment } = await h.launch();
@@ -461,7 +461,7 @@ describe("Routing fails open", () => {
     let release: (v: unknown) => void = () => {};
     const answered = new Promise((r) => (release = r));
     const fx = await startJevFixture({
-      "/slow": { held: answered.then(() => ({ json: body("fast") })) },
+      "/slow": { held: answered.then(() => ({ json: body("basic") })) },
     });
     try {
       const h = harness({ timeoutMs: 1500 });
@@ -570,7 +570,7 @@ describe("Fallback warning", () => {
     await h.launch();
     expect(h.notes).toHaveLength(1);
     expect(h.notes[0]?.type).toBe("warning");
-    for (const s of ["tier deep", "fx/deep", "no credentials", "using balanced", "tiers.deep"]) {
+    for (const s of ["tier deep", "fx/deep", "no credentials", "using broad", "tiers.deep"]) {
       expect(h.notes[0]?.text).toContain(s);
     }
   });
@@ -593,7 +593,7 @@ describe("Fallback warning", () => {
 
   test("Nothing can run", async () => {
     const h = harness({ reg: { "fx/fast": { auth: false }, "fx/balanced": { auth: false } } });
-    h.setScript(() => ok(body("balanced", "high")));
+    h.setScript(() => ok(body("broad", "high")));
     const { adjustment } = await h.launch();
     expect(h.notes[0]?.text).toContain("launch left unchanged");
     expect(adjustment).toBeUndefined();
@@ -610,9 +610,9 @@ describe("Fallback warning", () => {
 });
 
 describe("Mode of a launch", () => {
-  const split = { fast: 0.05, balanced: 0.15, deep: 0.5, expert: 0.3 };
-  // Score 2.175: expert in premium (cut 2.125), deep in standard (cut 2.345).
-  const between = { fast: 0.05, balanced: 0.15, deep: 0.75, expert: 0.05 };
+  const split = { basic: 0.05, broad: 0.15, deep: 0.5, frontier: 0.3 };
+  // Score 2.175: frontier in premium (cut 2.125), deep in standard (cut 2.345).
+  const between = { basic: 0.05, broad: 0.15, deep: 0.75, frontier: 0.05 };
 
   test("Every mode sends the one worker rubric", async () => {
     const h = harness({ mode: "premium" });
@@ -631,7 +631,7 @@ describe("Mode of a launch", () => {
     expect(h.lines[0]).toMatchObject({ mode: "standard", reason: "cut", score: 2.175 });
   });
 
-  test("Premium at classification admits expert", async () => {
+  test("Premium at classification admits frontier", async () => {
     const h = harness({ tiers: TIERS_X, mode: "premium" });
     h.setScript(() => ok(bodyWith("deep", split, "xhigh")));
     expect((await h.launch()).adjustment?.model).toBe("fx/expert");
@@ -648,17 +648,17 @@ describe("Mode of a launch", () => {
 });
 
 describe("Cut points of a launch", () => {
-  // 100 medium-effort entries, scores 0.02 … 2.00: standard puts 1.25 on balanced, premium on deep.
+  // 100 medium-effort entries, scores 0.02 … 2.00: standard puts 1.25 on broad, premium on deep.
   const spread: WindowEntry[] = Array.from({ length: 100 }, (_, i) => ({
     score: (i + 1) / 50,
     effort: "medium",
-    decided: "balanced",
+    decided: "broad",
   }));
 
   test("Siblings share a window state", async () => {
     let window: readonly WindowEntry[] = spread;
     const h = harness({ mode: "premium", window: () => window });
-    h.setScript(() => ok(body("balanced", "high")));
+    h.setScript(() => ok(body("broad", "high")));
     const a = h.launch();
     const b = h.launch();
     window = []; // changes after both policy calls started, before either wrote a line
@@ -670,7 +670,7 @@ describe("Cut points of a launch", () => {
   test("Launch classified alone", async () => {
     let window: readonly WindowEntry[] = [];
     const h = harness({ mode: "premium", window: () => window });
-    h.setScript(() => ok(body("balanced", "high")));
+    h.setScript(() => ok(body("broad", "high")));
     expect((await h.launch()).adjustment?.model).toBe("fx/balanced"); // seed
     window = spread;
     expect((await h.launch()).adjustment?.model).toBe("fx/deep");
@@ -679,7 +679,7 @@ describe("Cut points of a launch", () => {
   test("window is called detached from deps", async () => {
     let calls = 0;
     const deps = {
-      ask: () => Promise.resolve(ok(body("fast"))),
+      ask: () => Promise.resolve(ok(body("basic"))),
       snapshot: () => snap(),
       service: () => executor.service,
       window(this: unknown) {
@@ -711,7 +711,7 @@ describe("Slots", () => {
           type: "choice",
           choice: "slot::reviewer",
           confidence: 0.92,
-          probabilities: { fast: 0, balanced: 0, deep: 0, "slot::reviewer": 0.92 },
+          probabilities: { basic: 0, broad: 0, deep: 0, "slot::reviewer": 0.92 },
         },
         effort: effort("high"),
         risky: { type: "noul", noul: 0.1 },

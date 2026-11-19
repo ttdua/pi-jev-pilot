@@ -63,7 +63,7 @@ function windowLine(
     kind: "worker",
     at,
     ...(ctx.tierQuestion
-      ? { rubric: RUBRIC_VERSION, expertOffered: ctx.offered.includes("expert") }
+      ? { rubric: RUBRIC_VERSION, frontierOffered: ctx.offered.includes("frontier") }
       : {}),
     ...(score !== undefined ? { score } : {}),
     reason: record.reason,
@@ -79,7 +79,7 @@ export function routeStreamRecords(
   o: RouteOptions,
 ): (RoutedLaunch | undefined)[] {
   const slots = o.routing === "slots" ? o.config.slots.map((s) => s.name) : [];
-  const offered = offeredTiers(o.config.tiers, o.config.expertOn);
+  const offered = offeredTiers(o.config.tiers, o.config.frontierOn);
   const ctx: StreamContext = { offered, tierQuestion: offered.length > 0 || slots.length > 0 };
   const modelOf = modelOfConfig(o.config);
   const lines: WindowLine[] = [];

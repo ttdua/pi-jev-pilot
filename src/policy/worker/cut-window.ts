@@ -11,7 +11,7 @@ export interface WindowLine {
   readonly at: number;
   readonly rubric?: number;
   readonly score?: number;
-  readonly expertOffered?: boolean;
+  readonly frontierOffered?: boolean;
   readonly reason?: string;
   readonly tier?: string;
   readonly fallback?: string;
@@ -23,7 +23,7 @@ export interface RecentMix {
   readonly shares?: Readonly<Record<TierName, number>>;
 }
 
-const WINDOW_REASONS: readonly string[] = ["expert", "risky", "cut"];
+const WINDOW_REASONS: readonly string[] = ["frontier", "risky", "cut"];
 
 function decidedTier(line: WindowLine): TierName | undefined {
   const name = line.fallback ?? line.tier;
@@ -58,7 +58,7 @@ export function windowEntries(lines: readonly WindowLine[], rubric: number): Win
         l.kind === "worker" &&
         l.rubric === rubric &&
         typeof l.score === "number" &&
-        l.expertOffered === true &&
+        l.frontierOffered === true &&
         l.reason !== undefined &&
         WINDOW_REASONS.includes(l.reason) &&
         decidedTier(l) !== undefined,
@@ -76,10 +76,10 @@ export function recentMix(window: readonly WindowEntry[]): RecentMix {
   return {
     n,
     shares: {
-      fast: share("fast"),
-      balanced: share("balanced"),
+      basic: share("basic"),
+      broad: share("broad"),
       deep: share("deep"),
-      expert: share("expert"),
+      frontier: share("frontier"),
     },
   };
 }

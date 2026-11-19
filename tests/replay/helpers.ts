@@ -6,10 +6,10 @@ import type { WorkerAnswers } from "../../src/policy/worker/answers.ts";
 
 export const MARKER = "JEV-MARKER-PROMPT";
 export const config: PlainConfig = {
-  tiers: { fast: "a/b", deep: "c/d" },
+  tiers: { basic: "a/b", deep: "c/d" },
   slots: [],
   mode: "standard",
-  expertOn: false,
+  frontierOn: false,
 };
 
 const main = mainQuestions({ askEffort: true, askStrategy: true });
@@ -84,7 +84,7 @@ export type WorkerPick = {
 
 /** A parsed worker answer set, as `readWorkerOutcome` would return it. */
 export function workerAnswers(p: WorkerPick = {}): Extract<WorkerAnswers, { kind: "read" }> {
-  const tier = p.tier ?? "fast";
+  const tier = p.tier ?? "basic";
   const effort = p.effort ?? "low";
   return {
     kind: "read",

@@ -133,7 +133,7 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
   const route = routeLaunch({
     answers,
     launch: REPLAY_LAUNCH(runsInBackground(req)),
-    offered: offeredTiers(config.tiers, config.expertOn),
+    offered: offeredTiers(config.tiers, config.frontierOn),
     // Seed cut points: the replay has no ledger window. Live routing uses cutPointsFor(window(), mode).
     cuts: cutPointsFor([], config.mode),
     forkLaunch: "untouched",

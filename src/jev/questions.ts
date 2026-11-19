@@ -118,13 +118,13 @@ export function mainQuestions(o: {
   return { wire, specs };
 }
 
-/** Configured tiers in ladder order; `expert` only when its switch is on. */
+/** Configured tiers in ladder order; `frontier` only when its switch is on. */
 export function offeredTiers(
   tiers: Partial<Record<TierName, string>>,
-  expertOn: boolean,
+  frontierOn: boolean,
 ): TierName[] {
   return TIER_LADDER.filter((tier) => {
-    if (tier === "expert" && !expertOn) return false;
+    if (tier === "frontier" && !frontierOn) return false;
     const value = tiers[tier];
     return typeof value === "string" && value !== "";
   });

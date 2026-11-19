@@ -12,10 +12,10 @@ import { modelOfConfig, REPLAY_LAUNCH } from "../../scripts/replay/compare.ts";
 import { workerAnswers } from "./helpers.ts";
 
 const config: PlainConfig = {
-  tiers: { fast: "a/b", balanced: "b/c", deep: "c/d", expert: "e/f" },
+  tiers: { basic: "a/b", broad: "b/c", deep: "c/d", frontier: "e/f" },
   slots: [{ name: "reviewer", model: "m/n", when: "for review" }],
   mode: "standard",
-  expertOn: true,
+  frontierOn: true,
 };
 const noSlots: PlainConfig = { ...config, slots: [] };
 const opts = (n: number, over = {}) => ({
@@ -28,7 +28,7 @@ const opts = (n: number, over = {}) => ({
 
 // Spread scores: tier distribution moves with i.
 const spread = (i: number) => {
-  const t = ["fast", "balanced", "deep", "expert"][i % 4] ?? "fast";
+  const t = ["basic", "broad", "deep", "frontier"][i % 4] ?? "basic";
   return workerAnswers({ tier: t, tierP: { [t]: 1 }, effort: i % 2 ? "high" : "low" });
 };
 
@@ -37,7 +37,7 @@ const recordOf = (a: ReturnType<typeof workerAnswers>, cuts = SEED_CUTPOINTS.sta
   const r = routeLaunch({
     answers: a,
     launch: REPLAY_LAUNCH(false),
-    offered: offeredTiers(config.tiers, config.expertOn),
+    offered: offeredTiers(config.tiers, config.frontierOn),
     cuts,
     forkLaunch: "untouched",
     canRun: () => true,
@@ -68,7 +68,7 @@ describe("routeStream", () => {
     const answers = Array.from({ length: 150 }, (_, i) =>
       workerAnswers({
         tier: "deep",
-        tierP: { deep: 0.6, balanced: 0.3, fast: 0.1 },
+        tierP: { deep: 0.6, broad: 0.3, basic: 0.1 },
         effort: i % 3 ? "medium" : "low",
       }),
     );
@@ -89,7 +89,7 @@ describe("routeStream", () => {
         kind: "worker",
         at: i,
         rubric: RUBRIC_VERSION,
-        expertOffered: true,
+        frontierOffered: true,
         score: difficultyScore(a.answers) as number,
         reason: r.reason,
         ...(r.tier !== undefined ? { tier: r.tier } : {}),
@@ -132,10 +132,10 @@ describe("routeStream", () => {
   test("no-slot routing", () => {
     const slot = workerAnswers({
       tier: "slot::reviewer",
-      tierP: { "slot::reviewer": 0.9, fast: 0.1 },
+      tierP: { "slot::reviewer": 0.9, basic: 0.1 },
     });
     const got = routeStream([slot], opts(1, { routing: "tiers" }));
-    expect(["fast", "balanced", "deep", "expert"]).toContain(got[0] as string);
+    expect(["basic", "broad", "deep", "frontier"]).toContain(got[0] as string);
   });
 
   test("no slot configured", () => {

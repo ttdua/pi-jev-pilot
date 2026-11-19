@@ -14,7 +14,7 @@ import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
 import { REPO_ROOT } from "../../helpers";
 
 function entry(score: number, effort: EffortLevel = "high"): WindowEntry {
-  return { score, effort, decided: "balanced" };
+  return { score, effort, decided: "broad" };
 }
 
 function tenths(): WindowEntry[] {
@@ -31,34 +31,34 @@ function hundredths(effortOf: (score: number) => EffortLevel): WindowEntry[] {
 describe("cutPoints", () => {
   test("standard target on ten scores", () => {
     expect(cutPoints(tenths(), MODE_TARGETS.standard)).toEqual({
-      fastMax: 0.2,
-      balancedMax: 0.7,
-      expertMin: Infinity,
+      basicMax: 0.2,
+      broadMax: 0.7,
+      frontierMin: Infinity,
     });
   });
 
   test("budget target on ten scores", () => {
     expect(cutPoints(tenths(), MODE_TARGETS.budget)).toEqual({
-      fastMax: 0.5,
-      balancedMax: 0.9,
-      expertMin: Infinity,
+      basicMax: 0.5,
+      broadMax: 0.9,
+      frontierMin: Infinity,
     });
   });
 
-  test("premium has no fast cut", () => {
+  test("premium has no basic cut", () => {
     const cuts = cutPoints(tenths(), MODE_TARGETS.premium);
-    expect(cuts.fastMax).toBe(-Infinity);
-    expect(cuts.balancedMax).toBe(0.5);
+    expect(cuts.basicMax).toBe(-Infinity);
+    expect(cuts.broadMax).toBe(0.5);
   });
 
-  test("expert cap", () => {
+  test("frontier cap", () => {
     const window = hundredths((s) => (s >= 0.95 ? "xhigh" : "high"));
-    expect(cutPoints(window, MODE_TARGETS.premium).expertMin).toBe(0.96);
+    expect(cutPoints(window, MODE_TARGETS.premium).frontierMin).toBe(0.96);
   });
 
-  test("expert never below the balanced cut", () => {
+  test("frontier never below the broad cut", () => {
     const window = hundredths((s) => (s <= 0.1 ? "xhigh" : "high"));
-    expect(cutPoints(window, MODE_TARGETS.standard).expertMin).toBe(Infinity);
+    expect(cutPoints(window, MODE_TARGETS.standard).frontierMin).toBe(Infinity);
   });
 
   test("ties stay under the cap", () => {
@@ -66,14 +66,14 @@ describe("cutPoints", () => {
       ...Array.from({ length: 97 }, () => entry(1.0)),
       ...Array.from({ length: 3 }, () => entry(2.5, "max")),
     ];
-    expect(cutPoints(window, MODE_TARGETS.standard).expertMin).toBe(Infinity);
+    expect(cutPoints(window, MODE_TARGETS.standard).frontierMin).toBe(Infinity);
   });
 
   test("empty window", () => {
     expect(cutPoints([], MODE_TARGETS.standard)).toEqual({
-      fastMax: Infinity,
-      balancedMax: Infinity,
-      expertMin: Infinity,
+      basicMax: Infinity,
+      broadMax: Infinity,
+      frontierMin: Infinity,
     });
   });
 
@@ -104,11 +104,11 @@ describe("cutPointsFor", () => {
   test("seed is a valid result", () => {
     for (const mode of MODE_NAMES) {
       const seed = SEED_CUTPOINTS[mode];
-      expect(seed.fastMax).toBeLessThanOrEqual(seed.balancedMax);
-      expect(seed.balancedMax).toBeLessThan(seed.expertMin);
+      expect(seed.basicMax).toBeLessThanOrEqual(seed.broadMax);
+      expect(seed.broadMax).toBeLessThan(seed.frontierMin);
     }
-    expect(SEED_CUTPOINTS.premium.fastMax).toBe(-Infinity);
-    expect(SEED_CUTPOINTS.budget.expertMin).toBe(Infinity);
+    expect(SEED_CUTPOINTS.premium.basicMax).toBe(-Infinity);
+    expect(SEED_CUTPOINTS.budget.frontierMin).toBe(Infinity);
   });
 });
 
@@ -120,7 +120,7 @@ function parseCut(cell: string): number {
   return Number(cell);
 }
 
-// Rows of the note's "Seed cut points" table: | `mode` | fastMax | balancedMax | expertMin |
+// Rows of the note's "Seed cut points" table: | `mode` | basicMax | broadMax | frontierMin |
 function publishedSeed(text: string): Record<string, CutPoints> {
   const section = text.split("## Seed cut points")[1]?.split("\n## ")[0] ?? "";
   const rows: Record<string, CutPoints> = {};
@@ -132,9 +132,9 @@ function publishedSeed(text: string): Record<string, CutPoints> {
     const mode = /^`(\w+)`$/.exec(cells[0] ?? "")?.[1];
     if (mode === undefined || cells.length !== 4) continue;
     rows[mode] = {
-      fastMax: parseCut(cells[1] ?? ""),
-      balancedMax: parseCut(cells[2] ?? ""),
-      expertMin: parseCut(cells[3] ?? ""),
+      basicMax: parseCut(cells[1] ?? ""),
+      broadMax: parseCut(cells[2] ?? ""),
+      frontierMin: parseCut(cells[3] ?? ""),
     };
   }
   return rows;

@@ -10,7 +10,7 @@ import {
 import { tempDir } from "../helpers.ts";
 
 const isRoot = process.getuid?.() === 0;
-const FEATURES = ["effort", "subagents", "skills", "strategy", "expert", "status", "verbose"];
+const FEATURES = ["effort", "subagents", "skills", "strategy", "frontier", "status", "verbose"];
 
 function withDir(fn: (dir: string) => void): void {
   const dir = tempDir("jev-state-");

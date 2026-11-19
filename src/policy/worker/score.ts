@@ -7,7 +7,7 @@ import { TIER_LADDER } from "../launch.ts";
 const EFFORT_DIVISOR = 8;
 const DEFAULT_EFFORT_RANK = EFFORT_LEVELS.indexOf("high");
 
-// Probability-weighted tier rank (fast 0 … expert 3), over tier keys only. Slot keys never count.
+// Probability-weighted tier rank (basic 0 … frontier 3), over tier keys only. Slot keys never count.
 function tierRank(answer: Answer | undefined): number | undefined {
   if (answer?.type !== "choice") return undefined;
   let sum = 0;

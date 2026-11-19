@@ -12,10 +12,10 @@ const FULL = `{
     "timeoutMs": 1500
   },
   "tiers": {
-    "fast": "claude-code/claude-haiku-5-5",
-    "balanced": "claude-code/claude-sonnet-5-5",
+    "basic": "claude-code/claude-haiku-5-5",
+    "broad": "claude-code/claude-sonnet-5-5",
     "deep": "claude-code/claude-opus-5-5",
-    "expert": "claude-code/claude-fable-5-1"
+    "frontier": "claude-code/claude-fable-5-1"
   },
   "crew": {
     "slots": [

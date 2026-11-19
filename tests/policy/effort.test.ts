@@ -126,14 +126,14 @@ describe("Worker effort", () => {
   });
 
   test("Fast cap", () => {
-    expect(workerEffort({ effort: choice("high"), tier: "fast", movedByFallback: false })).toBe(
+    expect(workerEffort({ effort: choice("high"), tier: "basic", movedByFallback: false })).toBe(
       "medium",
     );
   });
 
-  test("Risk floor then fast cap", () => {
+  test("Risk floor then basic cap", () => {
     expect(
-      workerEffort({ effort: choice("low"), risky: 0.8, tier: "fast", movedByFallback: false }),
+      workerEffort({ effort: choice("low"), risky: 0.8, tier: "basic", movedByFallback: false }),
     ).toBe("medium");
   });
 
@@ -178,8 +178,8 @@ describe("effort option order", () => {
 });
 
 describe("Effort after fallback", () => {
-  test("Fallback lifts effort on fast", () => {
-    expect(workerEffort({ effort: choice("low"), tier: "fast", movedByFallback: true })).toBe(
+  test("Fallback lifts effort on basic", () => {
+    expect(workerEffort({ effort: choice("low"), tier: "basic", movedByFallback: true })).toBe(
       "xhigh",
     );
   });
@@ -231,13 +231,13 @@ describe("Thinking clamp", () => {
 });
 
 describe("workerEffort with slot targets", () => {
-  test("Slot without the fast cap", () => {
+  test("Slot without the basic cap", () => {
     expect(
       workerEffort({ effort: choice("high"), tier: "slot::reviewer", movedByFallback: false }),
     ).toBe("high");
   });
-  test("Slot fell back to fast", () => {
-    expect(workerEffort({ effort: choice("low"), tier: "fast", movedByFallback: true })).toBe(
+  test("Slot fell back to basic", () => {
+    expect(workerEffort({ effort: choice("low"), tier: "basic", movedByFallback: true })).toBe(
       "xhigh",
     );
   });

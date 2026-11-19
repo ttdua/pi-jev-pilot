@@ -35,7 +35,7 @@ function answer(choice: string, risky = 0.1, corrects = 0.05, extra: Extra = {})
     answers["tier"] = {
       type: "choice",
       choice: extra.tier,
-      probabilities: { fast: 0.1, balanced: 0.1, deep: 0.1, [extra.tier]: 0.8 },
+      probabilities: { basic: 0.1, broad: 0.1, deep: 0.1, [extra.tier]: 0.8 },
     };
   }
   return { kind: "ok", ms: 7, body: { answers } };
@@ -1613,8 +1613,8 @@ describe("skill message", () => {
     };
     answers["tier"] = {
       type: "choice",
-      choice: "balanced",
-      probabilities: { fast: 0.1, balanced: 0.8, deep: 0.1 },
+      choice: "broad",
+      probabilities: { basic: 0.1, broad: 0.8, deep: 0.1 },
     };
     const t = setup({ skills, outcomes: [both] });
     const result = (await run(t)) as {
@@ -1988,7 +1988,7 @@ describe("rich state inputs", () => {
 
   test("last decision carried to the next prompt", async () => {
     const t = setup({
-      outcomes: [advised("delegate", 0.9, { tier: "balanced" }), answer("low")],
+      outcomes: [advised("delegate", 0.9, { tier: "broad" }), answer("low")],
       rich: { ...noRich, groups: ["last_decision"] },
     });
     await run(t);

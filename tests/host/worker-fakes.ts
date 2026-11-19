@@ -17,12 +17,12 @@ import { resolveSettings } from "../../src/store/settings.ts";
 export type Handler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown;
 
 export const TIERS = {
-  fast: "fx/fast",
-  balanced: "fx/balanced",
+  basic: "fx/fast",
+  broad: "fx/balanced",
   deep: "fx/deep",
 };
 
-export const TIERS_X = { ...TIERS, expert: "fx/expert" };
+export const TIERS_X = { ...TIERS, frontier: "fx/expert" };
 
 /** The tools the executor gives an agent that declares none. */
 export const DEFAULT_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"];
@@ -80,7 +80,7 @@ export function choice(tier: string, p = 0.9) {
     type: "choice",
     choice: tier,
     confidence: p,
-    probabilities: { fast: 0, balanced: 0, deep: 0, [tier]: p },
+    probabilities: { basic: 0, broad: 0, deep: 0, [tier]: p },
   };
 }
 /** A tier answer whose probability keys are exactly the offered tiers. */
@@ -122,7 +122,7 @@ export function bodyWith(tier: string, probabilities: Record<string, number>, ef
       tier: choiceWith(tier, probabilities),
       effort: effort(eff),
       risky: { type: "noul", noul: 0.1 },
-      ...("expert" in probabilities ? { expert_needed: { type: "noul", noul: 0.1 } } : {}),
+      ...("frontier" in probabilities ? { expert_needed: { type: "noul", noul: 0.1 } } : {}),
     },
   };
 }
@@ -286,7 +286,7 @@ export function harness(
   const asks: JevRequest[] = [];
   const lines: Record<string, unknown>[] = [];
   let appendFails = false;
-  let script: Script = () => ok(body("fast"));
+  let script: Script = () => ok(body("basic"));
   let current = snap(opts);
   let clock = 1_700_000_000_000;
   const executor = fakeService({ taken: opts.taken });

@@ -52,7 +52,7 @@ function isStrategy(value: string): value is Strategy {
 function passes(choice: Advised, p: number, tier: string | undefined): boolean {
   if (choice === "delegate") return p >= STRATEGY_THRESHOLD;
   if (choice === "parallel")
-    return p >= STRATEGY_THRESHOLD && tier !== undefined && tier !== "fast";
+    return p >= STRATEGY_THRESHOLD && tier !== undefined && tier !== "basic";
   return p >= GRAPH_THRESHOLD && tier === "deep";
 }
 

@@ -10,10 +10,10 @@ import {
 import { mainBody, mainReq, miss, ok, planOf, workerAnswers } from "./helpers.ts";
 
 const config: PlainConfig = {
-  tiers: { fast: "a/b", balanced: "b/c", deep: "c/d", expert: "e/f" },
+  tiers: { basic: "a/b", broad: "b/c", deep: "c/d", frontier: "e/f" },
   slots: [{ name: "reviewer", model: "m/n", when: "for review" }],
   mode: "standard",
-  expertOn: true,
+  frontierOn: true,
 };
 const { questions, specs } = workerQuestions(config);
 const workerReq = (variant: string, sample: number): PlannedRequest => ({
@@ -76,9 +76,9 @@ const brief = (cs: ReturnType<typeof build>) =>
 describe("reportCases characterization", () => {
   test("main cases come first, then worker cases by mode then routing, sample ascending", () => {
     const cases = build([
-      { main: ["low", "high"], worker: ["fast", "deep"] },
-      { main: ["low", "low"], worker: ["fast", "fast"] },
-      { main: ["medium", "xhigh"], worker: ["fast", "deep"] },
+      { main: ["low", "high"], worker: ["basic", "deep"] },
+      { main: ["low", "low"], worker: ["basic", "basic"] },
+      { main: ["medium", "xhigh"], worker: ["basic", "deep"] },
     ]);
     const keys = cases.map((c) => c.key);
     expect(keys.slice(0, 2)).toEqual(["effort", "effort"]);
@@ -97,8 +97,8 @@ describe("reportCases characterization", () => {
     ]);
     const std = cases.filter((c) => c.key === "standard/tiers");
     expect(std.map((c) => [c.base, c.value, c.text])).toEqual([
-      ["fast", "deep", "worker-0"],
-      ["fast", "deep", "worker-2"],
+      ["basic", "deep", "worker-0"],
+      ["basic", "deep", "worker-2"],
     ]);
     expect(Object.keys(cases[0]!)).toEqual([
       "variant",
@@ -113,7 +113,7 @@ describe("reportCases characterization", () => {
   });
 
   test("identical runs yield no cases", () => {
-    expect(build([{ main: ["low", "low"], worker: ["fast", "fast"] }])).toEqual([]);
+    expect(build([{ main: ["low", "low"], worker: ["basic", "basic"] }])).toEqual([]);
   });
 
   test("a miss on either side is not a difference", () => {
@@ -129,16 +129,16 @@ describe("reportCases characterization", () => {
     expect(brief(build([{ main: ["low", "high"] }]))).toEqual([
       ["rerun", "effort", "low", "high", "main-0"],
     ]);
-    const w = build([{ worker: ["fast", "deep"] }]);
+    const w = build([{ worker: ["basic", "deep"] }]);
     expect(w.length).toBeGreaterThan(0);
     expect(w.every((c) => c.text === "worker-0" && c.key.includes("/"))).toBe(true);
   });
 
   test("answers are the raw effort choice (main) and the tier answer (worker)", () => {
-    const [m, ...rest] = build([{ main: ["low", "high"], worker: ["fast", "deep"] }]);
+    const [m, ...rest] = build([{ main: ["low", "high"], worker: ["basic", "deep"] }]);
     expect(m!.baseAnswer).toMatchObject({ type: "choice", choice: "low" });
     expect(m!.answer).toMatchObject({ type: "choice", choice: "high" });
-    expect(rest[0]!.baseAnswer).toMatchObject({ type: "choice", choice: "fast" });
+    expect(rest[0]!.baseAnswer).toMatchObject({ type: "choice", choice: "basic" });
     expect(rest[0]!.answer).toMatchObject({ type: "choice", choice: "deep" });
   });
 
@@ -161,7 +161,7 @@ function digest(s: string): string {
   return h.toString(16);
 }
 const spread = (i: number) => {
-  const t = ["fast", "balanced", "deep", "expert"][i % 4] ?? "fast";
+  const t = ["basic", "broad", "deep", "frontier"][i % 4] ?? "basic";
   return workerAnswers({ tier: t, tierP: { [t]: 1 }, effort: i % 2 ? "high" : "low" });
 };
 const stream = (n: number) =>
@@ -183,12 +183,12 @@ describe("routeStreamRecords characterization", () => {
   });
 
   const cases: [string, object, string][] = [
-    ["tiers standard", {}, "76eede99"],
-    ["slots standard", { routing: "slots" }, "76eede99"],
-    ["budget", { mode: "budget" }, "b548e261"],
-    ["premium slots", { mode: "premium", routing: "slots" }, "70619a25"],
+    ["tiers standard", {}, "aea8480b"],
+    ["slots standard", { routing: "slots" }, "aea8480b"],
+    ["budget", { mode: "budget" }, "9e02e30f"],
+    ["premium slots", { mode: "premium", routing: "slots" }, "5d8abcd"],
     ["no tiers, no slots", { config: { ...config, tiers: {}, slots: [] } }, "ef48b183"],
-    ["tiers, expert off", { config: { ...config, expertOn: false, slots: [] } }, "1221733d"],
+    ["tiers, frontier off", { config: { ...config, frontierOn: false, slots: [] } }, "80aaac29"],
     ["slots only", { config: { ...config, tiers: {} }, routing: "slots" }, "ef48b183"],
   ];
   for (const [name, over, gold] of cases) {

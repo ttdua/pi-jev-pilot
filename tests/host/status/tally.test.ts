@@ -54,11 +54,13 @@ describe("session tally", () => {
     const { log } = setup();
     log.reset("S");
     for (let i = 0; i < 3; i++) log.record(main("S"));
-    log.record(worker("S", { reason: "choice", tier: "fast", model: "fixture/fast", tokens: 100 }));
+    log.record(
+      worker("S", { reason: "choice", tier: "basic", model: "fixture/fast", tokens: 100 }),
+    );
     log.record(
       worker("S", {
         reason: "choice",
-        tier: "balanced",
+        tier: "broad",
         fallback: "deep",
         model: "fixture/deep",
         tokens: 50,
@@ -83,16 +85,16 @@ describe("session tally", () => {
   test("tally returns a fresh snapshot", () => {
     const { log } = setup();
     log.reset("S");
-    log.record(worker("S", { reason: "choice", tier: "fast", model: "fixture/m" }));
+    log.record(worker("S", { reason: "choice", tier: "basic", model: "fixture/m" }));
     const a = log.tally();
-    log.record(worker("S", { reason: "choice", tier: "fast", model: "fixture/m" }));
+    log.record(worker("S", { reason: "choice", tier: "basic", model: "fixture/m" }));
     expect(a.byModel).toEqual([["fixture/m", 1]]);
   });
 
   test("Nothing could run is not a fallback", () => {
     const { log } = setup();
     log.reset("S");
-    log.record(worker("S", { reason: "choice", tier: "balanced", fallback: "balanced" }));
+    log.record(worker("S", { reason: "choice", tier: "broad", fallback: "broad" }));
     expect(log.tally().fallbacks).toBe(0);
     expect(log.tally().unrouted).toBe(1);
   });
@@ -186,7 +188,7 @@ describe("verbose log", () => {
   test("Worker line logged", () => {
     const { log, entries } = setup(true);
     log.reset("S");
-    const line = worker("S", { reason: "choice", tier: "fast", model: "fixture/fast" });
+    const line = worker("S", { reason: "choice", tier: "basic", model: "fixture/fast" });
     log.record(line);
     expect(entries).toEqual([{ t: "jev-log", d: line }]);
   });

@@ -10,10 +10,10 @@ import { workerQuestions } from "../../scripts/replay/variants.ts";
 import { mainBody, mainReq, miss, ok, planOf } from "./helpers.ts";
 
 const config: PlainConfig = {
-  tiers: { fast: "a/b", balanced: "b/c", deep: "c/d", expert: "e/f" },
+  tiers: { basic: "a/b", broad: "b/c", deep: "c/d", frontier: "e/f" },
   slots: [{ name: "reviewer", model: "m/n", when: "for review" }],
   mode: "standard",
-  expertOn: true,
+  frontierOn: true,
 };
 const VARIANTS = ["report", "rerun"] as const;
 const { questions, specs } = workerQuestions(config);
@@ -140,7 +140,7 @@ describe("compareReport workers", () => {
     ...Array<"implementation">(6).fill("implementation"),
   ];
   test("reviewer share by kind", () => {
-    const tiers = kinds.map((_, i) => (i < 3 || i === 4 ? "slot::reviewer" : "fast"));
+    const tiers = kinds.map((_, i) => (i < 3 || i === 4 ? "slot::reviewer" : "basic"));
     const { plan, results } = workerRun(tiers);
     const agg = compareReport(plan, results, metaOf({ workerKind: kinds }));
     const byKind = agg.workers.report.standard.slots.byKind;
@@ -163,16 +163,16 @@ describe("compareReport workers", () => {
   });
 
   test("miss excluded from noise", () => {
-    const { plan, results } = workerRun(["fast", "fast"], ["rerun:1"]);
+    const { plan, results } = workerRun(["basic", "basic"], ["rerun:1"]);
     const agg = compareReport(plan, results, metaOf({ workerKind: ["scout", "scout"] }));
     expect(agg.misses["worker:rerun"]).toBe(1);
     expect(agg.misses["worker:report"]).toBe(0);
     expect(Object.values(agg.noise.workers.standard).every((n) => n === 0)).toBe(true);
-    expect(agg.workers.rerun.standard.tiers.targets).toEqual({ fast: 1 });
+    expect(agg.workers.rerun.standard.tiers.targets).toEqual({ basic: 1 });
   });
 
   test("a changed target counts as noise", () => {
-    const { plan, results } = workerRun(["fast"]);
+    const { plan, results } = workerRun(["basic"]);
     const swapped = results.map((r) =>
       r.variant === "rerun"
         ? { ...r, outcome: { kind: "ok" as const, body: workerBody("deep") } }
@@ -184,7 +184,7 @@ describe("compareReport workers", () => {
 
   test("all misses", () => {
     const main = mainRun(["low"]);
-    const worker = workerRun(["fast"], ["report:0", "rerun:0"]);
+    const worker = workerRun(["basic"], ["report:0", "rerun:0"]);
     const plan = planOf([...main.plan.requests, ...worker.plan.requests]);
     const results = [...main.plan.requests.map(miss), ...worker.plan.requests.map(miss)];
     const agg = compareReport(
@@ -225,7 +225,7 @@ describe("reportCases", () => {
   });
 
   test("worker cases are keyed by mode and routing", () => {
-    const { plan, results } = workerRun(["fast"]);
+    const { plan, results } = workerRun(["basic"]);
     const swapped = results.map((r) =>
       r.variant === "rerun"
         ? { ...r, outcome: { kind: "ok" as const, body: workerBody("deep") } }

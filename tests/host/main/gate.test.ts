@@ -139,7 +139,7 @@ describe("newTurnRecord", () => {
     const rec = newTurnRecord(plan, {
       turnId: "t-1",
       at: 1000,
-      mode: "balanced",
+      mode: "broad",
       from: "low",
       previousTurnId: "t-0",
     });
@@ -148,7 +148,7 @@ describe("newTurnRecord", () => {
       at: 1000,
       sessionId: "s-1",
       previousTurnId: "t-0",
-      mode: "balanced",
+      mode: "broad",
       from: "low",
       provider: "p",
       model: "m",
@@ -164,7 +164,7 @@ describe("newTurnRecord", () => {
 
   test("marks a held turn", () => {
     const plan = { ...gateTurn(input())!, held: true };
-    const ids = { turnId: "t", at: 1, mode: "balanced", from: "low" } as const;
+    const ids = { turnId: "t", at: 1, mode: "broad", from: "low" } as const;
     expect(newTurnRecord(plan, ids).held).toBe(true);
   });
 });

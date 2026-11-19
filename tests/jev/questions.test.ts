@@ -46,7 +46,7 @@ describe("mainQuestions", () => {
     const { specs } = mainQuestions({ askEffort: true, askStrategy: true });
     expect(specs["effort"]).toEqual({ type: "choice", options: EFFORT_OPTION_ORDER });
     expect(specs["risky"]).toEqual({ type: "noul" });
-    expect(specs["tier"]).toEqual({ type: "choice", options: ["fast", "balanced", "deep"] });
+    expect(specs["tier"]).toEqual({ type: "choice", options: ["basic", "broad", "deep"] });
     expect(specs["strategy"]).toEqual({
       type: "choice",
       options: ["direct", "delegate", "parallel", "graph"],
@@ -88,14 +88,14 @@ describe("mainQuestions", () => {
     );
   });
 
-  test("main tier uses the main criteria with no prefix and no expert", () => {
+  test("main tier uses the main criteria with no prefix and no frontier", () => {
     const tier = mainQuestions({ askEffort: false, askStrategy: true }).wire["tier"]!;
     expect(tier.instructions).toBe(TIER_INSTRUCTION);
-    expect(Object.keys(tier.criteria)).toEqual(["fast", "balanced", "deep"]);
-    expect(tier.criteria["fast"]).toBe(MAIN_TIER_CRITERIA.fast);
-    expect(tier.criteria["balanced"]).toBe(MAIN_TIER_CRITERIA.balanced);
+    expect(Object.keys(tier.criteria)).toEqual(["basic", "broad", "deep"]);
+    expect(tier.criteria["basic"]).toBe(MAIN_TIER_CRITERIA.basic);
+    expect(tier.criteria["broad"]).toBe(MAIN_TIER_CRITERIA.broad);
     expect(tier.criteria["deep"]).toBe(MAIN_TIER_CRITERIA.deep);
-    expect("expert" in tier.criteria).toBe(false);
+    expect("frontier" in tier.criteria).toBe(false);
   });
 
   test("effort has the choice wire shape with five ordered criteria", () => {
@@ -136,13 +136,13 @@ describe("mainQuestions", () => {
     a.wire["risky"]!.instructions = "changed";
     a.wire["risky"]!.criteria["true"] = "changed";
     a.wire["corrects"]!.criteria["false"] = "changed";
-    a.wire["tier"]!.criteria["fast"] = "changed";
+    a.wire["tier"]!.criteria["basic"] = "changed";
     a.wire["strategy"]!.criteria["direct"] = "changed";
     const b = mainQuestions({ askEffort: true, askStrategy: true });
     expect(b.wire["risky"]!.instructions).not.toBe("changed");
     expect(b.wire["risky"]!.criteria["true"]).not.toBe("changed");
     expect(b.wire["corrects"]!.criteria["false"]).not.toBe("changed");
-    expect(b.wire["tier"]!.criteria["fast"]).not.toBe("changed");
+    expect(b.wire["tier"]!.criteria["basic"]).not.toBe("changed");
     expect(b.wire["strategy"]!.criteria["direct"]).not.toBe("changed");
   });
 
@@ -167,21 +167,21 @@ describe("Strategy docs", () => {
   });
   test("docs state no prefix", () => {
     expect(DOC).toContain(
-      "The main request's `tier` uses its own `fast`, `balanced` and `deep` criteria, without the display-name prefix.",
+      "The main request's `tier` uses its own `basic`, `broad` and `deep` criteria, without the display-name prefix.",
     );
   });
 });
-const ALL = { fast: "a/b", balanced: "c/d", deep: "e/f", expert: "g/h" };
+const ALL = { basic: "a/b", broad: "c/d", deep: "e/f", frontier: "g/h" };
 
 describe("Offered tiers", () => {
   test("Partial configuration", () => {
-    expect(offeredTiers({ fast: "a/b", deep: "c/d" }, true)).toEqual(["fast", "deep"]);
+    expect(offeredTiers({ basic: "a/b", deep: "c/d" }, true)).toEqual(["basic", "deep"]);
   });
   test("Expert switched off", () => {
-    expect(offeredTiers(ALL, false)).toEqual(["fast", "balanced", "deep"]);
+    expect(offeredTiers(ALL, false)).toEqual(["basic", "broad", "deep"]);
   });
   test("Empty value is not configured", () => {
-    expect(offeredTiers({ fast: "", balanced: "c/d" }, true)).toEqual(["balanced"]);
+    expect(offeredTiers({ basic: "", broad: "c/d" }, true)).toEqual(["broad"]);
   });
 });
 
@@ -191,9 +191,9 @@ describe("Worker questions", () => {
     expect(Object.keys(questions)).toEqual(["effort", "risky"]);
   });
   test("Expert offered", () => {
-    const { questions, specs } = buildWorkerQuestions(["fast", "balanced", "deep", "expert"], {});
+    const { questions, specs } = buildWorkerQuestions(["basic", "broad", "deep", "frontier"], {});
     expect(Object.keys(questions)).toEqual(["tier", "effort", "risky"]);
-    expect(Object.keys(questions["tier"]!.criteria).at(-1)).toBe("expert");
+    expect(Object.keys(questions["tier"]!.criteria).at(-1)).toBe("frontier");
     expect(specs["risky"]).toEqual({ type: "noul" });
     expect(specs["effort"]).toEqual({
       type: "choice",
@@ -201,9 +201,9 @@ describe("Worker questions", () => {
     });
   });
   test("Asked and accepted agree", () => {
-    const { questions, specs } = buildWorkerQuestions(["fast", "deep"], {});
+    const { questions, specs } = buildWorkerQuestions(["basic", "deep"], {});
     const spec = specs["tier"];
-    expect(spec).toEqual({ type: "choice", options: ["fast", "deep"] });
+    expect(spec).toEqual({ type: "choice", options: ["basic", "deep"] });
     expect(Object.keys(questions["tier"]!.criteria)).toEqual(
       spec?.type === "choice" ? [...spec.options] : [],
     );
@@ -211,7 +211,7 @@ describe("Worker questions", () => {
 });
 
 describe("Question wording", () => {
-  const all = ["fast", "balanced", "deep", "expert"] as const;
+  const all = ["basic", "broad", "deep", "frontier"] as const;
   const workerSection = (): string => DOC.split("### Worker rubric")[1]!.split("\n#")[0]!;
 
   test("worker questions never include expert_needed", () => {
@@ -241,18 +241,18 @@ describe("Question wording", () => {
   test("worker tier criteria equal the docs worker rubric", () => {
     const section = workerSection();
     const rows = [...section.matchAll(/^\| `(\w+)` \| (.+) \|$/gm)];
-    expect(rows.map((r) => r[1])).toEqual(["fast", "balanced", "deep", "expert"]);
+    expect(rows.map((r) => r[1])).toEqual(["basic", "broad", "deep", "frontier"]);
     for (const [, tier, text] of rows) {
-      expect(WORKER_TIER_CRITERIA[tier as "fast"]).toBe(text!);
+      expect(WORKER_TIER_CRITERIA[tier as "basic"]).toBe(text!);
     }
     expect(
-      WORKER_TIER_CRITERIA.fast.startsWith(
+      WORKER_TIER_CRITERIA.basic.startsWith(
         "Fast and low cost, for bounded work with nothing to decide",
       ),
     ).toBe(true);
     expect(WORKER_TIER_CRITERIA.deep.startsWith("For careful judgment or long work")).toBe(true);
     expect(
-      WORKER_TIER_CRITERIA.expert.startsWith(
+      WORKER_TIER_CRITERIA.frontier.startsWith(
         "Rare. Choose only for exceptionally difficult architectural or advisory reasoning",
       ),
     ).toBe(true);
@@ -262,18 +262,19 @@ describe("Question wording", () => {
     expect({ instruction: TIER_INSTRUCTION, criteria: WORKER_TIER_CRITERIA }).toEqual({
       instruction: "Which is the cheapest tier that can complete this coding task well?",
       criteria: {
-        fast: "Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms.",
-        balanced:
+        basic:
+          "Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms.",
+        broad:
           "The default for ordinary engineering. Choose when some working out is needed inside a clear spec: a feature or fix across a few files with a test, build or type check that shows it works, a bug whose cause is known, writing tests for existing code, a scoped refactor, reviewing a small or medium diff, or summarizing and explaining code.",
         deep: "For careful judgment or long work. Choose when the spec is open or nothing can check the result, the cause of a bug is unknown, the change spans many components or needs design decisions, or it touches security, data migrations, concurrency, production or money. A large cross-cutting review belongs here too.",
-        expert:
+        frontier:
           "Rare. Choose only for exceptionally difficult architectural or advisory reasoning that resolves a specific unresolved technical decision with tightly interacting constraints or conflicting evidence, where the expected result is a reusable diagnosis, decision or plan. Ordinary design, review, implementation, long tasks and security or production labels are not expert work; an agent's title grants no eligibility.",
       },
     });
   });
   test("main criteria are separate data", () => {
     expect(MAIN_TIER_CRITERIA).not.toBe(WORKER_TIER_CRITERIA);
-    for (const tier of ["fast", "balanced", "deep"] as const) {
+    for (const tier of ["basic", "broad", "deep"] as const) {
       expect(MAIN_TIER_CRITERIA[tier]).toBe(WORKER_TIER_CRITERIA[tier]);
     }
     expect(MAIN_TIER_QUESTION.criteria).toEqual(MAIN_TIER_CRITERIA);
@@ -283,14 +284,14 @@ describe("Question wording", () => {
     expect(specs["tier"]).toEqual({ type: "choice", options: [...all] });
   });
   test("Display name prefix", () => {
-    const { questions } = buildWorkerQuestions(["fast"], { fast: "Claude Haiku 5.5" });
+    const { questions } = buildWorkerQuestions(["basic"], { basic: "Claude Haiku 5.5" });
     expect(
-      questions["tier"]!.criteria["fast"]!.startsWith("Claude Haiku 5.5. Fast and low cost"),
+      questions["tier"]!.criteria["basic"]!.startsWith("Claude Haiku 5.5. Fast and low cost"),
     ).toBe(true);
   });
   test("Missing display name", () => {
-    const { questions } = buildWorkerQuestions(["balanced"], {});
-    expect(questions["tier"]!.criteria["balanced"]).toBe(WORKER_TIER_CRITERIA.balanced);
+    const { questions } = buildWorkerQuestions(["broad"], {});
+    expect(questions["tier"]!.criteria["broad"]).toBe(WORKER_TIER_CRITERIA.broad);
   });
 });
 
@@ -437,15 +438,15 @@ describe("Slot questions", () => {
     s?.type === "choice" ? [...s.options] : [];
 
   test("Slots after tiers", () => {
-    const { questions, specs } = buildWorkerQuestions(["fast", "balanced"], {}, [reviewer, bulk]);
-    const expected = ["fast", "balanced", "slot::reviewer", "slot::bulk"];
+    const { questions, specs } = buildWorkerQuestions(["basic", "broad"], {}, [reviewer, bulk]);
+    const expected = ["basic", "broad", "slot::reviewer", "slot::bulk"];
     expect(optionsOf(specs["tier"])).toEqual(expected);
     expect(Object.keys(questions["tier"]!.criteria)).toEqual(expected);
   });
   test("No slot, request unchanged", () => {
-    const names = { fast: "Haiku" };
-    const a = buildWorkerQuestions(["fast", "deep", "expert"], names);
-    const b = buildWorkerQuestions(["fast", "deep", "expert"], names, []);
+    const names = { basic: "Haiku" };
+    const a = buildWorkerQuestions(["basic", "deep", "frontier"], names);
+    const b = buildWorkerQuestions(["basic", "deep", "frontier"], names, []);
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
   test("Slot alone", () => {
@@ -476,13 +477,13 @@ describe("Slot questions", () => {
     expect(build()).toBe(build());
   });
   test("Slot answer read", () => {
-    const { specs } = buildWorkerQuestions(["fast"], {}, [reviewer]);
+    const { specs } = buildWorkerQuestions(["basic"], {}, [reviewer]);
     const body = {
       answers: {
         tier: {
           type: "choice",
           choice: "slot::reviewer",
-          probabilities: { fast: 0.1, "slot::reviewer": 0.9 },
+          probabilities: { basic: 0.1, "slot::reviewer": 0.9 },
         },
       },
     };
@@ -491,20 +492,24 @@ describe("Slot questions", () => {
     const tier = r.answers["tier"];
     if (tier?.type !== "choice") throw new Error("expected choice");
     expect(tier.choice).toBe("slot::reviewer");
-    expect(tier.probabilities).toEqual({ fast: 0.1, "slot::reviewer": 0.9 });
+    expect(tier.probabilities).toEqual({ basic: 0.1, "slot::reviewer": 0.9 });
   });
   test("Main request with a slot configured", () => {
     const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
     expect(JSON.stringify(wire)).not.toContain("slot::");
   });
   test("Expert offered", () => {
-    const { questions } = buildWorkerQuestions(["fast", "expert"], {}, [reviewer]);
-    expect(Object.keys(questions["tier"]!.criteria)).toEqual(["fast", "expert", "slot::reviewer"]);
+    const { questions } = buildWorkerQuestions(["basic", "frontier"], {}, [reviewer]);
+    expect(Object.keys(questions["tier"]!.criteria)).toEqual([
+      "basic",
+      "frontier",
+      "slot::reviewer",
+    ]);
     expect(Object.keys(questions)).not.toContain("expert_needed");
   });
   test("Asked and accepted agree with a slot", () => {
-    const { questions, specs } = buildWorkerQuestions(["fast", "deep"], {}, [reviewer]);
-    const expected = ["fast", "deep", "slot::reviewer"];
+    const { questions, specs } = buildWorkerQuestions(["basic", "deep"], {}, [reviewer]);
+    const expected = ["basic", "deep", "slot::reviewer"];
     expect(optionsOf(specs["tier"])).toEqual(expected);
     expect(Object.keys(questions["tier"]!.criteria)).toEqual(expected);
   });

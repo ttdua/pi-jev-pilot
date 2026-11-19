@@ -107,7 +107,7 @@ describe("runSlot add", () => {
     expect(out.message).not.toContain("Try:");
   });
   test("New slot without when", () => {
-    const dir = jevDir({ tiers: { fast: "a/b" } });
+    const dir = jevDir({ tiers: { basic: "a/b" } });
     const before = file(dir);
     const out = runSlot(set("reviewer", "fixture/fixture-review"), registry, dir);
     expect(out.ok).toBe(false);
@@ -124,7 +124,7 @@ describe("runSlot add", () => {
   });
   test("New slot appended", () => {
     const old = {
-      tiers: { fast: "a/b" },
+      tiers: { basic: "a/b" },
       crew: { slots: [slot("bulk", "fixture/fixture-fast", "Bulk.")] },
     };
     const dir = jevDir(old);
@@ -156,7 +156,7 @@ describe("runSlot add", () => {
     });
   });
   test.skipIf(process.getuid?.() === 0)("Write error", () => {
-    const dir = jevDir({ tiers: { fast: "a/b" } });
+    const dir = jevDir({ tiers: { basic: "a/b" } });
     const before = file(dir);
     chmodSync(dir, 0o500);
     const out = runSlot(set("reviewer", "fixture/fixture-review", "Reviews."), registry, dir);
@@ -229,7 +229,7 @@ describe("runSlot show and remove", () => {
     expect(statSync(join(dir, "config.json")).mtimeMs).toBe(mtime);
   });
   test("Show unknown and Remove unknown", () => {
-    const dir = jevDir({ tiers: { fast: "a/b" } });
+    const dir = jevDir({ tiers: { basic: "a/b" } });
     const shown = runSlot({ kind: "show", name: "reviewer" }, registry, dir);
     expect(shown).toMatchObject({ ok: false, usage: true });
     expect(shown.message).toContain("reviewer");

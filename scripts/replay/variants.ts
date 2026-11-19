@@ -12,7 +12,7 @@ export type PlainConfig = {
   tiers: Partial<Record<TierName, string>>;
   slots: { name: string; model: string; when: string }[];
   mode: ModeName;
-  expertOn: boolean;
+  frontierOn: boolean;
 };
 
 export type PlannedRequest = {
@@ -226,7 +226,7 @@ const WORKER_VARIANTS: WorkerVariant[] = [
 ];
 
 export function workerQuestions(config: PlainConfig) {
-  const offered = offeredTiers(config.tiers, config.expertOn);
+  const offered = offeredTiers(config.tiers, config.frontierOn);
   const slots = config.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
   return buildWorkerQuestions(offered, {}, slots);
 }

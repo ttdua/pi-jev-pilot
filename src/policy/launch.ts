@@ -1,6 +1,6 @@
-export type TierName = "fast" | "balanced" | "deep" | "expert";
+export type TierName = "basic" | "broad" | "deep" | "frontier";
 
-export const TIER_LADDER: readonly TierName[] = ["fast", "balanced", "deep", "expert"];
+export const TIER_LADDER: readonly TierName[] = ["basic", "broad", "deep", "frontier"];
 
 const SLOT_PREFIX = "slot::";
 

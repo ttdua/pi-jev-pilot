@@ -50,10 +50,10 @@ const worker = (
 });
 
 const config: PlainConfig = {
-  tiers: { fast: "a/b", deep: "c/d", expert: "e/f" },
+  tiers: { basic: "a/b", deep: "c/d", frontier: "e/f" },
   slots: [{ name: "slot", model: "m/n", when: "for x" }],
   mode: "standard",
-  expertOn: true,
+  frontierOn: true,
 };
 
 const plan1 = (over: Partial<Parameters<typeof planPass>[0]> = {}) =>

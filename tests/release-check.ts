@@ -12,7 +12,7 @@ const OFF_SWITCHES = [
   "/jev subagents off",
   "/jev skills off",
   "/jev strategy off",
-  "/jev expert off",
+  "/jev frontier off",
   "/jev cli-review off",
 ];
 const BANNERS = [

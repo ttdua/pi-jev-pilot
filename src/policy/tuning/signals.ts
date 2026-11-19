@@ -71,7 +71,7 @@ const tally = (ds: readonly SignalLine[], counted: (l: SignalLine) => boolean): 
 
 function lowWorkerErrors(win: readonly SignalLine[]): Signal {
   const low = win.filter(
-    (l) => l.kind === "worker" && (l.tier === "fast" || isLowEffort(l.effort)),
+    (l) => l.kind === "worker" && (l.tier === "basic" || isLowEffort(l.effort)),
   );
   return tally(low, (l) => l.status === "error");
 }

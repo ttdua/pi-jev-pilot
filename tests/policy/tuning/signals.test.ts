@@ -36,7 +36,7 @@ describe("signalsByMode window", () => {
 
   test("modes never mixed", () => {
     const lines = [
-      worker(1, { mode: "budget", tier: "fast", status: "error" }),
+      worker(1, { mode: "budget", tier: "basic", status: "error" }),
       main(2, { mode: "standard" }),
     ];
     expect(get(lines, "budget").lowWorkerErrors).toEqual({ count: 1, of: 1 });
@@ -54,7 +54,7 @@ describe("signalsByMode window", () => {
 
   test("input order irrelevant", () => {
     const lines = Array.from({ length: 201 }, (_, i) =>
-      worker(5, { tier: "fast", status: i % 3 === 0 ? "error" : "completed", turnId: `x${i}` }),
+      worker(5, { tier: "basic", status: i % 3 === 0 ? "error" : "completed", turnId: `x${i}` }),
     );
     const a = signalsByMode(lines);
     const b = signalsByMode([...lines].reverse());
@@ -73,7 +73,7 @@ describe("signalsByMode window", () => {
 describe("signal counts", () => {
   test("low worker errors counted with denominator", () => {
     const lines = [
-      worker(1, { tier: "fast", status: "error" }),
+      worker(1, { tier: "basic", status: "error" }),
       worker(2, { effort: "low", status: "completed" }),
       worker(3, { effort: "off", status: "aborted" }),
       worker(4, { tier: "deep", status: "error" }),

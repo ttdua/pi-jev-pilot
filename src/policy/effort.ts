@@ -121,6 +121,6 @@ export function workerEffort(input: EffortInput): EffortLevel | undefined {
   let level: EffortLevel = choice;
   if (input.risky !== undefined && input.risky > 0.7) level = atLeast(level, "high");
   level = atMost(level, "xhigh");
-  if (input.tier === "fast") level = atMost(level, "medium");
+  if (input.tier === "basic") level = atMost(level, "medium");
   return level;
 }

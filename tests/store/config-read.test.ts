@@ -13,10 +13,10 @@ const FULL = `{
     "timeoutMs": 1500
   },
   "tiers": {
-    "fast": "claude-code/claude-haiku-5-5",
-    "balanced": "claude-code/claude-sonnet-5-5",
+    "basic": "claude-code/claude-haiku-5-5",
+    "broad": "claude-code/claude-sonnet-5-5",
     "deep": "claude-code/claude-opus-5-5",
-    "expert": "claude-code/claude-fable-5-1"
+    "frontier": "claude-code/claude-fable-5-1"
   },
   "crew": {
     "slots": [
@@ -124,7 +124,7 @@ describe("readConfig", () => {
   });
 
   test("Invalid result has no values", () => {
-    const r = readJson({ tiers: { fast: "a/b" }, classifier: { timeoutMs: 100 } });
+    const r = readJson({ tiers: { basic: "a/b" }, classifier: { timeoutMs: 100 } });
     expect(r.kind).toBe("invalid");
     expect("config" in r).toBe(false);
     expect(JSON.stringify(r)).not.toContain("a/b");
@@ -298,7 +298,7 @@ describe("readConfig", () => {
   });
 
   test("Tier without provider rejected", () => {
-    expect(paths(readJson({ tiers: { fast: "claude-haiku-5-5" } }))).toEqual(["tiers.fast"]);
+    expect(paths(readJson({ tiers: { basic: "claude-haiku-5-5" } }))).toEqual(["tiers.basic"]);
   });
 
   test("Unknown tier rejected", () => {

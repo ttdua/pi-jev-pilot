@@ -62,7 +62,7 @@ describe("Effective launch fields", () => {
 describe("Slot targets", () => {
   test("isSlot tells slots from tiers", () => {
     expect(isSlot("slot::a")).toBe(true);
-    expect(isSlot("fast")).toBe(false);
+    expect(isSlot("basic")).toBe(false);
   });
   test("slotName strips the prefix", () => {
     expect(slotName(slotTarget("a-b"))).toBe("a-b");

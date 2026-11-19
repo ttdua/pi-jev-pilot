@@ -32,13 +32,13 @@ describe("adviseStrategy gates", () => {
   test.each([
     ["delegate", 0.6, undefined, true],
     ["delegate", 0.59, undefined, false],
-    ["parallel", 0.6, "balanced", true],
+    ["parallel", 0.6, "broad", true],
     ["parallel", 0.59, "deep", false],
-    ["parallel", 0.9, "fast", false],
+    ["parallel", 0.9, "basic", false],
     ["parallel", 0.95, undefined, false],
     ["graph", 0.8, "deep", true],
     ["graph", 0.79, "deep", false],
-    ["graph", 0.95, "balanced", false],
+    ["graph", 0.95, "broad", false],
     ["graph", 0.95, undefined, false],
     ["delegate", 0.7, undefined, true],
   ] as const)("%s at %d with tier %s -> advised %s", (choice, p, tier, advised) => {

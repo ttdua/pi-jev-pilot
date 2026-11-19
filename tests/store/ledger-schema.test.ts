@@ -59,7 +59,7 @@ describe("ledger schema", () => {
   });
 
   test("Expert admitted accepted", () => {
-    const entry = { ...base("worker"), reason: "expert-admitted", tier: "expert" };
+    const entry = { ...base("worker"), reason: "expert-admitted", tier: "frontier" };
     expect(validateLedgerEntry(entry).ok).toBe(true);
   });
 
@@ -78,13 +78,13 @@ describe("ledger schema", () => {
     const cut = {
       ...base("worker"),
       reason: "cut",
-      tier: "fast",
+      tier: "basic",
       score: 1.5,
       rubric: 1,
-      expertOffered: false,
+      frontierOffered: false,
     };
     expect(validateLedgerEntry(cut).ok).toBe(true);
-    const old = { ...base("worker"), reason: "choice", tier: "fast", expertNeeded: 0.4 };
+    const old = { ...base("worker"), reason: "choice", tier: "basic", expertNeeded: 0.4 };
     expect(validateLedgerEntry(old).ok).toBe(true);
   });
 
@@ -93,13 +93,13 @@ describe("ledger schema", () => {
     expect(paths({ ...base("worker"), reason: "choice" })).toEqual(["tier"]);
   });
 
-  test("expert and expert-admitted with a tier accepted", () => {
-    for (const reason of ["expert", "expert-admitted"])
-      expect(validateLedgerEntry({ ...base("worker"), reason, tier: "expert" }).ok).toBe(true);
+  test("frontier and expert-admitted with a tier accepted", () => {
+    for (const reason of ["frontier", "expert-admitted"])
+      expect(validateLedgerEntry({ ...base("worker"), reason, tier: "frontier" }).ok).toBe(true);
   });
 
   test("Old reason name rejected", () => {
-    expect(paths({ ...base("worker"), reason: "fable", tier: "expert" })).toEqual(["reason"]);
+    expect(paths({ ...base("worker"), reason: "fable", tier: "frontier" })).toEqual(["reason"]);
   });
 
   test("valid correction line accepted", () => {
@@ -158,7 +158,7 @@ describe("ledger schema", () => {
         "callerModel",
         "effort",
         "expertNeeded",
-        "expertOffered",
+        "frontierOffered",
         "fallback",
         "locked",
         "model",
@@ -258,7 +258,7 @@ describe("ledger schema", () => {
     const entry = {
       ...base("worker"),
       tier: "slot::reviewer",
-      tierP: { balanced: 0.3, "slot::reviewer": 0.7 },
+      tierP: { broad: 0.3, "slot::reviewer": 0.7 },
     };
     expect(validateLedgerEntry(entry).ok).toBe(true);
   });

@@ -7,40 +7,40 @@ const tier = (pick: string): Answer => ({
   type: "choice",
   choice: pick,
   confidence: 0.9,
-  probabilities: { fast: 0, balanced: 0, deep: 0, [pick]: 0.9 },
+  probabilities: { basic: 0, broad: 0, deep: 0, [pick]: 0.9 },
 });
 const read = (answers: Record<string, Answer>): WorkerAnswers => ({
   kind: "read",
   answers,
   unanswered: {},
 });
-const three = ["fast", "balanced", "deep"] as const;
-const four = [...three, "expert"] as const;
+const three = ["basic", "broad", "deep"] as const;
+const four = [...three, "frontier"] as const;
 
 describe("decisionFields", () => {
   test("asked and scored", () => {
     expect(
       decisionFields({
-        answers: read({ tier: tier("balanced") }),
+        answers: read({ tier: tier("broad") }),
         offered: four,
         tierQuestion: true,
         rubric: 7,
       }),
-    ).toEqual({ rubric: 7, expertOffered: true, score: 1.25 });
+    ).toEqual({ rubric: 7, frontierOffered: true, score: 1.25 });
   });
 
-  test("expert not offered", () => {
+  test("frontier not offered", () => {
     expect(
       decisionFields({
-        answers: read({ tier: tier("fast") }),
+        answers: read({ tier: tier("basic") }),
         offered: three,
         tierQuestion: true,
         rubric: 7,
       }),
-    ).toMatchObject({ expertOffered: false });
+    ).toMatchObject({ frontierOffered: false });
   });
 
-  test("miss keeps rubric and expertOffered, no score", () => {
+  test("miss keeps rubric and frontierOffered, no score", () => {
     expect(
       decisionFields({
         answers: { kind: "miss", miss: "timeout" },
@@ -48,7 +48,7 @@ describe("decisionFields", () => {
         tierQuestion: true,
         rubric: 7,
       }),
-    ).toEqual({ rubric: 7, expertOffered: true });
+    ).toEqual({ rubric: 7, frontierOffered: true });
   });
 
   test("tier not answered, no score", () => {
@@ -56,7 +56,7 @@ describe("decisionFields", () => {
       decisionFields({ answers: read({}), offered: four, tierQuestion: true, rubric: 7 }),
     ).toEqual({
       rubric: 7,
-      expertOffered: true,
+      frontierOffered: true,
     });
   });
 
@@ -81,7 +81,7 @@ describe("decisionFields", () => {
       }),
     ).toEqual({
       rubric: 7,
-      expertOffered: false,
+      frontierOffered: false,
     });
   });
 });

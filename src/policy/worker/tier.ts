@@ -18,7 +18,7 @@ export type TierDecision =
   | {
       kind: "decided";
       tier: Target;
-      reason: "expert" | "risky" | "slot" | "cut";
+      reason: "frontier" | "risky" | "slot" | "cut";
     }
   | { kind: "none"; reason?: "miss" };
 
@@ -33,9 +33,9 @@ function decide(tier: Target, reason: Decided["reason"]): TierDecision {
   return { kind: "decided", tier, reason };
 }
 
-// Highest offered tier below expert, scanning deep down to fast.
+// Highest offered tier below frontier, scanning deep down to basic.
 function highestBelowExpert(offered: readonly TierName[]): TierName | undefined {
-  return (["deep", "balanced", "fast"] as const).find((t) => offered.includes(t));
+  return (["deep", "broad", "basic"] as const).find((t) => offered.includes(t));
 }
 
 function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
@@ -43,24 +43,24 @@ function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
 }
 
 const SLOT_BAR = 0.6;
-const CUT_LADDER = ["fast", "balanced", "deep"] as const;
+const CUT_LADDER = ["basic", "broad", "deep"] as const;
 
-// Rule expert: the score reaches the launch's expert cut and the model asked for high effort.
+// Rule frontier: the score reaches the launch's frontier cut and the model asked for high effort.
 function expertRule(
   answers: Record<string, Answer>,
   score: number | undefined,
   offered: readonly TierName[],
   cuts: CutPoints,
 ): TierDecision | undefined {
-  if (score === undefined || !offered.includes("expert") || score < cuts.expertMin) {
+  if (score === undefined || !offered.includes("frontier") || score < cuts.frontierMin) {
     return undefined;
   }
   const effort = answers["effort"];
   const high = effort?.type === "choice" && (effort.choice === "xhigh" || effort.choice === "max");
-  return high ? decide("expert", "expert") : undefined;
+  return high ? decide("frontier", "frontier") : undefined;
 }
 
-// Rule risky: the risk floor lifts the launch to deep, else the highest tier below expert.
+// Rule risky: the risk floor lifts the launch to deep, else the highest tier below frontier.
 function riskRule(
   answers: Record<string, Answer>,
   offered: readonly TierName[],
@@ -87,11 +87,11 @@ function slotRule(
 
 // The tier a score falls on between the cut points.
 function cutTier(score: number, cuts: CutPoints): (typeof CUT_LADDER)[number] {
-  if (score <= cuts.fastMax) return "fast";
-  return score <= cuts.balancedMax ? "balanced" : "deep";
+  if (score <= cuts.basicMax) return "basic";
+  return score <= cuts.broadMax ? "broad" : "deep";
 }
 
-// The wanted tier if offered, else the nearest offered below it, else the nearest above. Never expert.
+// The wanted tier if offered, else the nearest offered below it, else the nearest above. Never frontier.
 function nearestOffered(
   wanted: (typeof CUT_LADDER)[number],
   offered: readonly TierName[],
@@ -112,7 +112,7 @@ function cutRule(
   return target === undefined ? undefined : decide(target, "cut");
 }
 
-// Rules in order: expert, risky, slot, cut. The first match wins.
+// Rules in order: frontier, risky, slot, cut. The first match wins.
 export function decideTier(
   answers: WorkerAnswers,
   offered: readonly TierName[],
@@ -133,14 +133,14 @@ export function decideTier(
   );
 }
 
-const SLOT_FALLBACK: readonly TierName[] = ["balanced", "fast"];
+const SLOT_FALLBACK: readonly TierName[] = ["broad", "basic"];
 
 function firstRunning(
   candidates: readonly TierName[],
   offered: readonly TierName[],
   canRun: (t: Target) => boolean,
 ): TierName | undefined {
-  return candidates.find((t) => t !== "expert" && offered.includes(t) && canRun(t));
+  return candidates.find((t) => t !== "frontier" && offered.includes(t) && canRun(t));
 }
 
 export function chooseFallback(

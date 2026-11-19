@@ -11,9 +11,9 @@ const line = (o: Partial<WindowLine> = {}): WindowLine => ({
   at: 1,
   rubric: 3,
   score: 5,
-  expertOffered: true,
+  frontierOffered: true,
   reason: "cut",
-  tier: "balanced",
+  tier: "broad",
   ...o,
 });
 
@@ -22,7 +22,7 @@ describe("windowEntries", () => {
     const lines = [
       line({ tier: "slot-a" }),
       line({ rubric: 2 }),
-      line({ expertOffered: false }),
+      line({ frontierOffered: false }),
       line({ reason: "miss" }),
       line({ reason: "untouched" }),
     ];
@@ -38,9 +38,7 @@ describe("windowEntries", () => {
     expect(out[0]?.score).toBe(50);
   });
   test("fallback is the decided tier", () => {
-    expect(windowEntries([line({ tier: "balanced", fallback: "deep" })], 3)[0]?.decided).toBe(
-      "deep",
-    );
+    expect(windowEntries([line({ tier: "broad", fallback: "deep" })], 3)[0]?.decided).toBe("deep");
   });
   test("ties on at: later input counts as later", () => {
     const lines = Array.from({ length: 201 }, (_, i) => line({ at: i < 2 ? 0 : i, score: i }));
@@ -57,15 +55,15 @@ describe("windowEntries", () => {
 });
 
 describe("recentMix", () => {
-  test("shares for fast, balanced, balanced, deep", () => {
-    const w = (["fast", "balanced", "balanced", "deep"] as const).map((decided) => ({
+  test("shares for basic, broad, broad, deep", () => {
+    const w = (["basic", "broad", "broad", "deep"] as const).map((decided) => ({
       score: 1,
       effort: "high" as const,
       decided,
     }));
     expect(recentMix(w)).toEqual({
       n: 4,
-      shares: { fast: 25, balanced: 50, deep: 25, expert: 0 },
+      shares: { basic: 25, broad: 50, deep: 25, frontier: 0 },
     });
   });
   test("empty window", () => {

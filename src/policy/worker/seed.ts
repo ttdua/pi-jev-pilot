@@ -5,7 +5,7 @@ import type { CutPoints } from "./cutpoints.ts";
 import type { ModeName } from "./modes.ts";
 
 export const SEED_CUTPOINTS: Readonly<Record<ModeName, CutPoints>> = {
-  budget: { fastMax: 1.42, balancedMax: 2.135, expertMin: Infinity },
-  standard: { fastMax: 1.165, balancedMax: 1.81, expertMin: 2.345 },
-  premium: { fastMax: -Infinity, balancedMax: 1.42, expertMin: 2.125 },
+  budget: { basicMax: 1.42, broadMax: 2.135, frontierMin: Infinity },
+  standard: { basicMax: 1.165, broadMax: 1.81, frontierMin: 2.345 },
+  premium: { basicMax: -Infinity, broadMax: 1.42, frontierMin: 2.125 },
 };

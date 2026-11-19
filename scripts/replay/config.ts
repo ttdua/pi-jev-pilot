@@ -132,7 +132,7 @@ export type ReplayConfig = {
 const DEFAULT_URL = "https://api.typesafe.ai/v1/systemone";
 const DEFAULT_MODEL = "jev-latest";
 const DEFAULT_KEY_ENV = "TYPESAFE_API_KEY";
-const TIER_NAMES: readonly TierName[] = ["fast", "balanced", "deep", "expert"];
+const TIER_NAMES: readonly TierName[] = ["basic", "broad", "deep", "frontier"];
 
 type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -185,7 +185,7 @@ export function readConfig(jevDir: string): ReplayConfig {
       tiers: tiersOf(config.tiers),
       slots: slotsOf(config.crew),
       mode,
-      expertOn: switches.expert !== false,
+      frontierOn: switches.frontier !== false,
     },
   };
 }

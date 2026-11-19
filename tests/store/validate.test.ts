@@ -119,19 +119,19 @@ describe("defaults", () => {
       "subagents",
       "skills",
       "strategy",
-      "expert",
+      "frontier",
       "status",
       "verbose",
     ]);
     expect(MODES).toEqual(["budget", "standard", "premium"]);
-    expect(TIERS).toEqual(["fast", "balanced", "deep", "expert"]);
+    expect(TIERS).toEqual(["basic", "broad", "deep", "frontier"]);
     expect(RESERVED_SLOT_NAMES).toEqual([
       "all",
       "budget",
       "cli-review",
       "default",
       "effort",
-      "expert",
+      "frontier",
       "mode",
       "off",
       "on",

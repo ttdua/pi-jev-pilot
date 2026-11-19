@@ -3,7 +3,7 @@ export const FEATURES = [
   "subagents",
   "skills",
   "strategy",
-  "expert",
+  "frontier",
   "status",
   "verbose",
 ] as const;
@@ -12,7 +12,7 @@ export type Feature = (typeof FEATURES)[number];
 export const MODES = ["budget", "standard", "premium"] as const;
 export type Mode = (typeof MODES)[number];
 
-export const TIERS = ["fast", "balanced", "deep", "expert"] as const;
+export const TIERS = ["basic", "broad", "deep", "frontier"] as const;
 export type Tier = (typeof TIERS)[number];
 
 export const RESERVED_SLOT_NAMES: readonly string[] = [
@@ -21,7 +21,7 @@ export const RESERVED_SLOT_NAMES: readonly string[] = [
   "cli-review",
   "default",
   "effort",
-  "expert",
+  "frontier",
   "mode",
   "off",
   "on",
@@ -57,7 +57,7 @@ export const DEFAULTS = {
     subagents: true,
     skills: true,
     strategy: true,
-    expert: true,
+    frontier: true,
     status: true,
     verbose: false,
   } as Readonly<Record<Feature, boolean>>,
@@ -69,5 +69,5 @@ export const DECISION_FEATURES: readonly Feature[] = [
   "subagents",
   "skills",
   "strategy",
-  "expert",
+  "frontier",
 ];

@@ -24,7 +24,7 @@ export type WorkerReason =
   | "expert-denied"
   | "fast-unsure"
   | "choice"
-  | "expert"
+  | "frontier"
   | "cut"
   | "untouched"
   | "miss";
@@ -76,7 +76,7 @@ export type WorkerEntry = Common &
     expertNeeded?: number;
     score?: number;
     rubric?: number;
-    expertOffered?: boolean;
+    frontierOffered?: boolean;
     tier?: string;
     fallback?: string;
     model?: string;
@@ -136,7 +136,7 @@ export const LEDGER_FIELDS: Readonly<Record<LedgerKind, readonly string[]>> = {
     "expertNeeded",
     "score",
     "rubric",
-    "expertOffered",
+    "frontierOffered",
     "tier",
     "fallback",
     "model",
@@ -178,7 +178,7 @@ const DECIDING_REASONS: readonly string[] = [
   "expert-denied",
   "fast-unsure",
   "choice",
-  "expert",
+  "frontier",
   "cut",
 ];
 const MAX_TARGETS = 12;
@@ -329,7 +329,7 @@ function workerShape(kind: LedgerKind) {
       expertNeeded: probability(),
       score: score(),
       rubric: rubricVersion(),
-      expertOffered: boolean(),
+      frontierOffered: boolean(),
       tier: target(),
       fallback: target(),
       model: string({ pattern: MODEL, max: 128 }),

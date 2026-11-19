@@ -53,9 +53,9 @@ function withStrategy(choice: Choice, strategy: string, p: number): { json: unkn
   };
   base.json.answers["tier"] = {
     type: "choice",
-    choice: "balanced",
+    choice: "broad",
     confidence: 0.8,
-    probabilities: { fast: 0, balanced: 1, deep: 0 },
+    probabilities: { basic: 0, broad: 1, deep: 0 },
   };
   return base;
 }

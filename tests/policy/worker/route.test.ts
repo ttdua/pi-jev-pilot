@@ -24,7 +24,7 @@ import { validateLedgerEntry, type WorkerReason } from "../../../src/store/ledge
 const _ok: (r: RouteReason) => WorkerReason = (r) => r;
 void _ok;
 
-const NO_EXPERT: readonly TierName[] = ["fast", "balanced", "deep"];
+const NO_EXPERT: readonly TierName[] = ["basic", "broad", "deep"];
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
@@ -61,10 +61,10 @@ function read(input: {
   if (input.tier !== undefined) {
     const [choice, given] = input.tier;
     const probabilities: Record<string, number> = {
-      fast: 0,
-      balanced: 0,
+      basic: 0,
+      broad: 0,
       deep: 0,
-      expert: 0,
+      frontier: 0,
     };
     for (const [k, v] of Object.entries(given)) probabilities[k] = v;
     out["tier"] = { type: "choice", choice, probabilities };
@@ -165,7 +165,7 @@ describe("Route result", () => {
   test("Service launch naming a model", () => {
     const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }));
     const r = routed(
-      routeLaunch(input({ launch: l, answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
+      routeLaunch(input({ launch: l, answers: read({ tier: ["broad", { broad: 0.9 }] }) })),
     );
     expect(r.record.locked).toBe(true);
   });
@@ -175,7 +175,7 @@ describe("Route result", () => {
         input({
           launch: launch({ thinkingLocked: true }),
           answers: read({
-            tier: ["balanced", { balanced: 0.9 }],
+            tier: ["broad", { broad: 0.9 }],
             effort: "high",
           }),
         }),
@@ -188,9 +188,7 @@ describe("Route result", () => {
     expect(r).toEqual({ kind: "untouched", locked: true });
   });
   test("No lock", () => {
-    const r = routed(
-      routeLaunch(input({ answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
-    );
+    const r = routed(routeLaunch(input({ answers: read({ tier: ["broad", { broad: 0.9 }] }) })));
     expect("locked" in r.record).toBe(false);
   });
 });
@@ -312,30 +310,30 @@ describe("Routed launch", () => {
     const r = routeLaunch(
       input({
         answers: read({
-          tier: ["balanced", { balanced: 0.95 }],
+          tier: ["broad", { broad: 0.95 }],
           effort: "high",
         }),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/balanced", thinking: "high" },
-      record: { reason: "cut", tier: "balanced", effort: "high" },
+      write: { model: "fx/broad", thinking: "high" },
+      record: { reason: "cut", tier: "broad", effort: "high" },
     });
   });
   test("Clamped to the model", () => {
     const r = routeLaunch(
       input({
         answers: read({
-          tier: ["balanced", { balanced: 0.95 }],
+          tier: ["broad", { broad: 0.95 }],
           effort: "xhigh",
         }),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/balanced", thinking: "high" },
-      record: { reason: "cut", tier: "balanced", effort: "high" },
+      write: { model: "fx/broad", thinking: "high" },
+      record: { reason: "cut", tier: "broad", effort: "high" },
     });
   });
   test("Cascade with xhigh", () => {
@@ -343,15 +341,15 @@ describe("Routed launch", () => {
       input({
         answers: read({ tier: ["deep", { deep: 0.95 }], effort: "low" }),
         canRun: (t) => t !== "deep",
-        thinkingOf: (t) => (t === "balanced" ? { reasoning: true } : undefined),
+        thinkingOf: (t) => (t === "broad" ? { reasoning: true } : undefined),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/balanced", thinking: "high" },
+      write: { model: "fx/broad", thinking: "high" },
       record: {
         reason: "cut",
-        tier: "balanced",
+        tier: "broad",
         fallback: "deep",
         effort: "high",
       },
@@ -364,7 +362,7 @@ describe("Nothing can run", () => {
     const r = routeLaunch(
       input({
         answers: read({
-          tier: ["balanced", { balanced: 0.95 }],
+          tier: ["broad", { broad: 0.95 }],
           effort: "high",
         }),
         canRun: (t) => t === "deep",
@@ -373,7 +371,7 @@ describe("Nothing can run", () => {
     expect(r).toEqual({
       kind: "routed",
       write: {},
-      record: { reason: "cut", tier: "balanced", fallback: "balanced" },
+      record: { reason: "cut", tier: "broad", fallback: "broad" },
     });
   });
   test("Expert never a cascade target", () => {
@@ -381,11 +379,11 @@ describe("Nothing can run", () => {
       input({
         offered: TIER_LADDER,
         answers: read({
-          tier: ["fast", { fast: 0.9 }],
+          tier: ["basic", { basic: 0.9 }],
           risky: 0.9,
           effort: "high",
         }),
-        canRun: (t) => t === "expert",
+        canRun: (t) => t === "frontier",
       }),
     );
     expect(r).toEqual({
@@ -400,25 +398,25 @@ describe("Locks in the route", () => {
   test("Service launch with a model", () => {
     const l = effectiveLaunch(serviceRequest({ callerNamedModel: true }));
     const r = routeLaunch(
-      input({ launch: l, answers: read({ tier: ["fast", { fast: 0.9 }], effort: "high" }) }),
+      input({ launch: l, answers: read({ tier: ["basic", { basic: 0.9 }], effort: "high" }) }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: { thinking: "high" },
-      record: { reason: "cut", tier: "fast", effort: "high", locked: true },
+      record: { reason: "cut", tier: "basic", effort: "high", locked: true },
     });
   });
   test("Model locked", () => {
     const r = routeLaunch(
       input({
         launch: launch({ modelLocked: true }),
-        answers: read({ tier: ["fast", { fast: 0.9 }], effort: "high" }),
+        answers: read({ tier: ["basic", { basic: 0.9 }], effort: "high" }),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: { thinking: "high" },
-      record: { reason: "cut", tier: "fast", effort: "high", locked: true },
+      record: { reason: "cut", tier: "basic", effort: "high", locked: true },
     });
   });
   test("Model locked without a decided tier", () => {
@@ -433,13 +431,13 @@ describe("Locks in the route", () => {
     const r = routeLaunch(
       input({
         launch: launch({ thinkingLocked: true }),
-        answers: read({ tier: ["fast", { fast: 0.9 }], effort: "high" }),
+        answers: read({ tier: ["basic", { basic: 0.9 }], effort: "high" }),
       }),
     );
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/fast" },
-      record: { reason: "cut", tier: "fast", locked: true },
+      write: { model: "fx/basic" },
+      record: { reason: "cut", tier: "basic", locked: true },
     });
   });
 });
@@ -448,7 +446,7 @@ const R = ["reviewer"];
 const SLOT_PICK: [string, Record<string, number>] = ["slot::reviewer", { "slot::reviewer": 0.92 }];
 const slotModels: Record<string, string> = {
   "slot::reviewer": "fixture/fixture-review",
-  balanced: "fx/balanced",
+  broad: "fx/broad",
 };
 
 function slotInput(overrides: Partial<RouteInput> = {}): RouteInput {
@@ -481,10 +479,10 @@ describe("Slot routes", () => {
     );
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/balanced", thinking: "xhigh" },
+      write: { model: "fx/broad", thinking: "xhigh" },
       record: {
         reason: "slot",
-        tier: "balanced",
+        tier: "broad",
         fallback: "slot::reviewer",
         effort: "xhigh",
       },
@@ -547,11 +545,11 @@ describe("Slot routes", () => {
 describe("Recorded results", () => {
   test("Recorded results validate", () => {
     const reasons: Record<RouteReason, Route> = {
-      cut: routeLaunch(input({ answers: read({ tier: ["balanced", { balanced: 0.9 }] }) })),
+      cut: routeLaunch(input({ answers: read({ tier: ["broad", { broad: 0.9 }] }) })),
       risky: routeLaunch(input({ answers: read({ risky: 0.9 }) })),
-      expert: routeLaunch(
+      frontier: routeLaunch(
         input({
-          answers: read({ tier: ["expert", { expert: 0.9 }], effort: "xhigh" }),
+          answers: read({ tier: ["frontier", { frontier: 0.9 }], effort: "xhigh" }),
           offered: TIER_LADDER,
         }),
       ),

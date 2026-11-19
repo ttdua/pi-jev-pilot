@@ -7,9 +7,9 @@ function choice(pick: string, probabilities: Record<string, number>): Answer {
 }
 
 describe("difficultyScore", () => {
-  test("balanced with high effort", () => {
+  test("broad with high effort", () => {
     const answers = {
-      tier: choice("balanced", { balanced: 1 }),
+      tier: choice("broad", { broad: 1 }),
       effort: choice("high", {}),
     };
     expect(difficultyScore(answers)).toBe(1.25);
@@ -17,7 +17,7 @@ describe("difficultyScore", () => {
 
   test("mixed probabilities", () => {
     const answers = {
-      tier: choice("balanced", { balanced: 0.6, deep: 0.4 }),
+      tier: choice("broad", { broad: 0.6, deep: 0.4 }),
       effort: choice("high", {}),
     };
     expect(difficultyScore(answers)).toBe(1.65);
@@ -25,7 +25,7 @@ describe("difficultyScore", () => {
 
   test("slot keys ignored", () => {
     const answers = {
-      tier: choice("balanced", { "slot::reviewer": 0.5, balanced: 0.5 }),
+      tier: choice("broad", { "slot::reviewer": 0.5, broad: 0.5 }),
       effort: choice("high", {}),
     };
     expect(difficultyScore(answers)).toBe(1.25);
@@ -37,7 +37,7 @@ describe("difficultyScore", () => {
 
   test("rounded before use", () => {
     const answers = {
-      tier: choice("deep", { balanced: 0.45, deep: 0.55 }),
+      tier: choice("deep", { broad: 0.45, deep: 0.55 }),
       effort: choice("high", {}),
     };
     expect(difficultyScore(answers)).toBe(1.8);
@@ -45,7 +45,7 @@ describe("difficultyScore", () => {
 
   test("only slot probability gives no score", () => {
     const answers = {
-      tier: choice("balanced", { "slot::reviewer": 1, fast: 0, balanced: 0 }),
+      tier: choice("broad", { "slot::reviewer": 1, basic: 0, broad: 0 }),
       effort: choice("high", {}),
     };
     expect(difficultyScore(answers)).toBeUndefined();
