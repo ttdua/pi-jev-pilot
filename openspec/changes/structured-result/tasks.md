@@ -38,8 +38,8 @@ Blocked by: 4
 
 Blocked by: 5
 
-- [ ] 6.1 `src/service/service-adapter.ts` `toWaitedRecord`: take `structuredResult` / `structuredResultError` from the waited run, not the current run (spec: "Structured outcome on a waited snapshot")
-- [ ] 6.2 Tests in `test/service/` for both scenarios of that requirement
+- [x] 6.1 `src/service/service-adapter.ts` `toWaitedRecord`: take `structuredResult` / `structuredResultError` from the waited run, not the current run (spec: "Structured outcome on a waited snapshot")
+- [x] 6.2 Tests in `test/service/` for both scenarios of that requirement
 
 ## 4. Docs and vendoring records
 
