@@ -57,7 +57,7 @@ The policy SHALL receive:
   - `parentTools`: the parent session's tool names, minus tools of extensions excluded by `excludedExtensionPackages` and by the launch's own `excludeExtensionPackages` (see `launch-resources`). Being listed does not guarantee the child will have the tool; see "Grants are checked in the child".
 - An `AbortSignal`.
 
-`parentTools` MUST exclude the executor's own orchestration tools: `subagent`, `get_subagent_result`, `steer_subagent`, `ask_parent` and `notify_parent`. The request MUST NOT carry `inheritContext`.
+`parentTools` MUST exclude the executor's own orchestration tools: `subagent`, `get_subagent_result`, `steer_subagent`, `ask_parent`, `notify_parent` and `submit_result`. The request MUST NOT carry `inheritContext`.
 
 #### Scenario: Tool-call origin
 - **WHEN** `subagent` call `call_7` launches agent `explore` with `model` `fixture/fixture-main`
@@ -66,6 +66,10 @@ The policy SHALL receive:
 #### Scenario: Orchestration tools never offered
 - **WHEN** the parent session has `read`, `subagent` and `web_search`
 - **THEN** `toolSet.parentTools` is `read` and `web_search`
+
+#### Scenario: Protocol tools never offered
+- **WHEN** the parent session has `read`, `ask_parent` and `submit_result`
+- **THEN** `toolSet.parentTools` is `read`
 
 #### Scenario: Excluded extension's tool not offered
 - **WHEN** the parent has tool `deploy` from a package listed in `excludedExtensionPackages`
