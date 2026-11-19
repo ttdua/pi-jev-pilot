@@ -21,9 +21,9 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 Add the probe extension `tests/host/probes/escalation/`: `/esc-spawn <type> <fg|bg> <wait|nowait>`, `/esc-resume <id>`; records event names, ids, statuses, whether metadata is present and the main-session `customType`s, never prompt text
-- [ ] 3.2 Add `tests/host/service-escalation.test.ts` covering the three scenarios of `specs/host-seam-evidence`, in foreground and background
-- [ ] 3.3 Add a "Service launch escalation" section to `docs/evidence/2026-11-05-host-seams.md` with the observed answers, test, testing level and versions; list the test in `docs/testing.md`
+- [x] 3.1 Add the probe extension `tests/host/probes/escalation/`: `/esc-spawn <type> <fg|bg> <wait|nowait>`, `/esc-resume <id>`; records event names, ids, statuses, whether metadata is present and the main-session `customType`s, never prompt text
+- [x] 3.2 Add `tests/host/service-escalation.test.ts` covering the three scenarios of `specs/host-seam-evidence`, in foreground and background
+- [x] 3.3 Add a "Service launch escalation" section to `docs/evidence/2026-11-05-host-seams.md` with the observed answers, test, testing level and versions; list the test in `docs/testing.md`
 
 ## 4. Records, generated types and docs
 
