@@ -203,6 +203,24 @@ Added during verify iteration 1 (user-approved scope addition): a real provider 
 
 ---
 
+## Task 6: Rebase integration with service-launch-wait — implements 6
+
+**Covers:** 6.1, 6.2
+**Difficulty:** Easy
+**Blocked by:** Task 5
+
+Added after the rebase onto main (#94 launch-resources, #95 service-launch-wait), user-approved rebase.
+
+**Files:**
+- Modify: `packages/pi-subagents/src/service/service-adapter.ts` (`toWaitedRecord`)
+- Test: the existing wait tests under `packages/pi-subagents/test/` (service-wait)
+
+- [ ] **Step 1:** RED: wait test — run ends with a question, observer resumes before the waiter reads, resumed run submits → waited snapshot has the question and neither structured field; and a waited run that submits → `structuredResult` present.
+- [ ] **Step 2:** In `toWaitedRecord`, `setOrOmit` both fields from `run` (`RunOutcome` already exposes them).
+- [ ] **Step 3:** Package `check`/`test`, root `typecheck`/`lint`/`bun test` → PASS. Commit `fix(pi-subagents): carry the waited run's structured outcome`.
+
+---
+
 ## Scenario → test
 
 structured-result:
@@ -241,6 +259,8 @@ structured-result:
 - Only invalid calls → `subagent-run.test.ts` "invalid"; `subagent-session.test.ts` "onSubmitAttempt per call"
 - Completed event → `structured-result-flow.test.ts` "subagents:completed carries structuredResult"
 - Missing on the event → `structured-result-flow.test.ts` second launch
+- Structured outcome on a waited snapshot / Resumed before the waiter reads it → service wait test (Task 6)
+- Structured outcome on a waited snapshot / Waited run submitted → service wait test (Task 6)
 - Not persisted → `persisted-record.test.ts` "no structured fields persisted"
 
 executor-launch-policy:

@@ -186,6 +186,17 @@ When "Structured outcome per run" requires `structuredResultError`, it SHALL be 
 - **WHEN** the child called `submit_result` twice, both invalid, then finished
 - **THEN** `structuredResultError` is `"invalid"`
 
+### Requirement: Structured outcome on a waited snapshot
+The snapshot `SubagentsService.wait()` resolves with SHALL carry `structuredResult` and `structuredResultError` of the run the wait began on, like its other per-run fields (see `service-launch-wait`), even when a resume has replaced that run before the promise resolves.
+
+#### Scenario: Resumed before the waiter reads it
+- **WHEN** a `wait(id)` is pending on a run that ends with a pending question and no submission, and an observer resumes the agent before the promise resolves, and the resumed run submits `{ "status": "done" }`
+- **THEN** the promise resolves with the initial run's `pendingQuestion` and neither `structuredResult` nor `structuredResultError`
+
+#### Scenario: Waited run submitted
+- **WHEN** a `wait(id)` is pending and the run submits `{ "status": "done" }` and completes
+- **THEN** the promise resolves with `structuredResult` `{ "status": "done" }`
+
 ### Requirement: Structured outcome on records and events
 The `SubagentRecord` snapshot and the payloads of `subagents:completed`, `subagents:failed` and `subagents:resumed` SHALL carry `structuredResult` and `structuredResultError` when set, and MUST omit each when not set. The persisted `subagents:record` session entry MUST NOT store either field.
 

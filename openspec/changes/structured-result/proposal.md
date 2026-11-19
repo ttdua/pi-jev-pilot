@@ -28,6 +28,9 @@ A child's result is free text. A caller that needs a contract (status, commits, 
 - Reason: the "Turn limit reached" scenario of this change depends on it; the same bug affects every launch.
 - Impact: bug fix to documented behaviour; a provider error unrelated to the budget stop still settles `error`.
 
+**Waited snapshot (after rebase onto service-launch-wait)**
+- To: the snapshot `wait()` resolves with carries the waited run's `structuredResult` / `structuredResultError`, like its other per-run fields.
+
 **Out of scope**
 - Schemas in agent frontmatter, a `subagent` tool parameter, structured results for forks, and full JSON Schema.
 

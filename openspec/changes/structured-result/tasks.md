@@ -34,6 +34,13 @@ Blocked by: 4
 - [x] 5.1 `src/lifecycle/subagent-session.ts`: stop the turn budget at the completed-turn boundary through the shared `finishTurn` wrapper, so `Subagent.complete()` settles `aborted` with `phase: "exhausted"`; provider-error handling (#889/#898) is left unchanged, so a provider error still fails the run (spec: "Structured outcome per run" scenario "Turn limit reached"; executor README turn-limit contract)
 - [x] 5.2 Real-SDK loopback tests in `test/lifecycle/structured-result-loop.test.ts`: turn limit reached without submission → `aborted`, `phase: "exhausted"`, `structuredResultError` set; same without a schema → `aborted`; a genuine provider error on a turn → still `error`
 
+## 6. Rebase integration with service-launch-wait
+
+Blocked by: 5
+
+- [ ] 6.1 `src/service/service-adapter.ts` `toWaitedRecord`: take `structuredResult` / `structuredResultError` from the waited run, not the current run (spec: "Structured outcome on a waited snapshot")
+- [ ] 6.2 Tests in `test/service/` for both scenarios of that requirement
+
 ## 4. Docs and vendoring records
 
 Blocked by: 3
