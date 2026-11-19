@@ -10,12 +10,12 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Add `packages/pi-subagents/src/session/submit-result-tool.ts`: wrapped `{ result: <schema> }` parameters, re-validation in `execute`, error result with paths, `terminate: true` on success, "already submitted" error on a second call (specs: "Submit result tool", "Submitted result is validated in the child", "First valid submission is final")
-- [ ] 2.2 `SubagentRun` (`src/lifecycle/subagent-run.ts`): per-run `structuredResult`, submit-attempt flag and `structuredResultError` settled at completion, failure and abort; none for a run stopped while queued or ending on a pending question (specs: "Structured outcome per run", "Structured result error kinds")
-- [ ] 2.3 `create-subagent-session.ts`: install `submit_result` in `buildChildTools()` when a schema is passed, exempt it from `disallowed` and policy `removed` in `freshSetup` (spec: "Submit result tool cannot be removed")
-- [ ] 2.4 `subagent-session.ts`: count `submit_result` attempts from `tool_execution_start`, and end the run at the completed-turn boundary through a composed `session.agent.finishTurn` once the run holds a structured result (spec: "Valid submission ends the run")
-- [ ] 2.5 `subagent.ts`: carry `resultSchema` in the execution config, wire the tool to the current run, and settle a run holding a structured result `completed` despite an `exhausted` budget while keeping an external `stopped` (spec: "Valid submission ends the run")
-- [ ] 2.6 Tests: `test/session/submit-result-tool.test.ts`, plus additions to `test/lifecycle/subagent-run.test.ts`, `create-subagent-session.test.ts`, `subagent-session.test.ts` and `subagent.test.ts` for every scenario of the requirements above, including resume and turn-limit cases
+- [x] 2.1 Add `packages/pi-subagents/src/session/submit-result-tool.ts`: wrapped `{ result: <schema> }` parameters, re-validation in `execute`, error result with paths, `terminate: true` on success, "already submitted" error on a second call (specs: "Submit result tool", "Submitted result is validated in the child", "First valid submission is final")
+- [x] 2.2 `SubagentRun` (`src/lifecycle/subagent-run.ts`): per-run `structuredResult`, submit-attempt flag and `structuredResultError` settled at completion, failure and abort; none for a run stopped while queued or ending on a pending question (specs: "Structured outcome per run", "Structured result error kinds")
+- [x] 2.3 `create-subagent-session.ts`: install `submit_result` in `buildChildTools()` when a schema is passed, exempt it from `disallowed` and policy `removed` in `freshSetup` (spec: "Submit result tool cannot be removed")
+- [x] 2.4 `subagent-session.ts`: count `submit_result` attempts from `tool_execution_start`, and end the run at the completed-turn boundary through a composed `session.agent.finishTurn` once the run holds a structured result (spec: "Valid submission ends the run")
+- [x] 2.5 `subagent.ts`: carry `resultSchema` in the execution config, wire the tool to the current run, and settle a run holding a structured result `completed` despite an `exhausted` budget while keeping an external `stopped` (spec: "Valid submission ends the run")
+- [x] 2.6 Tests: `test/session/submit-result-tool.test.ts`, plus additions to `test/lifecycle/subagent-run.test.ts`, `create-subagent-session.test.ts`, `subagent-session.test.ts` and `subagent.test.ts` for every scenario of the requirements above, including resume and turn-limit cases
 
 ## 3. Service surface, records, events and policy
 
