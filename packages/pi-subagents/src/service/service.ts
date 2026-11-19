@@ -159,6 +159,25 @@ export interface LaunchSkills {
   paths?: readonly string[];
 }
 
+/**
+ * JSON Schema subset a launch may require its structured result to match.
+ * The executor validates against its own deep-frozen copy taken at spawn.
+ */
+export type ResultSchema = Readonly<{
+  type?: "object" | "array" | "string" | "number" | "integer" | "boolean";
+  enum?: readonly (string | number | boolean)[];
+  properties?: Readonly<Record<string, ResultSchema>>;
+  items?: ResultSchema;
+  required?: readonly string[];
+  additionalProperties?: boolean | ResultSchema;
+  title?: string;
+  description?: string;
+  $schema?: "https://json-schema.org/draft/2020-12/schema";
+}>;
+
+/** Why a launch with a result schema has no structured result. */
+export type StructuredResultError = "missing" | "invalid";
+
 /** The live child session a consumer can look up by its session id. */
 export interface ChildSessionInfo {
   readonly agentId: string;
