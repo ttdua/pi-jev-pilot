@@ -11,14 +11,14 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Add the public fields in `src/service/service.ts`: `SpawnOptions.metadata`, `SubagentRecord.metadata`, `LaunchRequest.metadata` and `SubagentsService.childSession`; add `metadata` to `PublishedLaunchIdentity`/`LaunchSource`/`launchIdentity` in `src/seams/identity.ts` plus a `launchFields(record)` helper for record events
-- [ ] 2.2 `src/service/service-adapter.ts`: call `parseLaunchMetadata` at the top of `spawn()`, pass `metadata` on the spawn config, copy it in `toSubagentRecord`, implement `childSession` over the registry
-- [ ] 2.3 `src/lifecycle/subagent-manager.ts` and `src/lifecycle/subagent.ts`: `AgentSpawnConfig.metadata` → execution config → `Subagent.metadata`; pass it to `createSubagentSession` params and to the launch gate
-- [ ] 2.4 `src/lifecycle/create-subagent-session.ts` and `src/lifecycle/child-lifecycle.ts`: include `metadata` in the launch identity; the publisher enters the registry before emitting `session-created` and leaves it after emitting `disposed`
-- [ ] 2.5 `src/seams/launch-gate.ts` and `src/seams/launch-request.ts`: carry `metadata` into the frozen `LaunchRequest` only when present
-- [ ] 2.6 `src/observation/subagent-events-observer.ts`: record events add `metadata` from the record next to `toolCallId`; leave `src/persisted-record.ts` unchanged
-- [ ] 2.7 Add `test/seams/launch-metadata-flow.test.ts` driving real boundaries (adapter → manager → `createSubagentSession` → publisher/observer) for the child event, record event, snapshot, queued, resume, refusal-creates-nothing, policy request, persisted entry, lookup lifetime (session_start, shutdown, dispatch, disposal, failed bind, failed grant check, parent shutdown) and shared-registry scenarios, plus a type-level check that `ResumeOptions` has no `metadata`
-- [ ] 2.8 Run `bun run test:executor` and update any existing test whose exact-payload expectation now needs to tolerate the absent field (none expected, since the field is omitted when absent)
+- [x] 2.1 Add the public fields in `src/service/service.ts`: `SpawnOptions.metadata`, `SubagentRecord.metadata`, `LaunchRequest.metadata` and `SubagentsService.childSession`; add `metadata` to `PublishedLaunchIdentity`/`LaunchSource`/`launchIdentity` in `src/seams/identity.ts` plus a `launchFields(record)` helper for record events
+- [x] 2.2 `src/service/service-adapter.ts`: call `parseLaunchMetadata` at the top of `spawn()`, pass `metadata` on the spawn config, copy it in `toSubagentRecord`, implement `childSession` over the registry
+- [x] 2.3 `src/lifecycle/subagent-manager.ts` and `src/lifecycle/subagent.ts`: `AgentSpawnConfig.metadata` → execution config → `Subagent.metadata`; pass it to `createSubagentSession` params and to the launch gate
+- [x] 2.4 `src/lifecycle/create-subagent-session.ts` and `src/lifecycle/child-lifecycle.ts`: include `metadata` in the launch identity; the publisher enters the registry before emitting `session-created` and leaves it after emitting `disposed`
+- [x] 2.5 `src/seams/launch-gate.ts` and `src/seams/launch-request.ts`: carry `metadata` into the frozen `LaunchRequest` only when present
+- [x] 2.6 `src/observation/subagent-events-observer.ts`: record events add `metadata` from the record next to `toolCallId`; leave `src/persisted-record.ts` unchanged
+- [x] 2.7 Add `test/seams/launch-metadata-flow.test.ts` driving real boundaries (adapter → manager → `createSubagentSession` → publisher/observer) for the child event, record event, snapshot, queued, resume, refusal-creates-nothing, policy request, persisted entry, lookup lifetime (session_start, shutdown, dispatch, disposal, failed bind, failed grant check, parent shutdown) and shared-registry scenarios, plus a type-level check that `ResumeOptions` has no `metadata`
+- [x] 2.8 Run `bun run test:executor` and update any existing test whose exact-payload expectation now needs to tolerate the absent field (none expected, since the field is omitted when absent)
 
 ## 3. Records, generated types and docs
 
