@@ -294,6 +294,34 @@ describe("SubagentSession — runTurnLoop turn budget", () => {
       expect(result.turnBudget).toEqual({ maxTurns: 2, used: 2, phase: "exhausted" });
     });
 
+    it("settles a provider error that ends after the budget stop as the stop's own", async () => {
+      const { session } = createSession("done");
+      session.prompt = vi.fn(async () => {
+        emitTurnStart(session);
+        emitTurnEnd(session);
+        emitTurnStart(session);
+        emitTurnEnd(session); // the ceiling turn ran tools: the budget stops the run
+        emitTurnStart(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("This operation was aborted") });
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
+      const result = await sub.runTurnLoop("go", {});
+      expect(session.abort).toHaveBeenCalledOnce();
+      expect(result.turnBudget.phase).toBe("exhausted");
+    });
+
+    it("still fails on a provider error when the budget issued no stop", async () => {
+      const { session } = createSession("done");
+      session.prompt = vi.fn(async () => {
+        emitTurnStart(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("boom") });
+        emitTurnEnd(session, { stopReason: "error", toolResults: 0 });
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 5, wrapUpTurns: 1 } });
+      await expect(sub.runTurnLoop("go", {})).rejects.toThrow("boom");
+      expect(session.abort).not.toHaveBeenCalled();
+    });
+
     it("does not count a turn whose response errored", async () => {
       const { session } = createSession("done");
       programTurns(session, [{}, { stopReason: "error", toolResults: 0 }, { stopReason: "stop", toolResults: 0 }]);

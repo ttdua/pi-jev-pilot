@@ -174,6 +174,7 @@ export class SubagentSession {
     const restoreFinishTurn = this.endRunOnStructuredResult(opts.hasStructuredResult);
     const collector = collectResponseText(session);
     const cleanupAbort = forwardAbortSignal(session, opts.signal);
+    this.turnFailure.resetBudgetAbort();
 
     try {
       await session.prompt(prompt);
@@ -246,7 +247,11 @@ export class SubagentSession {
 
   private actOnTurnBudget(tracker: TurnBudgetTracker, action: TurnBudgetAction): void {
     if (action === "warn") this.sendBudgetWarning(tracker);
-    else if (action === "stop") void this._session.abort();
+    else if (action === "stop") {
+      // Turns that end after this are the abort's own, not provider failures.
+      this.turnFailure.expectBudgetAbort();
+      void this._session.abort();
+    }
   }
 
   /**
@@ -361,6 +366,13 @@ function failIfProviderErrored(failure: string | undefined): void {
  * so a run's own error may no longer be in the history by the time it ends
  * (#898). `message_end` is emitted before any of that runs.
  *
+ * The harness's own turn-limit stop aborts the in-flight provider request, and
+ * some providers report that abort as an error (`stopReason: "error"`, "This
+ * operation was aborted") rather than `"aborted"`. Once the budget has issued
+ * its stop, assistant messages ending after it are the abort's and not failures,
+ * so the run settles `aborted` through the exhausted budget. An error before the
+ * stop still fails the run.
+ *
  * Last-one-wins rather than latched: a successful auto-retry emits a later,
  * clean `message_end`, and that run recovered. A hard abort and a user stop
  * both yield `stopReason: "aborted"`, which is a terminal outcome the run
@@ -376,15 +388,25 @@ function failIfProviderErrored(failure: string | undefined): void {
  */
 function collectTurnFailure(session: AgentSession) {
   let failure = readLastTurnFailure(session);
+  let budgetAborted = false;
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type !== "message_end" || event.message.role !== "assistant") return;
     failure =
-      event.message.stopReason === "error"
+      event.message.stopReason === "error" && !budgetAborted
         ? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty errorMessage is as uninformative as an absent one, and ?? would pass it through
           event.message.errorMessage || PROVIDER_ERROR_WITHOUT_MESSAGE
         : undefined;
   });
-  return { getFailure: () => failure, unsubscribe };
+  return {
+    getFailure: () => failure,
+    unsubscribe,
+    expectBudgetAbort: () => {
+      budgetAborted = true;
+    },
+    resetBudgetAbort: () => {
+      budgetAborted = false;
+    },
+  };
 }
 
 /** How the session's last assistant message ended, read from its history. */

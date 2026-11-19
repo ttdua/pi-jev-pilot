@@ -30,7 +30,7 @@ interface ScriptedCall {
 }
 
 /** What the model does on one provider request: call tools, or answer in text. */
-type ScriptedReply = ScriptedCall[] | string;
+type ScriptedReply = ScriptedCall[] | string | { httpStatus: number };
 
 const sse = (delta: object, finish: string | null) =>
 	`data: ${JSON.stringify({ id: "c1", object: "chat.completion.chunk", model: "m", choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
@@ -42,6 +42,11 @@ async function startLoopback(script: ScriptedReply[]) {
 		req.on("data", () => {});
 		req.on("end", () => {
 			const reply = script[requests++] ?? "ok";
+			if (typeof reply === "object" && "httpStatus" in reply) {
+				res.writeHead(reply.httpStatus, { "content-type": "application/json" });
+				res.end(JSON.stringify({ error: { message: "provider exploded" } }));
+				return;
+			}
 			res.writeHead(200, { "content-type": "text/event-stream" });
 			if (typeof reply === "string") {
 				res.write(sse({ role: "assistant", content: reply }, null));
@@ -113,6 +118,7 @@ describe("structured result turn loop (real SDK session)", () => {
 		script: ScriptedReply[],
 		onSession?: (agent: Subagent) => void,
 		maxTurns?: number,
+		withSchema = true,
 	): Promise<Subagent> {
 		loopback = await startLoopback(script);
 		const runtime = await ModelRuntime.create({
@@ -182,7 +188,7 @@ describe("structured result turn loop (real SDK session)", () => {
 				snapshot: { ...STUB_SNAPSHOT, cwd: projectDir },
 				prompt: "TASK",
 				baseCwd: projectDir,
-				resultSchema: SCHEMA,
+				resultSchema: withSchema ? SCHEMA : undefined,
 				maxTurns,
 				observer: { onSessionCreated: (created) => onSession?.(created) },
 			}),
@@ -235,6 +241,32 @@ describe("structured result turn loop (real SDK session)", () => {
 		expect(launched.status).toBe("completed");
 		expect(launched.structuredResult).toEqual({ status: "done" });
 		expect(launched.structuredResultError).toBeUndefined();
+	});
+
+	describe("turn limit reached without a submission", () => {
+		const reads = [[READ], [READ], [READ], "late"];
+
+		it("settles aborted, exhausted and missing with a schema", async () => {
+			const launched = await runChild(reads, undefined, 2);
+
+			expect(launched.status).toBe("aborted");
+			expect(launched.turnBudget?.phase).toBe("exhausted");
+			expect(launched.structuredResultError).toBe("missing");
+		});
+
+		it("settles aborted and exhausted with no schema", async () => {
+			const launched = await runChild(reads, undefined, 2, false);
+
+			expect(launched.status).toBe("aborted");
+			expect(launched.turnBudget?.phase).toBe("exhausted");
+		});
+
+		it("still settles error when the provider rejects a turn", async () => {
+			const launched = await runChild([{ httpStatus: 400 }], undefined, 2);
+
+			expect(launched.status).toBe("error");
+			expect(launched.error).toContain("provider exploded");
+		});
 	});
 
 	/** Queue `queue` on the session once `submit_result` finishes, while the turn is still running. */
