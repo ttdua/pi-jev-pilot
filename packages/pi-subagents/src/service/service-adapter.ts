@@ -13,6 +13,7 @@ import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-lev
 import { lookupChildSession } from "#src/seams/child-sessions";
 import { parseLaunchMetadata } from "#src/seams/launch-metadata";
 import { defaultLaunchResourcesIO, parseLaunchResources } from "#src/seams/launch-resources";
+import { parseResultSchema } from "#src/seams/result-schema";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig, ResumeCallOptions, ResumeOutcome } from "#src/lifecycle/subagent-manager";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
@@ -102,6 +103,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
     // First: a refusal throws before anything is read, built or created.
     const metadata = parseLaunchMetadata(options?.metadata);
     const resources = parseLaunchResources(options ?? {}, defaultLaunchResourcesIO(getAgentDir()));
+    const resultSchema = parseResultSchema(options?.resultSchema);
     if (!this.runtime.currentCtx) {
       throw new Error("No active session — cannot spawn agents outside a session.");
     }
@@ -113,6 +115,11 @@ export class SubagentsServiceAdapter implements SubagentsService {
       this.agentTypes.get(type) ?? {},
       callerContext(options, this.warnings),
     );
+    if (resultSchema && context === "fork") {
+      throw new Error(
+        'resultSchema cannot be used with context "fork": a forked child inherits the parent\'s conversation, so the submit_result protocol cannot be set up.',
+      );
+    }
     const snapshot = this.runtime.buildSnapshot(context);
     const { parentSessionFile, parentSessionId } = this.runtime.getSessionInfo();
     return this.manager.spawn(snapshot, type, prompt, {
@@ -124,6 +131,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
       origin: { kind: "service" },
       metadata,
       resources,
+      resultSchema,
       maxTurns: options?.maxTurns,
       thinkingLevel: this.resolveThinkingLevel(options?.thinkingLevel),
       context,
@@ -319,6 +327,8 @@ export function toSubagentRecord(record: Subagent): SubagentRecord {
 
   if (record.metadata !== undefined) out.metadata = record.metadata;
   if (record.result !== undefined) out.result = record.result;
+  if (record.structuredResult !== undefined) out.structuredResult = record.structuredResult;
+  if (record.structuredResultError !== undefined) out.structuredResultError = record.structuredResultError;
   if (record.pendingQuestion !== undefined) out.pendingQuestion = record.pendingQuestion;
   if (record.error !== undefined) out.error = record.error;
   if (record.completedAt !== undefined) out.completedAt = record.completedAt;

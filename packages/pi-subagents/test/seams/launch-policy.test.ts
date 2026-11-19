@@ -417,6 +417,30 @@ describe("launch request", () => {
 		]);
 	});
 
+	it("submit_result is never offered", async () => {
+		const h = harness({
+			parentTools: ["read", "ask_parent", "submit_result"].map(topLevel),
+		});
+		const policy = register(h);
+
+		await h.call("call_1", explore);
+
+		expect(requestOf(policy).toolSet.parentTools).toEqual(["read"]);
+	});
+
+	it("a policy cannot remove submit_result from a launch with a schema", async () => {
+		const h = harness();
+		register(h, () => ({ removeTools: ["submit_result"] }));
+
+		const id = h.service.spawn("Explore", "go", {
+			foreground: true,
+			resultSchema: { type: "object" },
+		});
+		await h.manager.getRecord(id)!.promise;
+
+		expect(h.sessionOpts().tools).toContain("submit_result");
+	});
+
 	it("an excluded extension's tool is not offered", async () => {
 		const h = harness({
 			parentTools: [

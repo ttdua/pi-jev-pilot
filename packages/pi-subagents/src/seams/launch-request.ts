@@ -23,6 +23,7 @@ const OWNED_TOOLS: ReadonlySet<string> = new Set([
 	...ORCHESTRATION_TOOLS,
 	"ask_parent",
 	"notify_parent",
+	"submit_result",
 ]);
 
 /** The slice of Pi's `ToolInfo` the request reads to filter parent tools. */

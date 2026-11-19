@@ -36,7 +36,7 @@ import {
   type LaunchResources,
   type LaunchResourcesIO,
 } from "#src/seams/launch-resources";
-import type { LaunchMetadata, LaunchOrigin, LaunchPolicy } from "#src/service/service";
+import type { LaunchMetadata, LaunchOrigin, LaunchPolicy, ResultSchema } from "#src/service/service";
 import type { AgentConfig, CompactionInfo, ContextMode, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
 /**
@@ -236,6 +236,8 @@ export interface AgentSpawnConfig {
   metadata?: LaunchMetadata;
   /** The service launch's validated, frozen resources; absent for a tool launch. */
   resources?: LaunchResources;
+  /** The service launch's validated, frozen result schema; absent for a tool launch. */
+  resultSchema?: ResultSchema;
 }
 
 /** The message an explicit fork fails with when the parent has nothing to copy. */
@@ -452,6 +454,7 @@ export class SubagentManager {
         metadata: options.metadata,
         resources: options.resources,
         launchResourcesIO: this.launchResourcesIO,
+        resultSchema: options.resultSchema,
         context: launch.context,
         contextSource: options.contextSource,
         contextFallback: launch.contextFallback,

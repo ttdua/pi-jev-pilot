@@ -177,6 +177,8 @@ export function buildEventData(record: Subagent) {
     description: record.description,
     result: record.result,
     error: record.error,
+    ...(record.structuredResult !== undefined && { structuredResult: record.structuredResult }),
+    ...(record.structuredResultError !== undefined && { structuredResultError: record.structuredResultError }),
     status: record.status,
     turnBudget: record.turnBudget,
     toolUses: record.toolUses,
