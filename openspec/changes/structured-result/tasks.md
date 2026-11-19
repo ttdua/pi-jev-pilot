@@ -2,9 +2,9 @@
 
 Blocked by: none
 
-- [ ] 1.1 Add `packages/pi-subagents/src/seams/result-schema.ts` with `parseResultSchema(input)`: subset check (`type`, `enum`, `properties`, `items`, `required`, `additionalProperties`, annotations `title`, `description`, `$schema` draft 2020-12 only), root `type` required, errors naming keyword and JSON Pointer, returns a frozen deep copy (specs: "Result schema on service launches", "Refused result schemas", "Result schema annotations", "Result schema is copied at spawn")
-- [ ] 1.2 Add `validateResult(schema, value)` returning every `{ path, message }` violation, with `integer` as `Number.isInteger` (specs: "Submitted result is validated in the child", "Integer type")
-- [ ] 1.3 Unit tests in `packages/pi-subagents/test/seams/result-schema.test.ts` covering each accepted keyword, each refusal, mutation after parse, and every validator scenario
+- [x] 1.1 Add `packages/pi-subagents/src/seams/result-schema.ts` with `parseResultSchema(input)`: subset check (`type`, `enum`, `properties`, `items`, `required`, `additionalProperties`, annotations `title`, `description`, `$schema` draft 2020-12 only), root `type` required, errors naming keyword and JSON Pointer, returns a frozen deep copy (specs: "Result schema on service launches", "Refused result schemas", "Result schema annotations", "Result schema is copied at spawn")
+- [x] 1.2 Add `validateResult(schema, value)` returning every `{ path, message }` violation, with `integer` as `Number.isInteger` (specs: "Submitted result is validated in the child", "Integer type")
+- [x] 1.3 Unit tests in `packages/pi-subagents/test/seams/result-schema.test.ts` covering each accepted keyword, each refusal, mutation after parse, and every validator scenario
 
 ## 2. Submit result tool and per-run outcome
 
