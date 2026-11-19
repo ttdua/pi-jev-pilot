@@ -330,7 +330,7 @@ Agent lifecycle events are emitted via `pi.events.emit()` so other extensions ca
 | `subagents:resuming`         | Resume started (a queued resume, once admitted)         | `id`, `type`, `description`, `metadata`                                                                                  |
 | `subagents:resumed`          | Resumed run ended (including one stopped while queued)  | same as completed + `error`, `status` (`buildEventData` shape) — `status`/`error` discriminate; `metadata` included |
 | `subagents:steered`          | Steering message sent                                   | `id`, `message`                                                                                                          |
-| `subagents:update`           | Progress message for a running agent (not sent while a `wait` is pending) | `id`, `type`, `description`, `message`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
+| `subagents:update`           | Progress message from a `notify_parent` call (always emitted; the main-session message is held while a `wait` is pending) | `id`, `type`, `description`, `message`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
 | `subagents:asked`            | Agent asked its parent a question (`ask_parent`)        | `id`, `type`, `description`, `question`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
 | `subagents:compacted`        | Agent's session successfully compacted                  | `id`, `type`, `description`, `reason` (`"manual"` / `"threshold"` / `"overflow"`), `tokensBefore`, `compactionCount`     |
 | `subagents:settings_loaded`  | Persisted settings applied at extension init            | `settings` (merged global + project)                                                                                     |
@@ -428,21 +428,31 @@ A spawned agent is a first-class citizen of the runtime: it appears in the backg
 
 #### `wait` contract
 
-`wait(id, options?)` resolves when the agent's current run reaches a terminal status, with that run's snapshot (`completed`, `aborted`, `stopped` or `error`).
+`wait(id, options?)` resolves with a snapshot once the agent's current run reaches a terminal status (`completed`, `aborted`, `stopped` or `error`).
 A failed run resolves with `status: "error"`; it does not reject.
 A run already settled resolves at once.
 A run still queued is waited for through its queue time.
 
+The per-run fields (`status`, `result`, `error`, `startedAt`, `completedAt`, `turnBudget` and `pendingQuestion`) describe the run the wait began on.
+When a resume replaces that run before the promise resolves, every other field, such as `resumeRefusal`, describes the record at resolve time.
+
 An unknown `id` rejects.
-When `options.signal` aborts first, the promise rejects with the signal's reason and the run keeps going.
+When `options.signal` aborts before the run settles, the promise rejects with the signal's reason and the run keeps going.
 A settled run resolves even when the signal has already fired.
 
-While a wait is pending, the main session gets no completion notification and no update message for that run; `subagents:update` is still emitted.
-A settled outcome counts as collected.
-When the wait is released by abort, notifications resume as if no wait had been made, unless another carrier still holds the run.
+While a wait is pending, the main session receives no completion notification for the waited run and no `subagent-update` message for a `notify_parent` call made during it.
+`subagents:update` is still emitted.
+Updates not yet delivered stay owed and are rendered in the outcome's notification.
+A `wait` that resolves with a settled outcome marks that run's outcome collected; once collected, nothing is notified for it.
 
-To answer a question, read `pendingQuestion` from the resolved snapshot, call `resume(id, answer)`, then `wait(id)` again for the resumed run.
-`subagents:asked` announces the question as it is asked; `wait` returns it when the run ends.
+An abort releases only that wait's hold.
+The main session is then notified as it would be without the wait, unless another carrier (another `wait`, a `get_subagent_result` wait, a foreground `subagent` call or a `resume` with `claimOutcome`) still holds the run, or the outcome is already collected.
+
+To answer a question, read `pendingQuestion` from the resolved snapshot, then call `resume(id, answer)` and call `wait(id)` right away, without awaiting the resume first, so the wait holds the resumed run while it is still active.
+A normal completion resolves with `pendingQuestion` and no `resumeRefusal` while no resume has replaced the run.
+A failure after `ask_parent` resolves `status: "error"` with no `pendingQuestion`.
+A run ended at its turn limit resolves `status: "aborted"` and keeps the question.
+`subagents:asked` is emitted when the question is asked, before the run ends.
 
 #### Launch metadata
 
