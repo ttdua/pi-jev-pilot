@@ -7,7 +7,7 @@
 
 **Change**: `structured-result`
 **Finalized at**: `2026-11-19 16:40` (UTC)
-**Outcome**: `pr-updated` (pending push: the feature branch is merged locally; push and PR wait for the user's explicit approval per the project AGENTS.md git-approval rule)
+**Outcome**: `pr-updated` (feature branch merged locally, pushed, and the code-review PR opened at finalize with the user's approval)
 
 ---
 
@@ -15,8 +15,8 @@
 
 - **Branch**: `issue-86`
 - **Base branch**: `main`
-- **Final state**: `pr-updated` — local fast-forward done (`issue-86` at `51550af7` + this receipt); not yet pushed, no remote branch, no PR
-- **PR URL**: `N/A` (no PR exists for `issue-86`)
+- **Final state**: `pr-updated` — local fast-forward to `51550af7`, receipt committed, `issue-86` pushed to `origin` (new remote branch)
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/96`
 
 ---
 
@@ -30,7 +30,7 @@
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)` — push and PR creation pending user approval
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/96#issuecomment-7010527977)
 
 ---
 
@@ -52,10 +52,10 @@
 
 - Step 3: `issue-86` is checked out in its own herdr worktree (`/Users/naicoi/.herdr/worktrees/pi-jev-pilot/issue-86`), so the merge ran there instead of checking out the feature branch in the main checkout; `git pull` skipped because `issue-86` has no remote branch (it was rebased onto the freshly fetched `origin/main` `c312690e`).
 - Step 6: the worktree was removed with Worktrunk (`wt remove`), as the project AGENTS.md requires, instead of `git worktree remove`.
-- Steps 10–12 (push, PR, PR comment): not run yet; the project AGENTS.md forbids push or PR without the user's explicit approval in chat.
+- Steps 10–12 (push, PR, PR comment): run after the user's explicit approval in chat (project AGENTS.md). Push went over HTTPS with the `ttdua` gh account (the remote owner), switched from `naicoi92` per AGENTS.md.
 
 ---
 
 ## Next step
 
-Push `issue-86` and open the PR once approved (suggested title `feat(structured-result): structured-result`), then wait for PR code review. After approval, run `/opsx-archive` on `issue-86` (commits land here), push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI) — that single merge lands implementation + archive into main.
+Wait for PR code review on #96. After approval, run `/opsx-archive` on `issue-86` (commits land here), push the archive commits to update the PR, then merge the PR (`gh pr merge --squash --delete-branch` or GitHub UI) — that single merge lands implementation + archive into main.
