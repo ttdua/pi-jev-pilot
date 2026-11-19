@@ -6,7 +6,7 @@ import { planOutcome, type OutcomeFlags } from "../../../src/policy/main/outcome
 const flags = (over: Partial<OutcomeFlags> = {}): OutcomeFlags => ({
   held: false,
   effortOn: true,
-  askEffort: true,
+  applyEffort: true,
   askStrategy: true,
   supported: ["off", "minimal", "low", "medium", "high", "xhigh"],
   ...over,
@@ -79,8 +79,33 @@ describe("planOutcome: answered", () => {
     expect(plan).toMatchObject({ effort: { kind: "unanswered", showNoAnswer: true } });
   });
 
+  test("Gate-only effort applies nothing", () => {
+    const plan = planOutcome(
+      flags({ applyEffort: false, effortOn: false }),
+      ok,
+      read({ effort: choice("xhigh"), risky: noul(0.9), strategy: choice("delegate", 0.9) }),
+      undefined,
+    );
+    expect(plan).toMatchObject({
+      kind: "answered",
+      effort: { kind: "unanswered", showNoAnswer: false },
+      patch: { strategy: "delegate", advised: true },
+    });
+    expect(plan.patch).not.toHaveProperty("effortP");
+    expect(plan.patch).not.toHaveProperty("requested");
+    expect(plan.patch).not.toHaveProperty("risky");
+  });
+
+  test("Gate-only effort feeds the gate through its raw choice", () => {
+    const f = flags({ applyEffort: false, effortOn: false });
+    const run = (e: string) =>
+      planOutcome(f, ok, read({ effort: choice(e), strategy: choice("parallel", 0.9) }), undefined);
+    expect(run("low").patch).toMatchObject({ advised: false });
+    expect(run("medium").patch).toMatchObject({ advised: true });
+  });
+
   test("keeps the effort suffix when effort was not asked", () => {
-    const plan = planOutcome(flags({ askEffort: false }), ok, read({}), undefined);
+    const plan = planOutcome(flags({ applyEffort: false }), ok, read({}), undefined);
     expect(plan).toMatchObject({ effort: { kind: "unanswered", showNoAnswer: false } });
   });
 });
@@ -113,6 +138,14 @@ describe("planOutcome: advice", () => {
 
 describe("planOutcome: held", () => {
   const held = flags({ held: true });
+
+  test("Held gate-only effort reads advice only", () => {
+    const answers = { effort: choice("xhigh"), strategy: choice("graph", 0.9) };
+    const plan = planOutcome(held, ok, read(answers), undefined);
+    expect(plan).toMatchObject({ kind: "held", nextAdvice: "graph" });
+    expect(plan.patch).not.toHaveProperty("effortP");
+    expect(plan.patch).not.toHaveProperty("requested");
+  });
 
   test("records corrects and advice but never an effort target", () => {
     const answers = { effort: choice("high"), risky: noul(0.9), corrects: noul(0.2) };

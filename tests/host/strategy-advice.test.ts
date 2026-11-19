@@ -47,7 +47,6 @@ function answers(strategy: Strategy, p: number): { json: unknown } {
         effort: choice("high", ["low", "medium", "high", "xhigh", "max"], 1),
         risky: { type: "noul", noul: 0.1 },
         corrects: { type: "noul", noul: 0.05 },
-        tier: choice("broad", ["basic", "broad", "deep"], 1),
         strategy: choice(strategy, ["direct", "delegate", "parallel", "graph"], p),
       },
     },

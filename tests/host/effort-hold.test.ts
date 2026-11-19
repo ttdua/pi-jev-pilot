@@ -51,12 +51,6 @@ function withStrategy(choice: Choice, strategy: string, p: number): { json: unkn
     confidence: 0.8,
     probabilities,
   };
-  base.json.answers["tier"] = {
-    type: "choice",
-    choice: "broad",
-    confidence: 0.8,
-    probabilities: { basic: 0, broad: 1, deep: 0 },
-  };
   return base;
 }
 
@@ -153,10 +147,10 @@ function turnAnchors(s: HostSession): Record<string, unknown>[] {
   return out;
 }
 
-/** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
+/** Question keys apart from `strategy`; `effort` stays because a held turn asks it for the gate. */
 const questionKeys = (jev: JevFixture, i: number): string[] =>
   Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions).filter(
-    (k) => k !== "tier" && k !== "strategy",
+    (k) => k !== "strategy",
   );
 
 /** One prompt, then wait until its `main` line is in the ledger and the session file is flushed. */
@@ -188,7 +182,7 @@ describe("effort hold through the real CLI", () => {
         "high",
       ]);
       expect(jev.requests.length).toBe(4);
-      for (const i of [1, 2, 3]) expect(questionKeys(jev, i)).toEqual(["corrects"]);
+      for (const i of [1, 2, 3]) expect(questionKeys(jev, i)).toEqual(["effort", "corrects"]);
       expect(mainLines(s).map((l) => l["held"])).toEqual([undefined, true, true, true]);
       expect(levelChanges(s)).toBe(afterFirst);
     },
@@ -205,7 +199,7 @@ describe("effort hold through the real CLI", () => {
       routes[ASK] = answers("low");
       await turn(s, `one ${FILLER}`, 1);
       await turn(s, `two ${FILLER}`, 2);
-      expect(questionKeys(jev, 1)).toEqual(["corrects"]);
+      expect(questionKeys(jev, 1)).toEqual(["effort", "corrects"]);
       const response = await s.send({ type: "compact" });
       expect(response.success, String(response.error)).toBe(true);
       await Bun.sleep(300);
@@ -218,8 +212,8 @@ describe("effort hold through the real CLI", () => {
       await turn(s, "five", 5);
       expect(jev.requests.length - jevBefore).toBe(3);
       expect(questionKeys(jev, jevBefore)).toContain("effort");
-      expect(questionKeys(jev, jevBefore + 1)).toEqual(["corrects"]);
-      expect(questionKeys(jev, jevBefore + 2)).toEqual(["corrects"]);
+      expect(questionKeys(jev, jevBefore + 1)).toEqual(["effort", "corrects"]);
+      expect(questionKeys(jev, jevBefore + 2)).toEqual(["effort", "corrects"]);
       expect(fixture.requests.slice(reqBefore).map((r) => r.reasoningEffort)).toEqual([
         "high",
         "high",
@@ -313,7 +307,7 @@ describe("effort hold through the real CLI", () => {
       routes[ASK] = answers("low");
       await turn(b, "two", 2);
       expect(jev.requests.length).toBe(2);
-      expect(questionKeys(jev, 1)).toEqual(["corrects"]);
+      expect(questionKeys(jev, 1)).toEqual(["effort", "corrects"]);
       expect(fixture.requests.map((r) => r.reasoningEffort)).toEqual(["high", "high"]);
       expect(mainLines(b)[1]).toMatchObject({ held: true });
     },
@@ -329,12 +323,12 @@ describe("effort hold through the real CLI", () => {
       routes[ASK] = answers("high");
       await turn(s, "one", 1);
       const afterFirst = levelChanges(s);
-      routes[ASK] = withStrategy("low", "delegate", 0.9);
+      routes[ASK] = withStrategy("xhigh", "delegate", 0.9);
       await turn(s, "two", 2);
       const keys = Object.keys(
         (JSON.parse(jev.requests[1]!.body) as { questions: object }).questions,
       );
-      expect(keys).toEqual(["tier", "strategy", "corrects"]);
+      expect(keys).toEqual(["effort", "strategy", "corrects"]);
       expect(fixture.requests[1]?.reasoningEffort).toBe("high");
       expect(JSON.stringify(fixture.requests[1]?.body)).toContain("best carried out as: delegate.");
       expect(levelChanges(s)).toBe(afterFirst);

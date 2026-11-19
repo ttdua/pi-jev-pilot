@@ -1,4 +1,5 @@
 // Pure strategy advice gates and block text. Imports nothing outside src/policy/.
+import { EFFORT_LEVELS, type EffortLevel } from "../effort.ts";
 
 export type Strategy = "direct" | "delegate" | "parallel" | "graph";
 type Advised = Exclude<Strategy, "direct">;
@@ -12,7 +13,8 @@ export const GRAPH_THRESHOLD = 0.8;
 
 export type AdviceInput = {
   strategy?: { choice: string; probabilities: Record<string, number> };
-  tier?: string;
+  /** Jev's raw effort choice, before any risk lift, ceiling or clamp. */
+  effort?: EffortLevel;
 };
 
 export type Advice =
@@ -48,12 +50,18 @@ function isStrategy(value: string): value is Strategy {
   return (STRATEGIES as readonly string[]).includes(value);
 }
 
-/** Whether the chosen strategy passes its probability and tier gate. */
-function passes(choice: Advised, p: number, tier: string | undefined): boolean {
-  if (choice === "delegate") return p >= STRATEGY_THRESHOLD;
-  if (choice === "parallel")
-    return p >= STRATEGY_THRESHOLD && tier !== undefined && tier !== "basic";
-  return p >= GRAPH_THRESHOLD && tier === "deep";
+/** Whether the effort is answered and at least `floor`. */
+function effortAtLeast(effort: EffortLevel | undefined, floor: EffortLevel): boolean {
+  return effort !== undefined && EFFORT_LEVELS.indexOf(effort) >= EFFORT_LEVELS.indexOf(floor);
+}
+
+/** Whether the chosen strategy passes its probability and effort gate. */
+function passes(choice: Advised, p: number, effort: EffortLevel | undefined): boolean {
+  if (choice === "delegate") {
+    return p >= STRATEGY_THRESHOLD && (effort === undefined || effortAtLeast(effort, "medium"));
+  }
+  if (choice === "parallel") return p >= STRATEGY_THRESHOLD && effortAtLeast(effort, "medium");
+  return p >= GRAPH_THRESHOLD && effortAtLeast(effort, "xhigh");
 }
 
 /** Gates the strategy answer. `undefined` when `strategy` is unanswered or unknown. */
@@ -62,7 +70,7 @@ export function adviseStrategy(input: AdviceInput): Advice {
   if (answer === undefined || !isStrategy(answer.choice)) return undefined;
   const choice = answer.choice;
   const strategyP = answer.probabilities[choice] ?? 0;
-  if (choice === "direct" || !passes(choice, strategyP, input.tier)) {
+  if (choice === "direct" || !passes(choice, strategyP, input.effort)) {
     return { strategy: choice, strategyP, advised: false };
   }
   return { strategy: choice, strategyP, advised: true, block: strategyBlock(choice) };

@@ -145,7 +145,7 @@ function withoutPromptChars(state: ReturnType<typeof mainState>): unknown {
 }
 
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
-  const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
+  const base = deepFreeze(mainQuestions({ applyEffort: true, askStrategy: true }));
   const reversed = deepFreeze(withEffortOrder(base, reversedOrder(base)));
   for (const v of variants) {
     const q = v.order !== undefined ? reversed : base;

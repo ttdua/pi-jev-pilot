@@ -71,16 +71,23 @@ describe("gateTurn: decided turns", () => {
     const plan = gateTurn(input());
     expect(plan).toMatchObject({
       effortOn: true,
-      askEffort: true,
+      applyEffort: true,
       askStrategy: false,
       held: false,
     });
     expect(Object.keys(plan!.questions.wire)).toContain("effort");
   });
 
+  test("Strategy on with effort off asks effort for the gate only", () => {
+    const state = { switches: { effort: false, strategy: true, skills: false } };
+    const plan = gateTurn(input({ load: () => snapshot(state) }));
+    expect(plan).toMatchObject({ effortOn: false, applyEffort: false, askStrategy: true });
+    expect(Object.keys(plan!.questions.wire)).toEqual(["effort", "strategy", "corrects"]);
+  });
+
   test("asks no effort for a model without reasoning", () => {
     const plan = gateTurn(input({ model: () => ({ ...model, reasoning: false }) }));
-    expect(plan).toMatchObject({ askEffort: false, supported: ["off"] });
+    expect(plan).toMatchObject({ applyEffort: false, supported: ["off"] });
   });
 
   test("proceeds with only skills on when a batch exists", () => {
@@ -111,7 +118,7 @@ describe("gateTurn: decided turns", () => {
       toolNames: [],
     });
     const plan = gateTurn(input({ load: () => held, branch: () => branch as never }));
-    expect(plan).toMatchObject({ held: true, askEffort: false });
+    expect(plan).toMatchObject({ held: true, applyEffort: false });
   });
 
   test("carries the session id, provider, model and compaction", () => {

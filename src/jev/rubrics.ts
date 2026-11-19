@@ -26,18 +26,6 @@ export const WORKER_TIER_CRITERIA: Readonly<Record<TierName, string>> = {
     "Rare, frontier-level expertise. Knowledge that few practitioners hold and that weaker models are likely to get wrong, such as subtle interactions between systems or unusual failure modes. Choose only when the task needs that knowledge. Length, number of files, number of steps, care and risk are effort, not tier.",
 };
 
-/** The main request's transitional `tier` question (rubric version 2 text, removed by Task 4). */
-export const MAIN_TIER_INSTRUCTION =
-  "Which is the cheapest tier that can complete this coding task well?";
-
-export const MAIN_TIER_CRITERIA: Readonly<Record<"basic" | "broad" | "deep", string>> = {
-  basic:
-    "Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms.",
-  broad:
-    "The default for ordinary engineering. Choose when some working out is needed inside a clear spec: a feature or fix across a few files with a test, build or type check that shows it works, a bug whose cause is known, writing tests for existing code, a scoped refactor, reviewing a small or medium diff, or summarizing and explaining code.",
-  deep: "For careful judgment or long work. Choose when the spec is open or nothing can check the result, the cause of a bug is unknown, the change spans many components or needs design decisions, or it touches security, data migrations, concurrency, production or money. A large cross-cutting review belongs here too.",
-};
-
 /** Puts the effort criteria in `EFFORT_OPTION_ORDER` key order, the order Jev sees. */
 function orderedEffortCriteria(byLevel: Record<EffortLevel, string>): Record<string, string> {
   return Object.fromEntries(EFFORT_OPTION_ORDER.map((level) => [level, byLevel[level]]));
@@ -122,14 +110,6 @@ export const STRATEGY_QUESTION: WireQuestion = {
       "Fan out, then join: several independent pieces with no shared files or state (separate modules, services or investigations), each done by its own subagent at the same time, then combined in one place.",
     graph:
       "Work one conversation would lose track of: parts that depend on each other in waves, or distinct specialties that hand off (build, then an independent review, then fixes), with results fanning in to be checked. Only for large builds; most work, even big work, is direct or parallel.",
-  },
-};
-
-export const MAIN_TIER_QUESTION: WireQuestion = {
-  type: "choice",
-  instructions: MAIN_TIER_INSTRUCTION,
-  criteria: {
-    ...MAIN_TIER_CRITERIA,
   },
 };
 

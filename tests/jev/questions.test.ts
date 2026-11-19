@@ -17,8 +17,6 @@ import {
   NONE_CRITERION,
   RISKY_QUESTION,
   SLOT_CRITERION_INFIX,
-  MAIN_TIER_CRITERIA,
-  MAIN_TIER_QUESTION,
   RUBRIC_VERSION,
   TIER_INSTRUCTION,
   WORKER_TIER_CRITERIA,
@@ -32,21 +30,21 @@ const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url
 
 describe("mainQuestions", () => {
   test.each([
-    [true, true, ["effort", "risky", "tier", "strategy", "corrects"]],
-    [false, true, ["tier", "strategy", "corrects"]],
+    [true, true, ["effort", "risky", "strategy", "corrects"]],
+    [false, true, ["effort", "strategy", "corrects"]],
     [true, false, ["effort", "risky", "corrects"]],
     [false, false, ["corrects"]],
-  ] as const)("askEffort %p askStrategy %p gives %p", (askEffort, askStrategy, keys) => {
-    const { wire, specs } = mainQuestions({ askEffort, askStrategy });
+  ] as const)("applyEffort %p askStrategy %p gives %p", (applyEffort, askStrategy, keys) => {
+    const { wire, specs } = mainQuestions({ applyEffort, askStrategy });
     expect(Object.keys(wire)).toEqual([...keys]);
     expect(Object.keys(specs)).toEqual([...keys]);
   });
 
-  test("specs for effort, risky, tier, strategy and corrects", () => {
-    const { specs } = mainQuestions({ askEffort: true, askStrategy: true });
+  test("specs for effort, risky, strategy and corrects", () => {
+    const { specs } = mainQuestions({ applyEffort: true, askStrategy: true });
     expect(specs["effort"]).toEqual({ type: "choice", options: EFFORT_OPTION_ORDER });
     expect(specs["risky"]).toEqual({ type: "noul" });
-    expect(specs["tier"]).toEqual({ type: "choice", options: ["basic", "broad", "deep"] });
+    expect(specs["tier"]).toBeUndefined();
     expect(specs["strategy"]).toEqual({
       type: "choice",
       options: ["direct", "delegate", "parallel", "graph"],
@@ -68,7 +66,7 @@ describe("mainQuestions", () => {
   });
 
   test("main effort criteria unchanged", () => {
-    const effort = mainQuestions({ askEffort: true, askStrategy: false }).wire["effort"]!;
+    const effort = mainQuestions({ applyEffort: true, askStrategy: false }).wire["effort"]!;
     expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
     expect(effort.criteria).toEqual({
       low: "Little or no work: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, or a one-line change. Nothing to trace; the output is the check.",
@@ -88,25 +86,28 @@ describe("mainQuestions", () => {
     );
   });
 
-  test("main tier uses the main criteria with no prefix and no frontier", () => {
-    const tier = mainQuestions({ askEffort: false, askStrategy: true }).wire["tier"]!;
-    expect(tier.instructions).toBe(MAIN_TIER_QUESTION.instructions);
-    expect(Object.keys(tier.criteria)).toEqual(["basic", "broad", "deep"]);
-    expect(tier.criteria["basic"]).toBe(MAIN_TIER_CRITERIA.basic);
-    expect(tier.criteria["broad"]).toBe(MAIN_TIER_CRITERIA.broad);
-    expect(tier.criteria["deep"]).toBe(MAIN_TIER_CRITERIA.deep);
-    expect("frontier" in tier.criteria).toBe(false);
+  test("Main request has no tier", () => {
+    for (const applyEffort of [true, false]) {
+      const { wire, specs } = mainQuestions({ applyEffort, askStrategy: true });
+      expect(wire["tier"]).toBeUndefined();
+      expect(specs["tier"]).toBeUndefined();
+    }
+  });
+
+  test("Strategy only asks effort without risky", () => {
+    const { wire } = mainQuestions({ applyEffort: false, askStrategy: true });
+    expect(Object.keys(wire)).toEqual(["effort", "strategy", "corrects"]);
   });
 
   test("effort has the choice wire shape with five ordered criteria", () => {
-    const effort = mainQuestions({ askEffort: true, askStrategy: true }).wire["effort"]!;
+    const effort = mainQuestions({ applyEffort: true, askStrategy: true }).wire["effort"]!;
     expect(Object.keys(effort).sort()).toEqual(["criteria", "instructions", "type"]);
     expect(effort.type).toBe("choice");
     expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
   });
 
   test("noul questions have true and false criteria", () => {
-    const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
+    const { wire } = mainQuestions({ applyEffort: true, askStrategy: true });
     for (const key of ["risky", "corrects"]) {
       const q = wire[key]!;
       expect(q.type).toBe("noul");
@@ -114,14 +115,14 @@ describe("mainQuestions", () => {
     }
   });
 
-  test("askEffort false asks only corrects", () => {
-    const { wire, specs } = mainQuestions({ askEffort: false, askStrategy: false });
+  test("applyEffort false asks only corrects", () => {
+    const { wire, specs } = mainQuestions({ applyEffort: false, askStrategy: false });
     expect(Object.keys(wire)).toEqual(["corrects"]);
     expect(Object.keys(specs)).toEqual(["corrects"]);
   });
 
   test("every instruction and criterion appears verbatim in docs/jev-questions.md", () => {
-    const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
+    const { wire } = mainQuestions({ applyEffort: true, askStrategy: true });
     for (const q of Object.values(wire)) {
       expect(docs).toContain(q.instructions);
       for (const text of Object.values(q.criteria)) {
@@ -132,22 +133,22 @@ describe("mainQuestions", () => {
   });
 
   test("results are fresh objects: mutation does not leak into the next call", () => {
-    const a = mainQuestions({ askEffort: true, askStrategy: true });
+    const a = mainQuestions({ applyEffort: true, askStrategy: true });
     a.wire["risky"]!.instructions = "changed";
     a.wire["risky"]!.criteria["true"] = "changed";
     a.wire["corrects"]!.criteria["false"] = "changed";
-    a.wire["tier"]!.criteria["basic"] = "changed";
+    a.wire["effort"]!.criteria["low"] = "changed";
     a.wire["strategy"]!.criteria["direct"] = "changed";
-    const b = mainQuestions({ askEffort: true, askStrategy: true });
+    const b = mainQuestions({ applyEffort: true, askStrategy: true });
     expect(b.wire["risky"]!.instructions).not.toBe("changed");
     expect(b.wire["risky"]!.criteria["true"]).not.toBe("changed");
     expect(b.wire["corrects"]!.criteria["false"]).not.toBe("changed");
-    expect(b.wire["tier"]!.criteria["basic"]).not.toBe("changed");
+    expect(b.wire["effort"]!.criteria["low"]).not.toBe("changed");
     expect(b.wire["strategy"]!.criteria["direct"]).not.toBe("changed");
   });
 
   test("effort criteria match the docs table rows", () => {
-    const effort = mainQuestions({ askEffort: true, askStrategy: true }).wire["effort"]!;
+    const effort = mainQuestions({ applyEffort: true, askStrategy: true }).wire["effort"]!;
     for (const level of EFFORT_LEVELS) {
       expect(docs).toContain(
         `| \`${level}\` | ${(effort.criteria as Record<string, string>)[level]} |`,
@@ -264,15 +265,6 @@ describe("Question wording", () => {
       },
     });
   });
-  test("main criteria are separate data and unchanged", () => {
-    expect(MAIN_TIER_CRITERIA).not.toBe(WORKER_TIER_CRITERIA);
-    expect(MAIN_TIER_CRITERIA.basic.startsWith("Fast and low cost, for bounded work")).toBe(true);
-    expect(MAIN_TIER_CRITERIA.deep.startsWith("For careful judgment or long work")).toBe(true);
-    expect(MAIN_TIER_QUESTION.instructions).toBe(
-      "Which is the cheapest tier that can complete this coding task well?",
-    );
-    expect(MAIN_TIER_QUESTION.criteria).toEqual(MAIN_TIER_CRITERIA);
-  });
   test("no slot: tier options are the four tiers", () => {
     const { specs } = buildWorkerQuestions(all, {});
     expect(specs["tier"]).toEqual({ type: "choice", options: [...all] });
@@ -335,7 +327,7 @@ describe("Question wording", () => {
 
 describe("Modes", () => {
   test("Main request ignores the mode", () => {
-    const main = mainQuestions({ askEffort: true });
+    const main = mainQuestions({ applyEffort: true });
     expect(main.wire).toEqual({
       effort: {
         type: "choice",
@@ -374,21 +366,21 @@ describe("skill questions", () => {
   const gateKeys = [...GATE_KEYS];
 
   test("First batch with effort", () => {
-    const { wire, specs } = mainQuestions({ askEffort: true, skills });
+    const { wire, specs } = mainQuestions({ applyEffort: true, skills });
     const keys = ["effort", "risky", "corrects", "which", ...gateKeys];
     expect(Object.keys(wire)).toEqual(keys);
     expect(Object.keys(specs)).toEqual(keys);
   });
 
   test("First batch without effort", () => {
-    const { wire, specs } = mainQuestions({ askEffort: false, skills });
+    const { wire, specs } = mainQuestions({ applyEffort: false, skills });
     const keys = ["corrects", "which", ...gateKeys];
     expect(Object.keys(wire)).toEqual(keys);
     expect(Object.keys(specs)).toEqual(keys);
   });
 
   test("Which option order", () => {
-    const { wire, specs } = mainQuestions({ askEffort: false, skills });
+    const { wire, specs } = mainQuestions({ applyEffort: false, skills });
     const which = wire["which"] as WireQuestion;
     const order = ["debug", "plan", "review", "(none)"];
     expect(which.type).toBe("choice");
@@ -429,19 +421,19 @@ describe("skill questions", () => {
   });
 
   test("Skills not asked", () => {
-    for (const askEffort of [true, false]) {
-      const base = mainQuestions({ askEffort });
+    for (const applyEffort of [true, false]) {
+      const base = mainQuestions({ applyEffort });
       expect(Object.keys(base.wire)).toEqual(
-        askEffort ? ["effort", "risky", "corrects"] : ["corrects"],
+        applyEffort ? ["effort", "risky", "corrects"] : ["corrects"],
       );
       expect(base.wire["corrects"]).toEqual(CORRECTS_QUESTION);
-      expect(mainQuestions({ askEffort, skills: undefined })).toEqual(base);
-      expect(mainQuestions({ askEffort, skills: [] })).toEqual(base);
+      expect(mainQuestions({ applyEffort, skills: undefined })).toEqual(base);
+      expect(mainQuestions({ applyEffort, skills: [] })).toEqual(base);
     }
   });
 
   test("Skill gate shape", () => {
-    const { wire, specs } = mainQuestions({ askEffort: false, skills });
+    const { wire, specs } = mainQuestions({ applyEffort: false, skills });
     for (const key of GATE_KEYS) {
       expect(Object.keys(wire[key]!).sort()).toEqual(["instructions", "type"]);
       expect(wire[key]).toEqual({ type: "noul", instructions: GATE_QUESTIONS[key].instructions });
@@ -450,10 +442,10 @@ describe("skill questions", () => {
   });
 
   test("returns fresh copies per call", () => {
-    const first = mainQuestions({ askEffort: false, skills });
+    const first = mainQuestions({ applyEffort: false, skills });
     first.wire["gate::prose_suffices"]!.instructions = "changed";
     (first.wire["which"] as WireQuestion).criteria["debug"] = "changed";
-    const second = mainQuestions({ askEffort: false, skills });
+    const second = mainQuestions({ applyEffort: false, skills });
     expect(second.wire["gate::prose_suffices"]!.instructions).toBe(
       GATE_QUESTIONS["gate::prose_suffices"].instructions,
     );
@@ -533,7 +525,7 @@ describe("Slot questions", () => {
     expect(tier.probabilities).toEqual({ basic: 0.1, "slot::reviewer": 0.9 });
   });
   test("Main request with a slot configured", () => {
-    const { wire } = mainQuestions({ askEffort: true, askStrategy: true });
+    const { wire } = mainQuestions({ applyEffort: true, askStrategy: true });
     expect(JSON.stringify(wire)).not.toContain("slot::");
   });
   test("Expert offered", () => {

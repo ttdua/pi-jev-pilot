@@ -12,7 +12,7 @@ export const config: PlainConfig = {
   frontierOn: false,
 };
 
-const main = mainQuestions({ askEffort: true, askStrategy: true });
+const main = mainQuestions({ applyEffort: true, askStrategy: true });
 
 export type MainPick = { effort?: string; strategy?: string; risky?: number; tier?: string };
 

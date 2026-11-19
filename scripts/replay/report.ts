@@ -27,7 +27,7 @@ function exclude(plan: Plan, key: string): void {
 }
 
 function planReportMain(input: ReportPlanInput, plan: Plan): void {
-  const questions = mainQuestions({ askEffort: true, askStrategy: true });
+  const questions = mainQuestions({ applyEffort: true, askStrategy: true });
   for (const variant of REPORT_VARIANTS) {
     input.main.forEach((m, sample) => {
       if (SHIPPED_MAIN_GROUPS.some((g) => m.missing.includes(g))) {

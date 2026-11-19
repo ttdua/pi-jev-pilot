@@ -30,20 +30,22 @@ function ans(choice: string, p: number) {
 
 describe("adviseStrategy gates", () => {
   test.each([
-    ["delegate", 0.6, undefined, true],
-    ["delegate", 0.59, undefined, false],
-    ["parallel", 0.6, "broad", true],
-    ["parallel", 0.59, "deep", false],
-    ["parallel", 0.9, "basic", false],
-    ["parallel", 0.95, undefined, false],
-    ["graph", 0.8, "deep", true],
-    ["graph", 0.79, "deep", false],
-    ["graph", 0.95, "broad", false],
-    ["graph", 0.95, undefined, false],
+    ["delegate", 0.6, "medium", true],
+    ["delegate", 0.59, "medium", false],
+    ["delegate", 0.9, "low", false],
     ["delegate", 0.7, undefined, true],
-  ] as const)("%s at %d with tier %s -> advised %s", (choice, p, tier, advised) => {
+    ["parallel", 0.6, "medium", true],
+    ["parallel", 0.59, "high", false],
+    ["parallel", 0.9, "low", false],
+    ["parallel", 0.95, undefined, false],
+    ["graph", 0.8, "xhigh", true],
+    ["graph", 0.79, "xhigh", false],
+    ["graph", 0.95, "high", false],
+    ["graph", 0.95, "max", true],
+    ["graph", 0.95, undefined, false],
+  ] as const)("%s at %d with effort %s -> advised %s", (choice, p, effort, advised) => {
     const input =
-      tier === undefined ? { strategy: ans(choice, p) } : { strategy: ans(choice, p), tier };
+      effort === undefined ? { strategy: ans(choice, p) } : { strategy: ans(choice, p), effort };
     const out = adviseStrategy(input);
     expect(out?.advised).toBe(advised);
     expect(out?.block !== undefined).toBe(advised);
