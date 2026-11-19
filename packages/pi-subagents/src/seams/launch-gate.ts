@@ -17,6 +17,7 @@ import {
 import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import type {
 	LaunchAdjustment,
+	LaunchMetadata,
 	LaunchOrigin,
 	LaunchRequest,
 } from "#src/service/service";
@@ -35,6 +36,8 @@ export interface LaunchFacts {
 	agentType: string;
 	origin: LaunchOrigin;
 	parentSessionId?: string;
+	/** The launch's frozen metadata; absent for a tool launch. */
+	metadata?: LaunchMetadata;
 	prompt: string;
 	description: string;
 	model?: Model<any>;

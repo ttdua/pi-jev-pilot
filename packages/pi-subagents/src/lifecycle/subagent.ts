@@ -23,7 +23,7 @@ import { WorkspaceBracket } from "#src/lifecycle/workspace-bracket";
 import type { RunConfig } from "#src/runtime";
 import type { EffectiveFacts, ToolFacts } from "#src/seams/identity";
 import type { LaunchOverrides, LaunchPolicyGate } from "#src/seams/launch-gate";
-import type { LaunchOrigin } from "#src/service/service";
+import type { LaunchMetadata, LaunchOrigin } from "#src/service/service";
 import type { CompactionInfo, ContextMode, ParentSessionInfo, SessionMessage, SubagentType, ThinkingLevel } from "#src/types";
 
 /** Per-subagent lifecycle observer — created by SubagentManager for each spawn. */
@@ -109,6 +109,8 @@ export interface SubagentExecution {
 	signal?: AbortSignal;
 	/** What started the launch; handed to the launch policy. */
 	origin?: LaunchOrigin;
+	/** The service launch's frozen metadata; absent for a tool launch. */
+	metadata?: LaunchMetadata;
 	/** Whether the child starts fresh or forks the parent conversation; handed to the launch policy. */
 	context: ContextMode;
 	/** Which input decided `context`. */
@@ -290,6 +292,11 @@ export class Subagent {
 	/** Why a requested fork ran fresh; undefined when it did not fall back. */
 	get contextFallback(): "no-parent-session" | undefined {
 		return this.execution.contextFallback;
+	}
+
+	/** The launch's frozen metadata; undefined when the launch has none. */
+	get metadata(): LaunchMetadata | undefined {
+		return this.execution.metadata;
 	}
 
 	/** The tool call ID that spawned this background agent, if any. */
@@ -479,6 +486,7 @@ export class Subagent {
 				task: this.execution.prompt,
 				cwd,
 				parentSession: this.execution.parentSession,
+				metadata: this.execution.metadata,
 				// With a policy registered the gate's values are authoritative (locks and
 				// adjustment applied); without one the door's values run, as upstream.
 				model: overrides ? overrides.model : this.execution.model,
@@ -515,6 +523,7 @@ export class Subagent {
 			agentType: this.type,
 			origin: execution.origin ?? { kind: "service" },
 			parentSessionId: execution.parentSession?.parentSessionId,
+			metadata: execution.metadata,
 			prompt: execution.prompt,
 			description: this.description,
 			model: execution.model,

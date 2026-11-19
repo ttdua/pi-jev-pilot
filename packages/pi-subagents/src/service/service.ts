@@ -72,6 +72,8 @@ export interface SubagentRecord {
    * resume chooses its own mode, so this can change after one.
    */
   isBackground: boolean;
+  /** The launch's metadata, frozen; present only when the launch has metadata. */
+  metadata?: LaunchMetadata;
   result?: string;
   /** The question the agent ended its turn with, when it declared one. */
   pendingQuestion?: string;
@@ -166,6 +168,8 @@ export interface LaunchRequest {
   parentSessionId?: string;
   prompt: string;
   description: string;
+  /** The caller's launch metadata, frozen; present only when the launch has metadata. */
+  metadata?: LaunchMetadata;
   /** The caller's model (`provider/id`) and thinking level, after `locked` fields were applied. */
   requested: { model?: string; thinking?: SubagentThinkingLevel };
   /** The lockable fields the agent locks; the policy cannot change them. */
@@ -254,6 +258,12 @@ export interface SpawnOptions {
   inheritContext?: boolean;
   foreground?: boolean;
   bypassQueue?: boolean;
+  /**
+   * Opaque string map delivered on `pi.events` to every extension in the
+   * process; MUST NOT carry secrets. Refused with a thrown error when it breaks
+   * the limits (32 keys, `^[a-z][a-z0-9_.-]{0,63}$` keys, values up to 1024 chars).
+   */
+  metadata?: LaunchMetadata;
 }
 
 /** The public service contract for cross-extension subagent access. */
@@ -266,6 +276,12 @@ export interface SubagentsService {
 
   /** Spawn an agent. Returns the agent ID immediately. */
   spawn(type: string, prompt: string, options?: SpawnOptions): string;
+
+  /**
+   * The live in-process child session `sessionId` belongs to, or `undefined`
+   * for the main session or an unknown id.
+   */
+  childSession(sessionId: string): ChildSessionInfo | undefined;
 
   /** Get a snapshot of an agent's current state. */
   getRecord(id: string): SubagentRecord | undefined;

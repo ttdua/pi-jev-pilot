@@ -9,12 +9,15 @@ import type { Model } from "@earendil-works/pi-ai";
 import { type DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
 import { resolveContext } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
+import { lookupChildSession } from "#src/seams/child-sessions";
+import { parseLaunchMetadata } from "#src/seams/launch-metadata";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig, ResumeCallOptions, ResumeOutcome } from "#src/lifecycle/subagent-manager";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { AgentTypeCatalog } from "#src/seams/registry";
 import type {
   AgentTypeSnapshot,
+  ChildSessionInfo,
   LaunchPolicy,
   ResumeOptions,
   ResumeResult,
@@ -92,6 +95,8 @@ export class SubagentsServiceAdapter implements SubagentsService {
   }
 
   spawn(type: string, prompt: string, options?: SpawnOptions): string {
+    // First: a refusal throws before anything is read, built or created.
+    const metadata = parseLaunchMetadata(options?.metadata);
     if (!this.runtime.currentCtx) {
       throw new Error("No active session — cannot spawn agents outside a session.");
     }
@@ -112,6 +117,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
       // Subagent.toolCallId reporting undefined there is the truth.
       parentSession: { parentSessionFile, parentSessionId },
       origin: { kind: "service" },
+      metadata,
       maxTurns: options?.maxTurns,
       thinkingLevel: this.resolveThinkingLevel(options?.thinkingLevel),
       context,
@@ -125,6 +131,10 @@ export class SubagentsServiceAdapter implements SubagentsService {
           ? { kind: "default", isBackground: true }
           : { kind: "explicit", isBackground: !options.foreground },
     });
+  }
+
+  childSession(sessionId: string): ChildSessionInfo | undefined {
+    return lookupChildSession(sessionId);
   }
 
   getRecord(id: string): SubagentRecord | undefined {
@@ -243,6 +253,7 @@ export function toSubagentRecord(record: Subagent): SubagentRecord {
     context: record.context,
   };
 
+  if (record.metadata !== undefined) out.metadata = record.metadata;
   if (record.result !== undefined) out.result = record.result;
   if (record.pendingQuestion !== undefined) out.pendingQuestion = record.pendingQuestion;
   if (record.error !== undefined) out.error = record.error;

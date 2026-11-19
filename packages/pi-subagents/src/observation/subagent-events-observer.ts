@@ -1,7 +1,7 @@
 import type { SubagentManagerObserver } from "#src/lifecycle/subagent-manager";
 import type { RunKind } from "#src/lifecycle/subagent-run";
 import { buildEventData, type NotificationSystem } from "#src/observation/notification";
-import { toolCallIdField } from "#src/seams/identity";
+import { launchFields } from "#src/seams/identity";
 import { SUBAGENT_RECORD_ENTRY, toPersistedRecord } from "#src/persisted-record";
 import type { CompactionInfo, Subagent } from "#src/types";
 
@@ -46,7 +46,7 @@ export class SubagentEventsObserver implements SubagentManagerObserver {
 	onSubagentRunStarted(record: Subagent, kind: RunKind): void {
 		this.emit(kind === "initial" ? "subagents:started" : "subagents:resuming", {
 			...identityOf(record),
-			...toolCallIdField(record),
+			...launchFields(record),
 		});
 	}
 
@@ -57,7 +57,7 @@ export class SubagentEventsObserver implements SubagentManagerObserver {
 	 * and subagents:failed subscribers keep their once-per-agent semantics.
 	 */
 	onSubagentRunFinished(record: Subagent, kind: RunKind): void {
-		this.emit(finishedChannel(record, kind), { ...buildEventData(record), ...toolCallIdField(record) });
+		this.emit(finishedChannel(record, kind), { ...buildEventData(record), ...launchFields(record) });
 		this.persistAndNotify(record);
 	}
 
@@ -110,7 +110,7 @@ export class SubagentEventsObserver implements SubagentManagerObserver {
 		// Emit created event for background agents (before limiter admission).
 		this.emit("subagents:created", {
 			...identityOf(record),
-			...toolCallIdField(record),
+			...launchFields(record),
 			isBackground: record.isBackground,
 		});
 	}
