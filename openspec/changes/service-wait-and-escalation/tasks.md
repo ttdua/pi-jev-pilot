@@ -29,8 +29,8 @@ Blocked by: 2
 
 Blocked by: 2
 
-- [ ] 4.1 `VENDORED.md` rows for every edited upstream file and the new test files
-- [ ] 4.2 Regenerate `dist/public.d.ts` (`bun run --cwd packages/pi-subagents build:types`) and run `verify:public-types`
-- [ ] 4.3 `packages/pi-subagents/README.md`: a `wait` contract next to the `spawn` contract (resolution, refusals, routing while waited, ask/answer loop); add `subagents:update` and `subagents:asked` rows to the Events table, with `metadata`
-- [ ] 4.4 `docs/decisions/0009-vendored-executor.md`: add the per-launch wait and the question event to the seam list
-- [ ] 4.5 Run `bun run test`, `bun run test:executor`, `bun run lint` and `bun run typecheck`; all pass
+- [x] 4.1 `VENDORED.md` rows for every edited upstream file and the new test files
+- [x] 4.2 Regenerate `dist/public.d.ts` (`bun run --cwd packages/pi-subagents build:types`) and run `verify:public-types`
+- [x] 4.3 `packages/pi-subagents/README.md`: a `wait` contract next to the `spawn` contract (resolution, refusals, routing while waited, ask/answer loop); add `subagents:update` and `subagents:asked` rows to the Events table, with `metadata`
+- [x] 4.4 `docs/decisions/0009-vendored-executor.md`: add the per-launch wait and the question event to the seam list
+- [x] 4.5 Run `bun run test`, `bun run test:executor`, `bun run lint` and `bun run typecheck`; all pass
