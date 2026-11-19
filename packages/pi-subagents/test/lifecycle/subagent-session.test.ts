@@ -294,20 +294,73 @@ describe("SubagentSession — runTurnLoop turn budget", () => {
       expect(result.turnBudget).toEqual({ maxTurns: 2, used: 2, phase: "exhausted" });
     });
 
+    /** Give the session the run signal Pi's agent exposes, aborted once the session is. */
+    function withRunSignal(session: TestSession): void {
+      const controller = new AbortController();
+      (session as unknown as { agent: { signal: AbortSignal } }).agent = { signal: controller.signal };
+      session.abort.mockImplementation(() => controller.abort());
+    }
+
+    /** Run turns up to the ceiling turn, which ran tools, so the budget stops the run. */
+    function runToCeiling(session: TestSession): void {
+      emitTurnStart(session);
+      emitTurnEnd(session);
+      emitTurnStart(session);
+      emitTurnEnd(session);
+      emitTurnStart(session);
+    }
+
     it("settles a provider error that ends after the budget stop as the stop's own", async () => {
       const { session } = createSession("done");
+      withRunSignal(session);
       session.prompt = vi.fn(async () => {
-        emitTurnStart(session);
-        emitTurnEnd(session);
-        emitTurnStart(session);
-        emitTurnEnd(session); // the ceiling turn ran tools: the budget stops the run
-        emitTurnStart(session);
+        runToCeiling(session);
         session.emit({ type: "message_end", message: providerErrorMessage("This operation was aborted") });
       });
       const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
       const result = await sub.runTurnLoop("go", {});
       expect(session.abort).toHaveBeenCalledOnce();
       expect(result.turnBudget.phase).toBe("exhausted");
+    });
+
+    it("fails on a provider error that the run's abort did not cause", async () => {
+      const { session } = createSession("done");
+      // The run's own signal never fired: the stop is not what ended this request.
+      (session as unknown as { agent: { signal: AbortSignal } }).agent = { signal: new AbortController().signal };
+      session.prompt = vi.fn(async () => {
+        runToCeiling(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("upstream 502") });
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
+      await expect(sub.runTurnLoop("go", {})).rejects.toThrow("upstream 502");
+    });
+
+    it("fails on an independent provider error arriving after the stopped turn's message", async () => {
+      const { session } = createSession("done");
+      withRunSignal(session);
+      session.prompt = vi.fn(async () => {
+        runToCeiling(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("This operation was aborted") });
+        session.emit({ type: "message_end", message: providerErrorMessage("quota exceeded") });
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
+      await expect(sub.runTurnLoop("go", {})).rejects.toThrow("quota exceeded");
+    });
+
+    it("reports a provider error on a resume after an exhausted run", async () => {
+      const { session } = createSession("done");
+      withRunSignal(session);
+      session.prompt = vi.fn(async () => {
+        runToCeiling(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("This operation was aborted") });
+      });
+      const { sub } = makeSubagentSession(session, { turnLimits: { maxTurns: 2, wrapUpTurns: 1 } });
+      await sub.runTurnLoop("go", {});
+      session.prompt = vi.fn(async () => {
+        emitTurnStart(session);
+        session.emit({ type: "message_end", message: providerErrorMessage("resume boom") });
+      });
+      await expect(sub.runTurnLoop("more", {})).rejects.toThrow("resume boom");
     });
 
     it("still fails on a provider error when the budget issued no stop", async () => {

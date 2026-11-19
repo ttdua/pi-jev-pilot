@@ -367,11 +367,20 @@ function failIfProviderErrored(failure: string | undefined): void {
  * (#898). `message_end` is emitted before any of that runs.
  *
  * The harness's own turn-limit stop aborts the in-flight provider request, and
- * some providers report that abort as an error (`stopReason: "error"`, "This
- * operation was aborted") rather than `"aborted"`. Once the budget has issued
- * its stop, assistant messages ending after it are the abort's and not failures,
- * so the run settles `aborted` through the exhausted budget. An error before the
- * stop still fails the run.
+ * a request cut off that way can still surface as `stopReason: "error"` ("This
+ * operation was aborted") rather than `"aborted"`. That one message is the
+ * abort's, not a failure, and is suppressed when all of these hold: the budget
+ * issued a stop this run, the run's own abort signal (`agent.signal`, public on
+ * Pi's agent) has fired, and no earlier message has used the allowance. Any
+ * other error — before the stop, after the first message, on a run whose signal
+ * never fired, or on a later run — still fails. The run then settles `aborted`
+ * through the exhausted budget.
+ *
+ * Limitation: the SDK gives no per-request cancellation marker and the error
+ * text is provider-specific, so an unrelated provider error that is the stopped
+ * turn's own message and lands after the abort cannot be told apart from the
+ * abort's. It is suppressed; the run is ending `aborted` at its turn limit
+ * either way, and the next run's errors are reported.
  *
  * Last-one-wins rather than latched: a successful auto-retry emits a later,
  * clean `message_end`, and that run recovered. A hard abort and a user stop
@@ -388,11 +397,13 @@ function failIfProviderErrored(failure: string | undefined): void {
  */
 function collectTurnFailure(session: AgentSession) {
   let failure = readLastTurnFailure(session);
-  let budgetAborted = false;
+  let stopPending = false;
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type !== "message_end" || event.message.role !== "assistant") return;
+    const causedByStop = stopPending && session.agent.signal?.aborted === true;
+    stopPending = false;
     failure =
-      event.message.stopReason === "error" && !budgetAborted
+      event.message.stopReason === "error" && !causedByStop
         ? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty errorMessage is as uninformative as an absent one, and ?? would pass it through
           event.message.errorMessage || PROVIDER_ERROR_WITHOUT_MESSAGE
         : undefined;
@@ -401,10 +412,10 @@ function collectTurnFailure(session: AgentSession) {
     getFailure: () => failure,
     unsubscribe,
     expectBudgetAbort: () => {
-      budgetAborted = true;
+      stopPending = true;
     },
     resetBudgetAbort: () => {
-      budgetAborted = false;
+      stopPending = false;
     },
   };
 }
