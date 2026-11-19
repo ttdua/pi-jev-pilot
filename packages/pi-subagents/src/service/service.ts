@@ -353,6 +353,8 @@ export const SUBAGENT_EVENTS = {
   COMPACTED: "subagents:compacted",
   CREATED: "subagents:created",
   STEERED: "subagents:steered",
+  UPDATE: "subagents:update",
+  ASKED: "subagents:asked",
 } as const;
 
 // ---- Accessor functions ----

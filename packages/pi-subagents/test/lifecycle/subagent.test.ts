@@ -1006,6 +1006,20 @@ describe("Subagent", () => {
 			expect(agent.pendingQuestion).toBe("Which config wins?");
 		});
 
+		it("tells the observer about a declared question after recording it", async () => {
+			const { factory, ask } = createFactory();
+			let seen: string | undefined;
+			const observer: SubagentLifecycleObserver = {
+				onQuestionAsked: (agent) => { seen = agent.pendingQuestion; },
+			};
+			const agent = createRunnableAgent({ createSubagentSession: factory, observer });
+			await agent.run();
+
+			ask("Which config?");
+
+			expect(seen).toBe("Which config?");
+		});
+
 		it("keeps only the last question when the child asks twice", async () => {
 			const { factory, ask } = createFactory();
 			const agent = createRunnableAgent({ createSubagentSession: factory });

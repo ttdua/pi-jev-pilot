@@ -41,6 +41,8 @@ export interface SubagentLifecycleObserver {
 	onRunFinished?(agent: Subagent, kind: RunKind): void;
 	/** Fires when the running agent sends its parent a mid-run message. */
 	onUpdateSent?(agent: Subagent, message: string): void;
+	/** Fires when the running agent records a question for its parent. */
+	onQuestionAsked?(agent: Subagent, question: string): void;
 	/**
 	 * Fires when a teardown after the agent's result was delivered reported where
 	 * its work went. Not fired for a failed run or resume: those reach a terminal
@@ -494,7 +496,10 @@ export class Subagent {
 				tools: overrides?.tools,
 				// The session outlives this run, so a question goes to whichever run is
 				// under way when the child asks it.
-				askParent: (question) => { this.currentRun.setPendingQuestion(question); },
+				askParent: (question) => {
+					this.currentRun.setPendingQuestion(question);
+					this.execution.observer?.onQuestionAsked?.(this, question);
+				},
 				notifyParent: this.canSendUpdates(runConfig)
 					? (message) => { this.announceUpdate(message); }
 					: undefined,

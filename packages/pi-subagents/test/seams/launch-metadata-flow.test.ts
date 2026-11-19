@@ -5,6 +5,7 @@
  * observer / service snapshot / launch policy. Only the SDK session factory is
  * faked. The registry is process-wide, so every test resets it.
  */
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { CHILD_SHUTDOWN_TIMEOUT_MS } from "#src/lifecycle/child-shutdown";
@@ -63,6 +64,8 @@ interface Options {
 	bind?: (session: Session, sessionId: string) => void | Promise<void>;
 	/** Runs when the child's `session_shutdown` is emitted to its extensions. */
 	shutdown?: (sessionId: string) => Promise<unknown>;
+	/** Runs in the child's `prompt`, with the custom tools the session was created with. */
+	prompt?: (tools: ToolDefinition[]) => Promise<void>;
 }
 
 interface Harness {
@@ -97,11 +100,14 @@ function harness(options: Options = {}): Harness {
 		};
 	});
 	io.createSession.mockImplementation(
-		async (opts: { sessionManager: { getSessionId(): string } }) => {
+		async (opts: { sessionManager: { getSessionId(): string }; customTools?: ToolDefinition[] }) => {
 			const sessionId = opts.sessionManager.getSessionId();
 			const session = createFactorySession();
 			Object.assign(session, { model: MAIN, thinkingLevel: "off" });
 			session.getActiveToolNames.mockImplementation(() => ["read"]);
+			session.prompt.mockImplementation(async () =>
+				options.prompt?.(opts.customTools ?? []),
+			);
 			session.bindExtensions.mockImplementation(async () =>
 				options.bind?.(session, sessionId),
 			);
@@ -693,5 +699,42 @@ describe("Launch request given to the policy", () => {
 
 		expect(requests).toHaveLength(2);
 		for (const request of requests) expect(request).not.toHaveProperty("metadata");
+	});
+});
+
+describe("Question and update events on service launches", () => {
+	/** Calls an installed custom tool by name, as the child's model would. */
+	async function callTool(tools: ToolDefinition[], name: string, params: Record<string, unknown>) {
+		const tool = tools.find((t) => t.name === name);
+		if (!tool) throw new Error(`tool ${name} not installed`);
+		await tool.execute("tc", params as never, new AbortController().signal, () => {}, {} as never);
+	}
+
+	it("subagents:asked precedes subagents:completed for a service launch", async () => {
+		const h = harness({
+			prompt: (tools) => callTool(tools, "ask_parent", { question: "Which config?" }),
+		});
+		await h.run({ change: "c1" });
+
+		const channels = h.events.map((e) => e.channel);
+		expect(channels.indexOf("subagents:asked")).toBeGreaterThanOrEqual(0);
+		expect(channels.indexOf("subagents:asked")).toBeLessThan(channels.indexOf("subagents:completed"));
+		expect(h.on("subagents:asked")[0]!.data).toMatchObject({
+			question: "Which config?",
+			metadata: { change: "c1" },
+		});
+	});
+
+	it("update and question carry the launch's metadata", async () => {
+		const h = harness({
+			prompt: async (tools) => {
+				await callTool(tools, "notify_parent", { message: "Halfway." });
+				await callTool(tools, "ask_parent", { question: "Which config?" });
+			},
+		});
+		await h.run({ change: "c1" });
+
+		expect(h.on("subagents:update")[0]!.data).toMatchObject({ metadata: { change: "c1" } });
+		expect(h.on("subagents:asked")[0]!.data).toMatchObject({ metadata: { change: "c1" } });
 	});
 });

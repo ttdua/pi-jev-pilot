@@ -114,6 +114,18 @@ describe("CompositeSubagentObserver", () => {
 	});
 
 	describe("an optional hook only some delegates implement", () => {
+		it("dispatches onSubagentQuestion to every observer", () => {
+			const a = { ...makeDelegate(), onSubagentQuestion: vi.fn() };
+			const b = { ...makeDelegate(), onSubagentQuestion: vi.fn() };
+			const composite = new CompositeSubagentObserver([a, b]);
+			const record = createTestSubagent({ id: "agent-7" });
+
+			composite.onSubagentQuestion(record, "Which config?");
+
+			expect(a.onSubagentQuestion).toHaveBeenCalledExactlyOnceWith(record, "Which config?");
+			expect(b.onSubagentQuestion).toHaveBeenCalledExactlyOnceWith(record, "Which config?");
+		});
+
 		it("forwards onSubagentUpdate to the delegates that implement it", () => {
 			const a = { ...makeDelegate(), onSubagentUpdate: vi.fn() };
 			const b = { ...makeDelegate(), onSubagentUpdate: vi.fn() };
