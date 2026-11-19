@@ -2,13 +2,13 @@
 
 Blocked by: none
 
-- [ ] 1.1 Rename the tier vocabulary everywhere in one green commit: `TierName`/`TIER_LADDER`, `TIERS`, `FEATURES`, `DECISION_FEATURES`, `RESERVED_SLOT_NAMES`, `DEFAULTS.switches`, `CutPoints`/`ModeTarget` field names, `expertOffered`→`frontierOffered`, `expertOn`→`frontierOn`, reason `expert`→`frontier`, switch/command `expert`→`frontier`, in `src/`, `scripts/replay/` and every test and test helper; behaviour, wording and numbers unchanged; add `LEGACY_TIER`
-- [ ] 1.2 Config read: deprecated `tiers.fast|balanced|expert` aliases with notices, alias + new key conflict, existing `frontier` slot read with a notice; slot writer refuses `frontier` (`src/store/config.ts`)
-- [ ] 1.3 State read: legacy `switches.expert` moved or dropped (`src/store/state-file.ts`)
-- [ ] 1.4 Ledger schema accepts legacy targets, reasons and `expertOffered` alongside the new ones (`src/store/ledger-schema.ts`)
-- [ ] 1.5 Replay config reader normalizes legacy tier keys and the legacy switch (`scripts/replay/config.ts`)
-- [ ] 1.6 Tuning upgrade path: `tuning-signals` counts legacy `fast` as low, and a `tuning.json` written by the previous version (with history and a pending change) reads unchanged; `/jev expert` alias with notice; `tests/release-check.ts` expects `/jev frontier off`
-- [ ] 1.7 Start-up migration: pure `migrateTierKeys` (`src/store/config.ts`), state migration through `updateState`, host step at main `session_start` before the status draw with one info notification (`src/host/wiring/session.ts`, new `src/host/platform/migrate.ts`)
+- [x] 1.1 Rename the tier vocabulary everywhere in one green commit: `TierName`/`TIER_LADDER`, `TIERS`, `FEATURES`, `DECISION_FEATURES`, `RESERVED_SLOT_NAMES`, `DEFAULTS.switches`, `CutPoints`/`ModeTarget` field names, `expertOffered`→`frontierOffered`, `expertOn`→`frontierOn`, reason `expert`→`frontier`, switch/command `expert`→`frontier`, in `src/`, `scripts/replay/` and every test and test helper; behaviour, wording and numbers unchanged; add `LEGACY_TIER`
+- [x] 1.2 Config read: deprecated `tiers.fast|balanced|expert` aliases with notices, alias + new key conflict, existing `frontier` slot read with a notice; slot writer refuses `frontier` (`src/store/config.ts`)
+- [x] 1.3 State read: legacy `switches.expert` moved or dropped (`src/store/state-file.ts`)
+- [x] 1.4 Ledger schema accepts legacy targets, reasons and `expertOffered` alongside the new ones (`src/store/ledger-schema.ts`)
+- [x] 1.5 Replay config reader normalizes legacy tier keys and the legacy switch (`scripts/replay/config.ts`)
+- [x] 1.6 Tuning upgrade path: `tuning-signals` counts legacy `fast` as low, and a `tuning.json` written by the previous version (with history and a pending change) reads unchanged; `/jev expert` alias with notice; `tests/release-check.ts` expects `/jev frontier off`
+- [x] 1.7 Start-up migration: pure `migrateTierKeys` (`src/store/config.ts`), state migration through `updateState`, host step at main `session_start` before the status draw with one info notification (`src/host/wiring/session.ts`, new `src/host/platform/migrate.ts`)
 
 ## 2. Knowledge-axis decision rules
 
