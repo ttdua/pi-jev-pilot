@@ -6,8 +6,8 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `launch-metadata`
-**Verified at**: `2026-11-19 02:15` (UTC)
-**Iteration**: `1`
+**Verified at**: `2026-11-19 04:20` (UTC)
+**Iteration**: `2`
 **Verifier**: parent session (checks 1, 2, 4 test run, 6) plus `code-reviewer` agent in the verifier role (read-only evidence for checks 3, 4 mapping and 5), cross-checked by the parent.
 
 All paths below are relative to `packages/pi-subagents/` unless stated otherwise.
@@ -52,7 +52,7 @@ Evidence:
 |---|---|---|---|
 | Launch metadata on service launches | ADDED | Pass | `src/service/service.ts:245-267`; `src/service/service-adapter.ts:99,120,256`; `src/seams/launch-metadata.ts:35-68` |
 | Metadata is public within the process | ADDED | Pass | `README.md:439` (verbatim no-secrets sentence); asserted by `test/readme-contract.test.ts:7` |
-| Metadata limits | ADDED | Pass | `src/seams/launch-metadata.ts:10-14,25-68` |
+| Metadata limits | ADDED | Pass | `src/seams/launch-metadata.ts:10-14,31-74`; refusal text escapes DEL/C1 at `:24-28` (test `test/seams/launch-metadata.test.ts:127`) |
 | Refused metadata | ADDED | Pass | `src/service/service-adapter.ts:99` (first statement of `spawn`); `src/seams/launch-metadata.ts:16-18,39-64` |
 | Metadata is immutable | ADDED | Pass | `src/seams/launch-metadata.ts:52-68`; `src/seams/child-sessions.ts:41-63` |
 | Metadata on child events | ADDED | Pass | `src/seams/identity.ts:39-47`; `src/lifecycle/create-subagent-session.ts:474,615`; `src/lifecycle/child-lifecycle.ts:106-121` |
@@ -69,17 +69,17 @@ Evidence:
 - [x] Every scenario maps to a test
 - [x] The project test command was run fresh in this step
 
-**Test command and result** (fresh, cwd: worktree, at `c2f89424`):
+**Test command and result** (fresh, cwd: worktree, at `0954a620`):
 
 | Command | Exit | Result |
 |---|---|---|
 | `bun run test` (root) | 0 | 2637 pass, 0 fail, 141 files |
-| `bun run test:executor` | 0 | 111 files, 2578 tests passed (includes `tsc --noEmit`) |
+| `bun run test:executor` | 0 | 112 files, 2580 tests passed (includes `tsc --noEmit`) |
 | `bun run lint` | 0 | oxlint, no warnings |
 | `bun run typecheck` | 0 | no type errors in 292 files |
 | `bun run --cwd packages/pi-subagents verify:public-types` | 0 | "OK: external consumer type-checks against the packaged @ttdua/pi-subagents" (network available) |
 
-Verifier focused run: six test files, 223 passed, exit 0.
+Verifier focused run: seven test files, 225 passed, exit 0.
 
 All 46 scenarios map to an existing `it(...)`. Each was confirmed by grep at the line shown.
 
@@ -101,7 +101,7 @@ Abbreviations:
 | Resume takes no metadata | F:254 |
 | Contract states visibility | R:7 |
 | Too many keys | F:264, M:52 |
-| Bad key | M:56 |
+| Bad key | M:56; DEL/C1 escaping M:127 |
 | Value too long | M:72 |
 | Value at the limit | M:18 |
 | Non-string value | M:81 |
@@ -155,9 +155,9 @@ Abbreviations:
 |---|---|---|
 | D1: metadata travels with the launch | Match | `src/lifecycle/subagent-manager.ts:428`; `src/lifecycle/subagent.ts:298-299,489,526`; `src/seams/identity.ts:39-59` |
 | D2: pure validation seam | Match | `src/seams/launch-metadata.ts:25-68` |
-| D3: process-wide registry | Warning | See drift warning 1 |
+| D3: process-wide registry | Match | `src/seams/child-sessions.ts:17-38` matches `design.md:43` (`{ sessions, empty }`), fixed in iteration 2 |
 | D4: `LaunchRequest.metadata` | Match | `src/seams/launch-request.ts:42,86-87` |
-| D5: additive public types | Match, one warning | See drift warning 2 |
+| D5: additive public types | Match | `src/service/service.ts:37,77,146-152,173,268,286`; `dist/public.d.ts:559` |
 
 **Contracts**
 
@@ -169,18 +169,22 @@ Abbreviations:
 | `LaunchRequest.metadata` | Match | `src/service/service.ts:172`; `dist/public.d.ts:382` |
 | `ChildSessionInfo` | Match | `src/service/service.ts:148-151`; `dist/public.d.ts:355-358,559` |
 | `SubagentsService.childSession` | Match | `src/service/service.ts:285`; `dist/public.d.ts:490` |
-| `PublishedLaunchIdentity` | Warning | See drift warning 2 |
+| `PublishedLaunchIdentity` | Match | named re-export at `src/service/service.ts:37`; `dist/public.d.ts:69,559`; `test/seams/public-types.test.ts:4` |
+| `apply.md` Contract deviations (iteration 2: named export) | Match | `apply.md:39-40` against `src/service/service.ts:37` and `dist/public.d.ts:559` |
 | `LaunchSource` / `LaunchIdentity` / `launchIdentity` / `launchFields` | Match | `src/seams/identity.ts:12-59` |
 | `parseLaunchMetadata`, `METADATA_LIMITS` | Match | `src/seams/launch-metadata.ts:10-68` |
 | Registry functions | Match | `src/seams/child-sessions.ts:51-78` |
 | Internal `metadata` fields | Match | `subagent-manager.ts:224`, `subagent.ts:113,298`, `create-subagent-session.ts:201`, `launch-gate.ts:40`, `launch-request.ts:42` |
-| `dist/public.d.ts` regenerated | Match | `verify:public-types` exit 0 in this run |
+| `dist/public.d.ts` regenerated | Match | `verify:public-types` exit 0 in this run (at `0954a620`) |
 
 **Drift warnings** (non-blocking):
 
-1. **D3 describes a different registry shape.** `design.md:43` says the global slot holds a `Map<string, ChildSessionEntry>`. The code (`src/seams/child-sessions.ts:17-38`) stores `{ sessions: Map, empty }`, so that the frozen empty metadata is shared across module instances. The behavior matches the spec.
-2. **`PublishedLaunchIdentity` has no named export.** It is marked `public` in the Contracts. It is published structurally: `dist/public.d.ts:62-69` declares it, and the exported `ChildSpawningEvent`, `ChildSessionCreatedEvent` and `ChildBoundEvent` (line 559) use it. It is not in the export list, so a consumer cannot import it by name. `apply.md` records no deviation for this.
-3. **Stale test name in the plan.** `plan.md:40,116,298` names the registry test "shared across module instances". The actual name is "shares entries across module instances" (`test/seams/child-sessions.test.ts:53`). Coverage is unaffected.
+1. **`apply.md` contradicts itself on C1 escaping.** Lines 75-76 still carry the iteration-1 text, which says DEL and C1 characters "still appear raw" and describes the cost of leaving them. That is wrong: the code escapes U+007F to U+009F (`src/seams/launch-metadata.ts:24-28`). Only the receipt prose is affected; the code and tests are correct.
+
+Iteration-1 warnings resolved:
+- the registry shape in D3;
+- the named export of `PublishedLaunchIdentity`;
+- the stale test name in `plan.md`, which now matches `test/seams/child-sessions.test.ts:53`.
 
 ---
 
@@ -188,7 +192,7 @@ Abbreviations:
 
 - [x] Working tree is clean (`git status --porcelain` → 0 entries, before and after the test runs)
 
-**Commit range**: `438c100c..c2f89424` (branch `launch-metadata`, 10 commits)
+**Commit range**: `438c100c..0954a620` (branch `launch-metadata`, 14 commits; iteration 2 fix `05dc1f34..28aa0043`)
 
 ---
 
@@ -197,15 +201,9 @@ Abbreviations:
 **CRITICAL**: none.
 
 **WARNING**
-- **D3 registry shape** (`design.md:43`): update it to "a state object `{ sessions: Map<string, ChildSessionEntry>, empty }`, so that the frozen empty metadata is shared across module instances".
-- **`PublishedLaunchIdentity` export** (`src/service/service.ts` public re-exports, `dist/public.d.ts:559`). Either:
-  - export the type by name and regenerate `dist/public.d.ts`; or
-  - change its Contracts row to "public through event payload types" and record that change under Contract deviations in `apply.md`.
-  Decide before finalize.
-- **Refusal messages and control characters** (`src/seams/launch-metadata.ts:21-22`, parked in `apply.md`). They do not escape DEL and C1 control characters (U+007F, U+0080 to U+009F). Recommendation: after `JSON.stringify`, replace `[\u007f-\u009f]` with `\u00XX` escapes, and add a test for `"A\u009b31m"`.
+- **Stale receipt text** (`apply.md:75-76`). In the "Fixed in iteration 2" bullet, delete the sentences "DEL and C1 control characters (U+007F, U+0080 to U+009F) still appear raw. This was Minor in the final review, and there is no second fix wave." and the "Cost if left" sub-bullet. Replace them with: "Refusal messages now also escape U+007F to U+009F as `\uXXXX` (`src/seams/launch-metadata.ts:24-28`, test `test/seams/launch-metadata.test.ts:127`)." The next receipt write can fix this; the outcome does not depend on it.
 
 **SUGGESTION**
-- **Stale test name:** fix "shared across module instances" to "shares entries across module instances" in `plan.md:40,116,298`.
 - **Shutdown test path:** add a wiring test that removes the registry entry through the real `index.ts` `session_shutdown`, for example in `test/seams/service-wiring.test.ts`. The "Gone after the parent session shuts down" scenario currently stops at the manager boundary.
 - **E2E not run:** no real Pi session with an in-process child extension was run. A manual smoke test in which an extension calls `childSession()` from a child's `session_start` would confirm the end-to-end flow.
 
@@ -214,12 +212,12 @@ Abbreviations:
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [x] PASS_WITH_WARNINGS: proceed, noting three non-blocking warnings: D3 wording drift, `PublishedLaunchIdentity` not exported by name, and unescaped DEL/C1 characters in refusal messages. Fresh tests are green and no check is unverified.
+- [x] PASS_WITH_WARNINGS: proceed, noting one non-blocking warning: the stale C1 prose at `apply.md:75-76`. The three warnings from iteration 1 are fixed. Fresh tests are green and no check is unverified.
 - [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 **Next step**:
 
-Run `/opsx-continue` with the worktree as working directory to create the finalize artifact, then `/opsx-archive`. If you want the warnings fixed first, run `/opsx-apply` for a fix iteration, then `/opsx-verify` again.
+Run `/opsx-continue` with the worktree as working directory to create the finalize artifact, then `/opsx-archive`. The `apply.md` wording can be corrected during finalize or the next receipt write.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.
