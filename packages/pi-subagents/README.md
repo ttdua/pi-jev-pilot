@@ -314,6 +314,7 @@ Each child's shutdown is bounded: a handler that never resolves is abandoned aft
 
 If you author an extension that runs in children, note that its `session_shutdown` handler now fires **once per child session** in addition to once for the parent.
 A handler that flushes a log, writes a summary, or closes a shared resource should be safe to run repeatedly within one process.
+The child lifecycle events `subagents:child:spawning`, `session-created` and `bound` carry the launch's `metadata` when it has any.
 Before this behavior existed, children fired `session_start` with no matching shutdown, so extension-owned resources accumulated for the life of the parent process.
 
 ## Events
@@ -322,12 +323,12 @@ Agent lifecycle events are emitted via `pi.events.emit()` so other extensions ca
 
 | Event                        | When                                                    | Key fields                                                                                                               |
 | ---------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `subagents:created`          | Background agent registered                             | `id`, `type`, `description`, `isBackground`                                                                              |
-| `subagents:started`          | Agent transitions to running (including queued→running) | `id`, `type`, `description`                                                                                              |
-| `subagents:completed`        | Agent finished successfully                             | `id`, `type`, `status`, `turnBudget`, `durationMs`, `tokens` (lifetime `{ input, output, total }`), `toolUses`, `result` |
+| `subagents:created`          | Background agent registered                             | `id`, `type`, `description`, `isBackground`, `metadata`                                                                  |
+| `subagents:started`          | Agent transitions to running (including queued→running) | `id`, `type`, `description`, `metadata`                                                                                  |
+| `subagents:completed`        | Agent finished successfully                             | `id`, `type`, `status`, `turnBudget`, `durationMs`, `tokens` (lifetime `{ input, output, total }`), `toolUses`, `result`, `metadata` |
 | `subagents:failed`           | Agent errored, stopped, or aborted                      | same as completed + `error`, `status`                                                                                    |
-| `subagents:resuming`         | Resume started (a queued resume, once admitted)         | `id`, `type`, `description`                                                                                              |
-| `subagents:resumed`          | Resumed run ended (including one stopped while queued)  | same as completed + `error`, `status` (`buildEventData` shape) — `status`/`error` discriminate                           |
+| `subagents:resuming`         | Resume started (a queued resume, once admitted)         | `id`, `type`, `description`, `metadata`                                                                                  |
+| `subagents:resumed`          | Resumed run ended (including one stopped while queued)  | same as completed + `error`, `status` (`buildEventData` shape) — `status`/`error` discriminate; `metadata` included |
 | `subagents:steered`          | Steering message sent                                   | `id`, `message`                                                                                                          |
 | `subagents:compacted`        | Agent's session successfully compacted                  | `id`, `type`, `description`, `reason` (`"manual"` / `"threshold"` / `"overflow"`), `tokensBefore`, `compactionCount`     |
 | `subagents:settings_loaded`  | Persisted settings applied at extension init            | `settings` (merged global + project)                                                                                     |
@@ -336,6 +337,8 @@ Agent lifecycle events are emitted via `pi.events.emit()` so other extensions ca
 `tokens.total` = `input + output + cacheWrite`.
 `cacheRead` is excluded — each turn's `cacheRead` is the cumulative cached prefix re-read on that one API call, so summing per-message would over-count it.
 Use `contextUsage.percent` (surfaced as `(NN%)` in the widget) for current context size.
+
+`metadata` is the frozen map a service launch passed to `spawn`. It is present on these events only when the launch has metadata, and never on tool-call launches.
 
 ## Worktree Isolation
 
@@ -420,6 +423,30 @@ Omit `foreground` and the agent's own `run_in_background` frontmatter decides, d
 Pass `foreground` explicitly and it wins outright, whatever the frontmatter says.
 
 A spawned agent is a first-class citizen of the runtime: it appears in the background widget, carries its parent's session identity so permission prompts route correctly, and nests its session file under the parent's.
+
+#### Launch metadata
+
+`spawn` takes an optional `metadata` map of strings, `SpawnOptions.metadata`, so a caller can tag a launch and recognise it on events, records and in a child session.
+
+- At most 32 keys; each key matches `^[a-z][a-z0-9_.-]{0,63}$`; each value is a string of at most 1024 characters.
+- The map must be a plain object with only enumerable string keys. An empty map counts as no metadata.
+- A map that breaks a limit makes `spawn` throw synchronously, before anything is created: no record, no events, no policy consultation.
+- The executor keeps a frozen copy, so later changes to the caller's object have no effect and consumers cannot write to it.
+- `metadata` is omitted from events, records and launch requests when the launch has none. Tool-call launches never carry it.
+- Resumes take no metadata; a resume keeps the launch's.
+- Metadata is not persisted: it is gone after a reload.
+
+Metadata is delivered on `pi.events` to every extension in the process; do not put secrets in it.
+
+#### `childSession` contract
+
+`svc.childSession(sessionId)` returns `{ agentId, agentType, metadata }` for the live child session `sessionId` belongs to, and `undefined` for the main session or an unknown id.
+`metadata` is `{}` when the launch had none.
+
+- The entry exists before `subagents:child:session-created` is dispatched, so a child's own `session_start` handler sees it.
+- It is removed once `subagents:child:disposed` has been dispatched synchronously.
+- Inside a child's `session_shutdown` handler it still holds, until the handler settles or the shutdown bound expires.
+- The lookup is shared by every executor instance in the process.
 
 #### `getRecord` / `listAgents` contract
 
