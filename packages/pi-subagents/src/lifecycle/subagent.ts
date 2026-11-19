@@ -595,7 +595,7 @@ export class Subagent {
 				signal: run.signal,
 				onTurnBudget: (budget) => { run.setTurnBudget(budget); },
 				onSubmitAttempt: () => { run.recordSubmitAttempt(); },
-				// A plain launch leaves the session's completed-turn hook untouched.
+				// Without a schema the hook still ends the run at the turn budget's ceiling, but never for a result.
 				hasStructuredResult: this.execution.resultSchema ? () => run.hasStructuredResult : undefined,
 			}));
 		} catch (err) {

@@ -280,7 +280,8 @@ A resumed agent gets a fresh budget with its original ceiling.
 | `stopped`   | User-initiated abort                      | `■` dim    |
 
 The budget itself is the `turnBudget` field (`{ used, maxTurns, phase }`) on the subagent record, tool-result details, notifications, and the terminal events.
-It is live while the agent runs: `used` counts the run's successful turns, `maxTurns` is absent for an unlimited run, and `phase` is `within`, then `warned` once the warning was sent, then `exhausted` when the harness stopped the run (always paired with `aborted`).
+It is live while the agent runs: `used` counts the run's successful turns, `maxTurns` is absent for an unlimited run, and `phase` is `within`, then `warned` once the warning was sent, then `exhausted` when the harness stopped the run.
+An exhausted run settles `aborted`, except a run that holds a valid structured result, which settles `completed` with `phase` still `exhausted`.
 The widget shows a warned agent's turn count in the warning color.
 
 ## Concurrency
