@@ -19,6 +19,7 @@ const config: PlainConfig = {
 };
 const noSlots: PlainConfig = { ...config, slots: [] };
 const opts = (n: number, over = {}) => ({
+  seed: SEED_CUTPOINTS.standard,
   config,
   mode: "standard" as const,
   routing: "tiers" as const,
@@ -101,6 +102,15 @@ describe("routeStream", () => {
     expect(rolling.slice(0, 100)).toEqual(seedOnly.slice(0, 100));
     expect(rolling.slice(100)).not.toEqual(seedOnly.slice(100));
     expect(routeStream(mixed, opts(150))).toEqual(rolling);
+  });
+
+  test("seed then window: the candidate replaces the shipped seed", () => {
+    const seed = { basicMax: -Infinity, broadMax: -Infinity, frontierMin: -Infinity };
+    const answers = Array.from({ length: 150 }, (_, i) => spread(i));
+    const out = routeStream(answers, opts(150, { seed }));
+    // Every launch before the 100th window entry routes on the candidate (all at or above frontierMin).
+    expect(out.slice(0, 100)).toEqual(Array(100).fill("frontier"));
+    expect(out.slice(100)).not.toEqual(Array(50).fill("frontier"));
   });
 
   test("seed for a short stream", () => {

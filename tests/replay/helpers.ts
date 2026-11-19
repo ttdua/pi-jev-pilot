@@ -14,7 +14,7 @@ export const config: PlainConfig = {
 
 const main = mainQuestions({ applyEffort: true, askStrategy: true });
 
-export type MainPick = { effort?: string; strategy?: string; risky?: number; tier?: string };
+export type MainPick = { effort?: string; strategy?: string; risky?: number };
 
 const choice = (options: readonly string[], pick: string) => ({
   type: "choice",
@@ -30,12 +30,10 @@ export function mainBody(p: MainPick = {}): unknown {
     const spec = main.specs[key];
     return spec?.type === "choice" ? spec.options : [];
   };
-  const tier = p.tier ?? opts("tier")[0] ?? "";
   return {
     answers: {
       effort: choice(opts("effort"), p.effort ?? "low"),
       risky: { type: "noul", noul: p.risky ?? 0.1 },
-      tier: choice(opts("tier"), tier),
       strategy: choice(opts("strategy"), p.strategy ?? "direct"),
       corrects: { type: "noul", noul: 0.1 },
     },

@@ -5,7 +5,7 @@ import { config, mainBody, mainReq, ok, planOf } from "./helpers.ts";
 
 const meta = { runId: "r", pass: 1 as const, samples: { main: 1, workers: 0 }, config };
 
-type Pick = { strategy: string; tier?: string; risky?: number };
+type Pick = { strategy: string; risky?: number };
 /** Base `minimal` answers direct/first tier/0.1; each variant answers per sample via `pick`. */
 function run(variants: Record<string, (s: number) => Pick | undefined>, n = 6) {
   const requests: PlannedRequest[] = [];
@@ -32,14 +32,8 @@ const flipFirst =
 describe("noise characterization (addNoise via compare)", () => {
   test("noise is the max of rerun-a and rerun-b flips for every key", () => {
     const v = run({ "rerun-a": flipFirst(2), "rerun-b": flipFirst(4), full: flipFirst(1) });
-    expect(v["full"]!.noise).toEqual({ effort: 0, tier: 0, strategy: 4, risky: 0, corrects: 0 });
-    expect(Object.keys(v["full"]!.noise)).toEqual([
-      "effort",
-      "tier",
-      "strategy",
-      "risky",
-      "corrects",
-    ]);
+    expect(v["full"]!.noise).toEqual({ effort: 0, strategy: 4, risky: 0, corrects: 0 });
+    expect(Object.keys(v["full"]!.noise)).toEqual(["effort", "strategy", "risky", "corrects"]);
   });
 
   test("flips equal to noise are not beyond; one more is", () => {

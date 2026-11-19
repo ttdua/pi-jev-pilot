@@ -81,7 +81,7 @@ export type DiffCase = {
   text: string;
 };
 
-export const MAIN_KEYS = ["effort", "tier", "strategy", "risky", "corrects"] as const;
+export const MAIN_KEYS = ["effort", "strategy", "risky", "corrects"] as const;
 export const WORKER_KEYS = ["tier", "effort"] as const;
 const KEYS = { main: MAIN_KEYS, worker: WORKER_KEYS } as const;
 /** Code points of a sample kept in a case entry. */
@@ -102,10 +102,8 @@ function mainKeys(answers: Record<string, Answer>): Decided {
       supported: EFFORT_LEVELS,
     }).requested;
   }
-  for (const key of ["tier", "strategy"] as const) {
-    const a = answers[key];
-    if (a?.type === "choice") out[key] = a.choice;
-  }
+  const strategy = answers["strategy"];
+  if (strategy?.type === "choice") out["strategy"] = strategy.choice;
   if (risky?.type === "noul") out["risky"] = String(risky.noul > 0.7);
   if (corrects?.type === "noul") out["corrects"] = String(corrects.noul >= CORRECTION_THRESHOLD);
   return { keys: out, answers };

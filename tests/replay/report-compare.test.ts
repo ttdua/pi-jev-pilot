@@ -3,9 +3,13 @@ import {
   compareReport,
   reportCases,
   type ReportMeta,
+  type SerializedCut,
 } from "../../scripts/replay/report-compare.ts";
 import type { Result } from "../../scripts/replay/compare.ts";
 import type { PlannedRequest, PlainConfig } from "../../scripts/replay/variants.ts";
+import { difficultyScore } from "../../src/policy/worker/score.ts";
+import { cutPoints } from "../../src/policy/worker/cutpoints.ts";
+import { MODE_TARGETS } from "../../src/policy/worker/modes.ts";
 import { workerQuestions } from "../../scripts/replay/variants.ts";
 import { mainBody, mainReq, miss, ok, planOf } from "./helpers.ts";
 
@@ -84,6 +88,19 @@ function workerRun(tiers: string[], missing: string[] = []) {
   }
   return { plan: planOf(requests), results };
 }
+
+// Candidates come from the run's own answers, so a changed answer needs other samples to differ from.
+const withFiller = (first: string) => [
+  first,
+  ...Array.from({ length: 20 }, (_, i) => ["basic", "broad", "deep", "frontier"][i % 4] ?? "basic"),
+];
+/** Sample 0 of the rerun variant answers `deep`. */
+const swapRerun0 = (results: Result[]) =>
+  results.map((r) =>
+    r.variant === "rerun" && r.sample === 0
+      ? { ...r, outcome: { kind: "ok" as const, body: workerBody("deep") } }
+      : r,
+  );
 
 describe("compareReport main", () => {
   test("effort against start", () => {
@@ -172,14 +189,9 @@ describe("compareReport workers", () => {
   });
 
   test("a changed target counts as noise", () => {
-    const { plan, results } = workerRun(["basic"]);
-    const swapped = results.map((r) =>
-      r.variant === "rerun"
-        ? { ...r, outcome: { kind: "ok" as const, body: workerBody("deep") } }
-        : r,
-    );
-    const agg = compareReport(plan, swapped, metaOf({ workerKind: ["scout"] }));
-    expect(agg.noise.workers.standard.tiers).toBe(1);
+    const { plan, results } = workerRun(withFiller("basic"));
+    const agg = compareReport(plan, swapRerun0(results), metaOf({ workerKind: ["scout"] }));
+    expect(agg.noise.workers.standard.tiers).toBeGreaterThan(0);
   });
 
   test("all misses", () => {
@@ -207,6 +219,74 @@ describe("compareReport workers", () => {
   });
 });
 
+describe("seed candidates", () => {
+  // Worker i answers a tier by i % 4; scores spread over 0..3.
+  const tierOf = (i: number) => ["basic", "broad", "deep", "frontier"][i % 4] ?? "basic";
+  const run = (n: number, missing: string[] = []) => {
+    const { plan, results } = workerRun(
+      Array.from({ length: n }, (_, i) => tierOf(i)),
+      missing,
+    );
+    return compareReport(plan, results, metaOf({ workerKind: Array(n).fill("scout") }));
+  };
+  const scoresOf = (n: number, skip: number[] = []) =>
+    Array.from({ length: n }, (_, i) => i)
+      .filter((i) => !skip.includes(i))
+      .map((i) => ({
+        score: difficultyScore(workerBody(tierOf(i)).answers as never) as number,
+        decided: "basic" as const,
+      }));
+  const ser = (n: number): SerializedCut =>
+    n === Infinity ? "Infinity" : n === -Infinity ? "-Infinity" : n;
+  const expected = (
+    entries: ReturnType<typeof scoresOf>,
+    mode: "budget" | "standard" | "premium",
+  ) => {
+    const c = cutPoints(entries, MODE_TARGETS[mode]);
+    return {
+      basicMax: ser(c.basicMax),
+      broadMax: ser(c.broadMax),
+      frontierMin: ser(c.frontierMin),
+    };
+  };
+
+  test("candidate per mode", () => {
+    const agg = run(120);
+    const entries = scoresOf(120);
+    for (const v of ["report", "rerun"] as const)
+      for (const m of ["budget", "standard", "premium"] as const)
+        expect(agg.seedCandidates[v][m]).toEqual(expected(entries, m));
+  });
+
+  test("budget candidate has no frontier", () => {
+    const agg = run(120);
+    expect(agg.seedCandidates.report.budget.frontierMin).toBe("Infinity");
+    expect(agg.seedCandidates.report.premium.basicMax).toBe("-Infinity");
+    // Survives a JSON round trip as strings.
+    const back = JSON.parse(JSON.stringify(agg.seedCandidates));
+    expect(back.report.budget.frontierMin).toBe("Infinity");
+  });
+
+  test("misses left out", () => {
+    const skip = [3, 17, 40, 41, 99];
+    const agg = run(
+      120,
+      skip.map((i) => `report:${i}`),
+    );
+    expect(agg.seedCandidates.report.standard).toEqual(expected(scoresOf(120, skip), "standard"));
+    // The other variant keeps all 120 answers.
+    expect(agg.seedCandidates.rerun.standard).toEqual(expected(scoresOf(120), "standard"));
+  });
+
+  test("no main tier key", () => {
+    const { plan, results } = mainRun(["low"]);
+    const body = mainBody({ effort: "low" }) as { answers: Record<string, unknown> };
+    expect(Object.keys(body.answers)).not.toContain("tier");
+    const agg = compareReport(plan, results, metaOf());
+    expect(JSON.stringify(agg.main)).not.toContain("tier");
+  });
+});
+
 describe("reportCases", () => {
   const text = (_k: "main" | "worker", s: number) => "é".repeat(400) + s;
 
@@ -225,13 +305,8 @@ describe("reportCases", () => {
   });
 
   test("worker cases are keyed by mode and routing", () => {
-    const { plan, results } = workerRun(["basic"]);
-    const swapped = results.map((r) =>
-      r.variant === "rerun"
-        ? { ...r, outcome: { kind: "ok" as const, body: workerBody("deep") } }
-        : r,
-    );
-    const cases = reportCases(plan, swapped, config, text);
+    const { plan, results } = workerRun(withFiller("basic"));
+    const cases = reportCases(plan, swapRerun0(results), config, text);
     expect(cases.map((c) => c.key)).toContain("standard/tiers");
     expect(cases.every((c) => c.base !== c.value && c.variant === "rerun")).toBe(true);
   });
