@@ -1,5 +1,6 @@
 // The `/jev` slot forms: add or replace, show and remove a custom model slot.
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { join } from "node:path";
 import { readConfig, writeSlots, type Slot } from "../../store/config.ts";
 import { RESERVED_SLOT_NAMES } from "../../store/defaults.ts";
 import type { Issue } from "../../store/validate.ts";
@@ -107,10 +108,19 @@ function runRemove(name: string, slots: readonly Slot[], dir: string): SlotOutco
     : refuse(issueMessage(written.issues));
 }
 
+// DEPRECATED(remove next minor): a legacy slot named `frontier` blocks writes until renamed by hand.
+const LEGACY_SLOT_NAME = "frontier";
+
 export function runSlot(args: SlotArgs, registry: ModelRegistry, dir: string): SlotOutcome {
   const read = readConfig(dir);
   if (read.kind === "invalid") return refuse(issueMessage(read.issues));
   const slots = read.config.crew?.slots ?? [];
+  if (args.kind !== "show" && slots.some((s) => s.name === LEGACY_SLOT_NAME)) {
+    const path = join(dir, "config.json");
+    return refuse(
+      `crew.slots has a slot named "${LEGACY_SLOT_NAME}", a reserved name; rename it in ${path}`,
+    );
+  }
   const existing = slots.find((s) => s.name === args.name);
   if (args.kind === "set") return runSet(args, { existing, slots, registry, dir });
   if (existing === undefined) return refuse(`no slot named ${args.name}`, true);

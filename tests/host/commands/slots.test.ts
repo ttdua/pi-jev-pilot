@@ -213,6 +213,43 @@ describe("runSlot replace", () => {
   });
 });
 
+describe("legacy frontier slot", () => {
+  const legacy = (): string =>
+    jevDir({
+      crew: {
+        slots: [
+          slot("frontier", "fixture/fixture-main", "Legacy."),
+          slot("reviewer", "fixture/fixture-review", "Choose for reviews."),
+        ],
+      },
+    });
+  test("Legacy frontier slot blocks writes", () => {
+    const dir = legacy();
+    const before = file(dir);
+    const out = runSlot({ kind: "remove", name: "reviewer" }, registry, dir);
+    expect(out.ok).toBe(false);
+    expect(out.message).toContain("crew.slots");
+    expect(out.message).toContain("rename");
+    expect(out.message).toContain(join(dir, "config.json"));
+    expect(file(dir)).toBe(before);
+  });
+  test("Legacy frontier slot still shows others", () => {
+    const out = runSlot({ kind: "show", name: "reviewer" }, registry, legacy());
+    expect(out).toEqual({
+      ok: true,
+      message: "slot reviewer: fixture/fixture-review\nwhen: Choose for reviews.",
+    });
+  });
+  test("Legacy frontier slot reported first", () => {
+    const dir = legacy();
+    const out = runSlot(set("reviewer", "fixture/unknown"), registry, dir);
+    expect(out.ok).toBe(false);
+    expect(out.message).toContain("frontier");
+    expect(out.message).toContain("rename");
+    expect(out.message).not.toContain("registry");
+  });
+});
+
 describe("runSlot show and remove", () => {
   test("Show", () => {
     const dir = jevDir({

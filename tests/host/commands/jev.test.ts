@@ -454,6 +454,13 @@ describe("runJev", () => {
     expect(switches(dir)?.skills).toBe(true);
   });
 
+  test("Frontier is the switch", async () => {
+    const dir = jevDir();
+    await run("frontier off", dir);
+    expect(switches(dir)?.frontier).toBe(false);
+    expect(existsSync(join(dir, "config.json"))).toBe(false);
+  });
+
   test("Deprecated expert command", async () => {
     const dir = jevDir();
     const rec = await run("expert off", dir);
