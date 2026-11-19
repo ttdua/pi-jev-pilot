@@ -136,6 +136,19 @@ export interface AgentTypeSnapshot {
 
 export type { ContextMode, LockableField };
 
+/**
+ * Caller-supplied string map broadcast with launch events. Frozen and
+ * null-prototype; must not carry secrets.
+ */
+export type LaunchMetadata = Readonly<Record<string, string>>;
+
+/** The live child session a consumer can look up by its session id. */
+export interface ChildSessionInfo {
+  readonly agentId: string;
+  readonly agentType: string;
+  readonly metadata: LaunchMetadata;
+}
+
 /** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
 export type LaunchOrigin = { kind: "tool"; toolCallId: string } | { kind: "service" };
 
