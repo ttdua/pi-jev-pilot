@@ -23,27 +23,27 @@ Blocked by: none
 
 Blocked by: 1, 2
 
-- [ ] 3.1 `src/service/service-adapter.ts`: in `spawn()`, call `parseLaunchResources` right after `parseLaunchMetadata`, then pass `resources` on the spawn config
-- [ ] 3.2 `src/lifecycle/subagent-manager.ts`:
+- [x] 3.1 `src/service/service-adapter.ts`: in `spawn()`, call `parseLaunchResources` right after `parseLaunchMetadata`, then pass `resources` on the spawn config
+- [x] 3.2 `src/lifecycle/subagent-manager.ts`:
   - forward `resources` to the execution;
   - call `assertFreshOnly` right after `resolveLaunchContext` in `create()`, so it judges the context after the fallback, from both doors, before the record exists (design D1, D3);
   - check that `src/tools/background-spawner.ts` and `src/tools/foreground-runner.ts` already return the throw as the tool result.
-- [ ] 3.3 `src/lifecycle/workspace.ts`: `WorkspacePrepareContext` gains `requestedCwd?` and `metadata?`.
-- [ ] 3.4 `src/lifecycle/subagent.ts`, in `run()`, before the provider (design D7):
+- [x] 3.3 `src/lifecycle/workspace.ts`: `WorkspacePrepareContext` gains `requestedCwd?` and `metadata?`.
+- [x] 3.4 `src/lifecycle/subagent.ts`, in `run()`, before the provider (design D7):
   - run `recheckLaunchResources`; a failure goes through `this.fail(run, err)`;
   - pass `requestedCwd` and `metadata` to the provider;
   - resolve `cwd`: provider cwd, else `requestedCwd`, else the parent cwd;
   - pass `resources` to `createSubagentSession`;
   - keep the no-provider path free of added awaits.
-- [ ] 3.5 New `src/session/launch-skills.ts` holds the skill loader options, the catalog-collision check and the reported resource facts, with unit tests. `src/lifecycle/create-subagent-session.ts` only orchestrates:
+- [x] 3.5 New `src/session/launch-skills.ts` holds the skill loader options, the catalog-collision check and the reported resource facts, with unit tests. `src/lifecycle/create-subagent-session.ts` only orchestrates:
   - `ResourceLoaderOptions` gains `noSkills`, `additionalSkillPaths` and `skillsOverride`;
   - `freshSetup` adds the D4 loader options from `params.resources`: `additionalSkillPaths` is the resolved `skillFiles`, the allowlist applies when the launch does not inherit, and an inheriting launch with explicit files gets a late-collision debug note;
   - after `loader.reload()`, fail the launch on a `collision` diagnostic whose loser is one of `skillFiles` (D4);
   - `createLoaderSettingsManager` takes the launch's extra exclusions.
-- [ ] 3.6 `src/index.ts`: build the loader settings view from `excludedExtensionPackages ∪ extra`, and write a debug note for each extra entry that matches no configured package (design D5).
-- [ ] 3.7 `src/seams/launch-gate.ts`: the launch facts carry the launch's excluded packages, and `buildLaunchRequest` receives the global list plus the launch's list (design D6).
-- [ ] 3.8 `src/lifecycle/child-lifecycle.ts` and `create-subagent-session.ts`: `ChildSessionCreatedEvent` gains `cwd` (always), plus `inheritSkills`, `skillPaths` (from `loader.getSkills()`), `excludedExtensionPackages` and `contextFiles`, only for a launch with resources or a pin (design D8).
-- [ ] 3.9 Add three suites:
+- [x] 3.6 `src/index.ts`: build the loader settings view from `excludedExtensionPackages ∪ extra`, and write a debug note for each extra entry that matches no configured package (design D5).
+- [x] 3.7 `src/seams/launch-gate.ts`: the launch facts carry the launch's excluded packages, and `buildLaunchRequest` receives the global list plus the launch's list (design D6).
+- [x] 3.8 `src/lifecycle/child-lifecycle.ts` and `create-subagent-session.ts`: `ChildSessionCreatedEvent` gains `cwd` (always), plus `inheritSkills`, `skillPaths` (from `loader.getSkills()`), `excludedExtensionPackages` and `contextFiles`, only for a launch with resources or a pin (design D8).
+- [x] 3.9 Add three suites:
   - `test/seams/launch-resources-flow.test.ts`: service and tool door → manager → `Subagent.run` → a recording factory (refusals, queue, provider, policy, timing);
   - `test/lifecycle/launch-resources-prompt.test.ts`: the real factory with the real `DefaultResourceLoader` and a loopback provider (prompt contents, `session-created`);
   - `test/seams/launch-resources-extensions.test.ts`: the real `index.ts` composition root with a local package fixture (extension exclusion).
@@ -59,7 +59,7 @@ Blocked by: 1, 2
   - `session-created`: effective values on a launch with resources, defaults when only `cwd` is given, and `cwd` only on a plain launch;
   - omitted fields keep today's child;
   - pinned fork from the tool door.
-- [ ] 3.10 Add a type-level check that the `subagent` tool schema and `ResumeOptions` have no resource fields. Then run `bun run test:executor` and fix any exact-payload test the new `cwd` field breaks.
+- [x] 3.10 Add a type-level check that the `subagent` tool schema and `ResumeOptions` have no resource fields. Then run `bun run test:executor` and fix any exact-payload test the new `cwd` field breaks.
 
 ## 4. Records, generated types and docs
 
