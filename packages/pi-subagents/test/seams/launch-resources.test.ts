@@ -142,6 +142,30 @@ describe("parseLaunchResources", () => {
 		expect(r?.skills?.skillFiles).toEqual([outside]);
 	});
 
+	it("accepts a directory path ending in /.", () => {
+		const dir = join(root, "skills");
+		const a = skill(join(dir, "a"), "a");
+		const r = parseLaunchResources(
+			{ skills: { inherit: false, paths: [`${dir}/.`] } },
+			io,
+		);
+		expect(r?.skills?.skillFiles).toEqual([a]);
+	});
+
+	it("accepts a file path containing ..", () => {
+		const a = skill(join(root, "a"), "a");
+		const r = parseLaunchResources(
+			{
+				skills: {
+					inherit: false,
+					paths: [join(root, "x", "..", "a", "SKILL.md")],
+				},
+			},
+			io,
+		);
+		expect(r?.skills?.skillFiles).toEqual([a]);
+	});
+
 	it("dedupes a repeated path keeping first order", () => {
 		const a = skill(join(root, "a"), "a");
 		const b = skill(join(root, "b"), "b");

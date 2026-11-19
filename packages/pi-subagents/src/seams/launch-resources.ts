@@ -7,7 +7,7 @@
  */
 
 import { realpathSync, statSync } from "node:fs";
-import { isAbsolute, sep } from "node:path";
+import { isAbsolute, resolve, sep } from "node:path";
 import { loadSkills } from "@earendil-works/pi-coding-agent";
 import type { SpawnOptions } from "#src/service/service";
 import type { ContextMode } from "#src/types";
@@ -195,9 +195,9 @@ function parseSkills(
 		...new Set(loaded.skills.map((s) => io.realPath(s.filePath))),
 	];
 	// Coverage uses the discovery path the loader reports, before symlinks are
-	// resolved: a skill reached through a symlink inside a directory still counts.
+	// resolved, against the lexically normalized request: a skill reached through a symlink inside a directory still counts.
 	for (const p of paths) {
-		if (!loaded.skills.some((s) => isUnder(s.filePath, p))) {
+		if (!loaded.skills.some((s) => isUnder(s.filePath, resolve(p)))) {
 			refuse(`Launch resources: skill path loads no skill: ${show(p)}`);
 		}
 	}
