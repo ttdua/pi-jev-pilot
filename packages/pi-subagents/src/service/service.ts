@@ -34,6 +34,7 @@ export type {
   ChildSessionCreatedEvent,
   ChildSpawningEvent,
 } from "#src/lifecycle/child-lifecycle";
+export type { PublishedLaunchIdentity } from "#src/seams/identity";
 export type { TurnBudget, TurnBudgetPhase } from "#src/lifecycle/turn-limits";
 // The resume vocabulary is re-exported for the same reason: the record owns the
 // reasons a resume is refused, and the manager adds the one that is not a fact
@@ -72,6 +73,8 @@ export interface SubagentRecord {
    * resume chooses its own mode, so this can change after one.
    */
   isBackground: boolean;
+  /** The launch's metadata, frozen; present only when the launch has metadata. */
+  metadata?: LaunchMetadata;
   result?: string;
   /** The question the agent ended its turn with, when it declared one. */
   pendingQuestion?: string;
@@ -136,6 +139,19 @@ export interface AgentTypeSnapshot {
 
 export type { ContextMode, LockableField };
 
+/**
+ * Caller-supplied string map broadcast with launch events. Frozen and
+ * null-prototype; must not carry secrets.
+ */
+export type LaunchMetadata = Readonly<Record<string, string>>;
+
+/** The live child session a consumer can look up by its session id. */
+export interface ChildSessionInfo {
+  readonly agentId: string;
+  readonly agentType: string;
+  readonly metadata: LaunchMetadata;
+}
+
 /** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
 export type LaunchOrigin = { kind: "tool"; toolCallId: string } | { kind: "service" };
 
@@ -153,6 +169,8 @@ export interface LaunchRequest {
   parentSessionId?: string;
   prompt: string;
   description: string;
+  /** The caller's launch metadata, frozen; present only when the launch has metadata. */
+  metadata?: LaunchMetadata;
   /** The caller's model (`provider/id`) and thinking level, after `locked` fields were applied. */
   requested: { model?: string; thinking?: SubagentThinkingLevel };
   /** The lockable fields the agent locks; the policy cannot change them. */
@@ -241,6 +259,13 @@ export interface SpawnOptions {
   inheritContext?: boolean;
   foreground?: boolean;
   bypassQueue?: boolean;
+  /**
+   * Opaque string map delivered on `pi.events` to every extension in the
+   * process; MUST NOT carry secrets. Refused with a thrown error when it breaks
+   * the limits (32 keys, `^[a-z][a-z0-9_.-]{0,63}$` keys, values up to 1024 UTF-16 code units, i.e. `string.length`).
+   * A plain object has prototype `Object.prototype` or `null`.
+   */
+  metadata?: LaunchMetadata;
 }
 
 /** The public service contract for cross-extension subagent access. */
@@ -253,6 +278,12 @@ export interface SubagentsService {
 
   /** Spawn an agent. Returns the agent ID immediately. */
   spawn(type: string, prompt: string, options?: SpawnOptions): string;
+
+  /**
+   * The live in-process child session `sessionId` belongs to, or `undefined`
+   * for the main session or an unknown id.
+   */
+  childSession(sessionId: string): ChildSessionInfo | undefined;
 
   /** Get a snapshot of an agent's current state. */
   getRecord(id: string): SubagentRecord | undefined;

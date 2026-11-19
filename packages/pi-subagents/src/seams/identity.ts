@@ -5,6 +5,7 @@
  * created session reports the model and thinking level it really runs with.
  */
 
+import type { LaunchMetadata } from "#src/service/service";
 import type { ThinkingLevel } from "#src/types";
 
 /** What names a launch: the record id, its agent type and the tool call, if any. */
@@ -13,12 +14,15 @@ export interface LaunchSource {
 	type: string;
 	/** The `subagent` tool call that started the current run; absent for a service launch. */
 	currentToolCallId?: string;
+	/** The service launch's metadata; frozen, absent when there is none. */
+	metadata?: LaunchMetadata;
 }
 
 export interface LaunchIdentity {
 	agentId: string;
 	agentType: string;
 	toolCallId?: string;
+	metadata?: LaunchMetadata;
 }
 
 /**
@@ -29,7 +33,7 @@ export interface LaunchIdentity {
 export type PublishedLaunchIdentity = Partial<
 	Pick<LaunchIdentity, "agentId" | "agentType">
 > &
-	Pick<LaunchIdentity, "toolCallId">;
+	Pick<LaunchIdentity, "toolCallId" | "metadata">;
 
 /** The identity fields an event carries; `toolCallId` is omitted, not undefined, for service launches. */
 export function launchIdentity(source: LaunchSource): LaunchIdentity {
@@ -39,14 +43,20 @@ export function launchIdentity(source: LaunchSource): LaunchIdentity {
 	};
 	if (source.currentToolCallId !== undefined)
 		identity.toolCallId = source.currentToolCallId;
+	if (source.metadata !== undefined) identity.metadata = source.metadata;
 	return identity;
 }
 
-/** Just the `toolCallId` an event payload adds to its existing fields. */
-export function toolCallIdField(source: LaunchSource): { toolCallId?: string } {
-	return source.currentToolCallId === undefined
-		? {}
-		: { toolCallId: source.currentToolCallId };
+/** The `toolCallId` and `metadata` a record event adds to its existing fields; each omitted when absent. */
+export function launchFields(source: LaunchSource): {
+	toolCallId?: string;
+	metadata?: LaunchMetadata;
+} {
+	const fields: { toolCallId?: string; metadata?: LaunchMetadata } = {};
+	if (source.currentToolCallId !== undefined)
+		fields.toolCallId = source.currentToolCallId;
+	if (source.metadata !== undefined) fields.metadata = source.metadata;
+	return fields;
 }
 
 export interface EffectiveFacts {

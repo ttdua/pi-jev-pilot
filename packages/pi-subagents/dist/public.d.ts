@@ -59,13 +59,14 @@ interface LaunchIdentity {
     agentId: string;
     agentType: string;
     toolCallId?: string;
+    metadata?: LaunchMetadata;
 }
 /**
  * The identity as event payloads publish it: `agentId` and `agentType` are
  * optional in the public contract so other publishers of these channels stay
  * valid. This executor always sets them (`launchIdentity` returns them required).
  */
-type PublishedLaunchIdentity = Partial<Pick<LaunchIdentity, "agentId" | "agentType">> & Pick<LaunchIdentity, "toolCallId">;
+type PublishedLaunchIdentity = Partial<Pick<LaunchIdentity, "agentId" | "agentType">> & Pick<LaunchIdentity, "toolCallId" | "metadata">;
 interface EffectiveFacts {
     effectiveModel?: string;
     effectiveThinking?: ThinkingLevel;
@@ -282,6 +283,8 @@ interface SubagentRecord {
      * resume chooses its own mode, so this can change after one.
      */
     isBackground: boolean;
+    /** The launch's metadata, frozen; present only when the launch has metadata. */
+    metadata?: LaunchMetadata;
     result?: string;
     /** The question the agent ended its turn with, when it declared one. */
     pendingQuestion?: string;
@@ -343,6 +346,17 @@ interface AgentTypeSnapshot {
     context?: ContextMode;
 }
 
+/**
+ * Caller-supplied string map broadcast with launch events. Frozen and
+ * null-prototype; must not carry secrets.
+ */
+type LaunchMetadata = Readonly<Record<string, string>>;
+/** The live child session a consumer can look up by its session id. */
+interface ChildSessionInfo {
+    readonly agentId: string;
+    readonly agentType: string;
+    readonly metadata: LaunchMetadata;
+}
 /** What started a launch: a `subagent` tool call, or `SubagentsService.spawn()`. */
 type LaunchOrigin = {
     kind: "tool";
@@ -364,6 +378,8 @@ interface LaunchRequest {
     parentSessionId?: string;
     prompt: string;
     description: string;
+    /** The caller's launch metadata, frozen; present only when the launch has metadata. */
+    metadata?: LaunchMetadata;
     /** The caller's model (`provider/id`) and thinking level, after `locked` fields were applied. */
     requested: {
         model?: string;
@@ -451,6 +467,13 @@ interface SpawnOptions {
     inheritContext?: boolean;
     foreground?: boolean;
     bypassQueue?: boolean;
+    /**
+     * Opaque string map delivered on `pi.events` to every extension in the
+     * process; MUST NOT carry secrets. Refused with a thrown error when it breaks
+     * the limits (32 keys, `^[a-z][a-z0-9_.-]{0,63}$` keys, values up to 1024 UTF-16 code units, i.e. `string.length`).
+     * A plain object has prototype `Object.prototype` or `null`.
+     */
+    metadata?: LaunchMetadata;
 }
 /** The public service contract for cross-extension subagent access. */
 interface SubagentsService {
@@ -460,6 +483,11 @@ interface SubagentsService {
     readonly sessionId: string;
     /** Spawn an agent. Returns the agent ID immediately. */
     spawn(type: string, prompt: string, options?: SpawnOptions): string;
+    /**
+     * The live in-process child session `sessionId` belongs to, or `undefined`
+     * for the main session or an unknown id.
+     */
+    childSession(sessionId: string): ChildSessionInfo | undefined;
     /** Get a snapshot of an agent's current state. */
     getRecord(id: string): SubagentRecord | undefined;
     /** List all tracked agents, most recent first. */
@@ -528,4 +556,4 @@ declare function getSubagentsService(): SubagentsService | undefined;
 declare function unpublishSubagentsService(): void;
 
 export { SUBAGENT_EVENTS, getSubagentsService, publishSubagentsService, unpublishSubagentsService };
-export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };
+export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSessionInfo, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchMetadata, LaunchOrigin, LaunchPolicy, LaunchRequest, LifetimeUsage, LockableField, PublishedLaunchIdentity, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };

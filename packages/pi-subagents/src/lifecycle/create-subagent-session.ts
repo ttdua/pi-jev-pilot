@@ -30,6 +30,7 @@ import { forkCallableTools, forkGuardExtension, type ForkGuardState, ORCHESTRATI
 import { enforceForkGrants, enforceGrants, isModelCallable } from "#src/seams/grant-check";
 import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import { type EffectiveFacts, effectiveFacts, launchIdentity, type ToolFacts } from "#src/seams/identity";
+import type { LaunchMetadata } from "#src/service/service";
 import { blockedToolCount, finalToolNames } from "#src/seams/registry";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
 import { resolveTurnLimits, type TurnLimitRequest } from "#src/lifecycle/turn-limits";
@@ -196,6 +197,8 @@ export interface CreateSubagentSessionParams {
   task?: string;
   /** Parent session identity (file path + session ID). */
   parentSession?: ParentSessionInfo;
+  /** The launch's frozen metadata; carried on the child events. */
+  metadata?: LaunchMetadata;
   model?: Model<any>;
   thinkingLevel?: ThinkingLevel;
   /**
@@ -468,6 +471,7 @@ export async function createSubagentSession(
     id: params.agentId,
     type,
     currentToolCallId: params.parentSession?.toolCallId,
+    metadata: params.metadata,
   });
   deps.lifecycle.spawning({ agentName: type, parentSessionId, ...identity });
 

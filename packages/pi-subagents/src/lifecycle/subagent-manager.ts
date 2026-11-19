@@ -29,7 +29,7 @@ import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { RunConfig } from "#src/runtime";
 import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
 import { LaunchPolicySlot } from "#src/seams/launch-policy";
-import type { LaunchOrigin, LaunchPolicy } from "#src/service/service";
+import type { LaunchMetadata, LaunchOrigin, LaunchPolicy } from "#src/service/service";
 import type { AgentConfig, CompactionInfo, ContextMode, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
 /**
@@ -220,6 +220,8 @@ export interface AgentSpawnConfig {
   parentSession?: ParentSessionInfo;
   /** What started the launch: the `subagent` tool call, or the service. */
   origin: LaunchOrigin;
+  /** The service launch's validated, frozen metadata; absent for a tool launch. */
+  metadata?: LaunchMetadata;
 }
 
 /** The message an explicit fork fails with when the parent has nothing to copy. */
@@ -423,6 +425,7 @@ export class SubagentManager {
         parentSession: options.parentSession,
         signal: options.signal,
         origin: options.origin,
+        metadata: options.metadata,
         context: launch.context,
         contextSource: options.contextSource,
         contextFallback: launch.contextFallback,

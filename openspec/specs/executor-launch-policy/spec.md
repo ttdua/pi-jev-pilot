@@ -46,6 +46,7 @@ The policy SHALL receive:
 - `origin`: `{ kind: "tool", toolCallId }` or `{ kind: "service" }`.
 - `parentSessionId`.
 - `prompt` and `description`.
+- `metadata`, the caller's launch metadata from `launch-metadata`, frozen, only when the launch carries metadata. A launch without metadata, and every tool-call launch, MUST omit the field.
 - `requested`: the caller's `model` and `thinking` after `locked` fields were applied. For a fork, an unlocked field with no caller value is the parent's model or thinking.
 - `locked`, the lockable fields the agent locks.
 - `context`, the launch's resolved context (`fresh` or `fork`, after any fallback), and `isBackground`.
@@ -85,6 +86,14 @@ The policy SHALL receive:
 #### Scenario: Fallen-back fork
 - **WHEN** an agent default `fork` falls back to `fresh` for lack of a parent session
 - **THEN** the policy receives `context` `fresh`
+
+#### Scenario: Service launch with metadata
+- **WHEN** an extension calls `spawn("implementer", ...)` with `metadata` `{ "change": "c1" }`
+- **THEN** the policy receives `origin` `{ kind: "service" }` and `metadata` `{ "change": "c1" }`, and writing to `metadata` throws or has no effect
+
+#### Scenario: No metadata in the request
+- **WHEN** a launch carries no metadata, or comes from a `subagent` tool call
+- **THEN** the request has no `metadata` field
 
 ### Requirement: Applying the policy's adjustment
 The policy SHALL return either nothing or an adjustment with optional `model`, `thinking`, `addTools` and `removeTools`. The executor SHALL apply these rules:

@@ -112,3 +112,19 @@ describe("createChildLifecyclePublisher", () => {
     expect(SUBAGENT_CHILD_DISPOSED).toBe("subagents:child:disposed");
   });
 });
+
+describe("disposed cleanup", () => {
+  it("removes the registry entry even when emit throws", async () => {
+    const { enterChildSession, lookupChildSession, resetChildSessions } = await import("#src/seams/child-sessions");
+    resetChildSessions();
+    enterChildSession("s-throw", { agentId: "a1", agentType: "Explore", metadata: {} });
+    const publisher = createChildLifecyclePublisher(() => {
+      throw new Error("boom");
+    });
+
+    expect(() => publisher.disposed({ sessionId: "s-throw" })).toThrow("boom");
+
+    expect(lookupChildSession("s-throw")).toBeUndefined();
+    resetChildSessions();
+  });
+});

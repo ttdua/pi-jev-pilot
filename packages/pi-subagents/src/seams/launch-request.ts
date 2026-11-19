@@ -10,7 +10,7 @@ import {
 import { ORCHESTRATION_TOOLS } from "#src/lifecycle/fork-guard";
 import { lockedFields } from "#src/seams/locked-launch";
 import { finalToolNames, snapshotOf } from "#src/seams/registry";
-import type { LaunchOrigin, LaunchRequest } from "#src/service/service";
+import type { LaunchMetadata, LaunchOrigin, LaunchRequest } from "#src/service/service";
 import { expandMcpToolPatterns } from "#src/session/mcp-tool-patterns";
 import type { AgentConfig, ContextMode, ThinkingLevel } from "#src/types";
 
@@ -38,6 +38,8 @@ export interface LaunchRequestInput {
 	config: AgentConfig;
 	origin: LaunchOrigin;
 	parentSessionId?: string;
+	/** Already frozen by `parseLaunchMetadata`; set on the request as is. */
+	metadata?: LaunchMetadata;
 	prompt: string;
 	description: string;
 	/** The model (`provider/id`) and thinking level the launch would run without a policy. */
@@ -81,6 +83,7 @@ export function buildLaunchRequest(input: LaunchRequestInput): LaunchRequest {
 	};
 	if (input.parentSessionId !== undefined)
 		request.parentSessionId = input.parentSessionId;
+	if (input.metadata !== undefined) request.metadata = input.metadata;
 	return Object.freeze(request);
 }
 

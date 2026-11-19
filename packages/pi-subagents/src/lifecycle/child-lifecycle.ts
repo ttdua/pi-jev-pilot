@@ -15,6 +15,7 @@
  * extensions did or did not install.
  */
 
+import { enterChildSession, leaveChildSession } from "#src/seams/child-sessions";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
 import type { EffectiveFacts, PublishedLaunchIdentity } from "#src/seams/identity";
 import type { ContextMode } from "#src/types";
@@ -106,6 +107,14 @@ export function createChildLifecyclePublisher(
       emit(SUBAGENT_CHILD_SPAWNING, event);
     },
     sessionCreated(event) {
+      // Entered before the emit so a synchronous subscriber can look the child up.
+      if (typeof event.agentId === "string" && typeof event.agentType === "string") {
+        enterChildSession(event.sessionId, {
+          agentId: event.agentId,
+          agentType: event.agentType,
+          metadata: event.metadata,
+        });
+      }
       emit(SUBAGENT_CHILD_SESSION_CREATED, event);
     },
     bound(event) {
@@ -115,7 +124,11 @@ export function createChildLifecyclePublisher(
       emit(SUBAGENT_CHILD_COMPLETED, event);
     },
     disposed(event) {
-      emit(SUBAGENT_CHILD_DISPOSED, event);
+      try {
+        emit(SUBAGENT_CHILD_DISPOSED, event);
+      } finally {
+        leaveChildSession(event.sessionId);
+      }
     },
   };
 }
