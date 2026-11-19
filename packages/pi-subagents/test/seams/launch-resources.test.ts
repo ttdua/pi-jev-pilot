@@ -158,7 +158,7 @@ describe("parseLaunchResources", () => {
 			{
 				skills: {
 					inherit: false,
-					paths: [join(root, "x", "..", "a", "SKILL.md")],
+					paths: [`${root}/x/../a/SKILL.md`],
 				},
 			},
 			io,
@@ -185,6 +185,51 @@ describe("parseLaunchResources", () => {
 			io,
 		);
 		expect(r?.skills?.paths).toEqual([a]);
+	});
+
+	it("keeps a file once when reached by a directory then a symlinked file path", () => {
+		const real = join(root, "real");
+		const s = skill(join(real, "s"), "s");
+		const link = join(root, "link");
+		symlinkSync(real, link);
+		const r = parseLaunchResources(
+			{
+				skills: { inherit: false, paths: [real, join(link, "s", "SKILL.md")] },
+			},
+			io,
+		);
+		expect(r?.skills?.paths).toEqual([real]);
+		expect(r?.skills?.skillFiles).toEqual([s]);
+	});
+
+	it("keeps a file once when reached by a symlinked file path then a directory", () => {
+		const real = join(root, "real");
+		const s = skill(join(real, "s"), "s");
+		const link = join(root, "link");
+		symlinkSync(real, link);
+		const viaLink = join(link, "s", "SKILL.md");
+		const r = parseLaunchResources(
+			{ skills: { inherit: false, paths: [viaLink, real] } },
+			io,
+		);
+		expect(r?.skills?.paths).toEqual([viaLink]);
+		expect(r?.skills?.skillFiles).toEqual([s]);
+	});
+
+	it("refuses a sparse skills.paths with the shape rule", () => {
+		// biome-ignore lint/suspicious/noSparseArray: deliberately holey input
+		const paths = [, "/x"] as unknown as string[];
+		expect(() =>
+			parseLaunchResources({ skills: { inherit: false, paths } }, io),
+		).toThrow(/skills\.paths must be an array of non-empty strings/);
+	});
+
+	it("refuses a sparse excludeExtensionPackages with the shape rule", () => {
+		// biome-ignore lint/suspicious/noSparseArray: deliberately holey input
+		const excludeExtensionPackages = [, "x"] as unknown as string[];
+		expect(() =>
+			parseLaunchResources({ excludeExtensionPackages }, io),
+		).toThrow(/excludeExtensionPackages must be an array of non-empty strings/);
 	});
 
 	it("refuses two files with one skill name", () => {

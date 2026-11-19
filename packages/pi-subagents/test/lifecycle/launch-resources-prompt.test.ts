@@ -36,6 +36,7 @@ import {
 	parseLaunchResources,
 } from "#src/seams/launch-resources";
 import type { SpawnOptions } from "#src/service/service";
+import { buildAgentPrompt } from "#src/session/prompts";
 import type { AgentConfig } from "#src/types";
 import { STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import {
@@ -96,7 +97,6 @@ interface Launch {
 	/** Runs the turn; false stops after creation. */
 	prompt?: boolean;
 	extension?: ExtensionFactory;
-	bind?: boolean;
 	/** Resources parsed earlier, as a queued launch holds them. */
 	frozen?: LaunchResources;
 }
@@ -107,6 +107,7 @@ describe("launch resources (real SDK loader)", () => {
 	let agentDir: string;
 	let loopback: Awaited<ReturnType<typeof startLoopback>>;
 	let warn: ReturnType<typeof vi.spyOn>;
+	let sessions: AgentSession[];
 	const dir = (name: string) => {
 		const d = join(root, name);
 		mkdirSync(d, { recursive: true });
@@ -123,6 +124,7 @@ describe("launch resources (real SDK loader)", () => {
 		writeFileSync(join(agentDir, "AGENTS.md"), "AGENTS-GLOBAL-MARKER\n");
 		skillFile(join(agentDir, "skills", "a"), "a");
 		skillFile(join(projectDir, ".pi", "skills", "b"), "b");
+		sessions = [];
 		loopback = await startLoopback();
 		warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		vi.stubEnv("PI_SUBAGENTS_DEBUG", "1");
@@ -130,6 +132,7 @@ describe("launch resources (real SDK loader)", () => {
 		vi.stubEnv("HOME", dir("home"));
 	});
 	afterEach(async () => {
+		for (const s of sessions) s.dispose();
 		vi.unstubAllEnvs();
 		warn.mockRestore();
 		await loopback.close();
@@ -166,7 +169,8 @@ describe("launch resources (real SDK loader)", () => {
 		const model = runtime.getModel("loop", "m");
 		const io = createSubagentSessionIO();
 		io.getAgentDir.mockReturnValue(agentDir);
-		const cwd = resources?.cwd ?? projectDir;
+		// The real environment header, so the request shows the child's directory.
+		io.assemblerIO.buildAgentPrompt.mockImplementation(buildAgentPrompt);
 		io.createSettingsManager.mockImplementation((c: string) =>
 			SettingsManager.create(c, agentDir),
 		);
@@ -204,6 +208,7 @@ describe("launch resources (real SDK loader)", () => {
 				tools: ["read"],
 			});
 			session = created.session;
+			sessions.push(created.session);
 			return { session: created.session };
 		});
 		const lifecycle = createChildLifecycleMock();
@@ -224,7 +229,6 @@ describe("launch resources (real SDK loader)", () => {
 			cwd: resources?.cwd,
 			resources,
 		};
-		void cwd;
 		let error: unknown;
 		try {
 			await createSubagentSession(
@@ -243,7 +247,6 @@ describe("launch resources (real SDK loader)", () => {
 				system: "",
 				created: lifecycle.sessionCreated.mock.calls[0]?.[0],
 			};
-		if (l.bind !== false) await session!.bindExtensions({});
 		let system = "";
 		if (l.prompt !== false) {
 			await session!.prompt("TASK");
@@ -337,6 +340,16 @@ describe("launch resources (real SDK loader)", () => {
 		const { system } = await launch({ resources: { cwd: other } });
 		expect(listed(system)).toContain("c");
 		expect(listed(system)).not.toContain("b");
+	});
+
+	it("cwd without a provider", async () => {
+		const other = dir("other");
+		writeFileSync(join(other, "AGENTS.md"), "AGENTS-OTHER-MARKER\n");
+		const { system, created } = await launch({ resources: { cwd: other } });
+		expect(created.cwd).toBe(other);
+		expect(system).toContain(`Working directory: ${other}`);
+		expect(system).toContain("AGENTS-OTHER-MARKER");
+		expect(system).not.toContain("AGENTS-PROJECT-MARKER");
 	});
 
 	it("explicit skill collides with the catalog", async () => {

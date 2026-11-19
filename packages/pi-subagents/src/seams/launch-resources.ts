@@ -75,6 +75,25 @@ export function defaultLaunchResourcesIO(agentDir: string): LaunchResourcesIO {
 	};
 }
 
+/**
+ * Read every caller field once and copy caller arrays (holes become
+ * `undefined`), so validation and loading see the same dense values.
+ */
+function snapshot(input: ParseInput): ParseInput {
+	const { skills, excludeExtensionPackages, cwd, contextFiles } = input;
+	const copy = <T>(v: T): T => (Array.isArray(v) ? ([...v] as T) : v);
+	const isRecord =
+		typeof skills === "object" && skills !== null && !Array.isArray(skills);
+	return {
+		skills: isRecord
+			? { inherit: skills.inherit, paths: copy(skills.paths) }
+			: skills,
+		excludeExtensionPackages: copy(excludeExtensionPackages),
+		cwd,
+		contextFiles,
+	};
+}
+
 function refuse(message: string): never {
 	throw new Error(message);
 }
@@ -168,6 +187,23 @@ function dedupeByRealPath(
 	return out;
 }
 
+/**
+ * True when `path` loads at least one skill and every one of them is a file an
+ * earlier entry already gave (a directory and a file inside it, through a
+ * symlink or not). The loader drops such repeats silently.
+ */
+function onlyRepeats(
+	path: string,
+	skillFiles: readonly string[],
+	io: LaunchResourcesIO,
+): boolean {
+	const own = io.loadSkills([path]).skills;
+	return (
+		own.length > 0 &&
+		own.every((s) => skillFiles.includes(io.realPath(s.filePath)))
+	);
+}
+
 function parseSkills(
 	skills: NonNullable<ParseInput["skills"]>,
 	io: LaunchResourcesIO,
@@ -196,14 +232,17 @@ function parseSkills(
 	];
 	// Coverage uses the discovery path the loader reports, before symlinks are
 	// resolved, against the lexically normalized request: a skill reached through a symlink inside a directory still counts.
+	const kept: string[] = [];
 	for (const p of paths) {
-		if (!loaded.skills.some((s) => isUnder(s.filePath, resolve(p)))) {
+		if (loaded.skills.some((s) => isUnder(s.filePath, resolve(p)))) {
+			kept.push(p);
+		} else if (!onlyRepeats(p, skillFiles, io)) {
 			refuse(`Launch resources: skill path loads no skill: ${show(p)}`);
 		}
 	}
 	return Object.freeze({
 		inherit: skills.inherit,
-		paths: Object.freeze(paths),
+		paths: Object.freeze(kept),
 		skillFiles: Object.freeze(skillFiles),
 	});
 }
@@ -213,9 +252,10 @@ function parseSkills(
  * given; otherwise a deep-frozen copy. Throws `Error` on any refusal.
  */
 export function parseLaunchResources(
-	options: ParseInput,
+	input: ParseInput,
 	io: LaunchResourcesIO,
 ): LaunchResources | undefined {
+	const options = snapshot(input);
 	const { skills, excludeExtensionPackages, cwd, contextFiles } = options;
 	if (
 		skills === undefined &&

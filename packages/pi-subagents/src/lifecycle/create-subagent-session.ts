@@ -340,6 +340,8 @@ interface SetupInput {
   baseTools: readonly string[];
   disallowed: readonly string[];
   grants: readonly string[];
+  /** The agent pins `inherit_skills: false`. */
+  pinned: boolean;
 }
 
 /**
@@ -356,7 +358,7 @@ function freshSetup(input: SetupInput): ContextSetup {
   );
   const grants = input.grants.filter((name) => toolNames.includes(name));
   const agentBody = deps.registry.resolveAgentConfig(params.type).systemPrompt;
-  const choice = effectiveSkillChoice(params.resources, deps.registry.resolveAgentConfig(params.type).inheritSkills === false);
+  const choice = effectiveSkillChoice(params.resources, input.pinned);
   return {
     loader: {
       noContextFiles: params.resources?.contextFiles === false,
@@ -554,6 +556,7 @@ export async function createSubagentSession(
     baseTools,
     disallowed: deps.registry.resolveAgentConfig(type).disallowedTools,
     grants: params.tools?.grants ?? [],
+    pinned: deps.registry.resolveAgentConfig(type).inheritSkills === false,
   };
   const setup = context === "fork" ? forkSetup(setupInput) : freshSetup(setupInput);
 
@@ -580,7 +583,7 @@ export async function createSubagentSession(
   assertNoCatalogCollision(setup.skillChoice, diagnostics, { realPath: realpathSync });
   const facts = resourceFacts({
     cwd: cfg.effectiveCwd,
-    reported: params.resources !== undefined || deps.registry.resolveAgentConfig(type).inheritSkills === false,
+    reported: params.resources !== undefined || setupInput.pinned,
     choice: setup.skillChoice,
     skills,
     excluded: excludedExtensionPackages,
