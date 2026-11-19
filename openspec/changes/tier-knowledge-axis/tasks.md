@@ -25,8 +25,8 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 Write the knowledge tier rubric, the work/care effort instruction and criteria, and the main effort instruction in `docs/jev-questions.md`
-- [ ] 3.2 Copy them verbatim into `src/jev/rubrics.ts` (`WORKER_TIER_CRITERIA`, `TIER_INSTRUCTION`, effort question and main instruction); `RUBRIC_VERSION` 3; keep `MAIN_TIER_*` until task 4
+- [x] 3.1 Write the knowledge tier rubric, the work/care effort instruction and criteria, and the main effort instruction in `docs/jev-questions.md`
+- [x] 3.2 Copy them verbatim into `src/jev/rubrics.ts` (`WORKER_TIER_CRITERIA`, `TIER_INSTRUCTION`, effort question and main instruction); `RUBRIC_VERSION` 3; keep `MAIN_TIER_*` until task 4
 
 ## 4. Main request, strategy gate and status
 
