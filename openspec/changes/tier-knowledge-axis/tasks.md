@@ -41,8 +41,8 @@ Blocked by: 2, 3
 
 Blocked by: 4
 
-- [ ] 5.1 Mix line and targets text with the new caps (`src/host/commands/status-format.ts`)
-- [ ] 5.2 Slot forms refused while a legacy `frontier` slot exists, checked first (`src/host/commands/slots.ts`)
+- [x] 5.1 Mix line and targets text with the new caps (`src/host/commands/status-format.ts`)
+- [x] 5.2 Slot forms refused while a legacy `frontier` slot exists, checked first (`src/host/commands/slots.ts`)
 
 ## 6. Replay seed candidate
 
