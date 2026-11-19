@@ -280,7 +280,8 @@ const NEVER_ABORTS = new AbortController().signal;
 /**
  * The snapshot of one run: `toSubagentRecord` with the per-run fields taken
  * from `run`, which a resume may have replaced since. `pendingQuestion` is the
- * question the run itself ended with (`run.question`).
+ * question the run itself ended with (`run.question`); the structured outcome
+ * is that run's too.
  */
 export function toWaitedRecord(record: Subagent, run: RunOutcome): SubagentRecord {
   const out = toSubagentRecord(record);
@@ -291,6 +292,8 @@ export function toWaitedRecord(record: Subagent, run: RunOutcome): SubagentRecor
   setOrOmit(out, "completedAt", run.completedAt);
   setOrOmit(out, "turnBudget", run.turnBudget && { ...run.turnBudget });
   setOrOmit(out, "pendingQuestion", run.question);
+  setOrOmit(out, "structuredResult", run.structuredResult);
+  setOrOmit(out, "structuredResultError", run.structuredResultError);
   return out;
 }
 
