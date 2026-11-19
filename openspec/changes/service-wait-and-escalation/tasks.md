@@ -12,10 +12,10 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 `src/lifecycle/subagent-run.ts` and `src/lifecycle/subagent.ts`: expose the question a run ended with, even after it was replaced (`RunOutcome.question`, design D2); add the run's `finished` promise, resolved in every terminal funnel, and `Subagent.waitForRunEnd(signal)` (design D5)
-- [ ] 2.2 `src/service/service.ts`: add `WaitOptions` and `SubagentsService.wait(id, options?)` with its contract doc
-- [ ] 2.3 `src/service/service-adapter.ts`: implement `wait()` over the concrete `Subagent` that `SubagentManagerLike.getRecord` already returns: unknown id rejects; claim; `waitForRunEnd`; settled → mark consumed, keep the claim, resolve with the snapshot overlaid with the waited run's outcome; aborted → release this call's claim, reject with `signal.reason` (design D1, D2)
-- [ ] 2.4 Tests in `test/service/`: every scenario of `specs/service-launch-wait` that does not need a real Pi session, driven through the real adapter, manager and notification system with stub sessions (no nudge while waited, aborted wait gives the outcome back, concurrent waiters, another carrier still holds the run, queued launch, stopped while queued behind a busy slot, queued resume stopped, failure, stop, ask/answer/continue, question at the turn limit, failure after a question, resumed before read, unknown id, signals)
+- [x] 2.1 `src/lifecycle/subagent-run.ts` and `src/lifecycle/subagent.ts`: expose the question a run ended with, even after it was replaced (`RunOutcome.question`, design D2); add the run's `finished` promise, resolved in every terminal funnel, and `Subagent.waitForRunEnd(signal)` (design D5)
+- [x] 2.2 `src/service/service.ts`: add `WaitOptions` and `SubagentsService.wait(id, options?)` with its contract doc
+- [x] 2.3 `src/service/service-adapter.ts`: implement `wait()` over the concrete `Subagent` that `SubagentManagerLike.getRecord` already returns: unknown id rejects; claim; `waitForRunEnd`; settled → mark consumed, keep the claim, resolve with the snapshot overlaid with the waited run's outcome; aborted → release this call's claim, reject with `signal.reason` (design D1, D2)
+- [x] 2.4 Tests in `test/service/`: every scenario of `specs/service-launch-wait` that does not need a real Pi session, driven through the real adapter, manager and notification system with stub sessions (no nudge while waited, aborted wait gives the outcome back, concurrent waiters, another carrier still holds the run, queued launch, stopped while queued behind a busy slot, queued resume stopped, failure, stop, ask/answer/continue, question at the turn limit, failure after a question, resumed before read, unknown id, signals)
 
 ## 3. Host evidence
 
