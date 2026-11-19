@@ -41,7 +41,7 @@ The manual Q8 run and the manual CLI review run are the only Host evidence that 
 - CLI review with fake `codex` and `opencode` scripts on `PATH`: the exact command lines, success, failure and exit codes, one retry on timeout, tier resolution at each run, the output file removed, and no brief or output in details or the ledger.
 - The review tool is offered in the main session only while on, and absent in a child's provider request.
 
-The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. It runs `pi install` of this repository into the isolated directory, so the vendored executor and the Jev extension load together, as for a user. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md); Q1, Q2 and Q7 are superseded by `tests/host/launch-policy-evidence.test.ts`.
+The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. It runs `pi install` of this repository into the isolated directory, so the vendored executor and the Jev extension load together, as for a user. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md); Q1, Q2 and Q7 are superseded by `tests/host/launch-policy-evidence.test.ts`. `tests/host/service-escalation.test.ts` pins where a service launch's `notify_parent` and `ask_parent` land with and without `SubagentsService.wait()`.
 
 ### Vendored executor
 

@@ -166,6 +166,11 @@ export interface SubagentManagerObserver {
    */
   onSubagentUpdate?(record: Subagent, message: string): void;
   /**
+   * Fires when a running child records a question for its parent.
+   * Optional: a hook nobody supplies is a vacant one.
+   */
+  onSubagentQuestion?(record: Subagent, question: string): void;
+  /**
    * Fires when a teardown after the record's result was delivered reported
    * where its work went.
    * Optional for the same reason as `onSubagentUpdate`: the widget has no use
@@ -337,6 +342,9 @@ export class SubagentManager {
       },
       onUpdateSent: (agent, message) => {
         this.observer?.onSubagentUpdate?.(agent, message);
+      },
+      onQuestionAsked: (agent, question) => {
+        this.observer?.onSubagentQuestion?.(agent, question);
       },
       onWorkspaceNotice: (agent, notice) => {
         this.observer?.onSubagentWorkspaceNotice?.(agent, notice);

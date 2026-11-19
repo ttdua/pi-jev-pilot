@@ -38,6 +38,10 @@ export class CompositeSubagentObserver implements SubagentManagerObserver {
     this.dispatch((o) => o.onSubagentUpdate?.(record, message), "onSubagentUpdate");
   }
 
+  onSubagentQuestion(record: Subagent, question: string): void {
+    this.dispatch((o) => o.onSubagentQuestion?.(record, question), "onSubagentQuestion");
+  }
+
   /**
    * Required here even though `SubagentManagerObserver` declares it optional:
    * the manager's observer is always this composite, so a member it does not

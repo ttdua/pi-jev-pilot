@@ -46,6 +46,8 @@ export interface RunOutcome {
 	readonly stoppedWhileQueued: boolean;
 	/** Undefined once a later run replaced this one: the resume that started it is the answer. */
 	readonly pendingQuestion: string | undefined;
+	/** The question the run recorded, also after a later run replaced it. */
+	readonly question: string | undefined;
 	readonly workspaceNotice: string | undefined;
 	/** The updates no announcement delivered; what the carrier still owes. */
 	readonly runUpdates: readonly string[];
@@ -116,6 +118,8 @@ export class SubagentRun implements RunOutcome {
 	// Pending until a resume answers it: the run that resume starts replaces this one.
 	private _pendingQuestion?: string;
 	get pendingQuestion(): string | undefined { return this._replaced ? undefined : this._pendingQuestion; }
+	/** The recorded question regardless of `replaced`: what the run ended with. */
+	get question(): string | undefined { return this._pendingQuestion; }
 
 	// Whether a resume has replaced this run. Set once the run has settled and a
 	// resume starts the next one, so a carrier still holding this run can tell.
@@ -140,6 +144,16 @@ export class SubagentRun implements RunOutcome {
 	/** The updates no announcement delivered: what an outcome carrier must render. */
 	get runUpdates(): readonly string[] {
 		return this.updates.filter((update) => !update.announced).map((update) => update.message);
+	}
+
+	// Resolves once the run reached its terminal funnel and its observer was told,
+	// so a waiter need not depend on the scheduler promise (a stopped queued run's
+	// slot may not free for a long time).
+	private readonly finishedGate = Promise.withResolvers<void>();
+	readonly finished: Promise<void> = this.finishedGate.promise;
+	/** Mark the run finished. Idempotent. */
+	markFinished(): void {
+		this.finishedGate.resolve();
 	}
 
 	// Result delivery — whether the parent has collected this run's outcome.

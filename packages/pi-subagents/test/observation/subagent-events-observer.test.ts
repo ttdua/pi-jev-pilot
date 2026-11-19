@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildEventData, type NotificationSystem } from "#src/observation/notification";
 import { SubagentEventsObserver } from "#src/observation/subagent-events-observer";
 import type { CompactionInfo } from "#src/types";
-import { createTestSubagent } from "#test/helpers/make-subagent";
+import { createTestSubagent, makeStubExecution } from "#test/helpers/make-subagent";
 
 function makeNotifications(): NotificationSystem {
 	return {
@@ -325,7 +325,85 @@ describe("SubagentEventsObserver", () => {
 		});
 	});
 
+	describe("onSubagentQuestion", () => {
+		it("emits subagents:asked with id, type, description, question", () => {
+			const { observer, emit } = makeObserver();
+			const record = createTestSubagent({ id: "agent-1", type: "general-purpose", description: "do work" });
+
+			observer.onSubagentQuestion(record, "Which config?");
+
+			expect(emit).toHaveBeenCalledExactlyOnceWith("subagents:asked", {
+				id: "agent-1",
+				type: "general-purpose",
+				description: "do work",
+				question: "Which config?",
+			});
+		});
+
+		it("adds toolCallId and metadata when the record has them", () => {
+			const { observer, emit } = makeObserver();
+			const metadata = { change: "c1" };
+			const record = createTestSubagent({
+				execution: makeStubExecution({ parentSession: { toolCallId: "call_5" }, metadata }),
+			});
+
+			observer.onSubagentQuestion(record, "Which config?");
+
+			expect(emit).toHaveBeenCalledExactlyOnceWith("subagents:asked", expect.objectContaining({
+				toolCallId: "call_5",
+				metadata: { change: "c1" },
+			}));
+		});
+
+		it("omits toolCallId and metadata when absent", () => {
+			const { observer, emit } = makeObserver();
+
+			observer.onSubagentQuestion(createTestSubagent(), "Which config?");
+
+			const data = emit.mock.calls[0]![1] as Record<string, unknown>;
+			expect(data).not.toHaveProperty("toolCallId");
+			expect(data).not.toHaveProperty("metadata");
+		});
+
+		it("persists nothing and announces nothing", () => {
+			const { observer, appendEntry, notifications } = makeObserver();
+
+			observer.onSubagentQuestion(createTestSubagent(), "Which config?");
+
+			expect(appendEntry).not.toHaveBeenCalled();
+			expect(notifications.sendCompletion).not.toHaveBeenCalled();
+			expect(notifications.sendUpdate).not.toHaveBeenCalled();
+			expect(notifications.sendWorkspaceNotice).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("onSubagentUpdate", () => {
+		it("adds toolCallId and metadata from the launch", () => {
+			const { observer, emit } = makeObserver();
+			const record = createTestSubagent({
+				execution: makeStubExecution({ parentSession: { toolCallId: "call_5" }, metadata: { change: "c1" } }),
+			});
+
+			observer.onSubagentUpdate(record, "Course change.");
+
+			expect(emit).toHaveBeenCalledExactlyOnceWith("subagents:update", expect.objectContaining({
+				toolCallId: "call_5",
+				metadata: { change: "c1" },
+			}));
+		});
+
+		it("omits toolCallId and metadata when absent, and still sends the update once", () => {
+			const { observer, emit, notifications } = makeObserver();
+			const record = createTestSubagent();
+
+			observer.onSubagentUpdate(record, "Course change.");
+
+			const data = emit.mock.calls[0]![1] as Record<string, unknown>;
+			expect(data).not.toHaveProperty("toolCallId");
+			expect(data).not.toHaveProperty("metadata");
+			expect(notifications.sendUpdate).toHaveBeenCalledExactlyOnceWith(record, "Course change.");
+		});
+
 		it("emits subagents:update carrying the child's message", () => {
 			const { observer, emit } = makeObserver();
 			const record = createTestSubagent({ id: "agent-1", type: "general-purpose", description: "do work" });

@@ -82,8 +82,22 @@ export class SubagentEventsObserver implements SubagentManagerObserver {
 		this.emit("subagents:update", {
 			...identityOf(record),
 			message,
+			...launchFields(record),
 		});
 		this.notifications.sendUpdate(record, message);
+	}
+
+	/**
+	 * A running child recorded a question for its parent. Announced only, like
+	 * an update: the question is the record's pending state, which the result
+	 * carriers render, so nothing is persisted here.
+	 */
+	onSubagentQuestion(record: Subagent, question: string): void {
+		this.emit("subagents:asked", {
+			...identityOf(record),
+			question,
+			...launchFields(record),
+		});
 	}
 
 	/**

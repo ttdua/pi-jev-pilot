@@ -1006,6 +1006,20 @@ describe("Subagent", () => {
 			expect(agent.pendingQuestion).toBe("Which config wins?");
 		});
 
+		it("tells the observer about a declared question after recording it", async () => {
+			const { factory, ask } = createFactory();
+			let seen: string | undefined;
+			const observer: SubagentLifecycleObserver = {
+				onQuestionAsked: (agent) => { seen = agent.pendingQuestion; },
+			};
+			const agent = createRunnableAgent({ createSubagentSession: factory, observer });
+			await agent.run();
+
+			ask("Which config?");
+
+			expect(seen).toBe("Which config?");
+		});
+
 		it("keeps only the last question when the child asks twice", async () => {
 			const { factory, ask } = createFactory();
 			const agent = createRunnableAgent({ createSubagentSession: factory });
@@ -1339,6 +1353,99 @@ describe("Subagent", () => {
 			expect([run.status, run.result, run.replaced, agent.status])
 				.toEqual(["completed", "first result", true, "running"]);
 			third.resolve(turnLoopResult({ responseText: "third" }));
+			await agent.promise;
+		});
+	});
+
+	describe("waitForRunEnd", () => {
+		const live = () => new AbortController().signal;
+
+		it("returns at once for a settled run", async () => {
+			const agent = makeSubagent({ status: "completed" });
+			const run = await agent.waitForRunEnd(live());
+			expect(run.status).toBe("completed");
+		});
+
+		it("resolves when the run completes", async () => {
+			const agent = createRunnableAgent();
+			const wait = agent.waitForRunEnd(live());
+			agent.start();
+			const run = await wait;
+			expect([run.status, run.isActive()]).toEqual(["completed", false]);
+		});
+
+		it("resolves when the run fails", async () => {
+			const { factory, stub } = createFactory();
+			stub.runTurnLoop.mockRejectedValue(new Error("boom"));
+			const agent = createRunnableAgent({ createSubagentSession: factory });
+			const wait = agent.waitForRunEnd(live());
+			agent.start();
+			const run = await wait;
+			expect([run.status, run.error]).toEqual(["error", "boom"]);
+		});
+
+		it("resolves when a queued run is stopped, without its slot opening", async () => {
+			const agent = makeSubagent({ status: "queued" });
+			agent.scheduleVia(() => new Promise<never>(() => {}));
+			const wait = agent.waitForRunEnd(live());
+			agent.stopQueued();
+			const run = await wait;
+			expect([run.status, run.stoppedWhileQueued]).toEqual(["stopped", true]);
+		});
+
+		it("resolves the stopped queued resume even when a terminal listener resumes again", async () => {
+			let resumes = 0;
+			const { agent } = createResumableAgent({
+				observer: {
+					onRunFinished: (a) => {
+						if (resumes++ === 0) void a.resume("again", { background: true }, gatedScheduler().schedule);
+					},
+				},
+			});
+			void agent.resume("continue", { background: true }, gatedScheduler().schedule);
+			const first = agent.waitForRunEnd(live());
+
+			agent.stopQueued();
+
+			const run = await first;
+			expect(run.status).toBe("stopped");
+			expect(agent.status).toBe("queued");
+			let second = false;
+			void agent.waitForRunEnd(live()).then(() => { second = true; });
+			await Promise.resolve();
+			await Promise.resolve();
+			expect(second).toBe(false);
+		});
+
+		it("returns early on signal abort with the run still active", async () => {
+			const agent = makeSubagent({ status: "queued" });
+			agent.scheduleVia(() => new Promise<never>(() => {}));
+			const controller = new AbortController();
+			const wait = agent.waitForRunEnd(controller.signal);
+			controller.abort();
+			expect((await wait).isActive()).toBe(true);
+			expect(agent.status).toBe("queued");
+		});
+
+		it("returns the run it began on after a resume replaced it", async () => {
+			const stub = createSubagentSessionStub();
+			const resumed = Promise.withResolvers<TurnLoopResult>();
+			stub.runTurnLoop
+				.mockResolvedValueOnce(turnLoopResult({ responseText: "first result" }))
+				.mockReturnValueOnce(resumed.promise);
+			const agent = makeSubagent({
+				status: "running",
+				execution: makeStubExecution({
+					createSubagentSession: async () => toSubagentSession(stub),
+					observer: { onRunFinished: (a, kind) => { if (kind === "initial") void a.resume("continue", { background: true }); } },
+				}),
+			});
+			agent.start();
+
+			const run = await agent.waitForRunEnd(live());
+
+			expect([run.status, run.result, run.replaced]).toEqual(["completed", "first result", true]);
+			resumed.resolve(turnLoopResult({ responseText: "second" }));
 			await agent.promise;
 		});
 	});

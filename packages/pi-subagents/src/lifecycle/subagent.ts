@@ -42,6 +42,8 @@ export interface SubagentLifecycleObserver {
 	onRunFinished?(agent: Subagent, kind: RunKind): void;
 	/** Fires when the running agent sends its parent a mid-run message. */
 	onUpdateSent?(agent: Subagent, message: string): void;
+	/** Fires when the running agent records a question for its parent. */
+	onQuestionAsked?(agent: Subagent, question: string): void;
 	/**
 	 * Fires when a teardown after the agent's result was delivered reported where
 	 * its work went. Not fired for a failed run or resume: those reach a terminal
@@ -515,7 +517,10 @@ export class Subagent {
 				tools: overrides?.tools,
 				// The session outlives this run, so a question goes to whichever run is
 				// under way when the child asks it.
-				askParent: (question) => { this.currentRun.setPendingQuestion(question); },
+				askParent: (question) => {
+					this.currentRun.setPendingQuestion(question);
+					this.execution.observer?.onQuestionAsked?.(this, question);
+				},
 				notifyParent: this.canSendUpdates(runConfig)
 					? (message) => { this.announceUpdate(message); }
 					: undefined,
@@ -666,6 +671,20 @@ export class Subagent {
 	}
 
 	/**
+	 * Wait until this agent's current run reaches its terminal funnel.
+	 *
+	 * Unlike waitUntilSettled, this does not follow the scheduler promise: a run
+	 * stopped while queued ends at once, though its slot may not free for a long
+	 * time. When `signal` fires the wait ends early and the run keeps going.
+	 * Returns the run the wait began on, still active when interrupted.
+	 */
+	async waitForRunEnd(signal: AbortSignal): Promise<RunOutcome> {
+		const run = this.currentRun;
+		if (run.isActive()) await settleOrAbort(run.finished, signal);
+		return run;
+	}
+
+	/**
 	 * Resume an existing session with a new prompt, managing the observer
 	 * subscription lifecycle internally (same wiring as run()).
 	 *
@@ -789,10 +808,13 @@ export class Subagent {
 	 * when the slot finally frees no-ops on its guard — one notification.
 	 */
 	stopQueued(): void {
-		this.currentRun.stopQueued();
+		// Captured first: a synchronous terminal listener may resume and replace currentRun.
+		const run = this.currentRun;
+		run.stopQueued();
 		// The queued run is the agent's initial run or a resume waiting for its slot,
 		// and it ends on that run's own path.
-		this.execution.observer?.onRunFinished?.(this, this.currentRun.kind);
+		this.execution.observer?.onRunFinished?.(this, run.kind);
+		run.markFinished();
 	}
 
 	/**
@@ -854,6 +876,7 @@ export class Subagent {
 		else run.markCompleted(finalResult);
 
 		this.execution.observer?.onRunFinished?.(this, run.kind);
+		run.markFinished();
 	}
 
 	/**
@@ -896,6 +919,7 @@ export class Subagent {
 		this.abort();
 		run.release();
 		this.execution.observer?.onRunFinished?.(this, run.kind);
+		run.markFinished();
 	}
 
 	/** Fail a run: mark error, release its handles, best-effort workspace dispose, notify observer. */
@@ -910,6 +934,7 @@ export class Subagent {
 		run.release();
 		this.disposeWorkspaceQuietly(run, "error");
 		this.execution.observer?.onRunFinished?.(this, run.kind);
+		run.markFinished();
 	}
 
 	/**
