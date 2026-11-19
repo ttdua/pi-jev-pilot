@@ -37,7 +37,7 @@ Metadata travels on the `Subagent` record next to `origin` and `parentSession`. 
   - Pinned in Task 1 (`refuses symbol keys`).
 - **`__proto__` as a key:** `{"__proto__": "x"}` parsed from JSON is an own key that fails the key pattern (leading `_`) and must be refused, not set as the prototype of the copy. Pinned in Task 1.
 - **Registry entry for a child whose bind throws:** `dispose()` runs, so the entry is removed. Pinned in Task 2 (`failed bind`).
-- **Two executor instances (main and child) in one process:** both must see one registry. Pinned in Task 1 (`shared across module instances`) and Task 2 (`Shared across executor instances`).
+- **Two executor instances (main and child) in one process:** both must see one registry. Pinned in Task 1 (`shares entries across module instances`) and Task 2 (`Shared across executor instances`).
 
 ---
 
@@ -113,7 +113,7 @@ Metadata travels on the `Subagent` record next to `origin` and `parentSession`. 
   - Enter then lookup returns `{ agentId, agentType, metadata }`. The entry and its `metadata` are frozen.
   - Without metadata, `metadata` is `{}` and frozen, and is the same object across entries.
   - Unknown id → `undefined`. After `leaveChildSession` → `undefined`.
-  - `shared across module instances`: after `vi.resetModules()`, a freshly imported `child-sessions` module sees an entry entered by the first import.
+  - `shares entries across module instances`: after `vi.resetModules()`, a freshly imported `child-sessions` module sees an entry entered by the first import.
 - [ ] **Step 6: Run, expect failure**, then implement `src/seams/child-sessions.ts`. The registry is a `Map` stored on `globalThis` under the Contracts key, created lazily. Run again and expect pass.
 - [ ] **Step 7: Commit** — `git add packages/pi-subagents/src/seams/launch-metadata.ts packages/pi-subagents/src/seams/child-sessions.ts packages/pi-subagents/src/service/service.ts packages/pi-subagents/test/seams/launch-metadata.test.ts packages/pi-subagents/test/seams/child-sessions.test.ts && git commit -m "feat(executor): add launch metadata validation and child-session registry seams"`
 
@@ -295,7 +295,7 @@ Tests are in `packages/pi-subagents/test/seams/` unless noted.
 - Removed after disposal → "Removed after disposal"
 - Failed bind → "Failed bind"
 - Failed grant check → "Failed grant check" (direct `createSubagentSession`, grant-check fixture)
-- Shared across executor instances → "Shared across executor instances"; `child-sessions.test.ts` › "shared across module instances"
+- Shared across executor instances → "Shared across executor instances"; `child-sessions.test.ts` › "shares entries across module instances"
 - Gone after the parent session shuts down → "Gone after the parent session shuts down"
 
 **executor-launch-policy / Launch request given to the policy**

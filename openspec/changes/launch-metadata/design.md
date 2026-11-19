@@ -40,7 +40,7 @@ Pi's event bus calls subscribers synchronously but does not await async handlers
 - Alternative: validate in the manager. Rejected: the manager also serves the tool door, which never carries metadata. The trust boundary is the service.
 
 **D3. Process-wide child registry (`src/seams/child-sessions.ts`).**
-- The registry is a `Map<string, ChildSessionEntry>` on `globalThis[Symbol.for("@ttdua/pi-subagents:child-sessions")]`, created on first use.
+- The registry is a state object `{ sessions: Map<string, ChildSessionEntry>, empty }` on `globalThis[Symbol.for("@ttdua/pi-subagents:child-sessions")]`, created on first use. `empty` is the frozen empty metadata shared by every module instance.
 - It is written by the lifecycle publisher, not by subscribers:
   - `createChildLifecyclePublisher` records the entry in `sessionCreated` before it emits;
   - it deletes the entry in `disposed` after it emits.
