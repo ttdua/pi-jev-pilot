@@ -451,12 +451,14 @@ describe("SubagentsService.wait", () => {
 				script: async (t) => {
 					await t.tool("ask_parent", { question: "Q" });
 					for (let i = 0; i < 5 && t.session.abort.mock.calls.length === 0; i++) {
-						t.session.emit({ type: "turn_start" });
-						t.session.emit({
-							type: "turn_end",
+						// As Pi's agent loop: the completed-turn hook runs, then `turn_end`.
+						const turn = {
 							message: { role: "assistant", stopReason: "toolUse" },
 							toolResults: [{ role: "toolResult" }],
-						});
+						};
+						t.session.emit({ type: "turn_start" });
+						await t.session.agent.finishTurn?.(turn);
+						t.session.emit({ type: "turn_end", ...turn });
 					}
 					t.say("partial");
 				},
