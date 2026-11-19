@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
+import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
 import { readLedger } from "../../src/store/ledger.ts";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { startHostSession, type HostSession } from "./harness";
@@ -475,29 +476,38 @@ describe("worker routing through the real CLI", () => {
   test(
     "Premium launch end to end",
     async () => {
-      const jev = await newJev(
-        jevAnswers({
-          tier: "frontier",
-          effort: "xhigh",
-          probs: { basic: 0, broad: 0, deep: 0.05, frontier: 0.95 },
-        }),
-      );
-      const { fixture, session } = await setup(script([subagentCall(launch())]));
-      writeJev(session.agentDir, {
-        config: config(jev, { deep: true, frontier: true }),
-        state: { version: 1, mode: "premium" },
+      const answers = jevAnswers({
+        tier: "frontier",
+        effort: "low",
+        probs: { basic: 0, broad: 0, deep: 0, frontier: 1 },
       });
-      await session.prompt("START-MAIN");
-      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
-      expect(childOf(fixture)?.model).toBe("fixture-expert");
-      expect(workerLines(session)[0]).toMatchObject({
+      const run = async (mode: string) => {
+        const jev = await newJev(answers);
+        const { fixture, session } = await setup(script([subagentCall(launch())]));
+        writeJev(session.agentDir, {
+          config: config(jev, { deep: true, frontier: true }),
+          state: { version: 1, mode },
+        });
+        await session.prompt("START-MAIN");
+        await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+        return { fixture, session, request: workerRequests(jev)[0]?.body };
+      };
+      const standard = await run("standard");
+      const premium = await run("premium");
+      expect(premium.request).toBeDefined();
+      expect(JSON.parse(premium.request ?? "{}")).toEqual(JSON.parse(standard.request ?? "{}"));
+      const child = childOf(premium.fixture);
+      expect(child?.model).toBe("fixture-expert");
+      expect(child?.reasoningEffort).toBe("low");
+      expect(workerLines(premium.session)[0]).toMatchObject({
         mode: "premium",
         reason: "frontier",
-        score: 2.95,
+        rubric: RUBRIC_VERSION,
+        score: 3,
         tier: "frontier",
       });
     },
-    TIMEOUT,
+    TIMEOUT * 2,
   );
 
   test(
