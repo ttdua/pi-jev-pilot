@@ -102,12 +102,12 @@ describe("reportCases characterization", () => {
       "premium/slots",
       "premium/tiers",
     ]);
-    // The rerun's other answers move its candidate, so later samples may differ too; sample order holds.
+    // Filler moves the rerun's candidate: samples 0 and 2 (`basic` in the report, `deep` in the rerun) route to `broad` in the rerun.
     const std = cases.filter((c) => c.key === "standard/tiers");
-    expect([std[0]!.base, std[0]!.text]).toEqual(["basic", "worker-0"]);
-    expect(std[0]!.value).not.toBe("basic");
-    const samples = std.map((c) => Number(c.text.slice("worker-".length)));
-    expect(samples).toEqual([...samples].sort((a, b) => a - b));
+    expect(std.map((c) => [c.base, c.value, c.text])).toEqual([
+      ["basic", "broad", "worker-0"],
+      ["basic", "broad", "worker-2"],
+    ]);
     expect(Object.keys(cases[0]!)).toEqual([
       "variant",
       "text",

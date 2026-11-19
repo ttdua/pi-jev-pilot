@@ -276,6 +276,11 @@ describe("seed candidates", () => {
     expect(agg.seedCandidates.report.standard).toEqual(expected(scoresOf(120, skip), "standard"));
     // The other variant keeps all 120 answers.
     expect(agg.seedCandidates.rerun.standard).toEqual(expected(scoresOf(120), "standard"));
+    // Literals that differ between 115 and 120 scores (counts 29/28/30/28 vs 30 each).
+    expect(agg.seedCandidates.report.budget.basicMax).toBe(2);
+    expect(agg.seedCandidates.rerun.budget.basicMax).toBe(1);
+    expect(agg.seedCandidates.report.premium.broadMax).toBe(2);
+    expect(agg.seedCandidates.rerun.premium.broadMax).toBe(1);
   });
 
   test("no main tier key", () => {
