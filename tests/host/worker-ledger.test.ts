@@ -3,6 +3,7 @@ import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import {
   body,
+  bodyWith,
   effort,
   harness,
   ok,
@@ -195,10 +196,13 @@ describe("Outcome joined from the executor", () => {
   });
 });
 
+// Score 1.3, between the shipped standard seed's basicMax and broadMax: rule `cut` decides `broad`.
+const BROAD_1_3 = { basic: 0, broad: 0.7, deep: 0.3 };
+
 describe("Decision fields", () => {
   test("Routed fields", async () => {
     const h = harness();
-    h.setScript(() => ok(body("broad", "high")));
+    h.setScript(() => ok(bodyWith("broad", BROAD_1_3, "high")));
     await foreground(h, {
       requested: { model: "fixture/fixture-main" },
       agent: { name: "general-purpose" },
@@ -215,7 +219,7 @@ describe("Decision fields", () => {
       briefChars: 10,
       tier: "broad",
       reason: "cut",
-      score: 1,
+      score: 1.3,
       rubric: RUBRIC_VERSION,
       frontierOffered: false,
       model: "fx/balanced",
@@ -277,7 +281,7 @@ describe("Decision fields", () => {
 
   test("Nothing could run recorded", async () => {
     const h = harness({ reg: {} });
-    h.setScript(() => ok(body("broad", "high")));
+    h.setScript(() => ok(bodyWith("broad", BROAD_1_3, "high")));
     await foreground(h);
     expect(h.lines[0]).toMatchObject({ tier: "broad", reason: "cut", fallback: "broad" });
     expect(h.lines[0]).not.toHaveProperty("model");

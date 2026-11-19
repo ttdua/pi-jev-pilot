@@ -1,13 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cutPoints, cutPointsFor, type WindowEntry } from "../../../src/policy/worker/cutpoints.ts";
+import {
+  type CutPoints,
+  cutPoints,
+  cutPointsFor,
+  type WindowEntry,
+} from "../../../src/policy/worker/cutpoints.ts";
 import { WINDOW_MIN } from "../../../src/policy/worker/cut-window.ts";
 import { MODE_NAMES, MODE_TARGETS } from "../../../src/policy/worker/modes.ts";
 import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
 import { REPO_ROOT } from "../../helpers";
 
-const FIXTURE = join(REPO_ROOT, "tests/fixtures/seed/provisional-scores.json");
+const EVIDENCE_NOTE = "docs/evidence/2026-11-20-knowledge-tier-mix.md";
 
 function entry(score: number): WindowEntry {
   return { score, decided: "broad" };
@@ -106,17 +111,38 @@ describe("cutPointsFor", () => {
     expect(SEED_CUTPOINTS.premium.basicMax).toBe(-Infinity);
     expect(SEED_CUTPOINTS.budget.frontierMin).toBe(Infinity);
   });
-
-  test("seed is recomputed from the provisional fixture", () => {
-    const scores = JSON.parse(readFileSync(FIXTURE, "utf8")) as number[];
-    const window = scores.map(entry);
-    for (const mode of MODE_NAMES) {
-      expect(SEED_CUTPOINTS[mode]).toEqual(cutPoints(window, MODE_TARGETS[mode]));
-    }
-  });
 });
 
+function parseCut(cell: string): number {
+  if (cell === "−∞") return -Infinity;
+  if (cell === "+∞") return Infinity;
+  return Number(cell);
+}
+
+// Rows of the note's "Seed cut points" table: | `mode` | basicMax | broadMax | frontierMin |
+function publishedSeed(text: string): Record<string, CutPoints> {
+  const section = text.split("## Seed cut points")[1]?.split("\n## ")[0] ?? "";
+  const rows: Record<string, CutPoints> = {};
+  for (const line of section.split("\n")) {
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((c) => c.trim());
+    const mode = /^`(\w+)`$/.exec(cells[0] ?? "")?.[1];
+    if (mode === undefined || cells.length !== 4) continue;
+    rows[mode] = {
+      basicMax: parseCut(cells[1] ?? ""),
+      broadMax: parseCut(cells[2] ?? ""),
+      frontierMin: parseCut(cells[3] ?? ""),
+    };
+  }
+  return rows;
+}
+
 describe("seed evidence", () => {
-  // Task 7 publishes the evidence note and the final seed; until then the seed is provisional.
-  test.todo("seed matches the evidence note");
+  test("Seed matches the evidence note", () => {
+    const published = publishedSeed(readFileSync(join(REPO_ROOT, EVIDENCE_NOTE), "utf8"));
+    expect(Object.keys(published)).toEqual([...MODE_NAMES]);
+    expect(published).toEqual({ ...SEED_CUTPOINTS });
+  });
 });

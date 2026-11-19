@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import type { Answer } from "../../../src/policy/answers.ts";
 import type { ModelThinking } from "../../../src/policy/effort.ts";
 import { type EffectiveLaunch, type Target, type TierName } from "../../../src/policy/launch.ts";
-import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
 import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 import {
   launchKind,
@@ -45,6 +44,9 @@ function read(o: { tier?: [string, number]; effort?: string; risky?: number }): 
   return { kind: "read", answers, unanswered: {} };
 }
 
+// Fixed cuts, independent of the shipped seed: score 0 → basic, 1 → broad, 2 → deep, 3 → frontier.
+const CUTS = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 };
+
 type Spy = { models: Target[]; thinkings: Target[]; runs: Target[] };
 
 function build(
@@ -57,7 +59,7 @@ function build(
     answers: read({}),
     launch: launch(),
     offered: ALL,
-    cuts: SEED_CUTPOINTS.standard,
+    cuts: CUTS,
     forkLaunch: "untouched",
     canRun: (t) => {
       spy.runs.push(t);

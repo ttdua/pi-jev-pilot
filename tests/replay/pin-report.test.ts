@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Result } from "../../scripts/replay/compare.ts";
 import { reportCases } from "../../scripts/replay/report-compare.ts";
-import { SEED_CUTPOINTS } from "../../src/policy/worker/seed.ts";
 import { routeStreamRecords } from "../../scripts/replay/report-route.ts";
 import {
   workerQuestions,
@@ -176,8 +175,14 @@ const spread = (i: number) => {
 };
 const stream = (n: number) =>
   Array.from({ length: n }, (_, i) => (i % 17 === 5 ? undefined : spread(i * 7)));
+// The seed is an input of the routing under test; fixed here so the digests do not track the shipped seed.
+const SEEDS = {
+  budget: { basicMax: 1.2, broadMax: 2.2, frontierMin: Infinity },
+  standard: { basicMax: 0.2, broadMax: 1.2, frontierMin: 3 },
+  premium: { basicMax: -Infinity, broadMax: 1.2, frontierMin: 2.9 },
+};
 const opts = (n: number, over: { mode?: "budget" | "premium" } = {}) => ({
-  seed: SEED_CUTPOINTS[over.mode ?? "standard"],
+  seed: SEEDS[over.mode ?? "standard"],
   config,
   mode: "standard" as const,
   routing: "tiers" as const,

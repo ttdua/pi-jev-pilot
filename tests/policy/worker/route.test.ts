@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Answer } from "../../../src/policy/answers.ts";
-import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
 import type { ModelThinking } from "../../../src/policy/effort.ts";
 import {
   TIER_LADDER,
@@ -25,6 +24,9 @@ const _ok: (r: RouteReason) => WorkerReason = (r) => r;
 void _ok;
 
 const NO_EXPERT: readonly TierName[] = ["basic", "broad", "deep"];
+
+// Fixed cuts, independent of the shipped seed: score 0 → basic, 1 → broad, 2 → deep, 3 → frontier.
+const CUTS = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 };
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
@@ -89,7 +91,7 @@ function input(overrides: Partial<RouteInput> = {}): RouteInput {
     answers: read({}),
     launch: launch(),
     offered: NO_EXPERT,
-    cuts: SEED_CUTPOINTS.standard,
+    cuts: CUTS,
     forkLaunch: "untouched",
     canRun: () => true,
     thinkingOf: (): ModelThinking => ({ reasoning: true }),
