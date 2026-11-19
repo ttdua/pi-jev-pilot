@@ -215,7 +215,6 @@ function checkNode(
 ): void {
 	if (schema.type !== undefined && !matchesType(schema.type, value)) {
 		out.push({ path, message: `must be of type ${schema.type}` });
-		return;
 	}
 	if (schema.enum !== undefined && !schema.enum.includes(value as never)) {
 		const allowed = schema.enum

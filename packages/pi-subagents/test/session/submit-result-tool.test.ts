@@ -92,6 +92,21 @@ describe("SubmitResultTool", () => {
 			expect(sink.submit).not.toHaveBeenCalled();
 		});
 
+		it("lists every violation of one node in the error text", () => {
+			const sink = stubSink();
+
+			const result = call(
+				{ type: "integer", enum: [1] } as ResultSchema,
+				sink,
+				"bad",
+			);
+
+			expect(result.isError).toBe(true);
+			expect(textOf(result)).toContain("integer");
+			expect(textOf(result)).toContain("one of");
+			expect(sink.submit).not.toHaveBeenCalled();
+		});
+
 		it("stores a valid value and terminates the batch", () => {
 			const sink = stubSink();
 

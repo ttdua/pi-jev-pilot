@@ -247,6 +247,21 @@ describe("validateResult", () => {
 		expect(violations[0]?.path).toBe("result.note");
 	});
 
+	it("lists every violation of one node, not only the type", () => {
+		const violations = validateResult(
+			{
+				type: "object",
+				properties: { n: { type: "integer", enum: [1] } },
+				required: ["n"],
+			},
+			{ n: "bad" },
+		);
+
+		expect(violations.map((v) => v.path)).toEqual(["result.n", "result.n"]);
+		expect(violations[0]?.message).toContain("integer");
+		expect(violations[1]?.message).toContain("one of");
+	});
+
 	it("accepts a whole float for integer and rejects 1.5", () => {
 		expect(validateResult({ type: "integer" }, 3)).toEqual([]);
 		expect(validateResult({ type: "integer" }, 1.5)).toHaveLength(1);
