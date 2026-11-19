@@ -21,7 +21,12 @@ function isMain(ctx: ExtensionContext): boolean {
   return service()?.sessionId === ctx.sessionManager.getSessionId();
 }
 
-type Snapshot = { status?: string; pendingQuestion?: string; resumeRefusal?: unknown; result?: string };
+type Snapshot = {
+  status?: string;
+  pendingQuestion?: string;
+  resumeRefusal?: unknown;
+  result?: string;
+};
 const facts = (r: Snapshot | undefined) => ({
   status: r?.status ?? "none",
   hasQuestion: r?.pendingQuestion !== undefined,
@@ -41,7 +46,9 @@ export default function (pi: ExtensionAPI): void {
   pi.events.on("subagents:completed", (payload) => {
     const id = (payload as { id?: string }).id;
     if (id === undefined) return;
-    report("snapshot", { data: { id, ...facts(service()?.getRecord(id) as Snapshot | undefined) } });
+    report("snapshot", {
+      data: { id, ...facts(service()?.getRecord(id) as Snapshot | undefined) },
+    });
   });
 
   pi.on("message_end", async (event, ctx) => {

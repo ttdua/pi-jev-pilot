@@ -23,11 +23,17 @@ const AGENTS = {
 type Msg = { role?: string };
 const messages = (r: RecordedRequest): Msg[] =>
   Array.isArray(r.body.messages) ? (r.body.messages as Msg[]) : [];
-const toolCount = (r: RecordedRequest): number => messages(r).filter((m) => m.role === "tool").length;
+const toolCount = (r: RecordedRequest): number =>
+  messages(r).filter((m) => m.role === "tool").length;
 const isChild = (r: RecordedRequest): boolean => JSON.stringify(messages(r)).includes("CHILD-TASK");
-const hasAnswer = (r: RecordedRequest): boolean => JSON.stringify(messages(r)).includes("ANSWER-TEXT");
+const hasAnswer = (r: RecordedRequest): boolean =>
+  JSON.stringify(messages(r)).includes("ANSWER-TEXT");
 
-const reply = (name: string, match: (r: RecordedRequest) => boolean, text: string): ScriptEntry => ({
+const reply = (
+  name: string,
+  match: (r: RecordedRequest) => boolean,
+  text: string,
+): ScriptEntry => ({
   name,
   match,
   reply: { text },
@@ -51,7 +57,8 @@ const SCRIPT: ScriptEntry[] = [
 
 const probe = (s: HostSession, event: string) =>
   s.probeRecords().filter((r) => r.probe === "escalation" && r.event === event);
-const events = (s: HostSession, ch: string) => probe(s, "event").filter((r) => r.data?.["ch"] === ch);
+const events = (s: HostSession, ch: string) =>
+  probe(s, "event").filter((r) => r.data?.["ch"] === ch);
 const mainMessages = (s: HostSession, customType: string) =>
   probe(s, "main:message").filter((r) => r.data?.["customType"] === customType);
 
