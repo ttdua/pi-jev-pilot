@@ -32,10 +32,10 @@ Blocked by: 2
 
 Blocked by: 2, 3
 
-- [ ] 4.1 `mainQuestions({ applyEffort, askStrategy, skills })`; delete `MAIN_TIER_CRITERIA`/`MAIN_TIER_QUESTION` (`src/jev/{questions,rubrics}.ts`, `src/host/main/gate.ts`)
-- [ ] 4.2 `adviseStrategy` reads the raw effort choice (`src/policy/main/strategy.ts`)
-- [ ] 4.3 `OutcomeFlags.applyEffort`: effort plan, status `no answer`, ledger effort fields only when effort-eligible (`src/policy/main/outcome.ts`)
-- [ ] 4.4 Host checks: held + strategy, compaction with strategy on, gate-only on a non-reasoning model, status suffix
+- [x] 4.1 `mainQuestions({ applyEffort, askStrategy, skills })`; delete `MAIN_TIER_CRITERIA`/`MAIN_TIER_QUESTION` (`src/jev/{questions,rubrics}.ts`, `src/host/main/gate.ts`)
+- [x] 4.2 `adviseStrategy` reads the raw effort choice (`src/policy/main/strategy.ts`)
+- [x] 4.3 `OutcomeFlags.applyEffort`: effort plan, status `no answer`, ledger effort fields only when effort-eligible (`src/policy/main/outcome.ts`)
+- [x] 4.4 Host checks: held + strategy, compaction with strategy on, gate-only on a non-reasoning model, status suffix
 
 ## 5. Commands, slots and status report
 
