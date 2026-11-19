@@ -113,14 +113,14 @@ describe("createSubagentSession — assembly", () => {
     const sessionSettings = { marker: "session" };
     const loaderSettings = { marker: "loader" };
     io.createSettingsManager.mockReturnValue(sessionSettings);
-    io.createLoaderSettingsManager.mockReturnValue(loaderSettings);
+    io.createLoaderSettingsManager.mockReturnValue({ settingsManager: loaderSettings, excludedExtensionPackages: [] });
 
     await createSubagentSession(
       { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
       createSubagentSessionDeps({ io, exec, registry: mockAgentLookup }),
     );
 
-    expect(io.createLoaderSettingsManager).toHaveBeenCalledWith(sessionSettings);
+    expect(io.createLoaderSettingsManager).toHaveBeenCalledWith(sessionSettings, []);
     expect(io.createResourceLoader).toHaveBeenCalledWith(
       expect.objectContaining({ settingsManager: loaderSettings }),
     );

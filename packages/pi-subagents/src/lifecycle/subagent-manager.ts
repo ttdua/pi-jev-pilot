@@ -9,6 +9,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Model } from "@earendil-works/pi-ai";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { FALLBACK_AGENT, MissingFallbackAgentError } from "#src/config/agent-types";
 import { type BackgroundRequest, resolveBackgroundMode } from "#src/config/invocation-config";
 import { debugLog } from "#src/debug";
@@ -29,6 +30,12 @@ import type { WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { RunConfig } from "#src/runtime";
 import { type LaunchContext, LaunchPolicyGate } from "#src/seams/launch-gate";
 import { LaunchPolicySlot } from "#src/seams/launch-policy";
+import {
+  assertFreshOnly,
+  defaultLaunchResourcesIO,
+  type LaunchResources,
+  type LaunchResourcesIO,
+} from "#src/seams/launch-resources";
 import type { LaunchMetadata, LaunchOrigin, LaunchPolicy } from "#src/service/service";
 import type { AgentConfig, CompactionInfo, ContextMode, ParentSessionInfo, SubagentType, ThinkingLevel } from "#src/types";
 
@@ -222,6 +229,8 @@ export interface AgentSpawnConfig {
   origin: LaunchOrigin;
   /** The service launch's validated, frozen metadata; absent for a tool launch. */
   metadata?: LaunchMetadata;
+  /** The service launch's validated, frozen resources; absent for a tool launch. */
+  resources?: LaunchResources;
 }
 
 /** The message an explicit fork fails with when the parent has nothing to copy. */
@@ -257,6 +266,7 @@ export class SubagentManager {
   private _workspaceProvider?: WorkspaceProvider;
   private readonly launchPolicy = new LaunchPolicySlot();
   private readonly launchGate: LaunchPolicyGate;
+  private readonly launchResourcesIO: LaunchResourcesIO = defaultLaunchResourcesIO(getAgentDir());
 
   /** The registered workspace provider, or undefined when none is registered. */
   get workspaceProvider(): WorkspaceProvider | undefined {
@@ -405,6 +415,12 @@ export class SubagentManager {
   ): string {
     const { type, isBackground } = resolved;
     const launch = resolveLaunchContext(snapshot, options.context, options.contextSource);
+    assertFreshOnly({
+      resources: options.resources,
+      agentName: type,
+      pinned: this.registry.resolveAgentConfig(type).inheritSkills === false,
+      context: launch.context,
+    });
     const id = randomUUID().slice(0, 17);
     const record = new Subagent({
       id,
@@ -426,6 +442,8 @@ export class SubagentManager {
         signal: options.signal,
         origin: options.origin,
         metadata: options.metadata,
+        resources: options.resources,
+        launchResourcesIO: this.launchResourcesIO,
         context: launch.context,
         contextSource: options.contextSource,
         contextFallback: launch.contextFallback,

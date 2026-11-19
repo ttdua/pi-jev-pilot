@@ -35,7 +35,10 @@ export function createSubagentSessionIO() {
 	return {
 		detectEnv: vi.fn().mockResolvedValue({ isGitRepo: false, branch: "", platform: "linux" }),
 		getAgentDir: vi.fn().mockReturnValue("/mock/agent-dir"),
-		createResourceLoader: vi.fn().mockReturnValue({ reload: vi.fn().mockResolvedValue(undefined) }),
+		createResourceLoader: vi.fn().mockReturnValue({
+			reload: vi.fn().mockResolvedValue(undefined),
+			getSkills: vi.fn(() => ({ skills: [], diagnostics: [] })),
+		}),
 		deriveSessionDir: vi.fn().mockReturnValue("/mock/session-dir/tasks"),
 		createSessionManager: vi.fn().mockReturnValue({
 			newSession: vi.fn(),
@@ -50,7 +53,12 @@ export function createSubagentSessionIO() {
 		}),
 		createSettingsManager: vi.fn().mockReturnValue({}),
 		// Identity by default: no package exclusions, so children inherit everything.
-		createLoaderSettingsManager: vi.fn().mockImplementation((parent: unknown) => parent),
+		createLoaderSettingsManager: vi
+			.fn()
+			.mockImplementation((parent: unknown, extra: readonly string[] = []) => ({
+				settingsManager: parent,
+				excludedExtensionPackages: [...extra],
+			})),
 		createSession: vi.fn(),
 		assemblerIO: {
 			buildAgentPrompt: vi.fn<AssemblerIO["buildAgentPrompt"]>(() => "system prompt"),

@@ -13,6 +13,7 @@
  */
 
 import type { Model } from "@earendil-works/pi-ai";
+import { realpathSync } from "node:fs";
 import {
   type AgentSession,
   type InlineExtension,
@@ -31,6 +32,15 @@ import { enforceForkGrants, enforceGrants, isModelCallable } from "#src/seams/gr
 import { applyLocks, type LaunchValues } from "#src/seams/locked-launch";
 import { type EffectiveFacts, effectiveFacts, launchIdentity, type ToolFacts } from "#src/seams/identity";
 import type { LaunchMetadata } from "#src/service/service";
+import { type EffectiveSkills, effectiveSkillChoice, type LaunchResources } from "#src/seams/launch-resources";
+import {
+  assertNoCatalogCollision,
+  type ResourceFacts,
+  resourceFacts,
+  type SkillDiagnostic,
+  type SkillsOverride,
+  skillLoaderOptions,
+} from "#src/session/launch-skills";
 import { blockedToolCount, finalToolNames } from "#src/seams/registry";
 import { SubagentSession } from "#src/lifecycle/subagent-session";
 import { resolveTurnLimits, type TurnLimitRequest } from "#src/lifecycle/turn-limits";
@@ -65,6 +75,11 @@ const EXCLUDED_TOOL_NAMES = [...ORCHESTRATION_TOOLS];
 /** Minimal resource-loader contract used by the factory. */
 export interface ResourceLoaderLike {
   reload(): Promise<void>;
+  /** The skills the loader loaded, and its diagnostics. */
+  getSkills(): {
+    skills: readonly { name: string; filePath: string }[];
+    diagnostics: readonly SkillDiagnostic[];
+  };
   /** The extensions the loader loaded; read by a fork to see which tools it can build. */
   getExtensions?(): { extensions: readonly { tools: ReadonlyMap<string, unknown> }[] };
 }
@@ -90,6 +105,17 @@ export interface ResourceLoaderOptions {
   appendSystemPromptOverride?: (base: string[]) => string[];
   /** Extensions supplied as code; `builtin` entries are Pi's built-ins, resolved as `builtin:<name>`. */
   extensionFactories?: InlineExtension[];
+  /** Skill loading: `noSkills` leaves only `additionalSkillPaths`; the override filters the final set. */
+  noSkills?: boolean;
+  additionalSkillPaths?: string[];
+  skillsOverride?: SkillsOverride;
+}
+
+/** The loader settings view and the package exclusions it applies. */
+export interface LoaderSettings {
+  settingsManager: SettingsManager;
+  /** The setting's exclusions then the launch's, including entries that match no package. */
+  excludedExtensionPackages: readonly string[];
 }
 
 /** Options passed to SessionFactoryIO.createSession. */
@@ -153,7 +179,7 @@ export interface SessionFactoryIO {
    * The composition root decides whether any package extensions are excluded;
    * the identity function reproduces the child's default full inheritance.
    */
-  createLoaderSettingsManager: (parent: SettingsManager) => SettingsManager;
+  createLoaderSettingsManager: (parent: SettingsManager, extraExcluded: readonly string[]) => LoaderSettings;
   createSession: (opts: CreateSessionOptions) => Promise<{ session: AgentSession }>;
   assemblerIO: AssemblerIO;
 }
@@ -199,6 +225,8 @@ export interface CreateSubagentSessionParams {
   parentSession?: ParentSessionInfo;
   /** The launch's frozen metadata; carried on the child events. */
   metadata?: LaunchMetadata;
+  /** The launch's frozen resources; a fresh launch only. */
+  resources?: LaunchResources;
   model?: Model<any>;
   thinkingLevel?: ThinkingLevel;
   /**
@@ -275,8 +303,18 @@ function reportToolFacts(
 
 /** What one context contributes to the child session; built before the SDK objects. */
 interface ContextSetup {
-  /** Extra extension factories and loader prompt options. */
-  loader: Pick<ResourceLoaderOptions, "noContextFiles" | "appendSystemPromptOverride" | "extensionFactories">;
+  /** Extra extension factories and loader prompt and skill options. */
+  loader: Pick<
+    ResourceLoaderOptions,
+    | "noContextFiles"
+    | "appendSystemPromptOverride"
+    | "extensionFactories"
+    | "noSkills"
+    | "additionalSkillPaths"
+    | "skillsOverride"
+  >;
+  /** The skill choice this launch ends up with; undefined leaves the loader untouched. */
+  skillChoice?: EffectiveSkills;
   /** The tools the session declares. */
   tools: string[];
   /** The custom tool definitions among them, read once the loader has loaded. */
@@ -318,15 +356,18 @@ function freshSetup(input: SetupInput): ContextSetup {
   );
   const grants = input.grants.filter((name) => toolNames.includes(name));
   const agentBody = deps.registry.resolveAgentConfig(params.type).systemPrompt;
+  const choice = effectiveSkillChoice(params.resources, deps.registry.resolveAgentConfig(params.type).inheritSkills === false);
   return {
     loader: {
-      noContextFiles: false,
+      noContextFiles: params.resources?.contextFiles === false,
       appendSystemPromptOverride: (base) => base,
       extensionFactories: [
         ...builtinExtensionsFor(toolNames),
         freshPromptExtension(composeAgentSection(cfg.systemPrompt, agentBody)),
       ],
+      ...skillLoaderOptions(choice, { realPath: realpathSync }),
     },
+    skillChoice: choice,
     tools: toolNames,
     // The SDK drops a custom tool missing from `tools`; keep the two consistent.
     customTools: () => protocolTools.filter((tool) => toolNames.includes(tool.name)),
@@ -518,7 +559,10 @@ export async function createSubagentSession(
 
   const agentDir = deps.io.getAgentDir();
   const sessionSettings = deps.io.createSettingsManager(cfg.effectiveCwd, agentDir);
-  const loaderSettings = deps.io.createLoaderSettingsManager(sessionSettings);
+  const { settingsManager: loaderSettings, excludedExtensionPackages } = deps.io.createLoaderSettingsManager(
+    sessionSettings,
+    params.resources?.excludeExtensionPackages ?? [],
+  );
 
   // Children inherit the parent's skills and every extension the composition
   // root did not exclude (#696), plus the Pi built-ins their tools call for —
@@ -532,6 +576,16 @@ export async function createSubagentSession(
     ...setup.loader,
   });
   await loader.reload();
+  const { skills, diagnostics } = loader.getSkills();
+  assertNoCatalogCollision(setup.skillChoice, diagnostics, { realPath: realpathSync });
+  const facts = resourceFacts({
+    cwd: cfg.effectiveCwd,
+    reported: params.resources !== undefined || deps.registry.resolveAgentConfig(type).inheritSkills === false,
+    choice: setup.skillChoice,
+    skills,
+    excluded: excludedExtensionPackages,
+    contextFiles: params.resources?.contextFiles !== false,
+  });
 
   // Create a persisted SessionManager so transcripts are written in Pi's
   // official JSONL format. Falls back to a temp directory when the parent
@@ -539,7 +593,7 @@ export async function createSubagentSession(
   const sessionDir = deps.io.deriveSessionDir(params.parentSession?.parentSessionFile, cfg.effectiveCwd);
   const sessionManager = setup.createSessionManager(cfg.effectiveCwd, sessionDir);
   try {
-    return await startSession({ params, deps, cfg, setup, loader, sessionManager, sessionDir, sessionSettings, agentDir, parentToolNames, identity });
+    return await startSession({ params, deps, cfg, setup, loader, sessionManager, sessionDir, sessionSettings, agentDir, parentToolNames, identity, resourceFacts: facts });
   } catch (err) {
     // A fork's file already holds the parent's whole history and no record
     // links it yet; a launch that fails leaves nothing behind.
@@ -570,11 +624,13 @@ interface StartInput {
   agentDir: string;
   parentToolNames: readonly string[];
   identity: ReturnType<typeof launchIdentity>;
+  resourceFacts: ResourceFacts;
 }
 
 /** Create the SDK session on the prepared manager, bind it and publish its lifecycle. */
 async function startSession(input: StartInput): Promise<SubagentSession> {
   const { params, deps, cfg, setup, loader, sessionManager, sessionDir, sessionSettings, agentDir, parentToolNames, identity } = input;
+  const reported = input.resourceFacts;
   const { snapshot, type } = params;
   const context = params.context ?? "fresh";
   const parentSessionId = params.parentSession?.parentSessionId;
@@ -612,7 +668,7 @@ async function startSession(input: StartInput): Promise<SubagentSession> {
   // subscriber completes before this returns.
   const facts = Object.freeze(effectiveFacts(session));
   params.onEffectiveFacts?.(facts);
-  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, context, ...identity, ...facts });
+  deps.lifecycle.sessionCreated({ sessionId, parentSessionId, context, ...identity, ...facts, ...reported });
 
   try {
     // Bind extensions so that session_start fires and extensions can initialize.

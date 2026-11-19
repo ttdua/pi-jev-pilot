@@ -46,7 +46,7 @@ import { ServicePublication } from "#src/seams/service-identity";
 import { detectEnv } from "#src/session/env";
 import { createForkSessionManager } from "#src/session/fork-session-manager";
 import { resolveModel } from "#src/session/model-resolver";
-import { createExcludedPackagesStorage } from "#src/session/package-exclusions";
+import { createExcludedPackagesStorage, excludedPackageUnion, noteUnknownPackages } from "#src/session/package-exclusions";
 import { buildAgentPrompt } from "#src/session/prompts";
 import { inheritRegisteredProviders } from "#src/session/provider-inheritance";
 import { deriveSubagentSessionDir } from "#src/session/session-dir";
@@ -134,12 +134,17 @@ export default function (pi: ExtensionAPI) {
       createSettingsManager: (cwd, dir) => SdkSettingsManager.create(cwd, dir),
       // The exclusion policy is resolved here, at the composition root, so the
       // assembly factory stays free of it and gets a ready-made settings view.
-      createLoaderSettingsManager: (parent) => {
-        const excluded = new Set(settings.excludedExtensionPackages);
-        if (excluded.size === 0) return parent;
-        return SdkSettingsManager.fromStorage(createExcludedPackagesStorage(parent, excluded), {
-          projectTrusted: parent.isProjectTrusted(),
-        });
+      createLoaderSettingsManager: (parent, extra) => {
+        const excludedExtensionPackages = excludedPackageUnion(settings.excludedExtensionPackages, extra);
+        noteUnknownPackages(parent, extra);
+        if (excludedExtensionPackages.length === 0) return { settingsManager: parent, excludedExtensionPackages };
+        return {
+          settingsManager: SdkSettingsManager.fromStorage(
+            createExcludedPackagesStorage(parent, new Set(excludedExtensionPackages)),
+            { projectTrusted: parent.isProjectTrusted() },
+          ),
+          excludedExtensionPackages,
+        };
       },
       // The factory states its collaborators as narrow structural contracts so
       // it can be tested with plain stubs. Here at the composition root the
