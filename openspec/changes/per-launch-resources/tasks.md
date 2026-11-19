@@ -10,14 +10,14 @@ Blocked by: none
 
 Blocked by: none
 
-- [ ] 2.1 Add the public types to `src/service/service.ts`: `LaunchSkills` and the `SpawnOptions` fields `skills`, `excludeExtensionPackages`, `cwd` and `contextFiles`
-- [ ] 2.2 Add `src/seams/launch-resources.ts`:
+- [x] 2.1 Add the public types to `src/service/service.ts`: `LaunchSkills` and the `SpawnOptions` fields `skills`, `excludeExtensionPackages`, `cwd` and `contextFiles`
+- [x] 2.2 Add `src/seams/launch-resources.ts`:
   - `parseLaunchResources(options, io)`, with D2 rules 1–4 in order: shape, absolute, cwd directory, then skill load through Pi's `loadSkills`, including the explicit-path collision refusal. It returns a frozen `LaunchResources` (`skills` as given, deduplicated `paths`, resolved `skillFiles`, `excludeExtensionPackages`, `cwd`, `contextFiles`), or `undefined` when no field is given.
   - `effectiveSkillChoice(resources, pinned)` (D3).
   - `assertFreshOnly({ resources, agentName, pinned, context })`: D2 rule 5.
   - `recheckLaunchResources(resources, io)`: checks that `cwd` is still a directory and reloads `skillFiles` (exist, no warning). On failure it throws `Launch resources no longer valid: <path>`.
   - The file-system and `loadSkills` access goes through a small IO object, so the tests stub it.
-- [ ] 2.3 Add `test/seams/launch-resources.test.ts`, covering the "Launch resource validation", "Launch resources are immutable", "Effective skill choice", "Skill name collisions refused" (explicit paths) and "Run-start re-check" scenarios of `specs/launch-resources`, plus the `assertFreshOnly` matrix. Use real temp dirs and real `SKILL.md` files for the load and re-check rules.
+- [x] 2.3 Add `test/seams/launch-resources.test.ts`, covering the "Launch resource validation", "Launch resources are immutable", "Effective skill choice", "Skill name collisions refused" (explicit paths) and "Run-start re-check" scenarios of `specs/launch-resources`, plus the `assertFreshOnly` matrix. Use real temp dirs and real `SKILL.md` files for the load and re-check rules.
 
 ## 3. Carry resources to the child
 
