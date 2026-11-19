@@ -197,7 +197,7 @@ Added during verify iteration 1 (user-approved scope addition): a real provider 
 - Test: `packages/pi-subagents/test/lifecycle/structured-result-loop.test.ts`, `test/lifecycle/subagent-session.test.ts`
 
 - [ ] **Step 1:** Real-SDK loopback tests (RED): `maxTurns: 2`, script `[[READ],[READ],[READ],"late"]`, schema launch → `status` `aborted`, `turnBudget.phase` `exhausted`, `structuredResultError` `"missing"`; same with no schema → `aborted`; a scripted provider error on turn 1 (HTTP 500 / error finish) → `error`.
-- [ ] **Step 2:** Fix: the turn loop records that the budget tracker issued `stop`; when the run ends after that stop, a last-turn failure caused by the abort is not rethrown by `failIfProviderErrored`. Unit test in `subagent-session.test.ts` for both branches.
+- [ ] **Step 2:** Fix (revised after review: error-suppression heuristics cannot tell an abort-caused error from an independent provider failure): stop the turn budget at the completed-turn boundary. The `finishTurn` wrapper shared with the structured-result end takes the budget decision and returns `end` (plus the unawaited `session.abort()`), so no request is aborted; error reporting is unchanged. A turn forced past the ceiling keeps the `turn_start` abort. Unit tests in `subagent-session.test.ts` drive the hook before `turn_end`; the loopback tests assert the request count equals `maxTurns`.
 - [ ] **Step 3:** Run `bun run --cwd packages/pi-subagents check && bun run --cwd packages/pi-subagents test`; root `bun run typecheck && bun run lint && bun test` → PASS.
 - [ ] **Step 4:** Commit `fix(pi-subagents): settle a turn-limit stop as aborted`.
 

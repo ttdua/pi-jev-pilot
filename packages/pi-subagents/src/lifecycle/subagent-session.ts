@@ -170,11 +170,11 @@ export class SubagentSession {
   ): Promise<string> {
     if (opts.signal?.aborted) return "";
     const session = this._session;
-    const unsubTurns = this.enforceTurnBudget(tracker, opts.onTurnBudget, opts.onSubmitAttempt);
-    const restoreFinishTurn = this.endRunOnStructuredResult(opts.hasStructuredResult);
+    const boundary = new TurnBoundary(tracker);
+    const unsubTurns = this.enforceTurnBudget(tracker, boundary, opts.onTurnBudget, opts.onSubmitAttempt);
+    const restoreFinishTurn = this.endRunAtTurnBoundary(tracker, boundary, opts.hasStructuredResult);
     const collector = collectResponseText(session);
     const cleanupAbort = forwardAbortSignal(session, opts.signal);
-    this.turnFailure.resetBudgetAbort();
 
     try {
       await session.prompt(prompt);
@@ -193,9 +193,14 @@ export class SubagentSession {
    * Hold the session to the tracker's budget: state it up front when the whole
    * budget is wrap-up turns, then act on each turn boundary and report the
    * budget as it changes. Returns the unsubscribe for the turn listener.
+   *
+   * A turn's budget decision is taken at its completed-turn boundary (see
+   * `endRunAtTurnBoundary`), which runs before `turn_end`: the listener only
+   * delivers the warning that decision produced and reports the budget.
    */
   private enforceTurnBudget(
     tracker: TurnBudgetTracker,
+    boundary: TurnBoundary,
     report: ((budget: TurnBudget) => void) | undefined,
     onSubmitAttempt?: () => void,
   ): () => void {
@@ -203,7 +208,7 @@ export class SubagentSession {
     report?.(tracker.budget);
     return this._session.subscribe((event: AgentSessionEvent) => {
       if (event.type === "turn_end") {
-        this.actOnTurnBudget(tracker, tracker.onTurnEnd(turnOutcome(event)));
+        this.actOnTurnBudget(tracker, boundary.take());
         report?.(tracker.budget);
       } else if (event.type === "turn_start") {
         const action = tracker.onTurnStart();
@@ -217,26 +222,38 @@ export class SubagentSession {
   }
 
   /**
-   * End the run after the turn that stored its structured result, through Pi's
-   * completed-turn hook: it runs after the turn's tool results and `end` exits
-   * without preparing another provider request, which `terminate` alone cannot
-   * promise when the batch also ran other tools. Wraps the hook the session
-   * installed (previous first, its `end` kept) and returns the restore.
+   * End the run at a completed-turn boundary, through Pi's completed-turn hook:
+   * it runs after the turn's tool results and `end` exits without preparing
+   * another provider request, which `terminate` alone cannot promise when the
+   * batch also ran other tools. One wrapper serves both reasons to end — the
+   * turn that stored the structured result, and the turn that reached the
+   * budget's ceiling — so the hook is composed once: previous first (its
+   * `end` kept), restored on return.
+   *
+   * The budget decision for the turn is taken here, from the turn the hook is
+   * given, and held in `boundary` for the `turn_end` listener that follows. No
+   * request is in flight at this point, so stopping the run aborts nothing a
+   * provider is serving, and no abort-caused error message exists to be told
+   * apart from a real provider failure.
    *
    * `end` only ends the agent loop: the session then continues its run while a
    * steer or follow-up is queued. Aborting the session at the same boundary ends
    * that run too. The abort is not awaited: it waits for the run to go idle,
    * which needs this hook to return. It does not touch the run's own lever, so
-   * the run still settles `completed`; queued messages stay queued, as on any
-   * Pi abort.
+   * the run settles `completed` (result held) or through the exhausted budget
+   * (`aborted`); queued messages stay queued, as on any Pi abort.
    */
-  private endRunOnStructuredResult(hasResult: (() => boolean) | undefined): () => void {
-    if (!hasResult) return () => {};
+  private endRunAtTurnBoundary(
+    tracker: TurnBudgetTracker,
+    boundary: TurnBoundary,
+    hasResult: (() => boolean) | undefined,
+  ): () => void {
     const agent = this._session.agent;
     const previous = agent.finishTurn;
     agent.finishTurn = async (turn, signal) => {
       const prior = (await previous?.(turn, signal)) ?? undefined;
-      if (!hasResult()) return prior;
+      const action = boundary.decide(turnOutcomeOf(turn.message, turn.toolResults.length));
+      if (!hasResult?.() && action !== "stop") return prior;
       void this._session.abort();
       return { action: "end" } as const;
     };
@@ -247,11 +264,10 @@ export class SubagentSession {
 
   private actOnTurnBudget(tracker: TurnBudgetTracker, action: TurnBudgetAction): void {
     if (action === "warn") this.sendBudgetWarning(tracker);
-    else if (action === "stop") {
-      // Turns that end after this are the abort's own, not provider failures.
-      this.turnFailure.expectBudgetAbort();
-      void this._session.abort();
-    }
+    // A turn that starts past the ceiling (a steer queued on the final turn):
+    // the request is yet to be sent, so there is no completed-turn boundary to
+    // end the run at. The one place the budget still aborts the session.
+    else if (action === "stop") void this._session.abort();
   }
 
   /**
@@ -366,22 +382,6 @@ function failIfProviderErrored(failure: string | undefined): void {
  * so a run's own error may no longer be in the history by the time it ends
  * (#898). `message_end` is emitted before any of that runs.
  *
- * The harness's own turn-limit stop aborts the in-flight provider request, and
- * a request cut off that way can still surface as `stopReason: "error"` ("This
- * operation was aborted") rather than `"aborted"`. That one message is the
- * abort's, not a failure, and is suppressed when all of these hold: the budget
- * issued a stop this run, the run's own abort signal (`agent.signal`, public on
- * Pi's agent) has fired, and no earlier message has used the allowance. Any
- * other error — before the stop, after the first message, on a run whose signal
- * never fired, or on a later run — still fails. The run then settles `aborted`
- * through the exhausted budget.
- *
- * Limitation: the SDK gives no per-request cancellation marker and the error
- * text is provider-specific, so an unrelated provider error that is the stopped
- * turn's own message and lands after the abort cannot be told apart from the
- * abort's. It is suppressed; the run is ending `aborted` at its turn limit
- * either way, and the next run's errors are reported.
- *
  * Last-one-wins rather than latched: a successful auto-retry emits a later,
  * clean `message_end`, and that run recovered. A hard abort and a user stop
  * both yield `stopReason: "aborted"`, which is a terminal outcome the run
@@ -397,27 +397,15 @@ function failIfProviderErrored(failure: string | undefined): void {
  */
 function collectTurnFailure(session: AgentSession) {
   let failure = readLastTurnFailure(session);
-  let stopPending = false;
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type !== "message_end" || event.message.role !== "assistant") return;
-    const causedByStop = stopPending && session.agent.signal?.aborted === true;
-    stopPending = false;
     failure =
-      event.message.stopReason === "error" && !causedByStop
+      event.message.stopReason === "error"
         ? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty errorMessage is as uninformative as an absent one, and ?? would pass it through
           event.message.errorMessage || PROVIDER_ERROR_WITHOUT_MESSAGE
         : undefined;
   });
-  return {
-    getFailure: () => failure,
-    unsubscribe,
-    expectBudgetAbort: () => {
-      stopPending = true;
-    },
-    resetBudgetAbort: () => {
-      stopPending = false;
-    },
-  };
+  return { getFailure: () => failure, unsubscribe };
 }
 
 /** How the session's last assistant message ended, read from its history. */
@@ -444,13 +432,36 @@ function budgetWarningText(remaining: number): string {
   );
 }
 
-/** How a `turn_end` bears on the budget: whether it failed, and whether the agent loop continues. */
-function turnOutcome(event: Extract<AgentSessionEvent, { type: "turn_end" }>): TurnOutcome {
-  const stopReason = event.message.role === "assistant" ? event.message.stopReason : undefined;
+/** How a completed turn bears on the budget: whether it failed, and whether the agent loop continues. */
+function turnOutcomeOf(message: { role: string; stopReason?: string }, toolResultCount: number): TurnOutcome {
+  const stopReason = message.role === "assistant" ? message.stopReason : undefined;
   return {
     failed: stopReason === "error" || stopReason === "aborted",
-    ranTools: event.toolResults.length > 0,
+    ranTools: toolResultCount > 0,
   };
+}
+
+/**
+ * Carries one turn's budget decision from the completed-turn hook, which takes
+ * it before `turn_end`, to the `turn_end` listener that acts on the rest of it.
+ */
+class TurnBoundary {
+  private pending: TurnBudgetAction;
+
+  constructor(private readonly tracker: TurnBudgetTracker) {}
+
+  /** Account for the turn that just completed and keep the decision for `take`. */
+  decide(outcome: TurnOutcome): TurnBudgetAction {
+    this.pending = this.tracker.onTurnEnd(outcome);
+    return this.pending;
+  }
+
+  /** The decision taken for the turn that just ended, once. */
+  take(): TurnBudgetAction {
+    const action = this.pending;
+    this.pending = undefined;
+    return action === "stop" ? undefined : action;
+  }
 }
 
 /**

@@ -249,6 +249,8 @@ describe("structured result turn loop (real SDK session)", () => {
 		it("settles aborted, exhausted and missing with a schema", async () => {
 			const launched = await runChild(reads, undefined, 2);
 
+			// Ended at the ceiling turn's boundary: no request is sent, let alone aborted.
+			expect(loopback.requestCount()).toBe(2);
 			expect(launched.status).toBe("aborted");
 			expect(launched.turnBudget?.phase).toBe("exhausted");
 			expect(launched.structuredResultError).toBe("missing");
@@ -257,6 +259,7 @@ describe("structured result turn loop (real SDK session)", () => {
 		it("settles aborted and exhausted with no schema", async () => {
 			const launched = await runChild(reads, undefined, 2, false);
 
+			expect(loopback.requestCount()).toBe(2);
 			expect(launched.status).toBe("aborted");
 			expect(launched.turnBudget?.phase).toBe("exhausted");
 		});
