@@ -131,3 +131,13 @@ Added with [WG-14](../roadmap.md#wg-14-tool-assessment-observe-only); not one of
 **Documents changed.** [architecture.md](../architecture.md#host-seams) host seams, layout, failure model and performance budget, [jev-contract.md](../jev-contract.md#tool-assessment), [jev-questions.md](../jev-questions.md#tool-assessment), [domain-model.md](../domain-model.md#toolassessment), [workflow.md](../workflow.md#3-a-worker-starts), [usage-guide.md](../usage-guide.md), [roadmap.md](../roadmap.md) WG-14 status.
 
 **Work groups affected.** WG-14. The criterion wording stays provisional until the replay in WG-16.
+
+## Service launch escalation
+
+Added with the change `service-wait-and-escalation`; not one of the eight WG-02 questions. Pi 1.5.0 with `@ttdua/pi-subagents` 25.0.5, host test `tests/host/service-escalation.test.ts` (testing level: Host), probe `tests/host/probes/escalation`.
+
+**Observed.** A service launch (`spawn()` with metadata) whose child calls `notify_parent`, then `ask_parent`, then ends its turn behaved the same in foreground and background. Without `wait()`: `subagents:update` and `subagents:asked` were each emitted once with `metadata`; one `subagent-update` message and, after the run, one `subagent-notification` message reached the main session; the record read `completed` with a pending question and no resume refusal. With `wait(id)` held from the launch: the same two events were emitted once each with `metadata`, no `subagent-update` and no `subagent-notification` message reached the main session, and `wait()` resolved with `completed`, a pending question and no resume refusal. Calling `resume(id, answer)` without awaiting it and then `wait(id)` again delivered the answer to the child's next request, resolved `completed` with the child's final result, and still sent no `subagent-notification` to the main session. The probe recorded event names, ids, statuses, booleans and counts only, never question or answer text.
+
+**Limits.** One executor version, one Pi version, and a scripted fixture standing in for the model. A fork launch gets neither tool and is not covered. The caller sees the question when the run settles, not when it is asked.
+
+**Documents changed.** [testing.md](../testing.md) Host level.
