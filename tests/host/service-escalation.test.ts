@@ -91,26 +91,42 @@ const mainRequests = (): number =>
   (fixtures.at(-1) as Fixture).requests.filter((r) => r.model === "fixture-main" && !isChild(r))
     .length;
 
+const IDLE_DEADLINE_MS = 20_000;
+
+/**
+ * Polls `get_state` until the main session is not streaming and has no queued messages. Throws
+ * after `IDLE_DEADLINE_MS`, so a stuck session fails with a clear message instead of hanging.
+ */
+async function waitIdle(s: HostSession): Promise<void> {
+  const deadline = Date.now() + IDLE_DEADLINE_MS;
+  for (;;) {
+    const r = await s.send({ type: "get_state" });
+    const state = r.data as { isStreaming?: boolean; pendingMessageCount?: number } | undefined;
+    if (state?.isStreaming === false && state.pendingMessageCount === 0) return;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `main session not idle after ${IDLE_DEADLINE_MS}ms: ${JSON.stringify(state)}`,
+      );
+    }
+    await Bun.sleep(100);
+  }
+}
+
 /**
  * Settles the main session through the real RPC path. A notification is a follow-up with
  * `triggerTurn: true`: queued while a turn streams, or starting a turn when idle, and `prompt`
- * errors while a run is active. So a barrier prompt that settles with exactly one main-model
- * request (its own) means no notification turn was running or queued ahead of it. A notification
- * emitted after the barrier is not covered.
+ * errors while a run is active. So the barrier waits for idle before it reads the request count
+ * and prompts, then requires exactly one main-model request (its own). A notification emitted
+ * after the barrier is not covered.
  */
 async function barrier(s: HostSession): Promise<void> {
+  await waitIdle(s);
   const before = mainRequests();
   await s.prompt("BARRIER");
   // `prompt` can return on a settle that predates the barrier turn: wait for the barrier's own
   // main request, then for the session to be idle with nothing queued.
   await s.waitFor(() => mainRequests() > before, "barrier request");
-  let idle = false;
-  while (!idle) {
-    const r = await s.send({ type: "get_state" });
-    const state = r.data as { isStreaming?: boolean; pendingMessageCount?: number } | undefined;
-    idle = state?.isStreaming === false && state.pendingMessageCount === 0;
-    if (!idle) await Bun.sleep(100);
-  }
+  await waitIdle(s);
   expect(mainRequests() - before).toBe(1);
 }
 

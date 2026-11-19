@@ -141,7 +141,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `test/helpers/make-subagent.ts` | edit | Fixture carries `context`/`contextSource`. |
 | `test/helpers/subagent-session-io.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/lifecycle/parent-snapshot.test.ts` | edit | Session id, live branch, tool names and thinking; no text parent context. |
-| `test/lifecycle/subagent.test.ts` | edit | Execution carries `context`/`contextSource`. |
+| `test/lifecycle/subagent.test.ts` | edit | Execution carries `context`/`contextSource`. Adds the `waitForRunEnd` and `onQuestionAsked` tests. |
 | `test/runtime.test.ts` | edit | `buildSnapshot(context)` passes the parent's active tools. |
 | `test/session/prompts.test.ts` | edit | Follows the `promptMode` removal. |
 | `test/types/public-context.test.ts` | seam | Type check that the public entry exports `ContextMode` and the `context` fields. |
@@ -185,11 +185,11 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/seams/child-sessions.ts` | seam | Process-wide child-session registry on `globalThis` (`enterChildSession`, `leaveChildSession`, `lookupChildSession`). |
 | `test/seams/launch-metadata.test.ts` | seam | Tests for metadata validation, limits and freezing. |
 | `test/seams/child-sessions.test.ts` | seam | Tests for the child-session registry, shared across module instances. |
-| `test/seams/public-types.test.ts` | seam | Type-level check that `PublishedLaunchIdentity` is exported by name with optional `metadata`. |
-| `test/seams/launch-metadata-flow.test.ts` | seam | Metadata through the real service: events, records, requests, persistence, child-session lookup lifetime. |
+| `test/seams/public-types.test.ts` | seam | Type-level check that `PublishedLaunchIdentity` is exported by name with optional `metadata`. Adds the `SUBAGENT_EVENTS` test. |
+| `test/seams/launch-metadata-flow.test.ts` | seam | Metadata through the real service: events, records, requests, persistence, child-session lookup lifetime. Adds the asked and update tests through real tools. |
 | `test/readme-contract.test.ts` | seam | The README states metadata visibility and has the `childSession` contract. |
 | `src/lifecycle/subagent-run.ts` | edit | `RunOutcome.question` keeps the recorded question after `replaced`; `finished` promise and idempotent `markFinished`, resolved at every terminal transition. |
-| `src/observation/composite-subagent-observer.ts` | edit | Dispatch `onQuestionAsked` to every observer. |
+| `src/observation/composite-subagent-observer.ts` | edit | Dispatch `onSubagentQuestion` to every observer. |
 | `test/lifecycle/subagent-run.test.ts` | edit | Tests for `RunOutcome.question` and `finished`/`markFinished`. |
 | `test/observation/composite-subagent-observer.test.ts` | edit | Tests that `onSubagentQuestion` dispatches to every observer. |
 | `test/observation/subagent-events-observer.test.ts` | edit | Tests for `subagents:asked`, the update's `toolCallId`/`metadata`, and the absent-field omission. |
