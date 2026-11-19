@@ -72,8 +72,7 @@
     - `lint`;
     - `typecheck`;
     - `verify:public-types` (run by the implementer).
-- **Fixed in iteration 2: C1 control characters in refusal messages** (was parked). Refusal messages escape the key through `JSON.stringify` and cut it to 80 characters. DEL and C1 control characters (U+007F, U+0080 to U+009F) still appear raw. This was Minor in the final review, and there is no second fix wave.
-  - Cost if left: a crafted key could put C1 control bytes into a log line written by the extension that calls `spawn()`.
+- **Fixed in iteration 2: C1 control characters in refusal messages** (was parked). Refusal messages escape the key through `JSON.stringify`, cut it to 80 characters, and now also escape U+007F to U+009F as `\uXXXX` (`src/seams/launch-metadata.ts:24-28`, test `test/seams/launch-metadata.test.ts:127`).
 - **Parked: shutdown test path.** The "Gone after the parent session shuts down" test calls `abortAll()` and `dispose()` directly. It does not go through `index.ts`'s real `session_shutdown`.
 - **Parked: test typing.** The flow-test harness types payloads as `Record<string, any>`. This is test-only.
 - **TDD order in Task 2.** The implementer wrote the implementation before the tests and got the RED run by stashing `src/`. The tests were reviewed and do exercise real boundaries.
