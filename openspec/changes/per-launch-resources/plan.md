@@ -66,6 +66,7 @@
 | `StartInput.resourceFacts` (`create-subagent-session.ts`) | modified | `resourceFacts: ResourceFacts`; built in the assembly after `loader.reload()` and before `startSession`, which only spreads it into `sessionCreated` | no |
 | `ResourceFacts` / `resourceFacts` (`src/session/launch-skills.ts`) | new | `interface ResourceFacts { cwd: string; inheritSkills?: boolean; skillPaths?: readonly string[]; excludedExtensionPackages?: readonly string[]; contextFiles?: boolean }`; `resourceFacts(input: { cwd: string; reported: boolean; choice: EffectiveSkills \| undefined; skills: readonly { filePath: string }[]; excluded: readonly string[]; contextFiles: boolean }): ResourceFacts`, frozen; the four optional fields are present only when `reported` (resources or pin) is true | no |
 | `excludedPackageUnion` (`src/session/package-exclusions.ts`) | new | `excludedPackageUnion(setting: readonly string[], launch: readonly string[]): string[]`: setting order first, then new launch entries | no |
+| `noteUnknownPackages` (`src/session/package-exclusions.ts`) | new | `noteUnknownPackages(parent: ParentSettingsView, launch: readonly string[]): void`; writes one `debugNote` per `launch` entry that matches no global or project `packages` source. Added during apply (internal; it splits the D5 debug-note duty out of `index.ts`) | no |
 | `LaunchFacts.excludeExtensionPackages` (`src/seams/launch-gate.ts`) | modified | `excludeExtensionPackages?: readonly string[]` | no |
 | `dist/public.d.ts` | modified | regenerated; exports the public rows above | yes |
 
