@@ -2,11 +2,11 @@
 
 Blocked by: none
 
-- [ ] 1.1 `src/lifecycle/subagent.ts`: add `onQuestionAsked?(agent, question)` to the record observer; the `askParent` recorder in `run()` calls it after `setPendingQuestion` (design D3)
-- [ ] 1.2 `src/lifecycle/subagent-manager.ts` and `src/observation/composite-subagent-observer.ts`: relay it as `SubagentManagerObserver.onSubagentQuestion?`
-- [ ] 1.3 `src/observation/subagent-events-observer.ts`: emit `subagents:asked` with `{ id, type, description, question, ...launchFields(record) }`, no persistence, no notification; add `...launchFields(record)` to `subagents:update` (design D3, D4)
-- [ ] 1.4 `src/service/service.ts`: add `UPDATE` and `ASKED` to `SUBAGENT_EVENTS` (design D6)
-- [ ] 1.5 Tests: observer payloads for `subagents:asked` and `subagents:update` with and without `toolCallId`/`metadata`; the asked-before-completed order through a real `Subagent`; the constants
+- [x] 1.1 `src/lifecycle/subagent.ts`: add `onQuestionAsked?(agent, question)` to the record observer; the `askParent` recorder in `run()` calls it after `setPendingQuestion` (design D3)
+- [x] 1.2 `src/lifecycle/subagent-manager.ts` and `src/observation/composite-subagent-observer.ts`: relay it as `SubagentManagerObserver.onSubagentQuestion?`
+- [x] 1.3 `src/observation/subagent-events-observer.ts`: emit `subagents:asked` with `{ id, type, description, question, ...launchFields(record) }`, no persistence, no notification; add `...launchFields(record)` to `subagents:update` (design D3, D4)
+- [x] 1.4 `src/service/service.ts`: add `UPDATE` and `ASKED` to `SUBAGENT_EVENTS` (design D6)
+- [x] 1.5 Tests: observer payloads for `subagents:asked` and `subagents:update` with and without `toolCallId`/`metadata`; the asked-before-completed order through a real `Subagent`; the constants
 
 ## 2. `SubagentsService.wait()`
 
