@@ -13,8 +13,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateSessionOptions } from "#src/lifecycle/create-subagent-session";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
-import type { SubagentSession } from "#src/lifecycle/subagent-session";
-import { SubagentRun } from "#src/lifecycle/subagent-run";
+import { Subagent } from "#src/lifecycle/subagent";
+import { makeStubExecution } from "#test/helpers/make-subagent";
 import { STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import {
 	createAgentLookup,
@@ -83,14 +83,14 @@ const INVALID = {
 
 /**
  * A real child (production factory over `createAgentSession`) with a scripted
- * loopback provider, driven by the turn loop with the hooks `Subagent` passes.
+ * loopback provider, run by a `Subagent` launched with a schema.
  */
 describe("structured result turn loop (real SDK session)", () => {
 	let root: string;
 	let projectDir: string;
 	let agentDir: string;
 	let loopback: Awaited<ReturnType<typeof startLoopback>>;
-	let child: SubagentSession | undefined;
+	let agent: Subagent | undefined;
 
 	beforeEach(() => {
 		root = mkdtempSync(join(tmpdir(), "structured-loop-"));
@@ -102,17 +102,17 @@ describe("structured result turn loop (real SDK session)", () => {
 	});
 
 	afterEach(async () => {
-		await child?.dispose();
-		child = undefined;
+		await agent?.subagentSession?.dispose();
+		agent = undefined;
 		await loopback.close();
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	/** Run the child to the end of its turn loop under `script`, with `onSession` called once it is bound; returns the run it wrote to. */
+	/** Run the agent to the end of its run under `script`, with `onSession` called once its session is bound. */
 	async function runChild(
 		script: ScriptedReply[],
-		onSession?: (session: SubagentSession) => void,
-	): Promise<SubagentRun> {
+		onSession?: (agent: Subagent) => void,
+	): Promise<Subagent> {
 		loopback = await startLoopback(script);
 		const runtime = await ModelRuntime.create({
 			authPath: join(agentDir, "auth.json"),
@@ -161,52 +161,48 @@ describe("structured result turn loop (real SDK session)", () => {
 			return { session: created.session };
 		});
 
-		const run = new SubagentRun("initial", false, {
-			status: "running",
-			expectsStructuredResult: true,
-		});
-		child = await createSubagentSession(
-			{
-				agentId: "a1",
-				snapshot: { ...STUB_SNAPSHOT, cwd: projectDir },
-				type: "reader",
-				cwd: projectDir,
-				resultSchema: SCHEMA,
-				submitResult: (value) => run.submitStructuredResult(value),
-			},
-			createSubagentSessionDeps({
-				io,
-				exec: vi.fn(),
-				registry: createAgentLookup({
-					name: "reader",
-					toolNames: ["read"],
-					systemPrompt: "Read things.",
-				}),
-				lifecycle: createChildLifecycleMock(),
+		const deps = createSubagentSessionDeps({
+			io,
+			exec: vi.fn(),
+			registry: createAgentLookup({
+				name: "reader",
+				toolNames: ["read"],
+				systemPrompt: "Read things.",
 			}),
-		);
-		await child.session.bindExtensions({});
-		onSession?.(child);
-		await child.runTurnLoop("TASK", {
-			onSubmitAttempt: () => run.recordSubmitAttempt(),
-			hasStructuredResult: () => run.hasStructuredResult,
+			lifecycle: createChildLifecycleMock(),
 		});
-		return run;
+		const launched = new Subagent({
+			id: "a1",
+			type: "reader",
+			description: "structured result loop",
+			isBackground: false,
+			execution: makeStubExecution({
+				createSubagentSession: (params) => createSubagentSession(params, deps),
+				snapshot: { ...STUB_SNAPSHOT, cwd: projectDir },
+				prompt: "TASK",
+				baseCwd: projectDir,
+				resultSchema: SCHEMA,
+				observer: { onSessionCreated: (created) => onSession?.(created) },
+			}),
+		});
+		agent = launched;
+		await launched.run();
+		return launched;
 	}
 
 	it("makes exactly one provider request when turn 1 only submits a valid result", async () => {
-		const run = await runChild([[VALID]]);
+		const launched = await runChild([[VALID]]);
 
 		expect(loopback.requestCount()).toBe(1);
-		expect(run.structuredResult).toEqual({ status: "done" });
+		expect(launched.structuredResult).toEqual({ status: "done" });
 	});
 
 	it("emits both tool results and makes no further request when submit_result shares the batch", async () => {
 		const toolResults: string[] = [];
-		const run = await runChild(
+		const launched = await runChild(
 			[[{ name: "read", args: { path: "notes.txt" } }, VALID]],
-			(session) => {
-				session.subscribe((event) => {
+			(launched) => {
+				launched.subscribeToUpdates((event) => {
 					if (event.type === "tool_execution_end")
 						toolResults.push(event.toolName);
 				});
@@ -215,13 +211,60 @@ describe("structured result turn loop (real SDK session)", () => {
 
 		expect(loopback.requestCount()).toBe(1);
 		expect(toolResults.sort()).toEqual(["read", "submit_result"]);
-		expect(run.structuredResult).toEqual({ status: "done" });
+		expect(launched.structuredResult).toEqual({ status: "done" });
 	});
 
 	it("lets the child retry after an invalid submission", async () => {
-		const run = await runChild([[INVALID], [VALID]]);
+		const launched = await runChild([[INVALID], [VALID]]);
 
 		expect(loopback.requestCount()).toBe(2);
-		expect(run.structuredResult).toEqual({ status: "done" });
+		expect(launched.structuredResult).toEqual({ status: "done" });
+	});
+	/** Queue `queue` on the session once `submit_result` finishes, while the turn is still running. */
+	function queueAfterSubmit(queue: (launched: Subagent) => Promise<unknown>) {
+		return (launched: Subagent) => {
+			launched.subscribeToUpdates((event) => {
+				if (event.type === "tool_execution_end" && event.toolName === "submit_result")
+					void queue(launched);
+			});
+		};
+	}
+
+	it.each([
+		["a steer", (launched: Subagent) => launched.steer("one more thing")],
+		[
+			"a follow-up",
+			(launched: Subagent) => launched.subagentSession?.session.followUp("one more thing") ?? Promise.resolve(),
+		],
+	])("starts no further turn when %s is queued after a valid submission", async (_kind, queue) => {
+		const toolResults: string[] = [];
+		const launched = await runChild(
+			[[{ name: "read", args: { path: "notes.txt" } }, VALID], "unexpected next turn"],
+			(created) => {
+				created.subscribeToUpdates((event) => {
+					if (event.type === "tool_execution_end") toolResults.push(event.toolName);
+				});
+				queueAfterSubmit(queue)(created);
+			},
+		);
+
+		expect(loopback.requestCount()).toBe(1);
+		expect(toolResults.sort()).toEqual(["read", "submit_result"]);
+		expect(launched.status).toBe("completed");
+		expect(launched.structuredResult).toEqual({ status: "done" });
+		expect(launched.result).not.toContain("unexpected next turn");
+		// Ending the run drops nothing: the message stays queued, as on any Pi abort.
+		expect(launched.subagentSession?.session.pendingMessageCount).toBe(1);
+	});
+
+	it("reads stopped when aborted from outside after a valid submission", async () => {
+		const launched = await runChild(
+			[[VALID], "unexpected next turn"],
+			queueAfterSubmit(async (created) => created.abort()),
+		);
+
+		expect(loopback.requestCount()).toBe(1);
+		expect(launched.status).toBe("stopped");
+		expect(launched.structuredResult).toEqual({ status: "done" });
 	});
 });

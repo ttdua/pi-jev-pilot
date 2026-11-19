@@ -221,6 +221,13 @@ export class SubagentSession {
    * without preparing another provider request, which `terminate` alone cannot
    * promise when the batch also ran other tools. Wraps the hook the session
    * installed (previous first, its `end` kept) and returns the restore.
+   *
+   * `end` only ends the agent loop: the session then continues its run while a
+   * steer or follow-up is queued. Aborting the session at the same boundary ends
+   * that run too. The abort is not awaited: it waits for the run to go idle,
+   * which needs this hook to return. It does not touch the run's own lever, so
+   * the run still settles `completed`; queued messages stay queued, as on any
+   * Pi abort.
    */
   private endRunOnStructuredResult(hasResult: (() => boolean) | undefined): () => void {
     if (!hasResult) return () => {};
@@ -228,8 +235,9 @@ export class SubagentSession {
     const previous = agent.finishTurn;
     agent.finishTurn = async (turn, signal) => {
       const prior = (await previous?.(turn, signal)) ?? undefined;
-      if (prior?.action === "end") return prior;
-      return hasResult() ? ({ action: "end" } as const) : prior;
+      if (!hasResult()) return prior;
+      void this._session.abort();
+      return { action: "end" } as const;
     };
     return () => {
       agent.finishTurn = previous;

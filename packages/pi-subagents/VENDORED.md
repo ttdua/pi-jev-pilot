@@ -206,7 +206,7 @@ This directory is a vendored copy of `@gotgenes/pi-subagents`, kept in the tree 
 | `src/seams/result-schema.ts` | add | Structured results: parse and freeze the `resultSchema` subset (refusals name the keyword and JSON Pointer) and `validateResult`, the executor's own validator. |
 | `src/session/submit-result-tool.ts` | add | The `submit_result` child protocol tool: validates `result`, stores the first valid value on the run, returns `terminate` for a valid submission. |
 | `src/lifecycle/subagent.ts` | edit | Carries the launch's `resultSchema` into each run; ends a run on a valid submission after the current turn; `complete()` settles a stored value as `completed` even on the turn limit. |
-| `src/lifecycle/subagent-session.ts` | edit | Counts `submit_result` attempts from tool events; installs the `finishTurn` wrapper per run and restores it in `finally`. |
+| `src/lifecycle/subagent-session.ts` | edit | Counts `submit_result` attempts from tool events; installs the `finishTurn` wrapper per run and restores it in `finally`; once a result is held the wrapper ends the turn loop and aborts the session run (not the run's lever) so no queued steer or follow-up starts another turn. |
 | `src/lifecycle/create-subagent-session.ts` | edit | Installs `submit_result` beside `ask_parent` and `notify_parent` when the launch has a schema; `disallowed_tools` and policy removals cannot remove it; counted as the child's own tool. |
 | `src/lifecycle/subagent-manager.ts` | edit | Forwards the launch's `resultSchema` to the execution. |
 | `src/observation/notification.ts` | edit | Carries `structuredResult` and `structuredResultError` on the completed, failed and resumed payloads when set. |
