@@ -225,6 +225,51 @@ describe("effort hold through the real CLI", () => {
   );
 
   test(
+    "Held after a compaction with strategy on",
+    async () => {
+      const { s, fixture, jev, routes } = await setup({
+        holdProviders: ["fixture"],
+        thinking: "low",
+      });
+      routes[ASK] = answers("low");
+      await turn(s, `one ${FILLER}`, 1);
+      await turn(s, `two ${FILLER}`, 2);
+      const response = await s.send({ type: "compact" });
+      expect(response.success, String(response.error)).toBe(true);
+      await Bun.sleep(300);
+      const jevBefore = jev.requests.length;
+      const reqBefore = fixture.requests.length;
+      const changesBefore = levelChanges(s);
+      const anchorsBefore = turnAnchors(s).length;
+      routes[ASK] = withStrategy("xhigh", "direct", 0.9);
+      await turn(s, "three", 3);
+      await turn(s, "four", 4);
+      await turn(s, "five", 5);
+      const allKeys = (i: number): string[] =>
+        Object.keys((JSON.parse(jev.requests[i]!.body) as { questions: object }).questions);
+      expect(jev.requests.length - jevBefore).toBe(3);
+      expect(allKeys(jevBefore)).toEqual(["effort", "risky", "strategy", "corrects"]);
+      expect(allKeys(jevBefore + 1)).toEqual(["effort", "strategy", "corrects"]);
+      expect(allKeys(jevBefore + 2)).toEqual(["effort", "strategy", "corrects"]);
+      expect(fixture.requests.slice(reqBefore).map((r) => r.reasoningEffort)).toEqual([
+        "xhigh",
+        "xhigh",
+        "xhigh",
+      ]);
+      expect(levelChanges(s) - changesBefore).toBe(1);
+      const last = mainLines(s).slice(-3);
+      expect(last.map((l) => l["held"])).toEqual([undefined, true, true]);
+      expect(last[0]).toMatchObject({ requested: "xhigh" });
+      for (const l of last.slice(1)) {
+        expect(l).not.toHaveProperty("requested");
+        expect(l).not.toHaveProperty("effortP");
+      }
+      expect(turnAnchors(s).length - anchorsBefore).toBe(1);
+    },
+    TIMEOUT,
+  );
+
+  test(
     "unlisted provider decides every prompt",
     async () => {
       const { s, jev } = await setup({ holdProviders: [], thinking: "low" });

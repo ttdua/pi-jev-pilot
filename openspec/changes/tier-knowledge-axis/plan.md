@@ -320,7 +320,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Held turn keeps the level / Manual change while held → `tests/host/effort-hold.test.ts` › "Manual change while held"
 - Held turn keeps the level / Correction while held → `tests/host/effort-hold.test.ts` › "Correction while held"
 - One decision after a compaction / Exactly one decision after a compaction → `tests/host/effort-hold.test.ts` › "Exactly one decision after a compaction"
-- One decision after a compaction / Held after a compaction with strategy on → `tests/host/effort-hold.test.ts` › "exactly one decision after a compaction"
+- One decision after a compaction / Held after a compaction with strategy on → `tests/host/effort-hold.test.ts` › "Held after a compaction with strategy on"
 - One decision after a compaction / Miss right after a compaction → `tests/host/effort-hold.test.ts` › "Miss right after a compaction"
 - One decision after a compaction / Compaction inside a decided turn → `tests/host/effort-hold.test.ts` › "Compaction inside a decided turn"
 
