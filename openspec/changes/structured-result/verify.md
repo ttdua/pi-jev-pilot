@@ -6,9 +6,9 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `structured-result`
-**Verified at**: `2026-11-19 14:20` (UTC)
-**Iteration**: `2`
-**Verifier**: parent session (checks 1, 2, 6, fresh test run, confirmation of C3) + delegated read-only verifier `code-reviewer` agent `20b35dcf-f321-453` (evidence for checks 3, 4, 5)
+**Verified at**: `2026-11-19 14:55` (UTC)
+**Iteration**: `3`
+**Verifier**: parent session (checks 1, 2, 6, fresh test run, C3 probe) + delegated read-only verifier `code-reviewer` agent `204a5e6c-4e64-41a` (evidence for checks 3, 4, 5)
 
 Paths: `src/…` = `packages/pi-subagents/src/…`, `test/…` = `packages/pi-subagents/test/…`.
 
@@ -22,8 +22,7 @@ Paths: `src/…` = `packages/pi-subagents/src/…`, `test/…` = `packages/pi-su
 
 ```text
 Change 'structured-result' is valid   (exit 0)
-⚠ WARNING: ADDED "Result schema on service launches": requirement text >500 characters
-⚠ WARNING: ADDED "Submitted result is validated in the child": requirement text >500 characters
+⚠ 2 warnings: requirement text >500 characters ("Result schema on service launches", "Submitted result is validated in the child") — accepted at the plan gate
 ```
 
 ---
@@ -42,87 +41,87 @@ Change 'structured-result' is valid   (exit 0)
 
 ## 3. Requirement Evidence
 
-- [ ] ADDED / MODIFIED: implementation evidence (file / line)
+- [x] ADDED / MODIFIED: implementation evidence (file / line)
 - [x] REMOVED: not applicable
 - [x] RENAMED: not applicable
 
 | Requirement | Operation | Status | Evidence (file:line) or reason |
 |---|---|---|---|
-| Result schema on service launches | ADDED | Pass | `src/service/service.ts:156–166,297`; `src/service/service-adapter.ts:98–128`; `src/seams/result-schema.ts:62–181` |
+| Result schema on service launches | ADDED | Pass | `src/service/service.ts:156–166,290–299`; `src/service/service-adapter.ts:98–128`; no tool parameter (`src/tools/agent-tool.ts:232–284`) or frontmatter field (`src/config/custom-agents.ts:102–118`) |
 | Result schema annotations | ADDED | Pass | `src/seams/result-schema.ts:104–110,184–198` |
-| Result schema is copied at spawn | ADDED | Pass | `src/service/service-adapter.ts:101`; `src/seams/result-schema.ts:83–113,138,148–157,170` |
-| Refused result schemas | ADDED | Pass | `src/seams/result-schema.ts:73–86,116–198`; `src/service/service-adapter.ts:109–120` |
-| Submit result tool | ADDED | Pass | `src/session/submit-result-tool.ts:83–99`; `src/lifecycle/create-subagent-session.ts:254–261,323–346` |
-| Submit result tool cannot be removed | ADDED | Pass | `src/lifecycle/create-subagent-session.ts:324–331` (exemption only with `resultSchema`; previous C1 fixed) |
-| Submitted result is validated in the child | ADDED | **Fail (C3)** | `src/seams/result-schema.ts:216–218` returns after a type mismatch, so independent violations of the same node (e.g. `enum`) are not listed. Parent probe: schema `{type:"object",properties:{n:{type:"integer",enum:[1]}},required:["n"]}`, value `{n:"bad"}` → `[{"path":"result.n","message":"must be of type integer"}]` only. |
-| Integer type | ADDED | Pass | `src/seams/result-schema.ts:285–286` |
-| First valid submission is final | ADDED | Pass | `src/session/submit-result-tool.ts:56,66–67`; `src/lifecycle/subagent-run.ts:351–355` (previous C2 fixed) |
-| Valid submission ends the run | ADDED | Pass | `src/lifecycle/subagent-session.ts:173–185,246–262`; `src/lifecycle/subagent.ts:838–854` |
-| Structured outcome per run | ADDED | Pass | `src/lifecycle/subagent-run.ts:143–164`; `src/lifecycle/subagent.ts:418,713` |
-| Structured result error kinds | ADDED | Pass | `src/lifecycle/subagent-session.ts:217–219`; `src/lifecycle/subagent-run.ts:160–164,346–347` |
-| Structured outcome on records and events | ADDED | Pass | `src/service/service-adapter.ts:264–267`; `src/observation/notification.ts:180–181`; `src/persisted-record.ts:67–84` unchanged |
-| Launch request given to the policy | MODIFIED | Pass | `src/seams/launch-request.ts:22–27,55–106` |
-| (proposal) Turn-limit stop settles aborted | — | Pass | `src/lifecycle/subagent-session.ts:253–258`; provider-error helpers `:362–421` byte-identical to base `6f63917b` (same SHA-256) |
+| Result schema is copied at spawn | ADDED | Pass | `src/service/service-adapter.ts:101`; `src/seams/result-schema.ts:67–113,138,148–157,170` |
+| Refused result schemas | ADDED | Pass | `src/seams/result-schema.ts:73–86,116–181`; `src/service/service-adapter.ts:101–117` |
+| Submit result tool | ADDED | Pass | `src/session/submit-result-tool.ts:83–109`; `src/lifecycle/create-subagent-session.ts:254–268,322–346` |
+| Submit result tool cannot be removed | ADDED | Pass | `src/lifecycle/create-subagent-session.ts:322–336` (exemption only with `resultSchema`) |
+| Submitted result is validated in the child | ADDED | Pass | `src/session/submit-result-tool.ts:49–72`; `src/seams/result-schema.ts:201–270`. Parent probe: `{n:"bad"}` vs `{type:"integer",enum:[1]}` → type and enum violations; wrong-type object/array/string cases → one violation each, no crash (previous C3 fixed) |
+| Integer type | ADDED | Pass | `src/seams/result-schema.ts:284–285` |
+| First valid submission is final | ADDED | Pass | `src/session/submit-result-tool.ts:56,66–67`; `src/lifecycle/subagent-run.ts:350–355` |
+| Valid submission ends the run | ADDED | Pass | `src/lifecycle/subagent-session.ts:174–185,246–262`; `src/lifecycle/subagent.ts:838–854`; `src/lifecycle/subagent-run.ts:267–284` |
+| Structured outcome per run | ADDED | Pass | `src/lifecycle/subagent-run.ts:146–164`; `src/lifecycle/subagent.ts:414–417,705–717` |
+| Structured result error kinds | ADDED | Pass | `src/lifecycle/subagent-session.ts:217–219`; `src/lifecycle/subagent-run.ts:160–164,344–346` |
+| Structured outcome on records and events | ADDED | Pass | `src/service/service-adapter.ts:266–267`; `src/observation/notification.ts:178–182`; `src/persisted-record.ts:67–84` unchanged |
+| Launch request given to the policy | MODIFIED | Pass | `src/seams/launch-request.ts:22–27,55–114` |
+| (proposal) Turn-limit stop settles aborted | — | Pass | `src/lifecycle/subagent-session.ts:253–258,448–464`; `src/lifecycle/subagent.ts:838–854`; provider-error collector `:398–408` unchanged |
 
 ---
 
 ## 4. Scenario Coverage
 
-- [ ] Every scenario maps to a test (45 Covered, 1 Partial of 46)
+- [ ] Every scenario maps to a test (40 Covered, 6 Partial, 0 Uncovered of 46)
 - [x] The project test command was run fresh in this step
 
-**Test command** (fresh, cwd = worktree root, HEAD `4b2e5ece`):
+**Test command** (fresh, cwd = worktree root, HEAD `f36313b8`):
 
 | Command | Exit | Result |
 |---|---|---|
-| `bun run test:executor` | 0 | 116 files, 2760 passed |
+| `bun run test:executor` | 0 | 116 files, 2764 passed |
 | `bun run typecheck` | 0 | no type errors in 292 files |
 | `bun run lint` | 0 | clean |
 | `bun test` | 0 | 2637 pass, 0 fail, 141 files |
 | `bun run --cwd packages/pi-subagents verify:public-types` | 0 | external consumer type-checks |
 
-Verifier focused run (16 files): exit 0, 958 passed.
+Verifier focused run (16 files): exit 0, 962 passed; real-SDK loopback file 13/13; `maxTurns: 3` ceiling cases 2/2.
 
 **Result**: all green.
 
 | Scenario | Test |
 |---|---|
-| Schema accepted | `test/seams/structured-result-flow.test.ts:194–199,232–252` |
-| Draft URI accepted | `test/seams/result-schema.test.ts:81–89` |
-| Other draft refused | `test/seams/result-schema.test.ts:72–78` |
+| Schema accepted | `test/seams/structured-result-flow.test.ts:232–252` |
+| Draft URI accepted | **Partial**: `test/seams/result-schema.test.ts:81–89` (parser, not through `spawn`; verifier service probe V8 passed) |
+| Other draft refused | **Partial**: `test/seams/result-schema.test.ts:72–78` (parser, not through `spawn`; probe V8 passed) |
 | Caller mutates the schema after spawn | `test/seams/structured-result-flow.test.ts:304–321` |
-| No schema | `test/lifecycle/create-subagent-session.test.ts:482–517,624–647`; `test/service/service-adapter.test.ts:88–89`; `test/observation/subagent-events-observer.test.ts:110–111` |
+| No schema | `test/lifecycle/create-subagent-session.test.ts:482–517,624–647`; `test/service/service-adapter.test.ts:77–89`; `test/observation/subagent-events-observer.test.ts:107–111` |
 | Unsupported keyword | `test/seams/result-schema.test.ts:55–61`; `test/service/service-adapter.test.ts:401–411` |
-| Missing root type | `test/seams/result-schema.test.ts:64–69` |
+| Missing root type | **Partial**: `test/seams/result-schema.test.ts:64–69` (parser, not through `spawn`; probe V8 passed) |
 | Fork with a schema | `test/service/service-adapter.test.ts:414–419` |
-| Agent default fork with a schema | `test/service/service-adapter.test.ts:422–433` |
+| Agent default fork with a schema | `test/service/service-adapter.test.ts:422–425` |
 | Refusal before the policy | `test/service/service-adapter.test.ts:401–411` |
-| Tool installed | `test/lifecycle/create-subagent-session.test.ts:440–459` |
+| Tool installed | `test/lifecycle/create-subagent-session.test.ts:440–460` |
 | Counted as the child's own tool | `test/lifecycle/create-subagent-session.test.ts:650–672` |
-| Disallowed tools cannot remove it | `test/lifecycle/create-subagent-session.test.ts:463–477` |
+| Disallowed tools cannot remove it | `test/lifecycle/create-subagent-session.test.ts:463–476` |
 | Policy cannot remove it | `test/seams/launch-policy.test.ts:431–441` |
 | Invalid value reported to the child | `test/session/submit-result-tool.test.ts:84–92`; `test/lifecycle/structured-result-loop.test.ts:225–229` |
-| Child fixes the value | `test/seams/structured-result-flow.test.ts:235–252` |
-| Coerced argument stored | `test/session/submit-result-tool.test.ts:176–195` |
-| Extra property refused | `test/session/submit-result-tool.test.ts:114–118` |
-| Integer checked | `test/session/submit-result-tool.test.ts:121–131` |
-| Whole float accepted | `test/seams/result-schema.test.ts:250–252` |
-| Second submission ignored | `test/session/submit-result-tool.test.ts:148–157` |
-| Submit alone | `test/lifecycle/structured-result-loop.test.ts:201–205`; `test/lifecycle/subagent.test.ts:2509–2517` |
-| Submit beside other tools | `test/lifecycle/structured-result-loop.test.ts:208–222,291–306` |
-| Submit on the last permitted turn | **Partial**: `test/lifecycle/structured-result-loop.test.ts:233–243` covers both batch shapes on a real ceiling turn, at `maxTurns: 2` / turn 2, not the scenario's `maxTurns: 3` / turn 3 |
-| External stop after submit | `test/lifecycle/structured-result-loop.test.ts:312–320` |
-| Turn limit reached | `test/lifecycle/structured-result-loop.test.ts:249–256` (real SDK: `aborted`, `exhausted`, `missing`) |
-| Pending question | `test/lifecycle/subagent-run.test.ts:627–640` |
+| Child fixes the value | `test/seams/structured-result-flow.test.ts:232–252` |
+| Coerced argument stored | `test/session/submit-result-tool.test.ts:191–210` |
+| Extra property refused | `test/session/submit-result-tool.test.ts:129–133` |
+| Integer checked | `test/session/submit-result-tool.test.ts:136–146` |
+| Whole float accepted | `test/seams/result-schema.test.ts:265–267` |
+| Second submission ignored | `test/session/submit-result-tool.test.ts:163–172` |
+| Submit alone | **Partial**: `test/lifecycle/structured-result-loop.test.ts:201–205` (one request, result kept; status not asserted) |
+| Submit beside other tools | **Partial**: `test/lifecycle/structured-result-loop.test.ts:208–222` (both tool results, one request; status not asserted) |
+| Submit on the last permitted turn | `test/lifecycle/structured-result-loop.test.ts:246–256` (`maxTurns: 3`, alone and mixed, 3 requests, completed) |
+| External stop after submit | `test/lifecycle/structured-result-loop.test.ts:325–333` |
+| Turn limit reached | `test/lifecycle/structured-result-loop.test.ts:262–269` |
+| Pending question | **Partial**: `test/seams/structured-result-flow.test.ts:288–293`; `test/lifecycle/subagent-run.test.ts:627–638` (`pendingQuestion` and both fields not asserted together on one record) |
 | Resume submits | `test/seams/structured-result-flow.test.ts:288–301` |
 | Resume clears the previous outcome | `test/lifecycle/subagent.test.ts:2596–2613` |
-| Valid submission has no error | `test/seams/structured-result-flow.test.ts:235–252` |
-| Invalid attempt then question | `test/lifecycle/subagent-run.test.ts:627–640`; `test/lifecycle/subagent.test.ts:2616–2633` |
+| Valid submission has no error | `test/seams/structured-result-flow.test.ts:232–252` |
+| Invalid attempt then question | `test/lifecycle/subagent-run.test.ts:627–638` |
 | Never called | `test/seams/structured-result-flow.test.ts:255–273` |
 | Only invalid calls | `test/seams/structured-result-flow.test.ts:276–285` |
 | Completed event | `test/seams/structured-result-flow.test.ts:245–252` |
 | Missing on the event | `test/seams/structured-result-flow.test.ts:255–262` |
-| Not persisted | `test/persisted-record.test.ts:34–42` |
+| Not persisted | `test/persisted-record.test.ts:34–42`; `test/observation/subagent-events-observer.test.ts:149–176` |
 | (policy) Tool-call origin | `test/seams/launch-policy.test.ts:362–384` |
 | Orchestration tools never offered | `test/seams/launch-policy.test.ts:398–417` |
 | Protocol tools never offered | `test/seams/launch-policy.test.ts:420–428` |
@@ -138,27 +137,20 @@ Verifier focused run (16 files): exit 0, 958 passed.
 
 ## 5. Design and Contract Coherence (warning only)
 
-- [x] Decisions in design.md match the code (10/10; "Own subset checker and validator" matched in architecture, behaviour gap is C3)
-- [ ] Contracts in plan.md, with the Contract deviations recorded in apply.md, match the code
-
-| Item | Result |
-|---|---|
-| design.md decisions (10) | Matched: `src/seams/result-schema.ts`, `src/session/submit-result-tool.ts`, `src/lifecycle/subagent-session.ts:175,217–219,246–262`, `src/lifecycle/subagent-run.ts:143–164`, `src/service/service-adapter.ts:100–118`, `src/seams/launch-request.ts:22–27`, `src/persisted-record.ts` |
-| plan.md Contracts (14 rows) | 13 matched; `TurnLoopOptions` warning: row says the wrapper is installed "when `hasStructuredResult` is given", code installs it on every run (`src/lifecycle/subagent-session.ts:175`) |
-| apply.md Contract deviations (5 entries) | All matched (`src/lifecycle/subagent-run.ts:57–60`; `src/lifecycle/subagent-session.ts:175,253–258`; `src/session/submit-result-tool.ts:27–30,56`; `src/lifecycle/create-subagent-session.ts:329–331`) |
+- [x] Decisions in design.md match the code (10/10)
+- [x] Contracts in plan.md, with the Contract deviations recorded in apply.md, match the code (14/14 rows, 5/5 deviations, tasks.md 5.1 wording)
 
 **Drift warnings** (non-blocking):
 
-- plan.md `TurnLoopOptions` row describes a conditional wrapper; code installs it on every run.
-- tasks.md 5.1 still describes not treating the abort-caused provider error as a failure; the final implementation stops at the completed-turn boundary and leaves provider-error handling unchanged.
+- None.
 
 ---
 
 ## 6. Clean Tree and Commit Range
 
-- [x] Working tree is clean (`git status --porcelain` → 0 lines)
+- [x] Working tree is clean (`git status --porcelain` → 0 lines, before and after probes)
 
-**Commit range**: `6f63917b..4b2e5ece`
+**Commit range**: `6f63917b..f36313b8`
 
 ---
 
@@ -166,15 +158,17 @@ Verifier focused run (16 files): exit 0, 958 passed.
 
 ### CRITICAL
 
-- **C3 — validator does not list every violation.** `src/seams/result-schema.ts:216–218`. Requirement "Submitted result is validated in the child" says the tool SHALL return an error listing every violation; after a `type` mismatch `checkNode` returns early and skips `enum` on the same node. **Fix:** remove the early return after the type violation (object/array traversal is already guarded by `isPlainObject` / `Array.isArray`), and add tests in `test/seams/result-schema.test.ts` and `test/session/submit-result-tool.test.ts` for a node violating both `type` and `enum` (both paths/messages listed).
+- None.
 
 ### WARNING
 
-- **W1 — "Submit on the last permitted turn" tested at `maxTurns: 2`.** Add a real-SDK case in `test/lifecycle/structured-result-loop.test.ts` with `maxTurns: 3`, script `[[READ],[READ],ceilingTurn]` for submit alone and beside `read`: exactly 3 requests, `completed`, result kept.
-- **W2 — artifact wording drift.** Update the plan.md `TurnLoopOptions` Contracts row (wrapper installed on every run, no-op within budget without a held result) and tasks.md 5.1 (stop at the completed-turn boundary; provider-error handling unchanged).
+- **W1 — three schema scenarios tested at the parser, not through `spawn`** (Draft URI accepted, Other draft refused, Missing root type). Add `test/service/service-adapter.test.ts` cases calling `spawn` that assert the id for the 2020-12 URI and a throw naming `$schema` / `type` with no manager spawn for the refusals.
+- **W2 — turn-1 loopback tests do not assert status.** Add `expect(launched.status).toBe("completed")` to the "Submit alone" and "Submit beside other tools" tests in `test/lifecycle/structured-result-loop.test.ts:201–222`.
+- **W3 — "Pending question" THEN not asserted on one record.** In `test/seams/structured-result-flow.test.ts:288–293`, before the resume assert `pendingQuestion` equals the asked question and both `structuredResult` and `structuredResultError` are absent.
 
 ### SUGGESTION
 
+- Turn the wrong-type traversal probes into table-driven tests in `test/seams/result-schema.test.ts` (object schema given a string, array schema given an object; exact violation arrays).
 - Package `lint` (biome+eslint) and `lint:md` were red before this change and are not CI gates; clean the diagnostics this change added (new test files, README MD013) in a follow-up.
 
 ---
@@ -182,12 +176,12 @@ Verifier focused run (16 files): exit 0, 958 passed.
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [ ] PASS_WITH_WARNINGS: proceed, noting: —
-- [x] FAIL: fix the cause, then re-apply (iteration 3)
+- [x] PASS_WITH_WARNINGS: proceed, noting: all requirements are implemented and all fresh tests are green; six scenarios have partial test assertions (W1–W3), with the behaviour confirmed by verifier probes
+- [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 **Next step**:
 
-Run `/opsx-apply` (fix iteration 3 of 5) in the worktree to fix C3 with TDD and address W1 and W2, then run `/opsx-verify` again.
+Run `/opsx-continue` with the worktree as working directory to create the finalize artifact, then `/opsx-archive`.
 
 > **Convergence loop reminder**:
 > - PASS / PASS_WITH_WARNINGS: `/opsx-continue` advances to the finalize artifact.
