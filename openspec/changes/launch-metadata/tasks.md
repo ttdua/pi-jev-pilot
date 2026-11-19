@@ -24,8 +24,8 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 Add `VENDORED.md` rows for the new seam and test files and for every edited upstream file, with one-line reasons
-- [ ] 3.2 Regenerate `dist/public.d.ts` with `bun run --cwd packages/pi-subagents build:types` and run `verify:public-types`
-- [ ] 3.3 Update `packages/pi-subagents/README.md`: `spawn` contract (metadata, limits, refusal, not for secrets), the Events table (metadata on record events), the child lifecycle events (metadata on `spawning`, `session-created`, `bound`) and a new `childSession` contract with its shutdown bound; add `test/readme-contract.test.ts` asserting the visibility and no-secrets sentence
-- [ ] 3.4 Update `docs/architecture.md` (seams line) and `docs/decisions/0009-vendored-executor.md` (seam list) to name launch metadata and the child-session lookup
-- [ ] 3.5 Run `bun run test`, `bun run test:executor`, `bun run lint`, `bun run typecheck` and the vendoring test; all pass
+- [x] 3.1 Add `VENDORED.md` rows for the new seam and test files and for every edited upstream file, with one-line reasons
+- [x] 3.2 Regenerate `dist/public.d.ts` with `bun run --cwd packages/pi-subagents build:types` and run `verify:public-types`
+- [x] 3.3 Update `packages/pi-subagents/README.md`: `spawn` contract (metadata, limits, refusal, not for secrets), the Events table (metadata on record events), the child lifecycle events (metadata on `spawning`, `session-created`, `bound`) and a new `childSession` contract with its shutdown bound; add `test/readme-contract.test.ts` asserting the visibility and no-secrets sentence
+- [x] 3.4 Update `docs/architecture.md` (seams line) and `docs/decisions/0009-vendored-executor.md` (seam list) to name launch metadata and the child-session lookup
+- [x] 3.5 Run `bun run test`, `bun run test:executor`, `bun run lint`, `bun run typecheck` and the vendoring test; all pass
