@@ -18,11 +18,17 @@ const line = (o: Partial<WindowLine> = {}): WindowLine => ({
 });
 
 describe("windowEntries", () => {
-  test("excludes slot, old rubric, not offered, miss and untouched", () => {
+  test("excludes slot and old rubric", () => {
+    expect(windowEntries([line({ tier: "slot-a" }), line({ rubric: 2 })], 3)).toEqual([]);
+  });
+  test("Setup without expert left out", () => {
+    const legacy: Record<string, unknown> = { ...line(), expertOffered: true };
+    delete legacy["frontierOffered"];
+    const lines = [line({ frontierOffered: false }), legacy as unknown as WindowLine];
+    expect(windowEntries(lines, 3)).toEqual([]);
+  });
+  test("Miss and untouched left out", () => {
     const lines = [
-      line({ tier: "slot-a" }),
-      line({ rubric: 2 }),
-      line({ frontierOffered: false }),
       line({ reason: "miss" }),
       line({ reason: "untouched" }),
       line({ reason: "risky" }),

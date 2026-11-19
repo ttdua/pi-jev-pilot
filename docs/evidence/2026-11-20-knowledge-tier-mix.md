@@ -15,7 +15,7 @@ This is the seed replay of the `tier-knowledge-axis` change: rubric version 3, t
 | Rubric | Version 3 |
 | Requests | 1640: a run and a plain rerun of 820 each. No misses |
 | Discarded run | A first run on 2026-11-19 with `jev-1.13-free` was rate-limited (HTTP 429): 529 of 820 misses in the run and 820 of 820 in the rerun. It is not used |
-| Routing | Offline, per mode, in launch order. Each launch is decided over the window of the launches before it; the first 100 launches of a stream use the run's own seed candidate |
+| Routing | Offline, per mode, in launch order. Each launch is decided over the window of the launches before it; a stream uses the run's own seed candidate until its window holds 100 entries (more than 100 launches in a slot stream, since slot launches never enter the window) |
 
 **Limitation:** replay requests carry no display-name prefix on the tier options, since the replay CLI does not wire `--models`. The package sends display names when the operator's registry has them, so the live request can differ slightly from the replayed one.
 
@@ -61,7 +61,7 @@ Two scopes:
 | `premium` | run | 0.0% | 44.3% | 52.4% | 3.3% | 0 / 50 / 47 / ≤ 3 | Yes |
 | `premium` | rerun | 0.0% | 43.4% | 52.4% | 4.3% | 0 / 50 / 47 / ≤ 3 | Yes |
 
-**Frontier against the cap:** with no slot, `frontier` is at or just above the cap: 1.1–1.2% against 1% for `standard`, and 3.0–3.2% against 3% for `premium`. With the reviewer slot it is 1.2–1.7% and 3.3–4.3%. The cap applies to the window, while these shares count every launch, including the first 100 decided on the seed candidate.
+**Frontier against the cap:** with no slot, `frontier` is at or just above the cap: 1.1–1.2% against 1% for `standard`, and 3.0–3.2% against 3% for `premium`. With the reviewer slot it is 1.2–1.7% and 3.3–4.3%. The cap applies to the window, while these shares count every launch, including those decided on the seed candidate before the window held 100 entries.
 
 **Decision reasons:** `cut` decided every non-slot launch except the `frontier` ones: 9–10 (`standard`) and 25–26 (`premium`) with no slot, 5–7 and 14–18 with the reviewer slot. The slot took 391–393 reviews and 5 scout launches.
 
@@ -78,7 +78,7 @@ The plain rerun asked Jev the same 820 requests again. Then the decided target o
 ## Reading
 
 - **Every mode is in range** in both scopes, in the run and the rerun. With no slot, every tier is within 4 points of its target.
-- **With the reviewer slot,** the remaining launches lean to `deep`: `standard` sits near the edge of the range (`broad` −9.8, `deep` +9.4 points), and `budget` and `premium` move 5–6 points. *Hypothesis, not measured:* the first 100 launches of each stream are decided on the run's seed candidate, which was computed over all 820 answers, reviews included. If the non-slot launches score higher than the reviews the slot takes away, those early launches land above the cuts more often. Slot launches never enter the window, so the cuts computed later come from non-slot launches only. These aggregates have no per-window data, so the size of the seed-candidate effect is not known.
+- **With the reviewer slot,** the remaining launches lean to `deep`: `standard` sits near the edge of the range (`broad` −9.8, `deep` +9.4 points), and `budget` and `premium` move 5–6 points. *Hypothesis, not measured:* each stream is decided on the run's seed candidate until its window holds 100 entries (more than 100 launches in the slot stream), which was computed over all 820 answers, reviews included. If the non-slot launches score higher than the reviews the slot takes away, those early launches land above the cuts more often. Slot launches never enter the window, so the cuts computed later come from non-slot launches only. These aggregates have no per-window data, so the size of the seed-candidate effect is not known.
 - **Ties:** the scores are coarse, but no mode misses its target because many launches share one score. The effort tiebreak considered in the change's design is not needed.
 - **Noise:** 4.6–7.7% of launches change target between two identical runs, close to the 3.3–5.2% of the rubric-2 replay.
 

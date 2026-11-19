@@ -281,7 +281,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Legacy tier migration safety / Nothing to migrate → `tests/host/platform/migrate.test.ts` › "Nothing to migrate"
 - Legacy tier migration safety / Conflicting keys left alone → `tests/host/platform/migrate.test.ts` › "Conflicting keys left alone"
 - Legacy tier migration safety / Write failure → `tests/host/platform/migrate.test.ts` › "Write failure"
-- Legacy tier migration safety / Child session → `tests/host/platform/migrate.test.ts` › "Child session"
+- Legacy tier migration safety / Child session → `tests/host/setup-wiring.test.ts` › "Child session: legacy files are left alone"
 
 ### decision-ledger
 
@@ -320,7 +320,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Held turn keeps the level / Manual change while held → `tests/host/effort-hold.test.ts` › "Manual change while held"
 - Held turn keeps the level / Correction while held → `tests/host/effort-hold.test.ts` › "Correction while held"
 - One decision after a compaction / Exactly one decision after a compaction → `tests/host/effort-hold.test.ts` › "Exactly one decision after a compaction"
-- One decision after a compaction / Held after a compaction with strategy on → `tests/host/effort-hold.test.ts` › "Held after a compaction with strategy on"
+- One decision after a compaction / Held after a compaction with strategy on → `tests/host/effort-hold.test.ts` › "exactly one decision after a compaction"
 - One decision after a compaction / Miss right after a compaction → `tests/host/effort-hold.test.ts` › "Miss right after a compaction"
 - One decision after a compaction / Compaction inside a decided turn → `tests/host/effort-hold.test.ts` › "Compaction inside a decided turn"
 
@@ -367,12 +367,12 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Main questions / Held prompt → `tests/host/main/gate.test.ts` › "Held prompt"
 - Main questions / Held prompt with strategy on → `tests/host/main/gate.test.ts` › "Held prompt with strategy on"
 - Main questions / Held prompt with skills → `tests/host/main/gate.test.ts` › "Held prompt with skills"
-- Main questions / Gate-only effort applies nothing → `tests/host/main-effort.test.ts` › "Gate-only effort applies nothing"
+- Main questions / Gate-only effort applies nothing → `tests/policy/main/outcome.test.ts` › "Gate-only effort applies nothing"
 - Level applied before the first request / Level on the first request → `tests/host/main-effort.test.ts` › "Level on the first request"
 - Level applied before the first request / Same level → `tests/host/main-effort.test.ts` › "Same level"
 - Level applied before the first request / Model unchanged → `tests/host/main-effort.test.ts` › "Model unchanged"
-- Level applied before the first request / Held gate-only effort shows the level in force → `tests/host/effort-hold.test.ts` › "Held gate-only effort shows the level in force"
-- Level applied before the first request / Gate-only effort on a non-reasoning model → `tests/host/status/line.test.ts` › "Gate-only effort on a non-reasoning model"
+- Level applied before the first request / Held gate-only effort shows the level in force → `tests/policy/main/outcome.test.ts` › "Held gate-only effort reads advice only"
+- Level applied before the first request / Gate-only effort on a non-reasoning model → `tests/host/main.test.ts` › "Gate-only effort on a non-reasoning model"
 - Reply rated by the work it approves / Role rule in the main instruction → `tests/jev/questions.test.ts` › "Role rule in the main instruction"
 - Reply rule leaves the rest unchanged / Criteria unchanged → `tests/jev/questions.test.ts` › "Criteria unchanged"
 - Reply rule leaves the rest unchanged / Worker instruction unchanged → `tests/jev/questions.test.ts` › "Worker instruction unchanged"
@@ -393,7 +393,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Main line fields / Held turn → `tests/policy/main/ledger-line.test.ts` › "Held turn"
 - Main line fields / Held turn with advice → `tests/policy/main/ledger-line.test.ts` › "Held turn with advice"
 - Main line fields / Held turn with a miss → `tests/policy/main/ledger-line.test.ts` › "Held turn with a miss"
-- Main line fields / Gate-only effort not recorded → `tests/policy/main/ledger-line.test.ts` › "Gate-only effort not recorded"
+- Main line fields / Gate-only effort not recorded → `tests/host/main.test.ts` › "Gate-only effort not recorded"
 - Main line fields / Decided turn is not held → `tests/policy/main/ledger-line.test.ts` › "Decided turn is not held"
 
 ### mode-cutpoints
@@ -441,7 +441,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Slot command forms / Remove with extra words → `tests/host/commands/slots.test.ts` › "Remove with extra words"
 - Slot command forms / Legacy frontier slot blocks writes → `tests/host/commands/slots.test.ts` › "Legacy frontier slot blocks writes"
 - Slot command forms / Legacy frontier slot still shows others → `tests/host/commands/slots.test.ts` › "Legacy frontier slot still shows others"
-- Slot command forms / Frontier is the switch → `tests/host/commands/slots.test.ts` › "Frontier is the switch"
+- Slot command forms / Frontier is the switch → `tests/host/commands/jev.test.ts` › "Frontier is the switch"
 - Slot command forms / Name-shaped typo of a feature → `tests/host/commands/slots.test.ts` › "Name-shaped typo of a feature"
 - Order of slot checks / Legacy frontier slot reported first → `tests/host/commands/slots.test.ts` › "Legacy frontier slot reported first"
 - Order of slot checks / Missing when reported before an unknown model → `tests/host/commands/slots.test.ts` › "Missing when reported before an unknown model"
@@ -471,7 +471,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 
 ### state-replay
 
-- Comparison against noise / No main tier key → `tests/replay/compare.test.ts` › "No main tier key"
+- Comparison against noise / No main tier key → `tests/replay/report-compare.test.ts` › "No main tier key"
 - Comparison against noise / Within noise → `tests/replay/compare.test.ts` › "Within noise"
 - Comparison against noise / Beyond noise → `tests/replay/compare.test.ts` › "Beyond noise"
 - Report pass cut-point window / Seed then window → `tests/replay/report-route.test.ts` › "Seed then window"
@@ -532,7 +532,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 ### strategy-advice
 
 - Strategy questions / Strategy on → `tests/jev/questions.test.ts` › "Strategy on"
-- Strategy questions / Tier criteria without a prefix → `tests/jev/questions.test.ts` › "Tier criteria without a prefix"
+- Strategy questions / Tier criteria without a prefix → `tests/host/main/gate.test.ts` › "Strategy on with effort off asks effort for the gate only"
 - Strategy questions / Strategy off → `tests/jev/questions.test.ts` › "Strategy off"
 - Strategy questions / Docs state no prefix for the main tier → `tests/jev/questions.test.ts` › "Docs state no prefix for the main tier"
 - Strategy questions / Wording matches the docs → `tests/jev/questions.test.ts` › "Wording matches the docs"
@@ -546,7 +546,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Strategy gates / Graph at the boundary → `tests/policy/main/strategy.test.ts` › "Graph at the boundary"
 - Strategy gates / Graph below the boundary → `tests/policy/main/strategy.test.ts` › "Graph below the boundary"
 - Strategy gates / Graph off the deep tier → `tests/policy/main/strategy.test.ts` › "Graph off the deep tier"
-- Strategy gates / Gate reads the raw choice → `tests/policy/main/strategy.test.ts` › "Gate reads the raw choice"
+- Strategy gates / Gate reads the raw choice → `tests/policy/main/outcome.test.ts` › "Gate reads the raw choice"
 - Strategy gates / Tier unanswered → `tests/policy/main/strategy.test.ts` › "Tier unanswered"
 - Strategy gates / Tier unanswered does not block delegate → `tests/policy/main/strategy.test.ts` › "Tier unanswered does not block delegate"
 - Strategy gates / Strategy unanswered → `tests/policy/main/strategy.test.ts` › "Strategy unanswered"
@@ -570,7 +570,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 - Worker log line segments / Worker miss text → `tests/host/status/worker-line.test.ts` › "Worker miss text"
 - Worker log line segments / Worker untouched text → `tests/host/status/worker-line.test.ts` › "Worker untouched text"
 - Worker log line segments / Cut reason hidden → `tests/host/status/worker-line.test.ts` › "Cut reason hidden"
-- Worker log line segments / Expert reason shown → `tests/host/status/worker-line.test.ts` › "Expert reason shown"
+- Worker log line segments / Expert reason shown → `tests/host/verbose-log.test.ts` › "Expert reason shown"
 
 ### worker-decision
 
@@ -657,8 +657,8 @@ Tests are named after the scenario heading; headings kept from the baseline with
 ### worker-ledger
 
 - Worker decision fields / Routed fields → `tests/policy/worker/ledger-line.test.ts` › "Routed fields"
-- Worker decision fields / Expert offered recorded → `tests/policy/worker/ledger-line.test.ts` › "Expert offered recorded"
-- Worker decision fields / Expert switched off recorded → `tests/policy/worker/ledger-line.test.ts` › "Expert switched off recorded"
+- Worker decision fields / Expert offered recorded → `tests/host/worker-ledger.test.ts` › "Expert offered recorded"
+- Worker decision fields / Expert switched off recorded → `tests/host/worker-ledger.test.ts` › "Expert switched off recorded"
 - Worker decision fields / Fallback recorded → `tests/policy/worker/ledger-line.test.ts` › "Fallback recorded"
 - Worker decision fields / Nothing could run recorded → `tests/policy/worker/ledger-line.test.ts` › "Nothing could run recorded"
 - Worker decision fields / Thinking-only recorded → `tests/policy/worker/ledger-line.test.ts` › "Thinking-only recorded"
@@ -675,7 +675,7 @@ Tests are named after the scenario heading; headings kept from the baseline with
 
 - Mode targets / Shares sum to 100 → `tests/policy/worker/modes.test.ts` › "Shares sum to 100"
 - Mode targets / Budget never routes expert → `tests/policy/worker/modes.test.ts` › "Budget never routes expert"
-- Mode targets / Frontier caps → `tests/policy/worker/modes.test.ts` › "Frontier caps"
+- Mode targets / Frontier caps → `tests/policy/worker/modes.test.ts` › "values"
 - Mode selects a target table / Worker request ignores the mode → `tests/policy/worker/modes.test.ts` › "Worker request ignores the mode"
 - Mode selects a target table / Same score, different tiers → `tests/policy/worker/modes.test.ts` › "Same score, different tiers"
 - Mode selects a target table / Main request ignores the mode → `tests/policy/worker/modes.test.ts` › "Main request ignores the mode"

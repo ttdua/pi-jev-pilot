@@ -117,7 +117,7 @@ Each mode is a target mix of tier-routed worker launches. Jev scores every launc
 
 Each share should stay within ±10 points over recent launches. `frontier` is a cap, not a quota, and runs only for work that needs the rarest knowledge; effort is not read. The targets never change on their own.
 
-`/jev` shows the recent mix beside the target, for example `mix (last 200, standard): basic 19% / broad 55% / deep 24% / frontier 2% · target 20/53/26/≤1`. While fewer than 100 launches are recorded, `cut points: seed` is shown and a built-in starting set is used.
+`/jev` shows the recent mix beside the target, for example `mix (last 200, standard): basic 19% / broad 55% / deep 25% / frontier 1% · target 20/53/26/≤1`. While fewer than 100 launches are recorded, `cut points: seed` is shown and a built-in starting set is used.
 
 A reviewer slot takes the review launches out of these shares. Without one, reviews count in the mix. These figures show where work is routed, not how well each model does it ([evidence](evidence/2026-11-07-replay.md)).
 

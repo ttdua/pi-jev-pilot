@@ -65,7 +65,7 @@ describe("mainQuestions", () => {
     expect(text).not.toMatch(/\bshort\b/);
   });
 
-  test("main effort criteria unchanged", () => {
+  test("Criteria unchanged", () => {
     const effort = mainQuestions({ applyEffort: true, askStrategy: false }).wire["effort"]!;
     expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
     expect(effort.criteria).toEqual({
@@ -80,7 +80,7 @@ describe("mainQuestions", () => {
     expect(effort.criteria).toEqual(WORKER_EFFORT_QUESTION.criteria);
   });
 
-  test("worker effort instruction unchanged", () => {
+  test("Worker instruction unchanged", () => {
     expect(WORKER_EFFORT_QUESTION.instructions).toBe(
       "How much work and care does a subagent need to put into carrying out this brief? Count the steps, the tracing, the tool calls and the verification, even when the brief names them. A brief that already names the files, the steps and the tests has settled the design, but carrying it out still rates by its total steps, tracing, tool use and verification. Rate higher when the brief itself asks for design, tracing an unknown cause, or reasoning that is not already written out. Rare knowledge is a tier matter, not an effort signal. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
     );

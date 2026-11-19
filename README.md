@@ -29,7 +29,7 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 | Feature | When it is on | Turn it off |
 |---|---|---|
 | Effort | Pi sets the thinking level for each prompt. You can still change it yourself; your choice lasts until the next prompt. A current `max` is left alone, and providers in the effort hold below keep their level. | `/jev effort off` |
-| Effort hold | For providers in `effort.holdProviders` (default `9router`), the level of the latest decision stays until a compaction or a provider or model switch, and Jev is not asked about effort in between. | Set `effort.holdProviders` to `[]` in `config.json` |
+| Effort hold | For providers in `effort.holdProviders` (default `9router`), the level of the latest decision stays until a compaction or a provider or model switch, and Jev is not asked about effort in between (except to gate strategy advice; that answer never moves the level). | Set `effort.holdProviders` to `[]` in `config.json` |
 | Skills | At most one skill is attached to a prompt, on top of Pi's normal catalog. | `/jev skills off` |
 | Strategy advice | Advice on how to split the work is occasionally attached to a prompt. The model may ignore it. | `/jev strategy off` |
 

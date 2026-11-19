@@ -174,7 +174,7 @@ describe("effort option order", () => {
 });
 
 describe("Effort after fallback", () => {
-  test("Fallback lifts effort on basic", () => {
+  test("Fallback lifts effort on fast", () => {
     expect(workerEffort({ effort: choice("low"), movedByFallback: true })).toBe("xhigh");
   });
 
@@ -228,7 +228,7 @@ describe("workerEffort with slot targets", () => {
   test("Slot without the fast cap", () => {
     expect(workerEffort({ effort: choice("high"), movedByFallback: false })).toBe("high");
   });
-  test("Slot fell back to basic", () => {
+  test("Slot fell back to fast", () => {
     expect(workerEffort({ effort: choice("low"), movedByFallback: true })).toBe("xhigh");
   });
 });

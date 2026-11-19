@@ -362,7 +362,7 @@ describe("Slot rule", () => {
     });
     expect(decideTier(a, ALL, STANDARD, [])).toEqual(decided("broad", "cut"));
   });
-  test("Slot below the bar reaches frontier", () => {
+  test("Slot below the bar reaches expert", () => {
     const a = slotAt(0.5, { deep: 0.6, frontier: 0.4 });
     expect(scoreOf(a)).toBe(2.4);
     const cuts: CutPoints = { ...STANDARD, frontierMin: 2.3 };
@@ -386,14 +386,14 @@ describe("Slot rule", () => {
       from: "slot::reviewer",
     });
   });
-  test("Slot falls back to broad", () => {
+  test("Slot falls back to balanced", () => {
     expect(chooseFallback("slot::reviewer", ALL, notReviewer, R)).toEqual({
       kind: "moved",
       tier: "broad",
       from: "slot::reviewer",
     });
   });
-  test("Slot falls back to basic", () => {
+  test("Slot falls back to fast", () => {
     expect(chooseFallback("slot::reviewer", ["basic", "deep"], notReviewer, R)).toEqual({
       kind: "moved",
       tier: "basic",
@@ -429,7 +429,7 @@ function runs(...ok: TierName[]): (t: Target) => boolean {
 describe("Fallback choice", () => {
   const cases: [string, TierName, readonly TierName[], TierName[], FallbackResult][] = [
     ["Target usable", "deep", ALL, ["deep"], { kind: "keep", tier: "deep" }],
-    ["Usable frontier kept", "frontier", ALL, ["frontier"], { kind: "keep", tier: "frontier" }],
+    ["Usable expert kept", "frontier", ALL, ["frontier"], { kind: "keep", tier: "frontier" }],
     ["Move down", "deep", ALL, ["broad"], { kind: "moved", tier: "broad", from: "deep" }],
     [
       "Skip an unusable lower tier",

@@ -250,7 +250,7 @@ describe("seed candidates", () => {
     };
   };
 
-  test("candidate per mode", () => {
+  test("Candidate per mode", () => {
     const agg = run(120);
     const entries = scoresOf(120);
     for (const v of ["report", "rerun"] as const)
@@ -258,7 +258,7 @@ describe("seed candidates", () => {
         expect(agg.seedCandidates[v][m]).toEqual(expected(entries, m));
   });
 
-  test("budget candidate has no frontier", () => {
+  test("Budget candidate has no frontier", () => {
     const agg = run(120);
     expect(agg.seedCandidates.report.budget.frontierMin).toBe("Infinity");
     expect(agg.seedCandidates.report.premium.basicMax).toBe("-Infinity");
@@ -267,7 +267,7 @@ describe("seed candidates", () => {
     expect(back.report.budget.frontierMin).toBe("Infinity");
   });
 
-  test("misses left out", () => {
+  test("Misses left out", () => {
     const skip = [3, 17, 40, 41, 99];
     const agg = run(
       120,
@@ -283,7 +283,7 @@ describe("seed candidates", () => {
     expect(agg.seedCandidates.rerun.premium.broadMax).toBe(1);
   });
 
-  test("no main tier key", () => {
+  test("No main tier key", () => {
     const { plan, results } = mainRun(["low"]);
     const body = mainBody({ effort: "low" }) as { answers: Record<string, unknown> };
     expect(Object.keys(body.answers)).not.toContain("tier");

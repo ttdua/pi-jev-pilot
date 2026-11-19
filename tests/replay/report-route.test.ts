@@ -64,7 +64,7 @@ describe("routeStream", () => {
     for (const t of out) expect(t[0]).toBeDefined();
   });
 
-  test("seed then window", () => {
+  test("Seed then window", () => {
     // Skewed stream: window cuts differ from the seed once 100 entries exist.
     const answers = Array.from({ length: 150 }, (_, i) =>
       workerAnswers({

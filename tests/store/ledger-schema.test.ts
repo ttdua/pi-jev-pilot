@@ -58,7 +58,7 @@ describe("ledger schema", () => {
     if (r.ok) expect(r.line).toBe(`${JSON.stringify(r.entry)}\n`);
   });
 
-  test("Legacy expert line accepted", () => {
+  test("Expert accepted", () => {
     const entry = {
       ...base("worker"),
       reason: "expert",
@@ -74,7 +74,7 @@ describe("ledger schema", () => {
     expect(validateLedgerEntry(entry).ok).toBe(true);
   });
 
-  test("Frontier line accepted", () => {
+  test("Frontier accepted", () => {
     const entry = {
       ...base("worker"),
       reason: "frontier",

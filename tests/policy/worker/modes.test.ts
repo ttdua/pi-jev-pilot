@@ -16,7 +16,7 @@ describe("MODE_TARGETS", () => {
     }
   });
 
-  test("budget has no frontier cap", () => {
+  test("Budget never routes expert", () => {
     expect(MODE_TARGETS.budget.frontierCap).toBe(0);
   });
 

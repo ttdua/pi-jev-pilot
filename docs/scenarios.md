@@ -78,7 +78,7 @@ To override: lock the model or thinking in the agent file.
 Guards first:
 
 - A manual level change during an outstanding request discards that result.
-- `holdProviders` keep the newest level until a compaction or a provider or model switch, without asking Jev.
+- `holdProviders` keep the newest level until a compaction or a provider or model switch, without asking Jev for a level (with `strategy` on, `effort` is still asked to gate the advice; that answer never moves the level).
 - A current `max` is left alone.
 
 Then, applied in order:

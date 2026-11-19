@@ -14,7 +14,7 @@ import type { State } from "../../src/store/state-file.ts";
 
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
-type Extra = { strategy?: [string, number]; tier?: string };
+type Extra = { strategy?: [string, number] };
 
 function answer(choice: string, risky = 0.1, corrects = 0.05, extra: Extra = {}): JevOutcome {
   const probabilities = Object.fromEntries(EFFORTS.map((l) => [l, l === choice ? 0.6 : 0.1]));
@@ -29,13 +29,6 @@ function answer(choice: string, risky = 0.1, corrects = 0.05, extra: Extra = {})
       type: "choice",
       choice: c,
       probabilities: { direct: 0.1, delegate: 0.1, parallel: 0.1, graph: 0.1, [c]: p },
-    };
-  }
-  if (extra.tier !== undefined) {
-    answers["tier"] = {
-      type: "choice",
-      choice: extra.tier,
-      probabilities: { basic: 0.1, broad: 0.1, deep: 0.1, [extra.tier]: 0.8 },
     };
   }
   return { kind: "ok", ms: 7, body: { answers } };
@@ -1631,11 +1624,6 @@ describe("skill message", () => {
       choice: "delegate",
       probabilities: { direct: 0.025, delegate: 0.9, parallel: 0.05, graph: 0.025 },
     };
-    answers["tier"] = {
-      type: "choice",
-      choice: "broad",
-      probabilities: { basic: 0.1, broad: 0.8, deep: 0.1 },
-    };
     const t = setup({ skills, outcomes: [both] });
     const result = (await run(t)) as {
       message: { customType: string; content: string; details: unknown };
@@ -2008,7 +1996,7 @@ describe("rich state inputs", () => {
 
   test("last decision carried to the next prompt", async () => {
     const t = setup({
-      outcomes: [advised("delegate", 0.9, { tier: "broad" }), answer("low")],
+      outcomes: [advised("delegate", 0.9), answer("low")],
       rich: { ...noRich, groups: ["last_decision"] },
     });
     await run(t);

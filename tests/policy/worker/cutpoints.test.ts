@@ -43,7 +43,7 @@ describe("cutPoints", () => {
     });
   });
 
-  test("premium has no basic cut", () => {
+  test("Premium has no fast cut", () => {
     const cuts = cutPoints(tenths(), MODE_TARGETS.premium);
     expect(cuts.basicMax).toBe(-Infinity);
     expect(cuts.broadMax).toBe(0.5);
