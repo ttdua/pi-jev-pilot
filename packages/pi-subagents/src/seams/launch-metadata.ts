@@ -17,9 +17,15 @@ function refuse(message: string): never {
 	throw new Error(`spawn metadata: ${message}`);
 }
 
-/** Bounded, escaped rendering of a caller-supplied key for error text. */
+/**
+ * Bounded, escaped rendering of a caller-supplied key for error text.
+ * JSON.stringify escapes only U+0000–U+001F, so DEL and C1 controls are escaped here.
+ */
 function show(key: string): string {
-	return JSON.stringify(key.length > 80 ? `${key.slice(0, 80)}…` : key);
+	return JSON.stringify(key.length > 80 ? `${key.slice(0, 80)}…` : key).replace(
+		/[\u007f-\u009f]/g,
+		(c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+	);
 }
 
 function isPlainObject(input: unknown): input is Record<string, unknown> {

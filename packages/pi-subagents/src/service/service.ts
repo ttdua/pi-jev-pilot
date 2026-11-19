@@ -34,6 +34,7 @@ export type {
   ChildSessionCreatedEvent,
   ChildSpawningEvent,
 } from "#src/lifecycle/child-lifecycle";
+export type { PublishedLaunchIdentity } from "#src/seams/identity";
 export type { TurnBudget, TurnBudgetPhase } from "#src/lifecycle/turn-limits";
 // The resume vocabulary is re-exported for the same reason: the record owns the
 // reasons a resume is refused, and the manager adds the one that is not a fact

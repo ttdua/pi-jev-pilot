@@ -124,6 +124,20 @@ describe("parseLaunchMetadata", () => {
 });
 
 describe("parseLaunchMetadata error text", () => {
+	it("escapes DEL and C1 control characters in the offending key", () => {
+		for (const key of ["A\u007f", "A\u0085", "A\u009b31m"]) {
+			let message = "";
+			try {
+				parseLaunchMetadata({ [key]: "v" });
+			} catch (error) {
+				message = (error as Error).message;
+			}
+			expect(message).not.toBe("");
+			expect(message).not.toMatch(/[\u007f-\u009f]/);
+		}
+		expect(() => parseLaunchMetadata({ "A\u009b31m": "v" })).toThrow("\\u009b");
+	});
+
 	it("bounds and escapes an offending key in the message", () => {
 		const key = `A\n${"k".repeat(200)}`;
 		let message = "";
