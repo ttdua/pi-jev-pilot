@@ -437,6 +437,29 @@ describe("createSubagentSession — the core's own child tools", () => {
       expect(opts.customTools?.map((tool) => tool.name)).toEqual(["submit_result"]);
     });
 
+    it("installs all three protocol tools for a background launch with mid-run updates", async () => {
+      arrangeFactory();
+
+      await createSubagentSession(
+        {
+          agentId: "a1",
+          snapshot: STUB_SNAPSHOT,
+          type: "Explore",
+          askParent: vi.fn(),
+          notifyParent: vi.fn(),
+          resultSchema: schema,
+          submitResult: { hasResult: () => false, submit: vi.fn() },
+        },
+        defaultDeps(),
+      );
+
+      expect(io.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: ["read", "ask_parent", "notify_parent", "submit_result"] }),
+      );
+      const opts = io.createSession.mock.calls[0][0] as CreateSessionOptions;
+      expect(opts.customTools?.map((tool) => tool.name).sort()).toEqual(["ask_parent", "notify_parent", "submit_result"]);
+    });
+
     it("keeps submit_result when the agent disallows it", async () => {
       arrangeFactory();
 

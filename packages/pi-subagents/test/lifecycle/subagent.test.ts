@@ -2677,10 +2677,11 @@ describe("Subagent", () => {
 			expect(agent.status).toBe("completed");
 		});
 
-		it("still aborts an exhausted run that stored nothing", async () => {
+		it("still aborts an exhausted run that stored nothing, and reports the result as missing", async () => {
 			const { agent } = await runWithSchema(() => turnLoopResult({ turnBudget: EXHAUSTED }));
 
 			expect(agent.status).toBe("aborted");
+			expect(agent.structuredResultError).toBe("missing");
 		});
 
 		it("keeps the stored result when the run is stopped afterwards", async () => {

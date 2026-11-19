@@ -112,6 +112,7 @@ describe("structured result turn loop (real SDK session)", () => {
 	async function runChild(
 		script: ScriptedReply[],
 		onSession?: (agent: Subagent) => void,
+		maxTurns?: number,
 	): Promise<Subagent> {
 		loopback = await startLoopback(script);
 		const runtime = await ModelRuntime.create({
@@ -182,6 +183,7 @@ describe("structured result turn loop (real SDK session)", () => {
 				prompt: "TASK",
 				baseCwd: projectDir,
 				resultSchema: SCHEMA,
+				maxTurns,
 				observer: { onSessionCreated: (created) => onSession?.(created) },
 			}),
 		});
@@ -220,6 +222,21 @@ describe("structured result turn loop (real SDK session)", () => {
 		expect(loopback.requestCount()).toBe(2);
 		expect(launched.structuredResult).toEqual({ status: "done" });
 	});
+	const READ = { name: "read", args: { path: "notes.txt" } };
+
+	it.each([
+		["alone", [VALID]],
+		["beside read", [READ, VALID]],
+	])("settles completed when %s submits on the last permitted turn", async (_kind, ceilingTurn) => {
+		const launched = await runChild([[READ], ceilingTurn, "unexpected next turn"], undefined, 2);
+
+		expect(loopback.requestCount()).toBe(2);
+		expect(launched.turnBudget?.phase).toBe("exhausted");
+		expect(launched.status).toBe("completed");
+		expect(launched.structuredResult).toEqual({ status: "done" });
+		expect(launched.structuredResultError).toBeUndefined();
+	});
+
 	/** Queue `queue` on the session once `submit_result` finishes, while the turn is still running. */
 	function queueAfterSubmit(queue: (launched: Subagent) => Promise<unknown>) {
 		return (launched: Subagent) => {

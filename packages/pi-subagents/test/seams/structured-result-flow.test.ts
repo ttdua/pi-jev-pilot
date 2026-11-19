@@ -50,9 +50,18 @@ type Tool = {
 let childCounter = 0;
 const managers: SubagentManager[] = [];
 
+/** What the fake child can do inside a turn besides submitting. */
+interface ChildActions {
+	/** Answer in text, the way a model streams its final message. */
+	say(text: string): void;
+	/** Call the installed `ask_parent` tool. */
+	ask(question: string): Promise<ToolResult>;
+}
+
 /** What the fake child does with its `submit_result` tool, and what each call returned. */
 type ChildScript = (
 	submit: (value: unknown) => Promise<ToolResult>,
+	child: ChildActions,
 ) => Promise<void>;
 
 function harness() {
@@ -86,15 +95,29 @@ function harness() {
 			Object.assign(session, { model: MAIN, thinkingLevel: "off", agent: {} });
 			session.prompt.mockImplementation(async () => {
 				const tool = opts.customTools?.find((t) => t.name === "submit_result");
+				const askTool = opts.customTools?.find((t) => t.name === "ask_parent");
 				if (!tool) return;
-				await script(async (value) => {
-					session.emit({
-						type: "tool_execution_start",
-						toolName: "submit_result",
-						toolCallId: "c",
-					});
-					return tool.execute("c", { result: value }, undefined, undefined, {});
-				});
+				await script(
+					async (value) => {
+						session.emit({
+							type: "tool_execution_start",
+							toolName: "submit_result",
+							toolCallId: "c",
+						});
+						return tool.execute("c", { result: value }, undefined, undefined, {});
+					},
+					{
+						say: (text) => {
+							session.emit({ type: "message_start" });
+							session.emit({
+								type: "message_update",
+								assistantMessageEvent: { type: "text_delta", delta: text },
+							});
+						},
+						ask: async (question) =>
+							(await askTool?.execute("q", { question }, undefined, undefined, {})) as ToolResult,
+					},
+				);
 			});
 			return { session };
 		},
@@ -175,6 +198,12 @@ function harness() {
 			await manager.getRecord(id)?.promise;
 			return id;
 		},
+		/** Resume the finished run `id`, the child running `childScript`. */
+		async resume(id: string, childScript: ChildScript): Promise<void> {
+			script = childScript;
+			await service.resume(id, "go on");
+			await manager.getRecord(id)?.promise;
+		},
 		spawnOnly(schema: ResultSchema, childScript: ChildScript): string {
 			script = childScript;
 			return service.spawn("Explore", "go", {
@@ -231,6 +260,45 @@ describe("Structured result through the service door", () => {
 		expect(completed.structuredResultError).toBe("missing");
 		expect(completed).not.toHaveProperty("structuredResult");
 		expect(h.record(id).structuredResultError).toBe("missing");
+	});
+
+	it("keeps the free-text result beside a missing structured result", async () => {
+		const h = harness();
+		const id = await h.run(SCHEMA, async (_submit, child) => {
+			child.say("I looked and found nothing.");
+		});
+
+		const record = h.record(id);
+		expect(record.structuredResultError).toBe("missing");
+		expect(record.result).toBe("I looked and found nothing.");
+	});
+
+	it("reports invalid on the run when two invalid calls are the last word", async () => {
+		const h = harness();
+		const id = await h.run(SCHEMA, async (submit) => {
+			await submit({ status: "maybe" });
+			await submit({ status: 1 });
+		});
+
+		expect(h.first("subagents:completed").structuredResultError).toBe("invalid");
+		expect(h.record(id).structuredResultError).toBe("invalid");
+		expect(h.record(id)).not.toHaveProperty("structuredResult");
+	});
+
+	it("gives a resumed run its own outcome after a pending question", async () => {
+		const h = harness();
+		const id = await h.run(SCHEMA, async (_submit, child) => {
+			await child.ask("Which config wins?");
+		});
+		expect(h.record(id).structuredResultError).toBeUndefined();
+
+		await h.resume(id, async (submit) => {
+			await submit({ status: "done" });
+		});
+
+		const record = h.record(id);
+		expect(record.structuredResult).toEqual({ status: "done" });
+		expect(record).not.toHaveProperty("structuredResultError");
 	});
 
 	it("validates against the schema copied at spawn, not the caller's later edits", async () => {
