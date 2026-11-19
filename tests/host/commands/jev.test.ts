@@ -273,7 +273,7 @@ describe("formatStatus", () => {
         decided,
       }));
     };
-    test("standard, full window", () => {
+    test("Mix with a full window", () => {
       const lines = formatStatus(snap(), undefined, entries(200, 38, 110, 48)).split("\n");
       expect(lines).toContain(
         "mix (last 200, standard): basic 19% / broad 55% / deep 24% / frontier 2% · target 20/53/26/≤1",
@@ -289,7 +289,7 @@ describe("formatStatus", () => {
       expect(text).toContain("mode: premium (this directory; global standard)");
       expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/47\/≤3/);
     });
-    test("budget target", () => {
+    test("Budget target shown", () => {
       const text = formatStatus(
         snap({ state: { mode: "budget" } }),
         undefined,
@@ -452,6 +452,42 @@ describe("runJev", () => {
     expect(rec.widgets).toHaveLength(1);
     await run("skills on", dir);
     expect(switches(dir)?.skills).toBe(true);
+  });
+
+  test("Legacy frontier slot reported first at the command", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    const cfg = {
+      crew: {
+        slots: [
+          { name: "frontier", model: "fixture/fixture-main", when: "Legacy." },
+          { name: "reviewer", model: "fixture/fixture-review", when: "Reviews." },
+        ],
+      },
+    };
+    writeFileSync(join(dir, "config.json"), JSON.stringify(cfg));
+    const before = readFileSync(join(dir, "config.json"), "utf8");
+    const rec = await run("reviewer fixture/unknown extra", dir);
+    const errors = rec.notes.filter((n) => n[1] === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.[0]).toContain("rename");
+    expect(errors[0]?.[0]).not.toContain("usage");
+    expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(before);
+  });
+
+  test("Remove with extra words is usage without a frontier slot", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "config.json"),
+      JSON.stringify({
+        crew: { slots: [{ name: "reviewer", model: "fixture/fixture-review", when: "R." }] },
+      }),
+    );
+    const before = readFileSync(join(dir, "config.json"), "utf8");
+    const rec = await run("remove reviewer now", dir);
+    expect(rec.notes[0]?.[0]).toContain("Usage:");
+    expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(before);
   });
 
   test("Frontier is the switch", async () => {

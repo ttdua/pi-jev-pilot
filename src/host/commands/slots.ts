@@ -111,15 +111,33 @@ function runRemove(name: string, slots: readonly Slot[], dir: string): SlotOutco
 // DEPRECATED(remove next minor): a legacy slot named `frontier` blocks writes until renamed by hand.
 const LEGACY_SLOT_NAME = "frontier";
 
+function legacyRefusal(slots: readonly Slot[], dir: string): SlotOutcome | undefined {
+  if (!slots.some((s) => s.name === LEGACY_SLOT_NAME)) return undefined;
+  const path = join(dir, "config.json");
+  return refuse(
+    `crew.slots has a slot named "${LEGACY_SLOT_NAME}", a reserved name; rename it in ${path}`,
+  );
+}
+
+/**
+ * Runs before parsing: a slot-write candidate (add, replace, remove, or a malformed one) is refused
+ * when the config is invalid or holds a legacy `frontier` slot. Show and non-slot text pass through.
+ */
+export function refuseSlotWrite(text: string, dir: string): SlotOutcome | undefined {
+  const parsed = parseSlotArgs(text);
+  if (parsed === undefined || (parsed !== "usage" && parsed.kind === "show")) return undefined;
+  const read = readConfig(dir);
+  if (read.kind === "invalid") return refuse(issueMessage(read.issues));
+  return legacyRefusal(read.config.crew?.slots ?? [], dir);
+}
+
 export function runSlot(args: SlotArgs, registry: ModelRegistry, dir: string): SlotOutcome {
   const read = readConfig(dir);
   if (read.kind === "invalid") return refuse(issueMessage(read.issues));
   const slots = read.config.crew?.slots ?? [];
-  if (args.kind !== "show" && slots.some((s) => s.name === LEGACY_SLOT_NAME)) {
-    const path = join(dir, "config.json");
-    return refuse(
-      `crew.slots has a slot named "${LEGACY_SLOT_NAME}", a reserved name; rename it in ${path}`,
-    );
+  if (args.kind !== "show") {
+    const legacy = legacyRefusal(slots, dir);
+    if (legacy !== undefined) return legacy;
   }
   const existing = slots.find((s) => s.name === args.name);
   if (args.kind === "set") return runSet(args, { existing, slots, registry, dir });
