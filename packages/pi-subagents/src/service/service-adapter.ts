@@ -6,11 +6,13 @@
  */
 
 import type { Model } from "@earendil-works/pi-ai";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type DeprecationWarnings, defaultDeprecationWarnings } from "#src/config/deprecations";
 import { resolveContext } from "#src/config/invocation-config";
 import { parseThinkingLevel, thinkingLevelError } from "#src/config/thinking-level";
 import { lookupChildSession } from "#src/seams/child-sessions";
 import { parseLaunchMetadata } from "#src/seams/launch-metadata";
+import { defaultLaunchResourcesIO, parseLaunchResources } from "#src/seams/launch-resources";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
 import type { AgentSpawnConfig, ResumeCallOptions, ResumeOutcome } from "#src/lifecycle/subagent-manager";
 import type { WorkspaceProvider } from "#src/lifecycle/workspace";
@@ -99,6 +101,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
   spawn(type: string, prompt: string, options?: SpawnOptions): string {
     // First: a refusal throws before anything is read, built or created.
     const metadata = parseLaunchMetadata(options?.metadata);
+    const resources = parseLaunchResources(options ?? {}, defaultLaunchResourcesIO(getAgentDir()));
     if (!this.runtime.currentCtx) {
       throw new Error("No active session — cannot spawn agents outside a session.");
     }
@@ -120,6 +123,7 @@ export class SubagentsServiceAdapter implements SubagentsService {
       parentSession: { parentSessionFile, parentSessionId },
       origin: { kind: "service" },
       metadata,
+      resources,
       maxTurns: options?.maxTurns,
       thinkingLevel: this.resolveThinkingLevel(options?.thinkingLevel),
       context,

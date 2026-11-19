@@ -8,6 +8,7 @@
 
 import type { Model } from "@earendil-works/pi-ai";
 import { debugLog, debugNote } from "#src/debug";
+import { excludedPackageUnion } from "#src/session/package-exclusions";
 import { applyAdjustment } from "#src/seams/launch-plan";
 import type { LaunchPolicySlot } from "#src/seams/launch-policy";
 import {
@@ -38,6 +39,8 @@ export interface LaunchFacts {
 	parentSessionId?: string;
 	/** The launch's frozen metadata; absent for a tool launch. */
 	metadata?: LaunchMetadata;
+	/** Packages the launch excludes, in addition to the setting's. */
+	excludeExtensionPackages?: readonly string[];
 	prompt: string;
 	description: string;
 	model?: Model<any>;
@@ -110,7 +113,10 @@ export class LaunchPolicyGate {
 			config,
 			requested: requestedValues(facts, config),
 			parentTools: this.context.listParentTools(),
-			excludedPackages: this.context.excludedPackages(),
+			excludedPackages: excludedPackageUnion(
+				this.context.excludedPackages(),
+				facts.excludeExtensionPackages ?? [],
+			),
 		});
 	}
 }

@@ -108,7 +108,7 @@ Showing a recorded or running agent (tool call rendering, widget, fleet list, re
 - **THEN** the widget shows the recorded type and no error is raised
 
 ### Requirement: Agent snapshot content
-Each snapshot SHALL be a frozen, plain serializable copy holding `name`, `source` (`builtin`, `package`, `global` or `project`), `description`, `instructions` (the body), `tools` (as declared, or `null` when undeclared), `defaultTools`, `disallowedTools`, and as declared or absent `model`, `thinking`, `locked` (`true` or a list of lockable fields), `maxTurns`, `runInBackground` and `context` (`fresh` or `fork`). Changing a snapshot MUST NOT change executor state.
+Each snapshot SHALL be a frozen, plain serializable copy holding `name`, `source` (`builtin`, `package`, `global` or `project`), `description`, `instructions` (the body), `tools` (as declared, or `null` when undeclared), `defaultTools`, `disallowedTools`, and as declared or absent `model`, `thinking`, `locked` (`true` or a list of lockable fields), `maxTurns`, `runInBackground`, `context` (`fresh` or `fork`) and `inheritSkills` (`false`, present only when the agent file declares `inherit_skills: false`; see `launch-resources`). Changing a snapshot MUST NOT change executor state.
 
 #### Scenario: Built-in explore
 - **WHEN** no other file defines `explore` and `getAgentType("explore")` is called
@@ -125,6 +125,10 @@ Each snapshot SHALL be a frozen, plain serializable copy holding `name`, `source
 #### Scenario: Absent tools kept distinct from defaults
 - **WHEN** an agent file has no `tools` field
 - **THEN** its snapshot has `tools` `null` and `defaultTools` the seven built-ins
+
+#### Scenario: Pinned skills in the snapshot
+- **WHEN** an agent file declares `inherit_skills: false`
+- **THEN** its snapshot has `inheritSkills` `false`, and the snapshot of an agent without the field has no `inheritSkills`
 
 ### Requirement: Deprecated inherit_context in snapshots
 A deprecated `inherit_context` declaration SHALL appear in the snapshot as `context`, and the snapshot MUST NOT carry `inheritContext`.

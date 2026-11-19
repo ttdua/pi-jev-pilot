@@ -61,6 +61,16 @@ export interface ChildSessionCreatedEvent extends PublishedLaunchIdentity, Effec
   parentSessionId?: string;
   /** The launch's resolved context; a fork's session id is still its own. */
   context: ContextMode;
+  /** The directory the child runs in. Always set by this executor. */
+  cwd?: string;
+  /** Whether the child inherits the catalog skills; set for a launch with resources or a pinned agent. */
+  inheritSkills?: boolean;
+  /** The skill files the child loaded before bind; set with `inheritSkills`. */
+  skillPaths?: readonly string[];
+  /** The packages whose extensions this child does not load; set with `inheritSkills`. */
+  excludedExtensionPackages?: readonly string[];
+  /** Whether the child reads project context files; set with `inheritSkills`. */
+  contextFiles?: boolean;
 }
 
 /** Payload for `subagents:child:bound`. */

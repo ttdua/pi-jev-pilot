@@ -132,6 +132,7 @@ All fields are optional — sensible defaults for everything.
 | `context`           | `fresh`        | `fresh` or `fork`. See [Context: fresh or fork](#context-fresh-or-fork)
 | `run_in_background` | `false`        | Run in background by default                                                                                                                                                                                                                  |
 | `enabled`           | `true`         | Set to `false` to disable an agent (useful for hiding a default agent per-project)                                                                                                                                                            |
+| `inherit_skills`    | —              | `false` pins the child's skill catalog off: no inherited skills, and a fork is refused. Any other value is not pinned; a non-boolean writes a debug note |
 | `locked`            | —              | Fields a `subagent` tool caller may not override. `true` or a list of field names. See [Locking fields against callers](#locking-fields-against-callers)                                                                                      |
 
 The caller decides, and the agent file fills the gaps.
@@ -357,6 +358,10 @@ What this does and does not do:
 
 This key is hand-edited in the global or project `subagents.json`; `/subagents:settings` does not expose it, but it is preserved when you change other settings there.
 An absent or empty list reproduces the default behavior, in which children inherit every parent extension.
+
+A service caller can exclude packages for one launch with `spawn(..., { excludeExtensionPackages })`.
+The list is added to this setting for that child only, matched by the same exact source string, and an entry that matches no configured package writes a debug note rather than failing the launch.
+The parent, other children and settings files are unaffected.
 
 A hand-edited `promptInheritance` map is preserved across other settings changes but has no effect (see [Deprecated names](#deprecated-names)).
 

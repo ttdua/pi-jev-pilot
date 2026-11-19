@@ -315,6 +315,8 @@ Each child's shutdown is bounded: a handler that never resolves is abandoned aft
 If you author an extension that runs in children, note that its `session_shutdown` handler now fires **once per child session** in addition to once for the parent.
 A handler that flushes a log, writes a summary, or closes a shared resource should be safe to run repeatedly within one process.
 The child lifecycle events `subagents:child:spawning`, `session-created` and `bound` carry the launch's `metadata` when it has any.
+`session-created` carries `cwd`, the child's effective working directory, on every launch.
+For a launch with launch resources or a pinned agent it also carries `inheritSkills`, `skillPaths` (the skill files loaded before bind), `excludedExtensionPackages` and `contextFiles`; those fields are absent otherwise.
 Before this behavior existed, children fired `session_start` with no matching shutdown, so extension-owned resources accumulated for the life of the parent process.
 
 ## Events
@@ -342,11 +344,16 @@ Use `contextUsage.percent` (surfaced as `(NN%)` in the widget) for current conte
 
 `metadata` is the frozen map a service launch passed to `spawn`. It is present on these events only when the launch has metadata, and never on tool-call launches.
 
+`subagents:child:session-created` carries `cwd` on every launch, and `inheritSkills`, `skillPaths`, `excludedExtensionPackages` and `contextFiles` for a launch with launch resources or a pinned agent; see [Launch resources](#launch-resources).
+
 ## Worktree Isolation
 
 Worktree isolation lives in a companion package, not this core.
 Install [`@gotgenes/pi-subagents-worktrees`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-subagents-worktrees) and list the agent types you want isolated in its `worktreeAgents` config — opted-in agents run in a temporary git worktree, and their changes are saved to a branch on completion.
 The earlier `isolation: "worktree"` spawn flag and `isolation:` frontmatter key were removed from the core.
+
+The core never creates a worktree for a service launch.
+The caller creates it, then passes its path as `cwd` in `spawn`; the workspace provider receives it as `requestedCwd` in `prepare`, together with `metadata` when the launch has any, and decides the directory.
 
 ## Removed: agent memory and skill preloading
 
@@ -467,6 +474,44 @@ A run ended at its turn limit resolves `status: "aborted"` and keeps the questio
 - Metadata is not persisted: it is gone after a reload.
 
 Metadata is delivered on `pi.events` to every extension in the process; do not put secrets in it.
+
+#### Launch resources
+
+`SpawnOptions` takes four optional fields that shape a fresh child:
+
+- `skills` (`{ inherit: boolean; paths?: readonly string[] }`): `inherit: false` leaves the child with only the skills loaded from `paths`; `paths` are absolute `SKILL.md` files or directories that hold them, deduplicated by real path, in order.
+- `excludeExtensionPackages` (`readonly string[]`): package sources whose extensions this child does not load, added to the `excludedExtensionPackages` setting for this child only.
+- `cwd` (absolute path to an existing directory): the child's working directory, unless a workspace provider decides otherwise.
+- `contextFiles` (`boolean`): `false` loads no `AGENTS.md` or `CLAUDE.md` into the child.
+
+Omit all four and the child is built as before.
+The `subagent` tool does not accept them.
+
+Launch resources apply to fresh launches only: a launch that carries any of the four fields and resolves to `fork`, including the default `contextFiles: true`, throws.
+A pinned agent (`inherit_skills: false` in its frontmatter) that resolves to `fork` throws too.
+The one fallback is for an agent-declared fork: when an agent's `context: fork` (locked or not) finds no parent session, the launch runs `fresh` and keeps the caller's four fields and the agent's pin.
+A caller's own `context: "fork"` gets no fallback: with no parent session it fails, as the context rules above already say.
+
+`spawn` throws synchronously, before a record, event or policy call exists, in these cases:
+
+- a field has the wrong shape (`skills.inherit` not a boolean, `skills.paths` not an array of non-empty strings, an empty or non-string `excludeExtensionPackages` entry, `cwd` not a string, `contextFiles` not a boolean);
+- a `cwd` or skill path is not absolute;
+- `cwd` is not an existing directory;
+- a skill path does not exist or loads no skill;
+- a skill path loads with a diagnostic other than a name collision, such as a missing `description`; the message names the path and the reason;
+- two different files in `skills.paths` declare the same skill name: `Skill name collision: <name> (<winnerPath>, <loserPath>)`, naming the skill and both paths.
+
+The executor never drops an invalid entry and launches with the rest.
+
+The run fails before any child session exists in one more case: an explicit skill collides with a skill the child's catalog already holds, for example `~/.pi/agent/skills/plan/SKILL.md` against an explicit `plan` from another path.
+It fails with `Skill name collision: <name> (<winnerPath>, <loserPath>)`, naming the skill and both paths; no session is created.
+A skill that a child's extension discovers while binding never displaces an explicit skill; that is a debug note, not a failure.
+
+The executor re-checks the resources when the run starts, before the workspace provider is consulted.
+A `cwd` that no longer exists, a skill file that is gone or no longer loads, or a listed skill file that now loads with a warning fails the run with `Launch resources no longer valid: <path> (<reason>)`; no session or workspace is created.
+The executor never falls back to the parent's cwd or drops a skill.
+
+A workspace provider receives `requestedCwd` and `metadata` in `prepare` when the launch has them, and decides the directory: returning a workspace at `requestedCwd` honours it, another directory wraps it, and a throw refuses the run.
 
 #### `childSession` contract
 

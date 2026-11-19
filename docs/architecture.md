@@ -180,7 +180,7 @@ src/
 packages/
   pi-subagents/             Vendored executor (private `@ttdua/pi-subagents`). Own toolchain and tests.
     VENDORED.md             Upstream tag and commit, and every local change
-    src/seams/              The seams, in new files: launch identity, registry, launch policy, grants, launch metadata, child-session lookup
+    src/seams/              The seams, in new files: launch identity, registry, launch policy, grants, launch metadata, child-session lookup, per-launch resources (skills, extension exclusion, cwd, context files)
                             (existing upstream files only get thin call sites)
 
 scripts/

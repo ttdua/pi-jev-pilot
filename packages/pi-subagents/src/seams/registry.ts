@@ -78,6 +78,7 @@ type OptionalSnapshotFields = Pick<
 	| "maxTurns"
 	| "runInBackground"
 	| "context"
+	| "inheritSkills"
 >;
 
 /** The declared optional fields, each omitted when the agent does not declare it. */
@@ -91,6 +92,7 @@ function optionalFields(config: AgentConfig): OptionalSnapshotFields {
 	if (config.runInBackground !== undefined)
 		fields.runInBackground = config.runInBackground;
 	if (config.context !== undefined) fields.context = config.context;
+	if (config.inheritSkills === false) fields.inheritSkills = false;
 	return fields;
 }
 
