@@ -580,4 +580,109 @@ describe("SubagentRun", () => {
 			expect(unsubscribe).toHaveBeenCalledOnce();
 		});
 	});
+	describe("structured outcome", () => {
+		function expecting(status: SubagentStatus = "running", extra: ConstructorParameters<typeof SubagentRun>[2] = {}): SubagentRun {
+			return new SubagentRun("initial", false, { status, expectsStructuredResult: true, ...extra });
+		}
+
+		it("is undefined while the run is running", () => {
+			const run = expecting();
+
+			expect(run.structuredResult).toBeUndefined();
+			expect(run.structuredResultError).toBeUndefined();
+			expect(run.hasStructuredResult).toBe(false);
+		});
+
+		it("stores the first submission and refuses the next", () => {
+			const run = expecting();
+
+			expect(run.submitStructuredResult({ a: 1 })).toBe("stored");
+			expect(run.submitStructuredResult({ a: 2 })).toBe("already-submitted");
+			expect(run.structuredResult).toEqual({ a: 1 });
+			expect(run.hasStructuredResult).toBe(true);
+		});
+
+		it("stores falsy values as submitted", () => {
+			const run = expecting();
+
+			run.submitStructuredResult(false);
+
+			expect(run.hasStructuredResult).toBe(true);
+			expect(run.structuredResult).toBe(false);
+		});
+
+		it("deep-freezes a copy of the stored value", () => {
+			const run = expecting();
+			const value = { nested: { n: 1 } };
+
+			run.submitStructuredResult(value);
+
+			expect(run.structuredResult).not.toBe(value);
+			expect(Object.isFrozen(run.structuredResult)).toBe(true);
+			expect(Object.isFrozen((run.structuredResult as typeof value).nested)).toBe(true);
+		});
+
+		it("reads missing when the run completed without an attempt", () => {
+			const run = expecting();
+			run.markCompleted("done");
+
+			expect(run.structuredResultError).toBe("missing");
+		});
+
+		it("reads invalid when the run completed after an attempt only", () => {
+			const run = expecting();
+			run.recordSubmitAttempt();
+			run.markCompleted("done");
+
+			expect(run.structuredResultError).toBe("invalid");
+		});
+
+		it("has no error once a value is stored after an attempt", () => {
+			const run = expecting();
+			run.recordSubmitAttempt();
+			run.submitStructuredResult("ok");
+			run.markCompleted("done");
+
+			expect(run.structuredResultError).toBeUndefined();
+		});
+
+		it("has no error and no value while a question is pending, even replaced", () => {
+			const run = expecting();
+			run.recordSubmitAttempt();
+			run.setPendingQuestion("which?");
+			run.markCompleted("done");
+
+			expect(run.structuredResultError).toBeUndefined();
+			expect(run.structuredResult).toBeUndefined();
+
+			run.markReplaced();
+
+			expect(run.structuredResultError).toBeUndefined();
+		});
+
+		it.each([
+			["markAborted", (run: SubagentRun) => { run.markAborted("x"); }],
+			["markError", (run: SubagentRun) => { run.markError(new Error("x")); }],
+			["markStopped", (run: SubagentRun) => { run.markStopped(); }],
+		])("reads missing after %s with no value", (_name, end) => {
+			const run = expecting();
+			end(run);
+
+			expect(run.structuredResultError).toBe("missing");
+		});
+
+		it("has no error for a run stopped while queued", () => {
+			const run = expecting("queued");
+			run.stopQueued();
+
+			expect(run.structuredResultError).toBeUndefined();
+		});
+
+		it("never reports an error when no result was expected", () => {
+			const run = new SubagentRun("initial", false, { status: "running" });
+			run.markCompleted("done");
+
+			expect(run.structuredResultError).toBeUndefined();
+		});
+	});
 });

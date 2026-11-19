@@ -7,6 +7,7 @@ import { SubagentState, type SubagentStatus } from "#src/lifecycle/subagent-stat
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
 import type { WorkspacePrepareContext, WorkspaceProvider } from "#src/lifecycle/workspace";
 import type { RunConfig } from "#src/runtime";
+import type { ResultSchema } from "#src/service/service";
 import type { CompactionInfo, SubagentType } from "#src/types";
 import { gatedScheduler } from "#test/helpers/gated-scheduler";
 import { makeModel } from "#test/helpers/make-model";
@@ -47,6 +48,7 @@ function createFactory() {
 		params,
 		ask: (question: string) => { params().askParent?.(question); },
 		notify: (message: string) => { params().notifyParent?.(message); },
+		submit: (value: unknown) => params().submitResult?.(value),
 	};
 }
 
@@ -130,6 +132,7 @@ function createRunnableAgent(overrides?: {
 	isBackground?: boolean;
 	maxTurns?: number;
 	status?: SubagentStatus;
+	resultSchema?: ResultSchema;
 }) {
 	const createSubagentSession = overrides?.createSubagentSession ?? defaultFactory();
 	const observer = overrides?.observer ?? {};
@@ -148,6 +151,7 @@ function createRunnableAgent(overrides?: {
 			contextSource: "default",
 			getRunConfig: overrides?.getRunConfig,
 			maxTurns: overrides?.maxTurns,
+			resultSchema: overrides?.resultSchema,
 			parentSession: overrides?.parentSession,
 			signal: overrides?.signal,
 			baseCwd: overrides?.baseCwd ?? "/base",
@@ -2591,6 +2595,135 @@ describe("Subagent", () => {
 			const onRunFinished = vi.fn();
 			const { agent } = await run({ responseText: "Done.", observer: { onRunFinished } });
 			expect(onRunFinished).toHaveBeenLastCalledWith(agent, kind);
+		});
+	});
+
+	describe("structured result", () => {
+		const SCHEMA: ResultSchema = { type: "object" };
+
+		/** Run an agent launched with a schema; `body` runs inside the turn loop. */
+		async function runWithSchema(
+			body: (submit: (value: unknown) => unknown, opts: TurnLoopOptions) => TurnLoopResult,
+		) {
+			const { factory, stub, params, submit } = createFactory();
+			stub.runTurnLoop.mockImplementation((_prompt: string, opts: TurnLoopOptions) =>
+				Promise.resolve(body(submit, opts)));
+			const agent = createRunnableAgent({ createSubagentSession: factory, resultSchema: SCHEMA });
+			await agent.run();
+			return { agent, stub, params };
+		}
+
+		it("hands the factory the schema and a sink that stores on the current run", async () => {
+			const { agent, params } = await runWithSchema((submit) => {
+				submit({ ok: true });
+				return turnLoopResult();
+			});
+
+			expect(params().resultSchema).toEqual(SCHEMA);
+			expect(agent.structuredResult).toEqual({ ok: true });
+			expect(agent.structuredResultError).toBeUndefined();
+		});
+
+		it("hands the factory neither without a schema", async () => {
+			const { factory, params } = createFactory();
+			await createRunnableAgent({ createSubagentSession: factory }).run();
+
+			expect(params().resultSchema).toBeUndefined();
+			expect(params().submitResult).toBeUndefined();
+		});
+
+		it("passes the turn loop the result hook of the run", async () => {
+			const { agent } = await runWithSchema((submit, opts) => {
+				expect(opts.hasStructuredResult?.()).toBe(false);
+				submit("x");
+				expect(opts.hasStructuredResult?.()).toBe(true);
+				return turnLoopResult();
+			});
+
+			expect(agent.structuredResult).toBe("x");
+		});
+
+		it("reports missing, then invalid after an attempt, when nothing was stored", async () => {
+			const missing = await runWithSchema(() => turnLoopResult());
+			const invalid = await runWithSchema((_submit, opts) => {
+				opts.onSubmitAttempt?.();
+				return turnLoopResult();
+			});
+
+			expect(missing.agent.structuredResultError).toBe("missing");
+			expect(invalid.agent.structuredResultError).toBe("invalid");
+		});
+
+		it.each(["submit alone", "mixed batch"])("completes a run that submitted on its exhausted final turn (%s)", async () => {
+			const { agent } = await runWithSchema((submit) => {
+				submit({ ok: true });
+				return turnLoopResult({ turnBudget: EXHAUSTED });
+			});
+
+			expect(agent.status).toBe("completed");
+		});
+
+		it("still aborts an exhausted run that stored nothing", async () => {
+			const { agent } = await runWithSchema(() => turnLoopResult({ turnBudget: EXHAUSTED }));
+
+			expect(agent.status).toBe("aborted");
+		});
+
+		it("keeps the stored result when the run is stopped afterwards", async () => {
+			const { factory, stub, submit } = createFactory();
+			const loop = parkLoopUntilSignalled(stub.runTurnLoop);
+			const agent = createRunnableAgent({ createSubagentSession: factory, resultSchema: SCHEMA });
+			const running = agent.run();
+			await vi.waitFor(() => expect(loop.signal).toBeDefined());
+			submit({ ok: true });
+
+			agent.abort();
+			await running;
+
+			expect(agent.status).toBe("stopped");
+			expect(agent.structuredResult).toEqual({ ok: true });
+		});
+
+		describe("across a resume", () => {
+			it("writes a resume's submission to the resume run and starts it clear", async () => {
+				const { factory, stub, submit } = createFactory();
+				const agent = createRunnableAgent({ createSubagentSession: factory, resultSchema: SCHEMA });
+				await agent.run();
+				expect(agent.structuredResultError).toBe("missing");
+				const first = await agent.waitUntilSettled(new AbortController().signal);
+				const seenAtStart: unknown[] = [];
+				stub.runTurnLoop.mockImplementation(() => {
+					seenAtStart.push([agent.structuredResult, agent.structuredResultError]);
+					submit({ resumed: true });
+					return Promise.resolve(turnLoopResult());
+				});
+
+				await agent.resume("again", { background: true });
+
+				expect(seenAtStart).toEqual([[undefined, undefined]]);
+				expect(agent.structuredResult).toEqual({ resumed: true });
+				expect(first.structuredResult).toBeUndefined();
+			});
+
+			it("leaves the settled run's error alone once a resume replaces it", async () => {
+				const { factory, stub, ask } = createFactory();
+				stub.runTurnLoop.mockImplementationOnce((_p: string, opts: TurnLoopOptions) => {
+					opts.onSubmitAttempt?.();
+					ask("Which?");
+					return Promise.resolve(turnLoopResult());
+				});
+				const agent = createRunnableAgent({ createSubagentSession: factory, resultSchema: SCHEMA });
+				await agent.run();
+				const first = await agent.waitUntilSettled(new AbortController().signal);
+				expect(first.structuredResultError).toBeUndefined();
+				stub.runTurnLoop.mockResolvedValue(turnLoopResult());
+
+				await agent.resume("The project one.", { background: true });
+
+				expect(first.replaced).toBe(true);
+				expect(first.structuredResultError).toBeUndefined();
+				expect(agent.structuredResultError).toBe("missing");
+			});
 		});
 	});
 });

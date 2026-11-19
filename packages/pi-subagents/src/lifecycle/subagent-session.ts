@@ -28,6 +28,7 @@ import {
 } from "#src/lifecycle/turn-limits";
 import { getSessionContextPercent, type SessionStatsLike } from "#src/lifecycle/usage";
 import { extractText } from "#src/session/context";
+import { SUBMIT_RESULT_TOOL_NAME } from "#src/session/submit-result-tool";
 import { getAgentConversation } from "#src/session/conversation";
 import type { SessionMessage, ThinkingLevel } from "#src/types";
 
@@ -43,6 +44,13 @@ export interface TurnLoopOptions {
   signal?: AbortSignal;
   /** Receives the run's budget at the start and after every turn boundary that changes it. */
   onTurnBudget?: (budget: TurnBudget) => void;
+  /** Called for every `submit_result` call the child starts, accepted or not. */
+  onSubmitAttempt?: () => void;
+  /**
+   * Whether the run holds its structured result. When given, the run ends after
+   * the turn that stored one, even when that turn also ran other tools.
+   */
+  hasStructuredResult?: () => boolean;
 }
 
 /** Session-level facts known at creation, supplied by the factory. */
@@ -162,7 +170,8 @@ export class SubagentSession {
   ): Promise<string> {
     if (opts.signal?.aborted) return "";
     const session = this._session;
-    const unsubTurns = this.enforceTurnBudget(tracker, opts.onTurnBudget);
+    const unsubTurns = this.enforceTurnBudget(tracker, opts.onTurnBudget, opts.onSubmitAttempt);
+    const restoreFinishTurn = this.endRunOnStructuredResult(opts.hasStructuredResult);
     const collector = collectResponseText(session);
     const cleanupAbort = forwardAbortSignal(session, opts.signal);
 
@@ -171,6 +180,7 @@ export class SubagentSession {
       failIfProviderErrored(this.turnFailure.getFailure());
     } finally {
       unsubTurns();
+      restoreFinishTurn();
       collector.unsubscribe();
       cleanupAbort();
     }
@@ -186,6 +196,7 @@ export class SubagentSession {
   private enforceTurnBudget(
     tracker: TurnBudgetTracker,
     report: ((budget: TurnBudget) => void) | undefined,
+    onSubmitAttempt?: () => void,
   ): () => void {
     if (tracker.warnBeforeFirstTurn()) this.sendBudgetWarning(tracker);
     report?.(tracker.budget);
@@ -197,8 +208,32 @@ export class SubagentSession {
         const action = tracker.onTurnStart();
         this.actOnTurnBudget(tracker, action);
         if (action) report?.(tracker.budget);
+      } else if (event.type === "tool_execution_start" && event.toolName === SUBMIT_RESULT_TOOL_NAME) {
+        // Emitted before Pi validates the arguments, so a call Pi rejects still counts.
+        onSubmitAttempt?.();
       }
     });
+  }
+
+  /**
+   * End the run after the turn that stored its structured result, through Pi's
+   * completed-turn hook: it runs after the turn's tool results and `end` exits
+   * without preparing another provider request, which `terminate` alone cannot
+   * promise when the batch also ran other tools. Wraps the hook the session
+   * installed (previous first, its `end` kept) and returns the restore.
+   */
+  private endRunOnStructuredResult(hasResult: (() => boolean) | undefined): () => void {
+    if (!hasResult) return () => {};
+    const agent = this._session.agent;
+    const previous = agent.finishTurn;
+    agent.finishTurn = async (turn, signal) => {
+      const prior = (await previous?.(turn, signal)) ?? undefined;
+      if (prior?.action === "end") return prior;
+      return hasResult() ? ({ action: "end" } as const) : prior;
+    };
+    return () => {
+      agent.finishTurn = previous;
+    };
   }
 
   private actOnTurnBudget(tracker: TurnBudgetTracker, action: TurnBudgetAction): void {

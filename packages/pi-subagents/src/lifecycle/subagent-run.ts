@@ -21,6 +21,7 @@ import {
 	type SubagentStatus,
 } from "#src/lifecycle/subagent-state";
 import type { TurnBudget } from "#src/lifecycle/turn-limits";
+import type { StructuredResultError } from "#src/service/service";
 
 /** Which run of a subagent this is: the one that created its session, or a resume of it. */
 export type RunKind = "initial" | "resume";
@@ -55,6 +56,10 @@ export interface RunOutcome {
 	readonly turnBudget: TurnBudget | undefined;
 	/** A resume replaced this run after it settled. */
 	readonly replaced: boolean;
+	/** The structured result the run submitted, deep-frozen; undefined when none. */
+	readonly structuredResult: unknown;
+	/** Why a run that owed a structured result holds none; undefined otherwise. */
+	readonly structuredResultError: StructuredResultError | undefined;
 	isActive(): boolean;
 	markConsumed(at?: number): void;
 }
@@ -80,6 +85,8 @@ export interface RunOutcomeInit {
 	workspaceNotice?: string;
 	/** The run's turn limit and its use. */
 	turnBudget?: TurnBudget;
+	/** Whether the launch asked for a structured result, so this run owes one. */
+	expectsStructuredResult?: boolean;
 	/** Updates the child sent, in order, each still owed to a carrier. */
 	runUpdates?: readonly string[];
 	/** Time the parent collected the outcome; undefined = obligation still open. */
@@ -137,6 +144,29 @@ export class SubagentRun implements RunOutcome {
 	private _turnBudget?: TurnBudget;
 	get turnBudget(): TurnBudget | undefined { return this._turnBudget; }
 
+	// The structured result the child submitted this run, deep-frozen, and
+	// whether it called submit_result at all. Per run, like every outcome field:
+	// a resume starts a new run with both clear.
+	private _structuredResult: unknown;
+	private _hasStructuredResult = false;
+	private _submitAttempted = false;
+	private readonly expectsStructuredResult: boolean;
+	get hasStructuredResult(): boolean { return this._hasStructuredResult; }
+	get structuredResult(): unknown { return this._structuredResult; }
+
+	/**
+	 * Why a run that owed a structured result holds none, derived from the run's
+	 * own state so a settled run's outcome never changes when a resume replaces
+	 * it: undefined while running, when a value is stored, when the run ended on
+	 * a question of its own (the raw field, not the accessor a replacement
+	 * masks), and for a run stopped before it ever started.
+	 */
+	get structuredResultError(): StructuredResultError | undefined {
+		if (!this.expectsStructuredResult || this._hasStructuredResult) return undefined;
+		if (this.isActive() || this._stoppedWhileQueued || this._pendingQuestion !== undefined) return undefined;
+		return this._submitAttempted ? "invalid" : "missing";
+	}
+
 	// The updates the child sent during this run, each remembering whether the
 	// announcement channel delivered it, so a message reaches the parent once,
 	// through whichever channel could reach it, and no carrier repeats it.
@@ -185,6 +215,7 @@ export class SubagentRun implements RunOutcome {
 		this._pendingQuestion = init.pendingQuestion;
 		this._workspaceNotice = init.workspaceNotice;
 		this._turnBudget = init.turnBudget;
+		this.expectsStructuredResult = init.expectsStructuredResult ?? false;
 		for (const message of init.runUpdates ?? []) this.recordUpdate(message);
 		this._consumedAt = init.consumedAt;
 	}
@@ -325,6 +356,19 @@ export class SubagentRun implements RunOutcome {
 		if (owed) owed.announced = true;
 	}
 
+	/** The child called submit_result, whether or not the value was accepted. */
+	recordSubmitAttempt(): void {
+		this._submitAttempted = true;
+	}
+
+	/** Store the first valid submission, deep-frozen; later ones change nothing. */
+	submitStructuredResult(value: unknown): "stored" | "already-submitted" {
+		if (this._hasStructuredResult) return "already-submitted";
+		this._structuredResult = deepFreeze(structuredClone(value));
+		this._hasStructuredResult = true;
+		return "stored";
+	}
+
 	/** Record the budget the running turn loop reports. */
 	setTurnBudget(budget: TurnBudget): void {
 		this._turnBudget = budget;
@@ -361,4 +405,13 @@ export class SubagentRun implements RunOutcome {
 		this.detachCallerSignal?.();
 		this.detachCallerSignal = undefined;
 	}
+}
+
+/** Freeze a JSON value and everything inside it. */
+function deepFreeze<T>(value: T): T {
+	if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
+		Object.freeze(value);
+		for (const inner of Object.values(value)) deepFreeze(inner);
+	}
+	return value;
 }

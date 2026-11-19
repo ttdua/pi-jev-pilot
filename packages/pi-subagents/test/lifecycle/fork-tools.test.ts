@@ -180,6 +180,8 @@ async function launchFork(opts: {
       task: "TASK",
       askParent: vi.fn(),
       notifyParent: vi.fn(),
+      resultSchema: { type: "string" },
+      submitResult: vi.fn(),
       tools: opts.grants ? { toolNames: opts.agentTools, grants: opts.grants, removed: [] } : undefined,
       onToolFacts,
     },
@@ -202,6 +204,7 @@ describe("createSubagentSession: fork path", () => {
     expect(opts.excludeTools).toEqual([]);
     expect(opts.tools).not.toContain("ask_parent");
     expect(opts.tools).not.toContain("notify_parent");
+    expect(opts.tools).not.toContain("submit_result");
   });
 
   it("disallowed_tools: bash stays declared but is not callable", async () => {
