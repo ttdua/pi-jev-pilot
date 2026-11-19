@@ -65,6 +65,7 @@
 | Replay CLI flags | unchanged | `--pass report --main N --workers N --sessions DIR --capabilities FILE --send`; `--models` is parsed but unused (no display-name prefix in replay requests) | **yes** (operator CLI) |
 | Main ledger line | modified | `effortP`, `risky`, `requested` only when effort-eligible | **yes** (file format) |
 | `RUBRIC_VERSION` | modified | `3` | no |
+| `MAIN_TIER_INSTRUCTION` (`src/jev/rubrics.ts`) | new (Task 3, internal) | v2 main `tier` instruction, kept as separate data until Task 4 removes the main tier | no |
 
 ---
 ## Task 1: Tier vocabulary rename and legacy read path — implements 1

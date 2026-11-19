@@ -71,26 +71,26 @@ describe("mainQuestions", () => {
     const effort = mainQuestions({ askEffort: true, askStrategy: false }).wire["effort"]!;
     expect(Object.keys(effort.criteria)).toEqual(["high", "medium", "xhigh", "low", "max"]);
     expect(effort.criteria).toEqual({
-      low: "Answered from what is already known, or mechanical work with nothing to work out: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, a one-line change.",
+      low: "Little or no work: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, or a one-line change. Nothing to trace; the output is the check.",
       medium:
-        "An ordinary, well-specified change to one or a few files, or a direct question about code already in view.",
-      high: "A change across several files that needs working out, a bug whose cause is described but has to be traced, writing tests, or reviewing a diff with care.",
+        "A few steps: an ordinary, well-specified change to one or a few files with a check to run, or a direct question about code already in view.",
+      high: "Several steps with tracing: a change across several files that needs working out, a bug whose cause is described but has to be traced, writing tests, or reviewing a diff with care.",
       xhigh:
-        "Design across several components, a bug whose cause is unknown, a refactor with many dependents, or careful reasoning about concurrency, performance or failure modes.",
-      max: "Novel architecture, a security or data-integrity question, a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo.",
+        "Long reasoning and verification: design across several components, a bug whose cause is unknown, a refactor with many dependents to verify, or careful reasoning about concurrency, performance or failure modes.",
+      max: "Heavy care: a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo, such as a security or data-integrity question that must be verified step by step.",
     });
     expect(effort.criteria).toEqual(WORKER_EFFORT_QUESTION.criteria);
   });
 
   test("worker effort instruction unchanged", () => {
     expect(WORKER_EFFORT_QUESTION.instructions).toBe(
-      "How much step-by-step reasoning does a subagent need to carry out this brief? A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, an unknown cause, or reasoning that is not already written out. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
+      "How much work and care does a subagent need to put into carrying out this brief? Count the steps, the tracing, the tool calls and the verification. A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, tracing an unknown cause, or reasoning that is not already written out. Rare knowledge is a tier matter, not an effort signal. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.",
     );
   });
 
   test("main tier uses the main criteria with no prefix and no frontier", () => {
     const tier = mainQuestions({ askEffort: false, askStrategy: true }).wire["tier"]!;
-    expect(tier.instructions).toBe(TIER_INSTRUCTION);
+    expect(tier.instructions).toBe(MAIN_TIER_QUESTION.instructions);
     expect(Object.keys(tier.criteria)).toEqual(["basic", "broad", "deep"]);
     expect(tier.criteria["basic"]).toBe(MAIN_TIER_CRITERIA.basic);
     expect(tier.criteria["broad"]).toBe(MAIN_TIER_CRITERIA.broad);
@@ -166,9 +166,7 @@ describe("Strategy docs", () => {
     );
   });
   test("docs state no prefix", () => {
-    expect(DOC).toContain(
-      "The main request's `tier` uses its own `basic`, `broad` and `deep` criteria, without the display-name prefix.",
-    );
+    expect(DOC).toContain("It has no display-name prefix, no slots and no `expert`.");
   });
 });
 const ALL = { basic: "a/b", broad: "c/d", deep: "e/f", frontier: "g/h" };
@@ -245,48 +243,87 @@ describe("Question wording", () => {
     for (const [, tier, text] of rows) {
       expect(WORKER_TIER_CRITERIA[tier as "basic"]).toBe(text!);
     }
-    expect(
-      WORKER_TIER_CRITERIA.basic.startsWith(
-        "Fast and low cost, for bounded work with nothing to decide",
-      ),
-    ).toBe(true);
-    expect(WORKER_TIER_CRITERIA.deep.startsWith("For careful judgment or long work")).toBe(true);
-    expect(
-      WORKER_TIER_CRITERIA.frontier.startsWith(
-        "Rare. Choose only for exceptionally difficult architectural or advisory reasoning",
-      ),
-    ).toBe(true);
+    expect(WORKER_TIER_CRITERIA.basic.startsWith("Common, well-documented knowledge.")).toBe(true);
+    expect(WORKER_TIER_CRITERIA.frontier.startsWith("Rare, frontier-level expertise.")).toBe(true);
   });
-  test("rubric version 2 pins the wording", () => {
-    expect(RUBRIC_VERSION).toBe(2);
+  test("Version of this rubric", () => {
+    expect(RUBRIC_VERSION).toBe(3);
+  });
+  test("Wording pinned to the version", () => {
     expect({ instruction: TIER_INSTRUCTION, criteria: WORKER_TIER_CRITERIA }).toEqual({
-      instruction: "Which is the cheapest tier that can complete this coding task well?",
+      instruction:
+        "Which is the least knowledgeable model tier that has the knowledge this task needs?",
       criteria: {
         basic:
-          "Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms.",
+          "Common, well-documented knowledge. The syntax, standard library and tools most programmers know or can look up in the official docs. Choose when the task needs nothing beyond that. Length, number of steps, care and risk are effort, not tier.",
         broad:
-          "The default for ordinary engineering. Choose when some working out is needed inside a clear spec: a feature or fix across a few files with a test, build or type check that shows it works, a bug whose cause is known, writing tests for existing code, a scoped refactor, reviewing a small or medium diff, or summarizing and explaining code.",
-        deep: "For careful judgment or long work. Choose when the spec is open or nothing can check the result, the cause of a bug is unknown, the change spans many components or needs design decisions, or it touches security, data migrations, concurrency, production or money. A large cross-cutting review belongs here too.",
+          "Broad engineering knowledge across stacks and libraries: how common frameworks, databases, build tools and test runners behave, and the usual patterns for them. Choose when the task needs that knowledge, even across several of them. Length, number of steps, care and risk are effort, not tier.",
+        deep: "Specialist depth in one domain: the internals, edge cases and conventions of a particular system, runtime or protocol, which a generalist would get wrong without study. Choose when the task needs that depth. Length, number of steps, care and risk are effort, not tier.",
         frontier:
-          "Rare. Choose only for exceptionally difficult architectural or advisory reasoning that resolves a specific unresolved technical decision with tightly interacting constraints or conflicting evidence, where the expected result is a reusable diagnosis, decision or plan. Ordinary design, review, implementation, long tasks and security or production labels are not expert work; an agent's title grants no eligibility.",
+          "Rare, frontier-level expertise. Knowledge that few practitioners hold and that weaker models are likely to get wrong, such as subtle interactions between systems or unusual failure modes. Choose only when the task needs that knowledge. Length, number of steps, care and risk are effort, not tier.",
       },
     });
   });
-  test("main criteria are separate data", () => {
+  test("main criteria are separate data and unchanged", () => {
     expect(MAIN_TIER_CRITERIA).not.toBe(WORKER_TIER_CRITERIA);
-    for (const tier of ["basic", "broad", "deep"] as const) {
-      expect(MAIN_TIER_CRITERIA[tier]).toBe(WORKER_TIER_CRITERIA[tier]);
-    }
+    expect(MAIN_TIER_CRITERIA.basic.startsWith("Fast and low cost, for bounded work")).toBe(true);
+    expect(MAIN_TIER_CRITERIA.deep.startsWith("For careful judgment or long work")).toBe(true);
+    expect(MAIN_TIER_QUESTION.instructions).toBe(
+      "Which is the cheapest tier that can complete this coding task well?",
+    );
     expect(MAIN_TIER_QUESTION.criteria).toEqual(MAIN_TIER_CRITERIA);
   });
   test("no slot: tier options are the four tiers", () => {
     const { specs } = buildWorkerQuestions(all, {});
     expect(specs["tier"]).toEqual({ type: "choice", options: [...all] });
   });
+  test("Premium wording", () => {
+    const { questions } = buildWorkerQuestions(all, {});
+    expect(
+      questions["tier"]!.instructions.startsWith(
+        "Which is the least knowledgeable model tier that has the knowledge this task needs?",
+      ),
+    ).toBe(true);
+  });
+  test("Standard request unchanged", () => {
+    const { questions } = buildWorkerQuestions(["basic"], {});
+    expect(
+      questions["tier"]!.criteria["basic"]!.startsWith("Common, well-documented knowledge."),
+    ).toBe(true);
+  });
+  test("Budget expert criterion", () => {
+    const { questions } = buildWorkerQuestions(all, {});
+    expect(
+      questions["tier"]!.criteria["frontier"]!.startsWith("Rare, frontier-level expertise."),
+    ).toBe(true);
+    expect(Object.keys(questions)).not.toContain("expert_needed");
+  });
+  test("Effort instruction asks about work", () => {
+    const { questions } = buildWorkerQuestions(all, {});
+    expect(
+      questions["effort"]!.instructions.startsWith(
+        "How much work and care does a subagent need to put into carrying out this brief",
+      ),
+    ).toBe(true);
+  });
+  test("Main criteria held apart", () => {
+    const disclaimer = "Length, number of steps, care and risk are effort, not tier.";
+    for (const text of Object.values(WORKER_TIER_CRITERIA)) {
+      expect(text).toContain(disclaimer);
+      expect(text.replace(disclaimer, "")).not.toMatch(
+        /unknown|cause|files|steps|security|production/i,
+      );
+    }
+  });
+  test("Role rule in the main instruction", () => {
+    expect(docs).toContain(`> ${MAIN_EFFORT_INSTRUCTION}\n`);
+  });
   test("Display name prefix", () => {
     const { questions } = buildWorkerQuestions(["basic"], { basic: "Claude Haiku 5.5" });
     expect(
-      questions["tier"]!.criteria["basic"]!.startsWith("Claude Haiku 5.5. Fast and low cost"),
+      questions["tier"]!.criteria["basic"]!.startsWith(
+        "Claude Haiku 5.5. Common, well-documented knowledge.",
+      ),
     ).toBe(true);
   });
   test("Missing display name", () => {
