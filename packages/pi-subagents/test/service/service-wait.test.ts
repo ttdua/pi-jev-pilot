@@ -9,6 +9,7 @@ import { createChildLifecyclePublisher } from "#src/lifecycle/child-lifecycle";
 import { ConcurrencyLimiter } from "#src/lifecycle/concurrency-limiter";
 import { createSubagentSession } from "#src/lifecycle/create-subagent-session";
 import type { ParentSnapshot } from "#src/lifecycle/parent-snapshot";
+import type { SubagentRun } from "#src/lifecycle/subagent-run";
 import { SubagentManager } from "#src/lifecycle/subagent-manager";
 import { CompositeSubagentObserver } from "#src/observation/composite-subagent-observer";
 import { NotificationManager } from "#src/observation/notification";
@@ -416,8 +417,13 @@ describe("SubagentsService.wait", () => {
 			const first = await h.service.wait(id);
 			expect(first.pendingQuestion).toBe("Which config?");
 			expect(first).not.toHaveProperty("resumeRefusal");
+			const initialRun = h.manager.getRecord(id)!.latestRun as SubagentRun;
+			expect(initialRun.claimed).toBe(true);
 
 			void h.service.resume(id, "The project one.");
+			expect(initialRun.claimed).toBe(true);
+			expect(h.manager.getRecord(id)!.latestRun).not.toBe(initialRun);
+			expect(h.manager.getRecord(id)!.claimed).toBe(false);
 			const second = await h.service.wait(id);
 
 			expect([second.result, second.pendingQuestion]).toEqual(["all done", undefined]);
@@ -461,27 +467,43 @@ describe("SubagentsService.wait", () => {
 		});
 
 		it("resumed before the waiter reads it", async () => {
-			const gate = Promise.withResolvers<void>();
-			const h = harness({
-				script: async (t) => {
-					if (t.n === 0) {
-						await t.tool("ask_parent", { question: "Q" });
-						t.say("first");
-					} else {
-						await t.park(gate.promise);
-						t.say("second");
-					}
-				},
-			});
-			h.subscribe("subagents:completed", (data) => { void h.service.resume(data.id, "A"); });
-			const id = h.spawn();
+			vi.useFakeTimers({ toFake: ["Date"] });
+			try {
+				vi.setSystemTime(1_000);
+				const gate = Promise.withResolvers<void>();
+				const h = harness({
+					script: async (t) => {
+						if (t.n === 0) {
+							await t.tool("ask_parent", { question: "Q" });
+							vi.setSystemTime(2_000);
+							t.say("first");
+						} else {
+							await t.park(gate.promise);
+							t.say("second");
+						}
+					},
+				});
+				let initial: { startedAt: number; completedAt?: number } | undefined;
+				h.subscribe("subagents:completed", (data) => {
+					const snap = h.service.getRecord(data.id)!;
+					initial = { startedAt: snap.startedAt, completedAt: snap.completedAt };
+					vi.setSystemTime(3_000);
+					void h.service.resume(data.id, "A");
+				});
+				const id = h.spawn();
 
-			const record = await h.service.wait(id);
+				const record = await h.service.wait(id);
 
-			expect([record.result, record.pendingQuestion, record.resumeRefusal]).toEqual(["first", "Q", "still-running"]);
-			expect(record.startedAt).toBeLessThanOrEqual(record.completedAt!);
-			gate.resolve();
-			await h.settled(id);
+				expect([record.status, record.result, record.pendingQuestion, record.resumeRefusal]).toEqual(["completed", "first", "Q", "still-running"]);
+				expect(initial).toEqual({ startedAt: 1_000, completedAt: 2_000 });
+				expect([record.startedAt, record.completedAt]).toEqual([initial!.startedAt, initial!.completedAt]);
+				const live = h.service.getRecord(id)!;
+				expect([live.status, live.startedAt]).toEqual(["running", 3_000]);
+				gate.resolve();
+				await h.settled(id);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 });
