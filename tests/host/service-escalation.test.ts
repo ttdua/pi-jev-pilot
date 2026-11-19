@@ -84,9 +84,45 @@ async function run(mode: "fg" | "bg", waiting: "wait" | "nowait") {
   await s.waitFor(() => events(s, "subagents:completed").length === 1, "completed event");
   await s.waitFor(() => probe(s, "snapshot").length === 1, "snapshot");
   if (waiting === "wait") await s.waitFor(() => probe(s, "wait:resolved").length === 1, "wait");
-  // Let any nudge reach the main session before counting.
-  await Bun.sleep(1500);
   return s;
+}
+
+const mainRequests = (): number =>
+  (fixtures.at(-1) as Fixture).requests.filter((r) => r.model === "fixture-main" && !isChild(r))
+    .length;
+
+/**
+ * Settles the main session through the real RPC path. A notification is a follow-up with
+ * `triggerTurn: true`: queued while a turn streams, or starting a turn when idle, and `prompt`
+ * errors while a run is active. So a barrier prompt that settles with exactly one main-model
+ * request (its own) means no notification turn was running or queued ahead of it. A notification
+ * emitted after the barrier is not covered.
+ */
+async function barrier(s: HostSession): Promise<void> {
+  const before = mainRequests();
+  await s.prompt("BARRIER");
+  // `prompt` can return on a settle that predates the barrier turn: wait for the barrier's own
+  // main request, then for the session to be idle with nothing queued.
+  await s.waitFor(() => mainRequests() > before, "barrier request");
+  let idle = false;
+  while (!idle) {
+    const r = await s.send({ type: "get_state" });
+    const state = r.data as { isStreaming?: boolean; pendingMessageCount?: number } | undefined;
+    idle = state?.isStreaming === false && state.pendingMessageCount === 0;
+    if (!idle) await Bun.sleep(100);
+  }
+  expect(mainRequests() - before).toBe(1);
+}
+
+/** Unwaited: both main-session messages must have arrived before the counts are read. */
+async function expectArrived(s: HostSession): Promise<void> {
+  await s.waitFor(
+    () =>
+      mainMessages(s, "subagent-update").length >= 1 &&
+      mainMessages(s, "subagent-notification").length >= 1,
+    "main-session messages",
+  );
+  await barrier(s);
 }
 
 const ESCALATED = { status: "completed", hasQuestion: true, hasRefusal: false };
@@ -106,6 +142,7 @@ describe("service launch escalation", () => {
     "unwaited launch escalates to the main session: %s",
     async (_kind, mode) => {
       const s = await run(mode, "nowait");
+      await expectArrived(s);
       expectChildEvents(s);
       expect(mainMessages(s, "subagent-update")).toHaveLength(1);
       expect(mainMessages(s, "subagent-notification")).toHaveLength(1);
@@ -121,6 +158,9 @@ describe("service launch escalation", () => {
     "waited launch escalates to the caller only: %s",
     async (_kind, mode) => {
       const s = await run(mode, "wait");
+      await barrier(s);
+      // Only the barrier's own turn reached the main model: no notification turn preceded it.
+      expect(mainRequests()).toBe(1);
       expectChildEvents(s);
       expect(mainMessages(s, "subagent-update")).toHaveLength(0);
       expect(mainMessages(s, "subagent-notification")).toHaveLength(0);
@@ -143,7 +183,8 @@ describe("service launch escalation", () => {
       });
       const fixture = fixtures[0] as Fixture;
       expect(fixture.requests.some((r) => isChild(r) && hasAnswer(r))).toBe(true);
-      await Bun.sleep(1500);
+      await barrier(s);
+      expect(mainRequests()).toBe(1);
       expect(mainMessages(s, "subagent-notification")).toHaveLength(0);
     },
     TIMEOUT,
