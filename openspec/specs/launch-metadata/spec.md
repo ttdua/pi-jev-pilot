@@ -110,7 +110,7 @@ The executor SHALL keep its own frozen copy of accepted metadata. Changing the o
 - **THEN** none of the three events has a `metadata` field
 
 ### Requirement: Metadata on record events and snapshots
-`subagents:created`, `subagents:started`, `subagents:completed`, `subagents:failed`, `subagents:resuming` and `subagents:resumed` SHALL carry `metadata` when the record's launch has metadata, and the `SubagentRecord` snapshot SHALL carry it from the moment `spawn()` returns, including while the record is queued. A resume, from the service or from a `subagent` tool call, SHALL carry the launch's metadata on its events. Events and snapshots MUST omit the field when the launch has none.
+`subagents:created`, `subagents:started`, `subagents:completed`, `subagents:failed`, `subagents:resuming`, `subagents:resumed`, `subagents:update` and `subagents:asked` SHALL carry `metadata` when the record's launch has metadata, and the `SubagentRecord` snapshot SHALL carry it from the moment `spawn()` returns, including while the record is queued. A resume, from the service or from a `subagent` tool call, SHALL carry the launch's metadata on its events. Events and snapshots MUST omit the field when the launch has none.
 
 #### Scenario: Queued record
 - **WHEN** a background launch with metadata is still queued
@@ -131,6 +131,14 @@ The executor SHALL keep its own frozen copy of accepted metadata. Changing the o
 #### Scenario: Tool-call resume of a service launch
 - **WHEN** the main model resumes, with `subagent` call `call_4`, an agent launched by `spawn()` with metadata `{ change: "c1" }`
 - **THEN** `subagents:resuming` and `subagents:resumed` carry `toolCallId` `call_4` and `metadata` `{ change: "c1" }`
+
+#### Scenario: Update and question of a launch with metadata
+- **WHEN** a background launch with metadata `{ change: "c1" }` calls `notify_parent` and then `ask_parent`
+- **THEN** `subagents:update` and `subagents:asked` each carry `metadata` `{ change: "c1" }`
+
+#### Scenario: Update without metadata
+- **WHEN** a launch without metadata calls `notify_parent`
+- **THEN** `subagents:update` has no `metadata` field
 
 ### Requirement: Metadata is not persisted
 The persisted `subagents:record` session entry MUST NOT carry metadata, and a record rebuilt from it SHALL have none.
