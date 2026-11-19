@@ -6,6 +6,8 @@ import type { JevArgs } from "./args.ts";
 import { shadowedLine } from "./local-mode.ts";
 import { formatStatus } from "./status-format.ts";
 
+const DEPRECATED_EXPERT = "notice: /jev expert is deprecated; use /jev frontier";
+
 export type StatusReply = { text: string; level: "info" | "warning" };
 
 /** `tally`, `window` and `problems` are called as methods of this object, only when the reply is built. */
@@ -14,6 +16,12 @@ type Readers = {
   window?: () => readonly WindowEntry[];
   problems?: () => readonly string[];
 };
+
+// DEPRECATED(remove next minor)
+/** The notice a deprecated command name adds to its reply. */
+function deprecatedLines(parsed: JevArgs): string[] {
+  return parsed.kind === "set" && parsed.deprecatedName !== undefined ? [DEPRECATED_EXPERT] : [];
+}
 
 /** A partial reset leads the text and turns the level into a warning. */
 export function statusReply(
@@ -31,6 +39,7 @@ export function statusReply(
     ),
   ];
   if (partialReset !== undefined) lines.unshift(partialReset);
+  lines.push(...deprecatedLines(parsed));
   const { mode, modeSource } = snapshot.settings;
   if (parsed.kind === "mode" && parsed.target === "global" && modeSource === "local") {
     lines.push(shadowedLine(mode, parsed.mode));

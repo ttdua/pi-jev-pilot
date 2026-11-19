@@ -131,6 +131,7 @@ describe("defaults", () => {
       "cli-review",
       "default",
       "effort",
+      "expert",
       "frontier",
       "mode",
       "off",

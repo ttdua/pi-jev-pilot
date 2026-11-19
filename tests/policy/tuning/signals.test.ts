@@ -71,6 +71,14 @@ describe("signalsByMode window", () => {
 });
 
 describe("signal counts", () => {
+  test("Legacy fast counts as low", () => {
+    const lines = [
+      worker(1, { tier: "fast", status: "error" }),
+      worker(2, { tier: "basic", status: "completed" }),
+    ];
+    expect(get(lines).lowWorkerErrors).toEqual({ count: 1, of: 2 });
+  });
+
   test("low worker errors counted with denominator", () => {
     const lines = [
       worker(1, { tier: "basic", status: "error" }),

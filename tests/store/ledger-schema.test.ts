@@ -58,8 +58,35 @@ describe("ledger schema", () => {
     if (r.ok) expect(r.line).toBe(`${JSON.stringify(r.entry)}\n`);
   });
 
+  test("Legacy expert line accepted", () => {
+    const entry = {
+      ...base("worker"),
+      reason: "expert",
+      tier: "expert",
+      tierP: { fast: 0.1, balanced: 0.2, deep: 0.3, expert: 0.4 },
+      expertOffered: true,
+    };
+    expect(validateLedgerEntry(entry).ok).toBe(true);
+  });
+
+  test("Legacy risky line accepted", () => {
+    const entry = { ...base("worker"), reason: "risky", tier: "deep" };
+    expect(validateLedgerEntry(entry).ok).toBe(true);
+  });
+
+  test("Frontier line accepted", () => {
+    const entry = {
+      ...base("worker"),
+      reason: "frontier",
+      tier: "frontier",
+      tierP: { basic: 0.1, broad: 0.2, deep: 0.3, frontier: 0.4 },
+      frontierOffered: true,
+    };
+    expect(validateLedgerEntry(entry).ok).toBe(true);
+  });
+
   test("Expert admitted accepted", () => {
-    const entry = { ...base("worker"), reason: "expert-admitted", tier: "frontier" };
+    const entry = { ...base("worker"), reason: "expert-admitted", tier: "expert" };
     expect(validateLedgerEntry(entry).ok).toBe(true);
   });
 
@@ -159,6 +186,7 @@ describe("ledger schema", () => {
         "effort",
         "expertNeeded",
         "frontierOffered",
+        "expertOffered",
         "fallback",
         "locked",
         "model",

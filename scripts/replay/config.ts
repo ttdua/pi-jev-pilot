@@ -1,7 +1,7 @@
 // Argument parsing and plain-JSON config reading for the replay CLI. No import of src/store/.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import type { TierName } from "../../src/policy/launch.ts";
+import { LEGACY_TIER, type TierName } from "../../src/policy/launch.ts";
 import { MODE_NAMES, type ModeName } from "../../src/policy/worker/index.ts";
 import type { PlainConfig } from "./variants.ts";
 
@@ -156,6 +156,11 @@ function tiersOf(raw: unknown): PlainConfig["tiers"] {
     const model = str(raw[name]);
     if (model !== undefined) out[name] = model;
   }
+  // DEPRECATED(remove next minor): a legacy key stands in when its new key is absent.
+  for (const [legacy, name] of Object.entries(LEGACY_TIER)) {
+    const model = str(raw[legacy]);
+    if (model !== undefined && out[name] === undefined) out[name] = model;
+  }
   return out;
 }
 
@@ -185,7 +190,8 @@ export function readConfig(jevDir: string): ReplayConfig {
       tiers: tiersOf(config.tiers),
       slots: slotsOf(config.crew),
       mode,
-      frontierOn: switches.frontier !== false,
+      // DEPRECATED(remove next minor): `switches.expert` is the old `frontier`
+      frontierOn: (switches.frontier ?? switches.expert) !== false,
     },
   };
 }

@@ -411,6 +411,45 @@ describe("readConfig", () => {
     expect("config" in r).toBe(false);
   });
 
+  test("Deprecated tier key accepted", () => {
+    const r = readJson({ tiers: { fast: "fixture/fixture-basic" } });
+    expectValid(r);
+    if (r.kind !== "ok") return;
+    expect(r.config.tiers).toEqual({ basic: "fixture/fixture-basic" });
+    expect(r.notices).toEqual(["tiers.fast is deprecated; rename it to tiers.basic"]);
+  });
+
+  test("Every deprecated tier key", () => {
+    const r = readJson({ tiers: { fast: "a/b", balanced: "c/d", deep: "e/f", expert: "g/h" } });
+    expectValid(r);
+    if (r.kind !== "ok") return;
+    expect(r.config.tiers).toEqual({ basic: "a/b", broad: "c/d", deep: "e/f", frontier: "g/h" });
+    expect(r.notices).toEqual([
+      "tiers.fast is deprecated; rename it to tiers.basic",
+      "tiers.balanced is deprecated; rename it to tiers.broad",
+      "tiers.expert is deprecated; rename it to tiers.frontier",
+    ]);
+  });
+
+  test("Alias and new key both present", () => {
+    const r = readJson({ tiers: { expert: "a/b", frontier: "c/d" } });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r)).toEqual(["tiers.expert"]);
+    expect("config" in r).toBe(false);
+  });
+
+  test("Invalid alias value", () => {
+    expect(paths(readJson({ tiers: { balanced: "claude-sonnet" } }))).toEqual(["tiers.balanced"]);
+  });
+
+  test("Existing frontier slot still read", () => {
+    const r = readJson({ crew: { slots: [slot("frontier")] } });
+    expectValid(r);
+    if (r.kind !== "ok") return;
+    expect(r.config.crew?.slots?.map((x) => x.name)).toEqual(["frontier"]);
+    expect(r.notices).toEqual(['crew.slots "frontier" uses a reserved name; rename it']);
+  });
+
   test("Forked launch setting rejected", () => {
     expect(paths(readJson({ subagents: { forkLaunch: "skip" } }))).toEqual([
       "subagents.forkLaunch",

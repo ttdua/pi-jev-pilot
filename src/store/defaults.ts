@@ -15,12 +15,21 @@ export type Mode = (typeof MODES)[number];
 export const TIERS = ["basic", "broad", "deep", "frontier"] as const;
 export type Tier = (typeof TIERS)[number];
 
+// DEPRECATED(remove next minor)
+/** The pre-rename tier names and what they became; read paths only. `policy/launch.ts` holds the same map. */
+export const LEGACY_TIER: Readonly<Record<"fast" | "balanced" | "expert", Tier>> = {
+  fast: "basic",
+  balanced: "broad",
+  expert: "frontier",
+};
+
 export const RESERVED_SLOT_NAMES: readonly string[] = [
   "all",
   "budget",
   "cli-review",
   "default",
   "effort",
+  "expert", // DEPRECATED(remove next minor): the old name of `frontier`
   "frontier",
   "mode",
   "off",

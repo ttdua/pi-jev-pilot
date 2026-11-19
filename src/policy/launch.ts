@@ -85,3 +85,11 @@ export function effectiveLaunch(request: LaunchRequestFacts): EffectiveLaunch {
     thinkingLocked: locks("thinking"),
   };
 }
+
+// DEPRECATED(remove next minor)
+/** The pre-rename tier names and the names they became; read paths only, writers never emit them. */
+export const LEGACY_TIER: Readonly<Record<"fast" | "balanced" | "expert", TierName>> = {
+  fast: "basic",
+  balanced: "broad",
+  expert: "frontier",
+};

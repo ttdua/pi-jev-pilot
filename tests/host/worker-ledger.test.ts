@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import {
   body,
@@ -215,7 +216,7 @@ describe("Decision fields", () => {
       tier: "broad",
       reason: "cut",
       score: 1.25,
-      rubric: 2,
+      rubric: RUBRIC_VERSION,
       frontierOffered: false,
       model: "fx/balanced",
       effort: "high",
@@ -231,13 +232,13 @@ describe("Decision fields", () => {
   test("Expert offered recorded", async () => {
     const h = harness({ tiers: TIERS_X });
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ frontierOffered: true, rubric: 2 });
+    expect(h.lines[0]).toMatchObject({ frontierOffered: true, rubric: RUBRIC_VERSION });
   });
 
   test("Expert switched off recorded", async () => {
     const h = harness({ tiers: TIERS_X, switches: { frontier: false } });
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ frontierOffered: false, rubric: 2 });
+    expect(h.lines[0]).toMatchObject({ frontierOffered: false, rubric: RUBRIC_VERSION });
   });
 
   test("Tier asked, nothing decided", async () => {
@@ -246,7 +247,11 @@ describe("Decision fields", () => {
       ok({ answers: { effort: effort("medium"), risky: { type: "noul", noul: 0.1 } } }),
     );
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ reason: "untouched", rubric: 2, frontierOffered: true });
+    expect(h.lines[0]).toMatchObject({
+      reason: "untouched",
+      rubric: RUBRIC_VERSION,
+      frontierOffered: true,
+    });
     expect(h.lines[0]).not.toHaveProperty("tier");
     expect(h.lines[0]).not.toHaveProperty("score");
   });
@@ -298,7 +303,7 @@ describe("Decision fields", () => {
     h.setScript(() => ({ kind: "miss", miss: "timeout", reason: "t", ms: 5 }));
     await foreground(h);
     expect(h.lines[0]).toMatchObject({ answered: false, miss: "timeout", reason: "miss", ms: 5 });
-    expect(h.lines[0]).toMatchObject({ rubric: 2, frontierOffered: false });
+    expect(h.lines[0]).toMatchObject({ rubric: RUBRIC_VERSION, frontierOffered: false });
     expect(h.lines[0]).not.toHaveProperty("tier");
     expect(h.lines[0]).not.toHaveProperty("score");
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);

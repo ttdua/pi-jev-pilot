@@ -454,6 +454,16 @@ describe("runJev", () => {
     expect(switches(dir)?.skills).toBe(true);
   });
 
+  test("Deprecated expert command", async () => {
+    const dir = jevDir();
+    const rec = await run("expert off", dir);
+    expect(switches(dir)).toEqual({ frontier: false });
+    expect(rec.notes[0]?.[0]).toContain("notice: /jev expert is deprecated; use /jev frontier");
+    expect(rec.notes[0]?.[0]).toContain("frontier: off");
+    const again = await run("frontier on", dir);
+    expect(again.notes.at(-1)?.[0]).not.toContain("deprecated");
+  });
+
   test("redraw keeps the decision suffix; effort off drops it", async () => {
     const dir = jevDir();
     const decision = (): Decision => ({

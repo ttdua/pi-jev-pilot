@@ -1,7 +1,13 @@
 import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { readConfig, writeSlots, type Slot } from "../../src/store/config.ts";
+import {
+  migrateConfigFile,
+  migrateTierKeys,
+  readConfig,
+  writeSlots,
+  type Slot,
+} from "../../src/store/config.ts";
 import { tempDir } from "../helpers.ts";
 
 const FULL = `{
@@ -193,6 +199,136 @@ describe("writeSlots", () => {
           issues: [{ path: "", message: "cannot write config.json (EACCES)" }],
         });
         expect(readFileSync(file, "utf8")).toBe(FULL);
+      } finally {
+        chmodSync(dir, 0o700);
+      }
+    }),
+  );
+});
+
+describe("slot name frontier", () => {
+  test("New frontier slot refused", () =>
+    withDir((dir) => {
+      writeFileSync(join(dir, "config.json"), FULL);
+      const r = writeSlots(dir, [slot("frontier")]);
+      expect(r).toEqual({
+        ok: false,
+        issues: [{ path: "crew.slots[0].name", message: expect.any(String) }],
+      });
+      expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(FULL);
+    }));
+});
+
+describe("migrateTierKeys", () => {
+  test("renames in place and lists the renames", () => {
+    const raw = {
+      classifier: { timeoutMs: 1500 },
+      tiers: { fast: "a/x", deep: "a/y", expert: "a/z" },
+      skills: { inject: "content" },
+    };
+    const out = migrateTierKeys(structuredClone(raw));
+    expect(out?.renamed).toEqual([
+      ["tiers.fast", "tiers.basic"],
+      ["tiers.expert", "tiers.frontier"],
+    ]);
+    expect(JSON.stringify(out?.raw)).toBe(
+      JSON.stringify({
+        classifier: { timeoutMs: 1500 },
+        tiers: { basic: "a/x", deep: "a/y", frontier: "a/z" },
+        skills: { inject: "content" },
+      }),
+    );
+  });
+
+  test("undefined when clean, conflicting or invalid", () => {
+    expect(migrateTierKeys({ tiers: { basic: "a/x" } })).toBeUndefined();
+    expect(migrateTierKeys({})).toBeUndefined();
+    expect(migrateTierKeys({ tiers: { expert: "a/x", frontier: "a/y" } })).toBeUndefined();
+    expect(
+      migrateTierKeys({ tiers: { fast: "a/x" }, classifier: { timeoutMs: 100 } }),
+    ).toBeUndefined();
+  });
+
+  test("a frontier slot is never renamed", () => {
+    const out = migrateTierKeys({
+      tiers: { fast: "a/x" },
+      crew: { slots: [{ name: "frontier", model: "a/y", when: "Choose it." }] },
+    });
+    expect(out?.renamed).toEqual([["tiers.fast", "tiers.basic"]]);
+    const crew = out!.raw.crew as { slots: { name: string }[] };
+    expect(crew.slots[0]?.name).toBe("frontier");
+  });
+});
+
+describe("migrateConfigFile", () => {
+  test("rewrites the file keeping the key order and the mode", () =>
+    withDir((dir) => {
+      const file = join(dir, "config.json");
+      writeFileSync(
+        file,
+        '{"classifier":{"timeoutMs":1500},"tiers":{"fast":"a/x","deep":"a/y","expert":"a/z"}}',
+      );
+      chmodSync(file, 0o640);
+      const r = migrateConfigFile(dir);
+      expect(r).toEqual({
+        renamed: [
+          ["tiers.fast", "tiers.basic"],
+          ["tiers.expert", "tiers.frontier"],
+        ],
+      });
+      expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({
+        classifier: { timeoutMs: 1500 },
+        tiers: { basic: "a/x", deep: "a/y", frontier: "a/z" },
+      });
+      expect(Object.keys(JSON.parse(readFileSync(file, "utf8")).tiers)).toEqual([
+        "basic",
+        "deep",
+        "frontier",
+      ]);
+      expect(statSync(file).mode & 0o777).toBe(0o640);
+    }));
+
+  test("nothing to migrate leaves the file alone", () =>
+    withDir((dir) => {
+      const file = join(dir, "config.json");
+      writeFileSync(file, FULL);
+      const before = statSync(file).mtimeMs;
+      expect(migrateConfigFile(dir)).toBeUndefined();
+      expect(readFileSync(file, "utf8")).toBe(FULL);
+      expect(statSync(file).mtimeMs).toBe(before);
+    }));
+
+  test("a missing file is nothing to migrate", () =>
+    withDir((dir) => {
+      expect(migrateConfigFile(dir)).toBeUndefined();
+      expect(existsSync(join(dir, "config.json"))).toBe(false);
+    }));
+
+  test("Migration refuses an invalid file", () =>
+    withDir((dir) => {
+      const text = '{"tiers":{"fast":"a/x"},"classifier":{"timeoutMs":100}}';
+      writeFileSync(join(dir, "config.json"), text);
+      expect(migrateConfigFile(dir)).toBeUndefined();
+      expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
+    }));
+
+  test("Conflicting keys left alone", () =>
+    withDir((dir) => {
+      const text = '{"tiers":{"expert":"a/x","frontier":"a/y"}}';
+      writeFileSync(join(dir, "config.json"), text);
+      expect(migrateConfigFile(dir)).toBeUndefined();
+      expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
+    }));
+
+  test.skipIf(isRoot)("Write failure is returned, not thrown", () =>
+    withDir((dir) => {
+      const file = join(dir, "config.json");
+      const text = '{"tiers":{"fast":"a/x"}}';
+      writeFileSync(file, text);
+      chmodSync(dir, 0o500);
+      try {
+        expect(migrateConfigFile(dir)).toEqual({ error: "cannot write config.json (EACCES)" });
+        expect(readFileSync(file, "utf8")).toBe(text);
       } finally {
         chmodSync(dir, 0o700);
       }

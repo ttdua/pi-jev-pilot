@@ -108,6 +108,21 @@ describe("readConfig", () => {
     });
   });
 
+  test("legacy tier keys are normalized, new keys win", () => {
+    const dir = agentDir(
+      { tiers: { fast: "a/b", balanced: "c/d", expert: "e/f", deep: "g/h", basic: "n/n" } },
+      { switches: { expert: false } },
+    );
+    const c = readConfig(join(dir, "jev"));
+    expect(c.plain.tiers).toEqual({ basic: "n/n", broad: "c/d", deep: "g/h", frontier: "e/f" });
+    expect(c.plain.frontierOn).toBe(false);
+  });
+
+  test("frontier switch wins over the legacy expert switch", () => {
+    const dir = agentDir({}, { switches: { expert: false, frontier: true } });
+    expect(readConfig(join(dir, "jev")).plain.frontierOn).toBe(true);
+  });
+
   test("defaults when files are missing", () => {
     const c = readConfig(join(agentDir(), "jev"));
     expect(c).toMatchObject({

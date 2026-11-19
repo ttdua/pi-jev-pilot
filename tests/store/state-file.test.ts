@@ -129,6 +129,36 @@ describe("state content", () => {
       expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
     }));
 
+  test("Legacy expert switch moved", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"expert":false}}');
+      const r = readState(dir);
+      expect(r).toEqual({ kind: "ok", state: { switches: { frontier: false } } });
+    }));
+
+  test("Frontier wins over the legacy switch", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"expert":false,"frontier":true}}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: { switches: { frontier: true } } });
+    }));
+
+  test("Legacy expert switch gone after a write", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"expert":false}}');
+      expect(updateState(dir, (s) => ({ ...s, mode: "premium" })).ok).toBe(true);
+      const raw = JSON.parse(readFileSync(join(dir, "state.json"), "utf8"));
+      expect(raw.switches).toEqual({ frontier: false });
+      expect(raw.mode).toBe("premium");
+    }));
+
+  test("Non-boolean legacy expert switch", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"switches":{"expert":"off"}}');
+      const r = readState(dir);
+      expect(r.kind).toBe("malformed");
+      expect(paths(r)).toEqual(["switches.expert"]);
+    }));
+
   test("Non-boolean legacy tools switch", () =>
     withDir((dir) => {
       put(dir, '{"version":1,"switches":{"tools":"off"}}');

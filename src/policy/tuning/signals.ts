@@ -69,10 +69,11 @@ const tally = (ds: readonly SignalLine[], counted: (l: SignalLine) => boolean): 
   of: ds.length,
 });
 
+// DEPRECATED(remove next minor): lines written before the rename carry `fast` for `basic`.
+const isBasic = (tier: string | undefined): boolean => tier === "basic" || tier === "fast";
+
 function lowWorkerErrors(win: readonly SignalLine[]): Signal {
-  const low = win.filter(
-    (l) => l.kind === "worker" && (l.tier === "basic" || isLowEffort(l.effort)),
-  );
+  const low = win.filter((l) => l.kind === "worker" && (isBasic(l.tier) || isLowEffort(l.effort)));
   return tally(low, (l) => l.status === "error");
 }
 

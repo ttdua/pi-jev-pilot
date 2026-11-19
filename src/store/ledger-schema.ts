@@ -1,5 +1,5 @@
 // Ledger line schema. Pure validation, no I/O.
-import { MODES, TIERS, type Mode } from "./defaults.ts";
+import { LEGACY_TIER, MODES, TIERS, type Mode } from "./defaults.ts";
 import {
   boolean,
   integer,
@@ -25,6 +25,7 @@ export type WorkerReason =
   | "fast-unsure"
   | "choice"
   | "frontier"
+  | "expert" // DEPRECATED(remove next minor)
   | "cut"
   | "untouched"
   | "miss";
@@ -77,6 +78,7 @@ export type WorkerEntry = Common &
     score?: number;
     rubric?: number;
     frontierOffered?: boolean;
+    expertOffered?: boolean; // DEPRECATED(remove next minor)
     tier?: string;
     fallback?: string;
     model?: string;
@@ -137,6 +139,7 @@ export const LEDGER_FIELDS: Readonly<Record<LedgerKind, readonly string[]>> = {
     "score",
     "rubric",
     "frontierOffered",
+    "expertOffered",
     "tier",
     "fallback",
     "model",
@@ -179,6 +182,7 @@ const DECIDING_REASONS: readonly string[] = [
   "fast-unsure",
   "choice",
   "frontier",
+  "expert", // DEPRECATED(remove next minor)
   "cut",
 ];
 const MAX_TARGETS = 12;
@@ -205,7 +209,8 @@ function score(): V<number> {
 const rubricVersion = (): V<number> => integer({ min: 1, max: 99 });
 
 function target(): V<string> {
-  const named = oneOf<string>(TIERS);
+  // DEPRECATED(remove next minor): lines written before the rename carry the old tier names.
+  const named = oneOf<string>([...TIERS, ...Object.keys(LEGACY_TIER)]);
   return (value, path, issues) => {
     if (typeof value === "string" && SLOT.test(value)) return value;
     const before = issues.length;
@@ -330,6 +335,7 @@ function workerShape(kind: LedgerKind) {
       score: score(),
       rubric: rubricVersion(),
       frontierOffered: boolean(),
+      expertOffered: boolean(),
       tier: target(),
       fallback: target(),
       model: string({ pattern: MODEL, max: 128 }),
