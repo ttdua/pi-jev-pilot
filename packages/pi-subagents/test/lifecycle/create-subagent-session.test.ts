@@ -455,6 +455,25 @@ describe("createSubagentSession — the core's own child tools", () => {
     });
   });
 
+  describe("when the run supplies no result schema", () => {
+    it("lets the agent's own disallow remove a tool named submit_result", async () => {
+      arrangeFactory();
+
+      await createSubagentSession(
+        { agentId: "a1", snapshot: STUB_SNAPSHOT, type: "Explore" },
+        createSubagentSessionDeps({
+          io,
+          exec,
+          registry: createAgentLookup({ toolNames: ["read", "submit_result"], disallowedTools: ["submit_result"] }),
+        }),
+      );
+
+      expect(io.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: ["read"] }),
+      );
+    });
+  });
+
   describe("when the run supplies no callbacks", () => {
     it("leaves the agent's declared allowlist alone", async () => {
       arrangeFactory();

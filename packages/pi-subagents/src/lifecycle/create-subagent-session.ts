@@ -364,8 +364,11 @@ function freshSetup(input: SetupInput): ContextSetup {
   const toolNames = finalToolNames(
     [...input.baseTools, ...protocolTools.map((tool) => tool.name)],
     input.grants,
-    // submit_result is the run's result channel: a policy removal never reaches it.
-    input.disallowed.filter((name) => name !== SUBMIT_RESULT_TOOL_NAME),
+    // With a schema, submit_result is the run's result channel: a policy removal never
+    // reaches it. Without one the name is an ordinary tool and policy applies as usual.
+    params.resultSchema
+      ? input.disallowed.filter((name) => name !== SUBMIT_RESULT_TOOL_NAME)
+      : input.disallowed,
   );
   const grants = input.grants.filter((name) => toolNames.includes(name));
   const agentBody = deps.registry.resolveAgentConfig(params.type).systemPrompt;
