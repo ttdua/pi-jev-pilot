@@ -17,6 +17,11 @@ function refuse(message: string): never {
 	throw new Error(`spawn metadata: ${message}`);
 }
 
+/** Bounded, escaped rendering of a caller-supplied key for error text. */
+function show(key: string): string {
+	return JSON.stringify(key.length > 80 ? `${key.slice(0, 80)}…` : key);
+}
+
 function isPlainObject(input: unknown): input is Record<string, unknown> {
 	if (typeof input !== "object" || input === null) return false;
 	const proto = Object.getPrototypeOf(input);
@@ -47,15 +52,15 @@ export function parseLaunchMetadata(
 	const out: Record<string, string> = Object.create(null);
 	for (const key of keys) {
 		if (!METADATA_LIMITS.keyPattern.test(key)) {
-			refuse(`key "${key}" must match ${METADATA_LIMITS.keyPattern.source}`);
+			refuse(`key ${show(key)} must match ${METADATA_LIMITS.keyPattern.source}`);
 		}
 		const value = input[key];
 		if (typeof value !== "string") {
-			refuse(`value for key "${key}" must be a string`);
+			refuse(`value for key ${show(key)} must be a string`);
 		}
 		if (value.length > METADATA_LIMITS.maxValueLength) {
 			refuse(
-				`value for key "${key}" exceeds ${METADATA_LIMITS.maxValueLength} characters`,
+				`value for key ${show(key)} exceeds ${METADATA_LIMITS.maxValueLength} characters`,
 			);
 		}
 		out[key] = value;

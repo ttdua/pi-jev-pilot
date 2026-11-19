@@ -428,8 +428,8 @@ A spawned agent is a first-class citizen of the runtime: it appears in the backg
 
 `spawn` takes an optional `metadata` map of strings, `SpawnOptions.metadata`, so a caller can tag a launch and recognise it on events, records and in a child session.
 
-- At most 32 keys; each key matches `^[a-z][a-z0-9_.-]{0,63}$`; each value is a string of at most 1024 characters.
-- The map must be a plain object with only enumerable string keys. An empty map counts as no metadata.
+- At most 32 keys; each key matches `^[a-z][a-z0-9_.-]{0,63}$`; each value is a string of at most 1024 UTF-16 code units (`string.length`).
+- The map must be a plain object (prototype `Object.prototype` or `null`) with only enumerable string keys. An empty map counts as no metadata.
 - A map that breaks a limit makes `spawn` throw synchronously, before anything is created: no record, no events, no policy consultation.
 - The executor keeps a frozen copy, so later changes to the caller's object have no effect and consumers cannot write to it.
 - `metadata` is omitted from events, records and launch requests when the launch has none. Tool-call launches never carry it.
@@ -442,6 +442,8 @@ Metadata is delivered on `pi.events` to every extension in the process; do not p
 
 `svc.childSession(sessionId)` returns `{ agentId, agentType, metadata }` for the live child session `sessionId` belongs to, and `undefined` for the main session or an unknown id.
 `metadata` is `{}` when the launch had none.
+The returned entry and its `metadata` are frozen, including the shared empty `{}`.
+Older services lack the method, so feature-detect it: `typeof svc.childSession === "function"`.
 
 - The entry exists before `subagents:child:session-created` is dispatched, so a child's own `session_start` handler sees it.
 - It is removed once `subagents:child:disposed` has been dispatched synchronously.

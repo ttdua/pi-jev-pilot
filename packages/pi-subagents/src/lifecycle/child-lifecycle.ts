@@ -124,8 +124,11 @@ export function createChildLifecyclePublisher(
       emit(SUBAGENT_CHILD_COMPLETED, event);
     },
     disposed(event) {
-      emit(SUBAGENT_CHILD_DISPOSED, event);
-      leaveChildSession(event.sessionId);
+      try {
+        emit(SUBAGENT_CHILD_DISPOSED, event);
+      } finally {
+        leaveChildSession(event.sessionId);
+      }
     },
   };
 }

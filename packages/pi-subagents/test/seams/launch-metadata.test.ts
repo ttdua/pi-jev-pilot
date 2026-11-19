@@ -122,3 +122,18 @@ describe("parseLaunchMetadata", () => {
 		expect(() => parseLaunchMetadata(input)).toThrow(/__proto__/);
 	});
 });
+
+describe("parseLaunchMetadata error text", () => {
+	it("bounds and escapes an offending key in the message", () => {
+		const key = `A\n${"k".repeat(200)}`;
+		let message = "";
+		try {
+			parseLaunchMetadata({ [key]: "v" });
+		} catch (error) {
+			message = (error as Error).message;
+		}
+		expect(message).not.toBe("");
+		expect(message.length).toBeLessThan(200);
+		expect(message).not.toContain("\n");
+	});
+});

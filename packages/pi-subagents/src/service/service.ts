@@ -261,7 +261,8 @@ export interface SpawnOptions {
   /**
    * Opaque string map delivered on `pi.events` to every extension in the
    * process; MUST NOT carry secrets. Refused with a thrown error when it breaks
-   * the limits (32 keys, `^[a-z][a-z0-9_.-]{0,63}$` keys, values up to 1024 chars).
+   * the limits (32 keys, `^[a-z][a-z0-9_.-]{0,63}$` keys, values up to 1024 UTF-16 code units, i.e. `string.length`).
+   * A plain object has prototype `Object.prototype` or `null`.
    */
   metadata?: LaunchMetadata;
 }
