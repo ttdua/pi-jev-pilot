@@ -610,8 +610,8 @@ describe("Fallback warning", () => {
 });
 
 describe("Mode of a launch", () => {
-  const split = { basic: 0.05, broad: 0.15, deep: 0.5, frontier: 0.3 };
-  // Score 2.175: frontier in premium (cut 2.125), deep in standard (cut 2.345).
+  const split = { basic: 0, broad: 0, deep: 0.05, frontier: 0.95 };
+  // Score 1.8: deep in standard (broadMax 1.2) and in premium (frontierMin 2.9).
   const between = { basic: 0.05, broad: 0.15, deep: 0.75, frontier: 0.05 };
 
   test("Every mode sends the one worker rubric", async () => {
@@ -628,7 +628,7 @@ describe("Mode of a launch", () => {
     h.created(request.agentId);
     h.completed(request.agentId);
     expect(adjustment?.model).toBe("fx/deep");
-    expect(h.lines[0]).toMatchObject({ mode: "standard", reason: "cut", score: 2.175 });
+    expect(h.lines[0]).toMatchObject({ mode: "standard", reason: "cut", score: 1.8 });
   });
 
   test("Premium at classification admits frontier", async () => {
@@ -648,10 +648,9 @@ describe("Mode of a launch", () => {
 });
 
 describe("Cut points of a launch", () => {
-  // 100 medium-effort entries, scores 0.02 … 2.00: standard puts 1.25 on broad, premium on deep.
+  // 100 entries, scores 0.01 … 1.00: premium puts a score of 1 on deep (broadMax 0.5).
   const spread: WindowEntry[] = Array.from({ length: 100 }, (_, i) => ({
-    score: (i + 1) / 50,
-    effort: "medium",
+    score: (i + 1) / 100,
     decided: "broad",
   }));
 

@@ -183,10 +183,10 @@ describe("routeStreamRecords characterization", () => {
   });
 
   const cases: [string, object, string][] = [
-    ["tiers standard", {}, "aea8480b"],
-    ["slots standard", { routing: "slots" }, "aea8480b"],
+    ["tiers standard", {}, "e5112d53"],
+    ["slots standard", { routing: "slots" }, "e5112d53"],
     ["budget", { mode: "budget" }, "9e02e30f"],
-    ["premium slots", { mode: "premium", routing: "slots" }, "5d8abcd"],
+    ["premium slots", { mode: "premium", routing: "slots" }, "7e3d60d5"],
     ["no tiers, no slots", { config: { ...config, tiers: {}, slots: [] } }, "ef48b183"],
     ["tiers, frontier off", { config: { ...config, frontierOn: false, slots: [] } }, "80aaac29"],
     ["slots only", { config: { ...config, tiers: {} }, routing: "slots" }, "ef48b183"],

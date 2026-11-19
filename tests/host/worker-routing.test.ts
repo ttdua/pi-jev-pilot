@@ -477,9 +477,9 @@ describe("worker routing through the real CLI", () => {
     async () => {
       const jev = await newJev(
         jevAnswers({
-          tier: "deep",
+          tier: "frontier",
           effort: "xhigh",
-          probs: { basic: 0, broad: 0.1, deep: 0.9, frontier: 0 },
+          probs: { basic: 0, broad: 0, deep: 0.05, frontier: 0.95 },
         }),
       );
       const { fixture, session } = await setup(script([subagentCall(launch())]));
@@ -493,7 +493,7 @@ describe("worker routing through the real CLI", () => {
       expect(workerLines(session)[0]).toMatchObject({
         mode: "premium",
         reason: "frontier",
-        score: 2.275,
+        score: 2.95,
         tier: "frontier",
       });
     },
@@ -544,6 +544,29 @@ describe("worker routing through the real CLI", () => {
         questions?: { tier?: { criteria?: Record<string, string> } };
       };
       expect(body.questions?.tier?.criteria?.[SLOT]).toContain("Code review.");
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Frontier wins over the reviewer slot",
+    async () => {
+      const jev = await newJev(
+        jevAnswers({
+          tier: SLOT,
+          effort: "high",
+          probs: { basic: 0, broad: 0, [SLOT]: 0.6, frontier: 0.4 },
+        }),
+      );
+      const { fixture, session } = await setup(script([subagentCall(launch())]));
+      writeJev(session.agentDir, {
+        config: config(jev, { frontier: true, slotModel: "fixture/fixture-review" }),
+        state: { version: 1, mode: "premium" },
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      expect(childOf(fixture)?.model).toBe("fixture-expert");
+      expect(workerLines(session)[0]).toMatchObject({ reason: "frontier", tier: "frontier" });
     },
     TIMEOUT,
   );

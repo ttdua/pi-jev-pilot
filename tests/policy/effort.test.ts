@@ -110,9 +110,7 @@ function choice(value: string): ChoiceAnswer {
 
 describe("Worker effort", () => {
   test("Ceiling", () => {
-    expect(workerEffort({ effort: choice("max"), tier: "deep", movedByFallback: false })).toBe(
-      "xhigh",
-    );
+    expect(workerEffort({ effort: choice("max"), movedByFallback: false })).toBe("xhigh");
   });
 
   test("Risk raises effort", () => {
@@ -126,15 +124,13 @@ describe("Worker effort", () => {
   });
 
   test("Fast cap", () => {
-    expect(workerEffort({ effort: choice("high"), tier: "basic", movedByFallback: false })).toBe(
-      "medium",
-    );
+    expect(workerEffort({ effort: choice("xhigh"), movedByFallback: false })).toBe("xhigh");
   });
 
-  test("Risk floor then basic cap", () => {
-    expect(
-      workerEffort({ effort: choice("low"), risky: 0.8, tier: "basic", movedByFallback: false }),
-    ).toBe("medium");
+  test("Risk floor then fast cap", () => {
+    expect(workerEffort({ effort: choice("low"), risky: 0.8, movedByFallback: false })).toBe(
+      "high",
+    );
   });
 
   test("No tier decided", () => {
@@ -179,9 +175,7 @@ describe("effort option order", () => {
 
 describe("Effort after fallback", () => {
   test("Fallback lifts effort on basic", () => {
-    expect(workerEffort({ effort: choice("low"), tier: "basic", movedByFallback: true })).toBe(
-      "xhigh",
-    );
+    expect(workerEffort({ effort: choice("low"), movedByFallback: true })).toBe("xhigh");
   });
 
   test("Fallback without an effort answer", () => {
@@ -231,14 +225,10 @@ describe("Thinking clamp", () => {
 });
 
 describe("workerEffort with slot targets", () => {
-  test("Slot without the basic cap", () => {
-    expect(
-      workerEffort({ effort: choice("high"), tier: "slot::reviewer", movedByFallback: false }),
-    ).toBe("high");
+  test("Slot without the fast cap", () => {
+    expect(workerEffort({ effort: choice("high"), movedByFallback: false })).toBe("high");
   });
   test("Slot fell back to basic", () => {
-    expect(workerEffort({ effort: choice("low"), tier: "basic", movedByFallback: true })).toBe(
-      "xhigh",
-    );
+    expect(workerEffort({ effort: choice("low"), movedByFallback: true })).toBe("xhigh");
   });
 });

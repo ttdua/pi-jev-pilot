@@ -25,6 +25,8 @@ describe("windowEntries", () => {
       line({ frontierOffered: false }),
       line({ reason: "miss" }),
       line({ reason: "untouched" }),
+      line({ reason: "risky" }),
+      line({ reason: "expert" }),
     ];
     expect(windowEntries(lines, 3)).toEqual([]);
   });
@@ -46,11 +48,16 @@ describe("windowEntries", () => {
     expect(out).toHaveLength(200);
     expect(out[0]?.score).toBe(1);
   });
-  test("effort argmax, ties to higher, default high", () => {
-    const e = (effortP?: WindowLine["effortP"]) => windowEntries([line({ effortP })], 3)[0]?.effort;
-    expect(e({ high: 0.5, xhigh: 0.5 })).toBe("xhigh");
-    expect(e({ xhigh: 0.6 })).toBe("xhigh");
-    expect(e(undefined)).toBe("high");
+  test("Effort tie", () => {
+    const out = windowEntries([line({ effortP: { high: 0.5, xhigh: 0.5 } })], 3);
+    expect(out).toEqual([{ score: 5, decided: "broad" }]);
+  });
+  test("Effort from the distribution", () => {
+    const out = windowEntries(
+      [line({ effortP: { xhigh: 0.6 } }), line({ effortP: { low: 0.9 } })],
+      3,
+    );
+    expect(out[0]).toEqual(out[1]!);
   });
 });
 
@@ -58,7 +65,6 @@ describe("recentMix", () => {
   test("shares for basic, broad, broad, deep", () => {
     const w = (["basic", "broad", "broad", "deep"] as const).map((decided) => ({
       score: 1,
-      effort: "high" as const,
       decided,
     }));
     expect(recentMix(w)).toEqual({

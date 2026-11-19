@@ -276,7 +276,7 @@ describe("formatStatus", () => {
     test("standard, full window", () => {
       const lines = formatStatus(snap(), undefined, entries(200, 38, 110, 48)).split("\n");
       expect(lines).toContain(
-        "mix (last 200, standard): basic 19% / broad 55% / deep 24% / frontier 2% · target 20/53/25/≤2",
+        "mix (last 200, standard): basic 19% / broad 55% / deep 24% / frontier 2% · target 20/53/26/≤1",
       );
       expect(lines).not.toContain("cut points: seed");
     });
@@ -287,7 +287,7 @@ describe("formatStatus", () => {
         entries(120, 60, 48, 12),
       );
       expect(text).toContain("mode: premium (this directory; global standard)");
-      expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/45\/≤5/);
+      expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/47\/≤3/);
     });
     test("budget target", () => {
       const text = formatStatus(

@@ -215,7 +215,7 @@ describe("Decision fields", () => {
       briefChars: 10,
       tier: "broad",
       reason: "cut",
-      score: 1.25,
+      score: 1,
       rubric: RUBRIC_VERSION,
       frontierOffered: false,
       model: "fx/balanced",

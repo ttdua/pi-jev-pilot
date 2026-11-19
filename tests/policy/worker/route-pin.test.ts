@@ -230,14 +230,14 @@ describe("routeLaunch (pin)", () => {
     expect(r.write).toEqual({ model: "fx/broad" });
   });
 
-  test("risky lifts a low effort to high", () => {
+  test("risky lifts a low effort to high without moving the tier", () => {
     const { input } = build({
       answers: read({ tier: ["basic", 0.9], effort: "low", risky: 0.8 }),
     });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
-    expect(r.record.reason).toBe("risky");
-    expect(r.record.tier).toBe("deep");
-    expect(r.write).toEqual({ model: "fx/deep", thinking: "high" });
+    expect(r.record.reason).toBe("cut");
+    expect(r.record.tier).toBe("basic");
+    expect(r.write).toEqual({ model: "fx/basic", thinking: "high" });
   });
 
   test("max effort is capped at xhigh, then clamped to the model's levels", () => {

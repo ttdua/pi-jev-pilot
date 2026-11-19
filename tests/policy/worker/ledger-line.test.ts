@@ -26,7 +26,7 @@ describe("decisionFields", () => {
         tierQuestion: true,
         rubric: 7,
       }),
-    ).toEqual({ rubric: 7, frontierOffered: true, score: 1.25 });
+    ).toEqual({ rubric: 7, frontierOffered: true, score: 1 });
   });
 
   test("frontier not offered", () => {

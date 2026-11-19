@@ -1,0 +1,1 @@
+Synthetic scores (20x0.2, 53x1.2, 24x2.2, 2x2.9, 1x3.0: roughly the standard target shape, so host tests with a tier-only answer land on the expected tier). Used only to compute the PROVISIONAL seed cut points until Task 7 replaces them with replay evidence.

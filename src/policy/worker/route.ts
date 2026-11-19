@@ -82,10 +82,10 @@ type ReadAnswers = Extract<WorkerAnswers, { kind: "read" }>;
 type Decided = Extract<TierDecision, { kind: "decided" }>;
 type Write = { model?: string; thinking?: ThinkingLevel };
 
-// The effort the worker asked for, adjusted by the risk answer, tier and fallback.
+// The effort the worker asked for, adjusted by the risk answer and fallback.
 function effortFor(
   answers: ReadAnswers,
-  extra: { tier?: Target; movedByFallback: boolean },
+  extra: { movedByFallback: boolean },
 ): ThinkingLevel | undefined {
   const effort = answers.answers["effort"];
   const risky = answers.answers["risky"];
@@ -120,7 +120,7 @@ function placedRoute(ctx: Ctx, decision: Decided, placed: Placed): Route {
   if (placed.kind === "moved") record.fallback = placed.from;
   const write: Write = { model: input.modelOf(final) };
   if (!input.launch.thinkingLocked) {
-    const level = effortFor(answers, { tier: final, movedByFallback: placed.kind === "moved" });
+    const level = effortFor(answers, { movedByFallback: placed.kind === "moved" });
     if (level !== undefined) {
       const supported = supportedLevels(input.thinkingOf(final) ?? { reasoning: true });
       const clamped = clampLevel(level, supported);

@@ -7,43 +7,45 @@ function choice(pick: string, probabilities: Record<string, number>): Answer {
 }
 
 describe("difficultyScore", () => {
-  test("broad with high effort", () => {
+  test("Balanced with high effort", () => {
     const answers = {
       tier: choice("broad", { broad: 1 }),
       effort: choice("high", {}),
     };
-    expect(difficultyScore(answers)).toBe(1.25);
+    expect(difficultyScore(answers)).toBe(1);
   });
 
-  test("mixed probabilities", () => {
+  test("Mixed probabilities", () => {
     const answers = {
       tier: choice("broad", { broad: 0.6, deep: 0.4 }),
       effort: choice("high", {}),
     };
-    expect(difficultyScore(answers)).toBe(1.65);
+    expect(difficultyScore(answers)).toBe(1.4);
   });
 
-  test("slot keys ignored", () => {
+  test("Slot keys ignored", () => {
     const answers = {
       tier: choice("broad", { "slot::reviewer": 0.5, broad: 0.5 }),
       effort: choice("high", {}),
     };
-    expect(difficultyScore(answers)).toBe(1.25);
+    expect(difficultyScore(answers)).toBe(1);
   });
 
-  test("effort unanswered counts as high", () => {
-    expect(difficultyScore({ tier: choice("deep", { deep: 1 }) })).toBe(2.25);
+  test("Effort unanswered", () => {
+    const tier = choice("deep", { deep: 1 });
+    expect(difficultyScore({ tier, effort: choice("low", {}) })).toBe(2);
+    expect(difficultyScore({ tier, effort: choice("max", {}) })).toBe(2);
+    expect(difficultyScore({ tier })).toBe(2);
   });
 
-  test("rounded before use", () => {
+  test("Rounded before use", () => {
     const answers = {
-      tier: choice("deep", { broad: 0.45, deep: 0.55 }),
-      effort: choice("high", {}),
+      tier: choice("deep", { basic: 0.3333, broad: 0.3333, deep: 0.3334 }),
     };
-    expect(difficultyScore(answers)).toBe(1.8);
+    expect(difficultyScore(answers)).toBe(1);
   });
 
-  test("only slot probability gives no score", () => {
+  test("Only slot probability", () => {
     const answers = {
       tier: choice("broad", { "slot::reviewer": 1, basic: 0, broad: 0 }),
       effort: choice("high", {}),
@@ -51,7 +53,7 @@ describe("difficultyScore", () => {
     expect(difficultyScore(answers)).toBeUndefined();
   });
 
-  test("a miss gives no score", () => {
+  test("Jev failure gives no score", () => {
     expect(difficultyScore({})).toBeUndefined();
   });
 });

@@ -10,7 +10,6 @@ import {
 } from "../launch.ts";
 import type { Answer } from "../answers.ts";
 import type { CutPoints } from "./cutpoints.ts";
-import { RISK_FLOOR } from "../effort.ts";
 import { difficultyScore } from "./score.ts";
 import type { WorkerAnswers } from "./answers.ts";
 
@@ -18,7 +17,7 @@ export type TierDecision =
   | {
       kind: "decided";
       tier: Target;
-      reason: "frontier" | "risky" | "slot" | "cut";
+      reason: "frontier" | "slot" | "cut";
     }
   | { kind: "none"; reason?: "miss" };
 
@@ -33,21 +32,11 @@ function decide(tier: Target, reason: Decided["reason"]): TierDecision {
   return { kind: "decided", tier, reason };
 }
 
-// Highest offered tier below frontier, scanning deep down to basic.
-function highestBelowExpert(offered: readonly TierName[]): TierName | undefined {
-  return (["deep", "broad", "basic"] as const).find((t) => offered.includes(t));
-}
-
-function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
-  return offered.includes("deep") ? "deep" : highestBelowExpert(offered);
-}
-
 const SLOT_BAR = 0.6;
 const CUT_LADDER = ["basic", "broad", "deep"] as const;
 
-// Rule frontier: the score reaches the launch's frontier cut and the model asked for high effort.
-function expertRule(
-  answers: Record<string, Answer>,
+// Rule frontier: the score reaches the launch's frontier cut. Wins over slots; never reads effort.
+function frontierRule(
   score: number | undefined,
   offered: readonly TierName[],
   cuts: CutPoints,
@@ -55,20 +44,7 @@ function expertRule(
   if (score === undefined || !offered.includes("frontier") || score < cuts.frontierMin) {
     return undefined;
   }
-  const effort = answers["effort"];
-  const high = effort?.type === "choice" && (effort.choice === "xhigh" || effort.choice === "max");
-  return high ? decide("frontier", "frontier") : undefined;
-}
-
-// Rule risky: the risk floor lifts the launch to deep, else the highest tier below frontier.
-function riskRule(
-  answers: Record<string, Answer>,
-  offered: readonly TierName[],
-): TierDecision | undefined {
-  const risky = answers["risky"];
-  if (risky?.type !== "noul" || risky.noul <= RISK_FLOOR) return undefined;
-  const target = deepOrHighest(offered);
-  return target === undefined ? undefined : decide(target, "risky");
+  return decide("frontier", "frontier");
 }
 
 // Rule slot: an offered slot the model is sure of.
@@ -112,7 +88,7 @@ function cutRule(
   return target === undefined ? undefined : decide(target, "cut");
 }
 
-// Rules in order: frontier, risky, slot, cut. The first match wins.
+// Rules in order: frontier, slot, cut. The first match wins.
 export function decideTier(
   answers: WorkerAnswers,
   offered: readonly TierName[],
@@ -126,8 +102,7 @@ export function decideTier(
   const given = answers.answers;
   const score = difficultyScore(given);
   return (
-    expertRule(given, score, offered, cuts) ??
-    riskRule(given, offered) ??
+    frontierRule(score, offered, cuts) ??
     slotRule(given, slots) ??
     cutRule(score, offered, cuts) ?? { kind: "none" }
   );

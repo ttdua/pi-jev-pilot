@@ -1,7 +1,6 @@
 // Pure cut points from a window of scores and a mode target. Imports nothing outside src/policy/.
 
 import { WINDOW_MIN } from "./cut-window.ts";
-import type { EffortLevel } from "../effort.ts";
 import type { TierName } from "../launch.ts";
 import { MODE_TARGETS, type ModeName, type ModeTarget } from "./modes.ts";
 import { SEED_CUTPOINTS } from "./seed.ts";
@@ -14,7 +13,6 @@ export interface CutPoints {
 
 export interface WindowEntry {
   readonly score: number;
-  readonly effort: EffortLevel;
   readonly decided: TierName;
 }
 
@@ -25,12 +23,12 @@ function quantileAt(sorted: readonly number[], percent: number): number {
   return sorted[pos - 1] ?? Infinity;
 }
 
-// Lowest score above `broadMax` among high-effort entries whose count at or above it fits the cap.
-function expertCut(entries: readonly WindowEntry[], broadMax: number, cap: number): number {
+// Lowest score above `broadMax` whose count at or above it fits the cap.
+function frontierCut(entries: readonly WindowEntry[], broadMax: number, cap: number): number {
   const limit = Math.floor((cap * entries.length) / 100);
   if (limit <= 0) return Infinity;
   const scores = entries
-    .filter((e) => (e.effort === "xhigh" || e.effort === "max") && e.score > broadMax)
+    .filter((e) => e.score > broadMax)
     .map((e) => e.score)
     .sort((a, b) => a - b);
   const fits = scores.find((s, i) => scores[i - 1] !== s && scores.length - i <= limit);
@@ -46,7 +44,7 @@ export function cutPoints(entries: readonly WindowEntry[], target: ModeTarget): 
   return {
     basicMax,
     broadMax,
-    frontierMin: expertCut(entries, broadMax, target.frontierCap),
+    frontierMin: frontierCut(entries, broadMax, target.frontierCap),
   };
 }
 

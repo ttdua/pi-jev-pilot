@@ -340,6 +340,7 @@ describe("Routed launch", () => {
     const r = routeLaunch(
       input({
         answers: read({ tier: ["deep", { deep: 0.95 }], effort: "low" }),
+        cuts: { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 },
         canRun: (t) => t !== "deep",
         thinkingOf: (t) => (t === "broad" ? { reasoning: true } : undefined),
       }),
@@ -379,17 +380,18 @@ describe("Nothing can run", () => {
       input({
         offered: TIER_LADDER,
         answers: read({
-          tier: ["basic", { basic: 0.9 }],
+          tier: ["deep", { deep: 0.9 }],
           risky: 0.9,
           effort: "high",
         }),
+        cuts: { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 },
         canRun: (t) => t === "frontier",
       }),
     );
     expect(r).toEqual({
       kind: "routed",
       write: {},
-      record: { reason: "risky", tier: "deep", fallback: "deep" },
+      record: { reason: "cut", tier: "deep", fallback: "deep" },
     });
   });
 });
@@ -546,7 +548,6 @@ describe("Recorded results", () => {
   test("Recorded results validate", () => {
     const reasons: Record<RouteReason, Route> = {
       cut: routeLaunch(input({ answers: read({ tier: ["broad", { broad: 0.9 }] }) })),
-      risky: routeLaunch(input({ answers: read({ risky: 0.9 }) })),
       frontier: routeLaunch(
         input({
           answers: read({ tier: ["frontier", { frontier: 0.9 }], effort: "xhigh" }),

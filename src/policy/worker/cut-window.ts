@@ -1,5 +1,5 @@
 import type { WindowEntry } from "./cutpoints.ts";
-import { EFFORT_LEVELS, type EffortLevel } from "../effort.ts";
+import type { EffortLevel } from "../effort.ts";
 import { TIER_LADDER, type TierName } from "../launch.ts";
 
 export const WINDOW_MAX = 200;
@@ -15,6 +15,7 @@ export interface WindowLine {
   readonly reason?: string;
   readonly tier?: string;
   readonly fallback?: string;
+  /** Kept for old ledger lines; ignored. */
   readonly effortP?: Partial<Record<EffortLevel, number>>;
 }
 
@@ -23,32 +24,17 @@ export interface RecentMix {
   readonly shares?: Readonly<Record<TierName, number>>;
 }
 
-const WINDOW_REASONS: readonly string[] = ["frontier", "risky", "cut"];
+const WINDOW_REASONS: readonly string[] = ["frontier", "cut"];
 
 function decidedTier(line: WindowLine): TierName | undefined {
   const name = line.fallback ?? line.tier;
   return TIER_LADDER.find((t) => t === name);
 }
 
-// Argmax of the effort distribution; ties go to the higher level, no distribution means `high`.
-function modalEffort(effortP: WindowLine["effortP"]): EffortLevel {
-  if (!effortP) return "high";
-  let best: EffortLevel = "high";
-  let bestP = -Infinity;
-  for (const level of EFFORT_LEVELS) {
-    const p = effortP[level];
-    if (p !== undefined && p >= bestP) {
-      best = level;
-      bestP = p;
-    }
-  }
-  return best;
-}
-
 function toEntry(line: WindowLine): WindowEntry | undefined {
   const decided = decidedTier(line);
   if (decided === undefined || line.score === undefined) return undefined;
-  return { score: line.score, effort: modalEffort(line.effortP), decided };
+  return { score: line.score, decided };
 }
 
 export function windowEntries(lines: readonly WindowLine[], rubric: number): WindowEntry[] {

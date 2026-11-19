@@ -23,8 +23,8 @@ describe("MODE_TARGETS", () => {
   test("values", () => {
     expect(MODE_TARGETS).toEqual({
       budget: { basic: 50, broad: 40, deep: 10, frontierCap: 0 },
-      standard: { basic: 20, broad: 53, deep: 25, frontierCap: 2 },
-      premium: { basic: 0, broad: 50, deep: 45, frontierCap: 5 },
+      standard: { basic: 20, broad: 53, deep: 26, frontierCap: 1 },
+      premium: { basic: 0, broad: 50, deep: 47, frontierCap: 3 },
     });
   });
 });
