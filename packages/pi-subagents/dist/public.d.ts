@@ -300,6 +300,10 @@ interface SubagentRecord {
     /** The launch's metadata, frozen; present only when the launch has metadata. */
     metadata?: LaunchMetadata;
     result?: string;
+    /** The value the child submitted through `submit_result`, deep-frozen; present only when a schema was given and a valid value was submitted. */
+    structuredResult?: unknown;
+    /** Why a launch with a result schema has no structured result; absent when it has one or had no schema. */
+    structuredResultError?: StructuredResultError;
     /** The question the agent ended its turn with, when it declared one. */
     pendingQuestion?: string;
     error?: string;
@@ -378,6 +382,23 @@ interface LaunchSkills {
      */
     paths?: readonly string[];
 }
+/**
+ * JSON Schema subset a launch may require its structured result to match.
+ * The executor validates against its own deep-frozen copy taken at spawn.
+ */
+type ResultSchema = Readonly<{
+    type?: "object" | "array" | "string" | "number" | "integer" | "boolean";
+    enum?: readonly (string | number | boolean)[];
+    properties?: Readonly<Record<string, ResultSchema>>;
+    items?: ResultSchema;
+    required?: readonly string[];
+    additionalProperties?: boolean | ResultSchema;
+    title?: string;
+    description?: string;
+    $schema?: "https://json-schema.org/draft/2020-12/schema";
+}>;
+/** Why a launch with a result schema has no structured result. */
+type StructuredResultError = "missing" | "invalid";
 /** The live child session a consumer can look up by its session id. */
 interface ChildSessionInfo {
     readonly agentId: string;
@@ -527,6 +548,12 @@ interface SpawnOptions {
     cwd?: string;
     /** `false` loads no AGENTS.md/CLAUDE.md in the child. Fresh launches only. */
     contextFiles?: boolean;
+    /**
+     * Shape of the result the child must submit through `submit_result`. A
+     * supported JSON Schema subset; refused with a thrown error when it uses
+     * anything else, and refused with `context: "fork"`. Copied at spawn.
+     */
+    resultSchema?: ResultSchema;
 }
 /** The public service contract for cross-extension subagent access. */
 interface SubagentsService {
@@ -633,4 +660,4 @@ declare function getSubagentsService(): SubagentsService | undefined;
 declare function unpublishSubagentsService(): void;
 
 export { SUBAGENT_EVENTS, getSubagentsService, publishSubagentsService, unpublishSubagentsService };
-export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSessionInfo, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchMetadata, LaunchOrigin, LaunchPolicy, LaunchRequest, LaunchSkills, LifetimeUsage, LockableField, PublishedLaunchIdentity, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, WaitOptions, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };
+export type { AgentTypeSnapshot, ChildBoundEvent, ChildSessionCreatedEvent, ChildSessionInfo, ChildSpawningEvent, ContextMode, LaunchAdjustment, LaunchMetadata, LaunchOrigin, LaunchPolicy, LaunchRequest, LaunchSkills, LifetimeUsage, LockableField, PublishedLaunchIdentity, ResultSchema, ResumeOptions, ResumeRefusal, ResumeRefusalReason, ResumeResult, SpawnOptions, StructuredResultError, SubagentRecord, SubagentStatus, SubagentsService, TurnBudget, TurnBudgetPhase, WaitOptions, Workspace, WorkspaceDisposeOutcome, WorkspaceDisposeResult, WorkspacePrepareContext, WorkspaceProvider };

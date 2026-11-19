@@ -327,10 +327,10 @@ Agent lifecycle events are emitted via `pi.events.emit()` so other extensions ca
 | ---------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `subagents:created`          | Background agent registered                             | `id`, `type`, `description`, `isBackground`, `metadata`                                                                  |
 | `subagents:started`          | Agent transitions to running (including queued→running) | `id`, `type`, `description`, `metadata`                                                                                  |
-| `subagents:completed`        | Agent finished successfully                             | `id`, `type`, `status`, `turnBudget`, `durationMs`, `tokens` (lifetime `{ input, output, total }`), `toolUses`, `result`, `metadata` |
-| `subagents:failed`           | Agent errored, stopped, or aborted                      | same as completed + `error`, `status`                                                                                    |
+| `subagents:completed`        | Agent finished successfully                             | `id`, `type`, `status`, `turnBudget`, `durationMs`, `tokens` (lifetime `{ input, output, total }`), `toolUses`, `result`, `metadata`, `structuredResult`, `structuredResultError` (when set) |
+| `subagents:failed`           | Agent errored, stopped, or aborted                      | same as completed + `error`, `status`, `structuredResult`, `structuredResultError` (when set)                            |
 | `subagents:resuming`         | Resume started (a queued resume, once admitted)         | `id`, `type`, `description`, `metadata`                                                                                  |
-| `subagents:resumed`          | Resumed run ended (including one stopped while queued)  | same as completed + `error`, `status` (`buildEventData` shape) — `status`/`error` discriminate; `metadata` included |
+| `subagents:resumed`          | Resumed run ended (including one stopped while queued)  | same as completed + `error`, `status` (`buildEventData` shape) — `status`/`error` discriminate; `metadata` included; `structuredResult`, `structuredResultError` (when set) |
 | `subagents:steered`          | Steering message sent                                   | `id`, `message`                                                                                                          |
 | `subagents:update`           | Progress message from a `notify_parent` call (always emitted; the main-session message is held while a `wait` is pending) | `id`, `type`, `description`, `message`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
 | `subagents:asked`            | Agent asked its parent a question (`ask_parent`)        | `id`, `type`, `description`, `question`, `metadata`, `toolCallId` (when launched or resumed from a tool call) |
@@ -345,6 +345,8 @@ Use `contextUsage.percent` (surfaced as `(NN%)` in the widget) for current conte
 `metadata` is the frozen map a service launch passed to `spawn`. It is present on these events only when the launch has metadata, and never on tool-call launches.
 
 `subagents:child:session-created` carries `cwd` on every launch, and `inheritSkills`, `skillPaths`, `excludedExtensionPackages` and `contextFiles` for a launch with launch resources or a pinned agent; see [Launch resources](#launch-resources).
+
+`structuredResult` and `structuredResultError` are on `subagents:completed`, `subagents:failed` and `subagents:resumed` only when set, and are not persisted; see [Structured results](#structured-results).
 
 ## Worktree Isolation
 
@@ -421,7 +423,8 @@ It throws in these cases:
 - a `model` string does not resolve against the session's model registry;
 - a `thinkingLevel` is not one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`;
 - the named agent type exists but is disabled (`enabled: false`);
-- the type is unknown and `general` is missing or disabled, so there is no fallback.
+- the type is unknown and `general` is missing or disabled, so there is no fallback;
+- the `resultSchema` is refused, as described in [Structured results](#structured-results).
 
 Agent frontmatter never overrides an option you pass.
 It fills `model`, `thinkingLevel`, and `maxTurns` when you omit them; `context` is resolved like the tool does: your option wins, then the agent file's `context`, then `fresh`; an agent file that [locks](./docs/configuration.md#locking-fields-against-callers) `context` wins over your option.
@@ -513,6 +516,51 @@ The executor never falls back to the parent's cwd or drops a skill.
 
 A workspace provider receives `requestedCwd` and `metadata` in `prepare` when the launch has them, and decides the directory: returning a workspace at `requestedCwd` honours it, another directory wraps it, and a throw refuses the run.
 
+#### Structured results
+
+`spawn` takes an optional `resultSchema`, `SpawnOptions.resultSchema`, so a caller can ask the child for a typed final answer.
+The schema is a JSON Schema subset, draft 2020-12:
+
+- `type`: one of `object`, `array`, `string`, `number`, `integer`, `boolean`; the root must declare it;
+- `enum`: a non-empty array of strings, numbers or booleans;
+- `properties`: a map of property names to subset schemas;
+- `items`: one subset schema;
+- `required`: an array of unique strings;
+- `additionalProperties`: a boolean or a subset schema.
+
+`title` and `description` are allowed and do not affect validation; `$schema` is allowed only as `https://json-schema.org/draft/2020-12/schema`.
+
+`spawn` throws, before any record, session or policy call, when:
+
+- `resultSchema` or a nested schema is not a plain object;
+- a keyword is outside the subset; the error names the keyword and its JSON Pointer;
+- the root has no `type`, or `type` is not one of the six names;
+- the launch resolves to `context: fork`, from the caller, the agent file or a locked agent file; the error names `resultSchema` and `fork`.
+
+The executor keeps a frozen copy of the schema, so later changes to the caller's object have no effect.
+The `subagent` tool and agent frontmatter do not accept a schema.
+
+A launch with a schema installs the child tool `submit_result` beside `ask_parent` and `notify_parent`.
+Its argument is `result`, checked against the schema:
+
+- an invalid value returns an error listing each violation with its path; nothing is stored and the child can call again;
+- the first valid value is the run's `structuredResult`; a later call returns an error and changes nothing;
+- after a valid call, the run ends once the current turn's tool calls finish, with no further model turn, and settles `completed`, also on the turn limit;
+- a stop from outside (`abort`, a caller signal) keeps its own status and the stored value.
+
+`disallowed_tools` and a launch policy's `removeTools` cannot remove `submit_result` from a launch with a schema.
+The tool counts as one of the child's own tools in `toolCount`.
+
+Each run starts with neither field set, so a resume starts clear. When a run ends:
+
+- with a stored value, `structuredResult` holds it;
+- with a pending `ask_parent` question and no value, neither field is set;
+- otherwise `structuredResultError` is set: `"invalid"` when the child called `submit_result` at least once, `"missing"` when it never did.
+
+A run stopped while queued sets neither field. The free-text `result` is kept in every case.
+The `SubagentRecord` snapshot and the `subagents:completed`, `subagents:failed` and `subagents:resumed` payloads carry `structuredResult` or `structuredResultError` only when set.
+The `subagents:record` session entry does not store either field, so they are gone after a reload.
+
 #### `childSession` contract
 
 `svc.childSession(sessionId)` returns `{ agentId, agentType, metadata }` for the live child session `sessionId` belongs to, and `undefined` for the main session or an unknown id.
@@ -531,6 +579,8 @@ Both return `SubagentRecord`, a by-value snapshot: nothing in it changes after y
 Poll again for fresh data.
 
 The snapshot carries identity (`id`, `type`, `description`), lifecycle status (`status`, `startedAt`, `completedAt`, `result`, `error`, `pendingQuestion`), `isBackground` (whether the current run is in the background: the spawn's mode until the first run starts, and each resume's own afterwards), the current run's `turnBudget`, cumulative metrics (`toolUses`, `compactionCount`, `lifetimeUsage`), and `outputFile` — the path to the agent's session JSONL, which you can read with Pi's own `parseSessionEntries`.
+
+When the launch had a `resultSchema`, it also carries `structuredResult` and `structuredResultError` for the current run; see [Structured results](#structured-results).
 
 It also carries `resumeRefusal`: absent when `resume` would start a run, otherwise the reason it would refuse with (the [`resume` contract](#resume-contract) lists them).
 Render a Resume affordance from it without calling `resume` first.
