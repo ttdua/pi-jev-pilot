@@ -48,7 +48,7 @@ Blocked by: 4
 
 Blocked by: 2, 4
 
-- [ ] 6.1 Report pass computes and writes the seed candidate per variant and mode, routes the first 100 launches on it, and drops the main tier comparison key (`scripts/replay/{report,report-route,report-compare,compare}.ts`)
+- [x] 6.1 Report pass computes and writes the seed candidate per variant and mode, routes the first 100 launches on it, and drops the main tier comparison key (`scripts/replay/{report,report-route,report-compare,compare}.ts`)
 
 ## 7. Seed from replay and evidence
 
