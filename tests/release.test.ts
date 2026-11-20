@@ -15,7 +15,6 @@ const SWITCHES = [
   "/jev skills off",
   "/jev strategy off",
   "/jev frontier off",
-  "/jev cli-review off",
 ];
 const README_OK = `${PINNED}${SWITCHES.join("\n")}\n`;
 const BASE = { pkg: PKG, changelog: ENTRY };

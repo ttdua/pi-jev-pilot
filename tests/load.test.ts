@@ -65,7 +65,7 @@ describe("package loading", () => {
       "session_start",
       "turn_end",
     ]);
-    expect([...(ext?.tools.keys() ?? [])]).toEqual(["jev_review"]);
+    expect([...(ext?.tools.keys() ?? [])]).toEqual([]);
     expect([...(ext?.commands.keys() ?? [])]).toEqual(["jev"]);
     expect(ext?.flags.size).toBe(0);
     expect(ext?.shortcuts.size).toBe(0);

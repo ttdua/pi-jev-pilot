@@ -20,6 +20,14 @@ export const uiRequests = (s: HostSession): UiRequest[] =>
 export const notifies = (s: HostSession): UiRequest[] =>
   uiRequests(s).filter((e) => e.method === "notify");
 
+/** Runs a `/jev` command and returns the text of the notification it produced. */
+export async function report(s: HostSession, text: string): Promise<string> {
+  const before = notifies(s).length;
+  await command(s, text);
+  await s.waitFor(() => notifies(s).length > before, `notify for ${text}`);
+  return notifies(s)[before]?.message ?? "";
+}
+
 /** Sends a slash command as a prompt and waits for its response. */
 export async function command(
   s: HostSession,

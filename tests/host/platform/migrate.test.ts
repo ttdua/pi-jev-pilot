@@ -139,3 +139,77 @@ describe("migrateLegacyNames", () => {
     ).not.toThrow();
   });
 });
+
+describe("retired CLI review keys", () => {
+  test("Config review removed at start", () => {
+    const text =
+      '{"classifier":{"timeoutMs":1500},"review":{"cli":"codex","enabled":true},"skills":{"inject":"suggest"}}';
+    const dir = jev(text);
+    const file = join(dir, "config.json");
+    chmodSync(file, 0o640);
+    const notes: string[] = [];
+    migrateLegacyNames(dir, (m) => notes.push(m));
+    expect(Object.keys(JSON.parse(read(dir, "config.json")))).toEqual(["classifier", "skills"]);
+    expect(statSync(file).mode & 0o777).toBe(0o640);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("review");
+    expect(notes[0]).toContain(file);
+  });
+
+  test("Rename and removal in one rewrite", () => {
+    const dir = jev('{"tiers":{"fast":"a/x"},"review":{"enabled":false}}');
+    const notes: string[] = [];
+    migrateLegacyNames(dir, (m) => notes.push(m));
+    const raw = JSON.parse(read(dir, "config.json"));
+    expect(raw).toEqual({ tiers: { basic: "a/x" } });
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("tiers.fast → tiers.basic");
+    expect(notes[0]).toContain("review");
+  });
+
+  test("State CLI review fields removed at start", () => {
+    const dir = jev(
+      undefined,
+      '{"version":1,"cliReviewEnabled":true,"cliReview":{"cli":"codex"},"mode":"budget"}',
+    );
+    migrateLegacyNames(dir, () => {});
+    expect(JSON.parse(read(dir, "state.json"))).toEqual({ version: 1, mode: "budget" });
+    const dir2 = jev(undefined, '{"version":1,"cliReviewEnabled":false}');
+    migrateLegacyNames(dir2, () => {});
+    expect(JSON.parse(read(dir2, "state.json"))).toEqual({ version: 1 });
+  });
+
+  test("Nothing retired to remove", () => {
+    const config = '{"skills":{"inject":"suggest"}}';
+    const state = '{"version":1,"mode":"budget"}';
+    const dir = jev(config, state);
+    const old = new Date(2020, 0, 1);
+    for (const f of ["config.json", "state.json"]) utimesSync(join(dir, f), old, old);
+    const before = ["config.json", "state.json"].map((f) => statSync(join(dir, f)).mtimeMs);
+    const notes: string[] = [];
+    migrateLegacyNames(dir, (m) => notes.push(m));
+    expect(read(dir, "config.json")).toBe(config);
+    expect(read(dir, "state.json")).toBe(state);
+    expect(["config.json", "state.json"].map((f) => statSync(join(dir, f)).mtimeMs)).toEqual(
+      before,
+    );
+    expect(notes).toEqual([]);
+  });
+
+  test("Invalid config keeps its review section", () => {
+    const text = '{"review":{"enabled":true},"classifier":{"timeoutMs":100}}';
+    const dir = jev(text);
+    migrateLegacyNames(dir, () => {});
+    expect(read(dir, "config.json")).toBe(text);
+  });
+
+  test.skipIf(isRoot)("Removal write failure", () => {
+    const text = '{"review":{"enabled":true}}';
+    const dir = jev(text);
+    chmodSync(dir, 0o500);
+    const notes: string[] = [];
+    expect(() => migrateLegacyNames(dir, (m) => notes.push(m))).not.toThrow();
+    expect(JSON.parse(read(dir, "config.json")).review).toEqual({ enabled: true });
+    expect(notes).toEqual([]);
+  });
+});

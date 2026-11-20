@@ -178,7 +178,10 @@ describe("readConfig", () => {
   });
 
   test("Old review section accepted and ignored", () => {
-    const r = readJson({ review: { cli: "opencode", enabled: true }, skills: { inject: "suggest" } });
+    const r = readJson({
+      review: { cli: "opencode", enabled: true },
+      skills: { inject: "suggest" },
+    });
     expectValid(r);
     expect(r).toEqual({
       kind: "ok",

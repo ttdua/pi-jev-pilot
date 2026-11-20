@@ -18,7 +18,7 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: b
   const renderers = new Map<string, (entry: unknown, o: unknown, t: unknown) => unknown>();
   const entries: { type: string; data: unknown }[] = [];
   let level = "low";
-  let active = ["read", "jev_review"];
+  let active = ["read"];
   const setCalls: string[][] = [];
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, unknown>();
@@ -45,10 +45,7 @@ function fakePi(opts: { throwOnOff?: boolean; executor?: boolean; noRenderer?: b
       level = l;
     },
     exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
-    getAllTools: () => [
-      { name: "jev_review" },
-      ...(opts.executor === true ? [{ name: "subagent" }] : []),
-    ],
+    getAllTools: () => (opts.executor === true ? [{ name: "subagent" }] : []),
     getActiveTools: () => [...active],
     setActiveTools: (names: string[]) => {
       setCalls.push(names);
@@ -541,7 +538,7 @@ describe("setup", () => {
       expect(mainService()).toBeUndefined();
     });
 
-    test("child before_agent_start hides the review tool and asks nothing", async () => {
+    test("child before_agent_start asks nothing", async () => {
       const fx = await startJevFixture({ "/ask": { json: { answers: {} } } });
       try {
         mkdirSync(join(agentDir, "jev"), { recursive: true });
@@ -552,7 +549,7 @@ describe("setup", () => {
         const f = fakePi();
         setup(f.pi);
         f.emit(CREATED, { sessionId: "kid" });
-        const selectedTools = ["read", "jev_review"];
+        const selectedTools = ["read"];
         const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "kid" } };
         const event = {
           messageType: "user",
@@ -578,42 +575,6 @@ describe("setup", () => {
         ctx,
       );
       expect(f.setCalls).toEqual([]);
-    });
-
-    test("main before_agent_start hides jev_review while off", async () => {
-      const f = fakePi();
-      setup(f.pi);
-      const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "main" } };
-      await f.handlers.get("before_agent_start")![0]!({ messageType: "user", prompt: "p" }, ctx);
-      expect(f.active()).toEqual(["read"]);
-    });
-
-    test("main before_agent_start shows jev_review when the state turns it on", async () => {
-      mkdirSync(join(agentDir, "jev"), { recursive: true });
-      writeFileSync(
-        join(agentDir, "jev", "state.json"),
-        JSON.stringify({ version: 1, cliReviewEnabled: true }),
-      );
-      const f = fakePi();
-      f.setActive(["read"]);
-      setup(f.pi);
-      const ctx = { cwd: agentDir, sessionManager: { getSessionId: () => "main" } };
-      await f.handlers.get("before_agent_start")![0]!({ messageType: "user", prompt: "p" }, ctx);
-      expect(f.active()).toEqual(["read", "jev_review"]);
-    });
-
-    test("/jev cli-review on activates jev_review", async () => {
-      const f = fakePi();
-      f.setActive(["read"]);
-      setup(f.pi);
-      const jev = f.commands.get("jev") as { handler: (a: string, c: unknown) => Promise<void> };
-      await jev.handler("cli-review on", {
-        hasUI: true,
-        mode: "rpc",
-        ui: { notify: () => {}, setWidget: () => {} },
-        sessionManager: { getSessionId: () => "main" },
-      });
-      expect(f.active()).toEqual(["read", "jev_review"]);
     });
 
     test("a throwing event leaves before_agent_start returning undefined", async () => {

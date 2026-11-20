@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../helpers";
-import { toolNames } from "./bodies";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { DEFAULT_JEV_CONFIG, runOnce, startHostSession, type HostSession } from "./harness";
 import { command, notifies, uiRequests, writeConfigFile, type UiRequest } from "./rpc-helpers";
@@ -213,10 +212,6 @@ describe("status line and /jev through the real CLI", () => {
   );
 });
 
-function noReview(f: Fixture): boolean {
-  return f.requests.every((r: RecordedRequest) => !toolNames(r.body).includes("jev_review"));
-}
-
 describe("print and JSON mode", () => {
   test(
     "print mode shows no status line and leaves provider requests unchanged",
@@ -254,8 +249,6 @@ describe("print and JSON mode", () => {
       // Ports differ per fixture, so the models.json base URL is not part of the body; compare bodies.
       const bodies = (f: Fixture): string[] =>
         f.requests.map((r: RecordedRequest) => JSON.stringify(r.body));
-      expect(noReview(withPkg)).toBe(true);
-      expect(noReview(plain)).toBe(true);
       expect(bodies(withPkg)).toEqual(bodies(plain));
     },
     TIMEOUT,

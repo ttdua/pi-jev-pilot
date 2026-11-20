@@ -105,8 +105,6 @@ type PrepareOpts = {
     holdProviders?: string[];
     /** Written as `skills.inject` in config.json. */
     skillsInject?: "content" | "suggest";
-    /** Written as `review.enabled` in config.json. */
-    reviewEnabled?: boolean;
   };
   /** Skills written to `<agentDir>/skills/<name>/SKILL.md`: name to the full file text (frontmatter included). */
   skills?: Record<string, string>;
@@ -118,18 +116,14 @@ export const DEFAULT_JEV_CONFIG = { url: "http://127.0.0.1:9/v1/systemone", time
 function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): void {
   const file = join(agentDir, "jev", "config.json");
   if (existsSync(file)) return;
-  const { url, timeoutMs, holdProviders, skillsInject, reviewEnabled } = {
+  const { url, timeoutMs, holdProviders, skillsInject } = {
     ...DEFAULT_JEV_CONFIG,
     ...jevConfig,
   };
   mkdirSync(join(agentDir, "jev"), { recursive: true });
   const effort = holdProviders === undefined ? {} : { effort: { holdProviders } };
   const skills = skillsInject === undefined ? {} : { skills: { inject: skillsInject } };
-  const review = reviewEnabled === undefined ? {} : { review: { enabled: reviewEnabled } };
-  writeFileSync(
-    file,
-    JSON.stringify({ classifier: { url, timeoutMs }, ...effort, ...skills, ...review }),
-  );
+  writeFileSync(file, JSON.stringify({ classifier: { url, timeoutMs }, ...effort, ...skills }));
 }
 
 function installAll(sources: string[], dirs: Dirs): void {

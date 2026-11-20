@@ -36,10 +36,7 @@ function paths(r: ReturnType<typeof readState>): string[] {
 describe("state content", () => {
   test("Valid state read", () =>
     withDir((dir) => {
-      put(
-        dir,
-        '{"version":1,"switches":{"skills":false},"mode":"budget"}',
-      );
+      put(dir, '{"version":1,"switches":{"skills":false},"mode":"budget"}');
       expect(readState(dir)).toEqual({
         kind: "ok",
         state: { switches: { skills: false }, mode: "budget" },

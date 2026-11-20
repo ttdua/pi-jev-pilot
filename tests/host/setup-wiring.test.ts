@@ -45,7 +45,7 @@ function fakePi(log: string[] = []) {
     },
     exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
     getCommands: () => [],
-    getAllTools: () => [{ name: "jev_review" }],
+    getAllTools: () => [],
     getActiveTools: () => ["read"],
     setActiveTools: () => {},
     events: {
@@ -159,7 +159,7 @@ function fakeWindow(log: string[], loadThrows = false): CutpointWindow {
 }
 
 describe("setup registration", () => {
-  test("registers the routing, handlers, review tool, renderer and command in this order", () => {
+  test("registers the routing, handlers, renderer and command in this order", () => {
     const f = fakePi();
     setup(f.pi);
     expect(f.log).toEqual([
@@ -169,7 +169,6 @@ describe("setup registration", () => {
       "events:subagents:completed",
       "events:subagents:failed",
       "on:session_start",
-      "tool:jev_review",
       "renderer:jev-log",
       "on:before_agent_start",
       "on:before_provider_request",
@@ -613,7 +612,7 @@ describe("setup launch policy registration", () => {
   test("Config migrated at start: before the status line, one notification", async () => {
     const dir = join(agentDir, "jev");
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "config.json"), '{"tiers":{"fast":"a/x"}}');
+    writeFileSync(join(dir, "config.json"), '{"tiers":{"fast":"a/x"},"review":{"enabled":true}}');
     writeFileSync(join(dir, "state.json"), '{"version":1,"switches":{"expert":false}}');
     const log: string[] = [];
     const f = fakePi();
@@ -626,6 +625,18 @@ describe("setup launch policy registration", () => {
     expect(JSON.parse(readFileSync(join(dir, "state.json"), "utf8")).switches).toEqual({
       frontier: false,
     });
+  });
+
+  test("Child session leaves the review section", async () => {
+    const dir = join(agentDir, "jev");
+    mkdirSync(dir, { recursive: true });
+    const text = '{"review":{"enabled":true}}';
+    writeFileSync(join(dir, "config.json"), text);
+    const f = fakePi();
+    setup(f.pi);
+    f.markChild("kid");
+    await f.fire("session_start", {}, loggingCtx("kid", []));
+    expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
   });
 
   test("Child session: legacy files are left alone", async () => {

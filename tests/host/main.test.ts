@@ -977,6 +977,26 @@ describe("hold", () => {
     expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
   });
 
+  test("No hold by default", async () => {
+    const anchor = { ...decided, provider: "9router" };
+    const t = setup({
+      branch: [{ ...heldTurn(), data: { turnId: "T1", decided: anchor } }],
+      model: {
+        provider: "9router",
+        id: "fixture-main",
+        reasoning: true,
+        thinkingLevelMap: { xhigh: "xhigh" },
+      },
+      start: "high",
+      outcomes: [answer("xhigh")],
+    });
+    await run(t);
+    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
+    expect(t.sets).toEqual(["xhigh"]);
+    await t.main.agentSettled(settled(false));
+    expect(mainLine(t)).not.toHaveProperty("held");
+  });
+
   test("provider not listed", async () => {
     const t = heldSetup({ holdProviders: ["other"] });
     await run(t);

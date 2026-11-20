@@ -7,11 +7,11 @@ const where = { cwd: "/nonexistent", dir: "/nonexistent/jev" };
 test("applyCommand rejects the sub-commands it cannot apply at compile time", () => {
   const never = () => {
     // @ts-expect-error slot is answered by the dispatcher, not applied
-    applyCommand({ kind: "slot", args: { kind: "show", name: "r" } }, where, undefined);
+    applyCommand({ kind: "slot", args: { kind: "show", name: "r" } }, where);
     // @ts-expect-error tune is answered by the dispatcher, not applied
-    applyCommand({ kind: "tune", sub: "report" }, where, undefined);
+    applyCommand({ kind: "tune", sub: "report" }, where);
     // @ts-expect-error usage is answered by the dispatcher, not applied
-    applyCommand({ kind: "usage" }, where, undefined);
+    applyCommand({ kind: "usage" }, where);
   };
   expect(typeof never).toBe("function");
 });

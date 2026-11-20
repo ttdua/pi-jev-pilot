@@ -18,7 +18,6 @@ import {
   registerWorkerRouting,
 } from "./worker/index.ts";
 import { createMain } from "./main/index.ts";
-import { registerReviewTool } from "./review/index.ts";
 import { compactTally, logLine, createSessionLog } from "./status/index.ts";
 import type { TuningDeps } from "./tuning/index.ts";
 import { mainService } from "./platform/index.ts";
@@ -116,7 +115,6 @@ export function setup(pi: ExtensionAPI, deps: SetupDeps = {}): void {
   const main = buildMain(pi, log, append);
   const parts: Parts = { seams: deps, off, routing, window, log, main, tuningDeps };
   subscribeSessionStart(pi, parts);
-  registerReviewTool(pi);
   registerLogRenderer(pi);
   subscribeTurn(pi, parts);
   subscribeSessionShutdown(pi, parts);

@@ -281,9 +281,7 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
  */
 export function migrateLegacyKeys(
   raw: Record<string, unknown>,
-):
-  | { raw: Record<string, unknown>; renamed: [string, string][]; removed: string[] }
-  | undefined {
+): { raw: Record<string, unknown>; renamed: [string, string][]; removed: string[] } | undefined {
   const renamed: [string, string][] = [];
   const nextTiers: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(rawTiers(raw) ?? {})) {

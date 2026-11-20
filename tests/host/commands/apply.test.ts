@@ -27,16 +27,16 @@ const st = (dir: string) => readState(dir).state as State;
 describe("applyCommand", () => {
   test("status changes nothing", () => {
     const w = where();
-    expect(applyCommand({ kind: "status" }, w, undefined)).toEqual({ ok: true });
+    expect(applyCommand({ kind: "status" }, w)).toEqual({ ok: true });
     expect(readState(w.dir).kind).toBe("missing");
   });
   test("a feature switch and `all` update the switches", () => {
     const w = where();
-    expect(applyCommand({ kind: "set", feature: "skills", on: false }, w, undefined)).toEqual({
+    expect(applyCommand({ kind: "set", feature: "skills", on: false }, w)).toEqual({
       ok: true,
     });
     expect(st(w.dir).switches?.skills).toBe(false);
-    applyCommand({ kind: "all", on: false }, w, undefined);
+    applyCommand({ kind: "all", on: false }, w);
     expect(st(w.dir).switches?.strategy).toBe(false);
   });
   test("Deprecated expert command", () => {
@@ -49,7 +49,7 @@ describe("applyCommand", () => {
       deprecatedName: "expert",
     });
     if (parsed.kind !== "set") return;
-    expect(applyCommand(parsed, w, undefined)).toEqual({ ok: true });
+    expect(applyCommand(parsed, w)).toEqual({ ok: true });
     expect(readState(w.dir).state).toEqual({ switches: { frontier: false } });
     expect(JSON.parse(readFileSync(join(w.dir, "state.json"), "utf8")).switches).toEqual({
       frontier: false,
@@ -57,14 +57,14 @@ describe("applyCommand", () => {
   });
   test("a global mode is written to state, a local mode to the directory", () => {
     const w = where();
-    applyCommand({ kind: "mode", mode: "premium", target: "global" }, w, undefined);
+    applyCommand({ kind: "mode", mode: "premium", target: "global" }, w);
     expect(st(w.dir).mode).toBe("premium");
-    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w, undefined);
+    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w);
     expect(readLocalMode(w.cwd)).toEqual({ kind: "ok", mode: "budget" });
     expect(st(w.dir).mode).toBe("premium");
   });
   test("mode clear with no file is an info refusal", () => {
-    expect(applyCommand({ kind: "mode-clear" }, where(), undefined)).toEqual({
+    expect(applyCommand({ kind: "mode-clear" }, where())).toEqual({
       ok: false,
       message: "no directory mode set",
       level: "info",
@@ -72,37 +72,21 @@ describe("applyCommand", () => {
   });
   test("mode clear removes an existing directory mode", () => {
     const w = where();
-    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w, undefined);
-    expect(applyCommand({ kind: "mode-clear" }, w, undefined)).toEqual({ ok: true });
+    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w);
+    expect(applyCommand({ kind: "mode-clear" }, w)).toEqual({ ok: true });
     expect(readLocalMode(w.cwd).kind).toBe("missing");
-  });
-  test("a cli-review change stores the resolved choice and turns the review on", () => {
-    const w = where();
-    applyCommand({ kind: "cli-review", cli: "codex", model: "typed" }, w, {
-      model: "resolved",
-      effort: "high",
-    });
-    expect(st(w.dir)).toMatchObject({
-      cliReviewEnabled: true,
-      cliReview: { cli: "codex", model: "resolved", effort: "high" },
-    });
-  });
-  test("a cli-review switch only flips the flag", () => {
-    const w = where();
-    applyCommand({ kind: "cli-review-switch", on: true }, w, undefined);
-    expect(readState(w.dir).state).toEqual({ cliReviewEnabled: true });
   });
   test("reset also removes the directory mode", () => {
     const w = where();
-    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w, undefined);
-    expect(applyCommand({ kind: "reset" }, w, undefined)).toEqual({ ok: true });
+    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w);
+    expect(applyCommand({ kind: "reset" }, w)).toEqual({ ok: true });
     expect(readLocalMode(w.cwd).kind).toBe("missing");
   });
   test.skipIf(process.getuid?.() === 0)("a failed directory cleanup is a partial reset", () => {
     const w = where();
-    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w, undefined);
+    applyCommand({ kind: "mode", mode: "budget", target: "local" }, w);
     chmodSync(join(w.cwd, ".pi"), 0o500);
-    const out = applyCommand({ kind: "reset" }, w, undefined);
+    const out = applyCommand({ kind: "reset" }, w);
     expect(out.ok).toBe(true);
     expect((out as { partialReset?: string }).partialReset).toMatch(
       /^global settings reset; directory mode not removed: .*EACCES/,
@@ -114,7 +98,7 @@ describe("applyCommand", () => {
       const w = where();
       mkdirSync(join(w.cwd, ".pi"));
       chmodSync(join(w.cwd, ".pi"), 0o500);
-      const out = applyCommand({ kind: "mode", mode: "budget", target: "local" }, w, undefined);
+      const out = applyCommand({ kind: "mode", mode: "budget", target: "local" }, w);
       expect(out).toMatchObject({ ok: false, level: "error" });
       expect(readState(w.dir).kind).toBe("missing");
     },

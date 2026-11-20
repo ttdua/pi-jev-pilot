@@ -2,14 +2,12 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { FEATURES } from "../../store/defaults.ts";
 import type { WindowEntry } from "../../policy/worker/index.ts";
 import { isChild } from "../platform/index.ts";
-import type { Exec } from "../../policy/review/index.ts";
 import type { Snapshot } from "../platform/index.ts";
 import type { TuneOutcome, TuneSub } from "../tuning/index.ts";
 import type { UiCtx } from "../tuning/index.ts";
 import { drawStatus, type Decision, type Tally } from "../status/index.ts";
 import { applyCommand } from "./apply.ts";
 import { parseJevArgs, type JevArgs } from "./args.ts";
-import { checkCliReview, type CliReviewChoice } from "./cli-review.ts";
 import { notifier, type Notify } from "./jev-notify.ts";
 import { refuseSlotWrite, runSlot } from "./slots.ts";
 import { statusReply } from "./status-reply.ts";
@@ -26,9 +24,7 @@ export function usageText(): string {
     "  /jev all on|off           switch the five decision features",
     "  /jev mode budget|standard|premium [global]  choose the mode for this directory, or for all",
     "  /jev mode clear           drop this directory's mode",
-    "  /jev reset                reset switches, mode and CLI review default",
-    "  /jev cli-review on|off    turn the CLI review on or off",
-    "  /jev cli-review <codex|opencode> [model|default] [effort|default]",
+    "  /jev reset                reset switches and mode",
     "  /jev <slot> <provider/model> [when <text>]",
     "  /jev <slot>",
     "  /jev remove <slot>",
@@ -46,14 +42,12 @@ type Deps = {
   dir: string;
   load: (cwd: string) => Snapshot;
   decision: () => Decision | undefined;
-  exec: Exec;
   tally?: () => Tally;
   window?: () => readonly WindowEntry[];
   /** Problems routing reports, such as a launch policy slot held by another extension. */
   problems?: () => readonly string[];
   overlay?: () => string | undefined;
   tune?: (sub: TuneSub, ctx: UiCtx) => TuneOutcome;
-  sync?: (snapshot: Snapshot) => void;
 };
 
 type Standalone = Extract<JevArgs, { kind: "slot" | "tune" | "usage" }>;
@@ -84,22 +78,7 @@ function runStandalone(
   return true;
 }
 
-/** The CLI review choice to store, or `"refused"` once the refusal has been notified. */
-async function resolveCliReview(
-  parsed: Extract<JevArgs, { kind: "cli-review" }>,
-  deps: Deps,
-  notify: Notify,
-): Promise<CliReviewChoice | undefined | "refused"> {
-  const checked = await checkCliReview(parsed, deps.exec);
-  if (!checked.ok) {
-    notify(checked.message, "error");
-    return "refused";
-  }
-  if (checked.warning !== undefined) notify(checked.warning, "warning");
-  return checked.choice;
-}
-
-/** Reload, sync the tools after a change, redraw and report. */
+/** Reload, redraw and report. */
 function reportStatus(
   parsed: JevArgs,
   ctx: ExtensionCommandContext,
@@ -107,13 +86,6 @@ function reportStatus(
   partialReset: string | undefined,
 ): { text: string; level: "info" | "warning" } {
   const snapshot = deps.load(ctx.cwd);
-  if (parsed.kind !== "status") {
-    try {
-      deps.sync?.(snapshot);
-    } catch {
-      /* a failed tool sync must not hide the status */
-    }
-  }
   drawStatus(ctx, snapshot, deps.decision(), deps.overlay?.());
   return statusReply(parsed, snapshot, deps, partialReset);
 }
@@ -131,10 +103,7 @@ async function dispatch(
   }
   const parsed = parseJevArgs(args);
   if (runStandalone(parsed, ctx, deps, notify)) return;
-  const cliReview =
-    parsed.kind === "cli-review" ? await resolveCliReview(parsed, deps, notify) : undefined;
-  if (cliReview === "refused") return;
-  const applied = applyCommand(parsed, { cwd: ctx.cwd, dir: deps.dir }, cliReview);
+  const applied = applyCommand(parsed, { cwd: ctx.cwd, dir: deps.dir });
   if (!applied.ok) {
     notify(applied.message, applied.level);
     return;
