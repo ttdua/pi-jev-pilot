@@ -27,12 +27,12 @@ Blocked by: 1
 
 Blocked by: 1, 2
 
-- [ ] 3.1 `tests/host/harness.test.ts`: cases for `host-test-harness` "Executor installs offline", "Executor and probe are loaded", "Probes only", "jev-pilot without an executor", "Harness installs the resolved package"; see them fail
-- [ ] 3.2 `tests/host/harness.ts`: install modes `jev+executor` (default), `jev`, `none` (design D3); resolve the executor directory from `node_modules/@ttdua/pi-subagents`; install executor then checkout then probes; remove `executor-only`, `self`/`executor` legacy flags if unused after migration
-- [ ] 3.3 Delete `tests/fixtures/executor-only/` and `tests/fixtures/jev-only/` if the checkout now equals jev-only
-- [ ] 3.4 Delete executor-only host tests: `run-facts-offline.test.ts`, `fleet-print.test.ts`, `service-escalation.test.ts`, `duplicate-executor.test.ts`, the executor-only `describe` of `launch-policy-evidence.test.ts`, executor-only cases of `context-mode.test.ts`; remove probes and manual fixtures only they used (`tests/host/probes/escalation`, `tests/host/manual/fleet-fixture.ts`)
-- [ ] 3.5 Migrate remaining host tests to the new modes (explicit `installs` lists that contain the checkout get the executor prepended; print-mode baselines compare `none` with `jev` in the same agent dir; `/jev` assertions read `executor: @ttdua/pi-subagents`): `cli-review`, `directory-mode-e2e`, `effort-hold`, `jev-base`, `main-effort`, `setup`, `skill-delivery`, `strategy-advice`, `tuning-host`, `verbose-log`, `worker-routing`, `q5-q6-main`, the kept parts of `launch-policy-evidence` and `context-mode`
-- [ ] 3.6 Run `bun run test` for `tests/host/` and fix fallout
+- [x] 3.1 `tests/host/harness.test.ts`: cases for `host-test-harness` "Executor installs offline", "Executor and probe are loaded", "Probes only", "jev-pilot without an executor", "Harness installs the resolved package"; see them fail
+- [x] 3.2 `tests/host/harness.ts`: install modes `jev+executor` (default), `jev`, `none` (design D3); resolve the executor directory from `node_modules/@ttdua/pi-subagents`; install executor then checkout then probes; remove `executor-only`, `self`/`executor` legacy flags if unused after migration
+- [x] 3.3 Delete `tests/fixtures/executor-only/` and `tests/fixtures/jev-only/` if the checkout now equals jev-only
+- [x] 3.4 Delete executor-only host tests: `run-facts-offline.test.ts`, `fleet-print.test.ts`, `service-escalation.test.ts`, `duplicate-executor.test.ts`, the executor-only `describe` of `launch-policy-evidence.test.ts`, executor-only cases of `context-mode.test.ts`; remove probes and manual fixtures only they used (`tests/host/probes/escalation`, `tests/host/manual/fleet-fixture.ts`)
+- [x] 3.5 Migrate remaining host tests to the new modes (explicit `installs` lists that contain the checkout get the executor prepended; print-mode baselines compare `none` with `jev` in the same agent dir; `/jev` assertions read `executor: @ttdua/pi-subagents`): `cli-review`, `directory-mode-e2e`, `effort-hold`, `jev-base`, `main-effort`, `setup`, `skill-delivery`, `strategy-advice`, `tuning-host`, `verbose-log`, `worker-routing`, `q5-q6-main`, the kept parts of `launch-policy-evidence` and `context-mode`
+- [x] 3.6 Run `bun run test` for `tests/host/` and fix fallout
 
 ## 4. Q4 evidence on jev-pilot sessions
 
