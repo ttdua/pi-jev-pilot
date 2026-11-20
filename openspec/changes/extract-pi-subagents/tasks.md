@@ -38,9 +38,9 @@ Blocked by: 1, 2
 
 Blocked by: 3
 
-- [ ] 4.1 Move the Q4 test from `tests/host/q3-q4-child.test.ts` to `tests/host/q4-child.test.ts` on a `jev+executor` session, keeping the `"WG-02 Q4"` marker; delete `q3-q4-child.test.ts`
-- [ ] 4.2 `docs/evidence/2026-11-05-host-seams.md`: mark Q3 and the service launch escalation section moved to `ttdua/pi-subagents` (answers kept, no `tests/host/` citation); link `executor-launch-policy` by URL into `ttdua/pi-subagents`; Q4 cites `tests/host/q4-child.test.ts`
-- [ ] 4.3 `tests/host/evidence.test.ts`: `PINNED` = Q4–Q6, Q3 moved check, links point to the executor repository URL, replacing test for Q1/Q2/Q7 = jev-pilot's kept launch policy host test; covers `host-seam-evidence` scenarios
+- [x] 4.1 Move the Q4 test from `tests/host/q3-q4-child.test.ts` to `tests/host/q4-child.test.ts` on a `jev+executor` session, keeping the `"WG-02 Q4"` marker; delete `q3-q4-child.test.ts`
+- [x] 4.2 `docs/evidence/2026-11-05-host-seams.md`: mark Q3 and the service launch escalation section moved to `ttdua/pi-subagents` (answers kept, no `tests/host/` citation); link `executor-launch-policy` by URL into `ttdua/pi-subagents`; Q4 cites `tests/host/q4-child.test.ts`
+- [x] 4.3 `tests/host/evidence.test.ts`: `PINNED` = Q4–Q6, Q3 moved check, links point to the executor repository URL, replacing test for Q1/Q2/Q7 = jev-pilot's kept launch policy host test; covers `host-seam-evidence` scenarios
 
 ## 5. Docs, release metadata and decision record
 
