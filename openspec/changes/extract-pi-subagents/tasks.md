@@ -16,12 +16,12 @@ Blocked by: none
 
 Blocked by: 1
 
-- [ ] 2.1 Unit tests in `tests/host/platform/readiness.test.ts` and `tests/host/platform/service.test.ts` for `readiness-checks` "Executor presence": installed, absent, without launch policy, another compatible executor, tool without a service, original loaded first/last (fake slot shaped like `@gotgenes/pi-subagents` 25.0.5: no `implementation`, `listAgents` only), throwing property, present after children; see them fail
-- [ ] 2.2 `src/host/platform/service.ts`: replace `VendoredService`/`isVendoredService` with `ExecutorService` (design D1); capture any object service at `session_start`; `mainService()` returns it
-- [ ] 2.3 `src/host/platform/readiness.ts`: replace the three-state `executorState` with the capability facts of design D1; remove `VENDORED_DIR`, `insideVendored`, `isOtherService`, `isUsableCapture`; `buildSnapshot` without `executor` yields `present` with both capabilities when `subagent` is listed (design D1)
-- [ ] 2.4 `src/host/worker/policy.ts` `routingOpen` and `src/host/worker/routing.ts` `Registration.register`: route only with `launchPolicy`; tests in `tests/host/worker/policy.test.ts` and `tests/host/worker-fakes.ts` for "Executor without a launch policy"
-- [ ] 2.5 `src/host/setup.ts` / `src/host/platform/agents.ts`: agent list only with `agentRegistry`; test `main-state` "No agent registry" in `tests/host/platform/agent-facts.test.ts`
-- [ ] 2.6 `src/host/commands/status-format.ts`: executor line per `jev-command` "Status report" and design D2; `mix` only when routing can run; update `tests/host/commands/jev.test.ts` (default status, no executor, duplicate executor reported, without agent registry, no mix without the executor)
+- [x] 2.1 Unit tests in `tests/host/platform/readiness.test.ts` and `tests/host/platform/service.test.ts` for `readiness-checks` "Executor presence": installed, absent, without launch policy, another compatible executor, tool without a service, original loaded first/last (fake slot shaped like `@gotgenes/pi-subagents` 25.0.5: no `implementation`, `listAgents` only), throwing property, present after children; see them fail
+- [x] 2.2 `src/host/platform/service.ts`: replace `VendoredService`/`isVendoredService` with `ExecutorService` (design D1); capture any object service at `session_start`; `mainService()` returns it
+- [x] 2.3 `src/host/platform/readiness.ts`: replace the three-state `executorState` with the capability facts of design D1; remove `VENDORED_DIR`, `insideVendored`, `isOtherService`, `isUsableCapture`; `buildSnapshot` without `executor` yields `present` with both capabilities when `subagent` is listed (design D1)
+- [x] 2.4 `src/host/worker/policy.ts` `routingOpen` and `src/host/worker/routing.ts` `Registration.register`: route only with `launchPolicy`; tests in `tests/host/worker/policy.test.ts` and `tests/host/worker-fakes.ts` for "Executor without a launch policy"
+- [x] 2.5 `src/host/setup.ts` / `src/host/platform/agents.ts`: agent list only with `agentRegistry`; test `main-state` "No agent registry" in `tests/host/platform/agent-facts.test.ts`
+- [x] 2.6 `src/host/commands/status-format.ts`: executor line per `jev-command` "Status report" and design D2; `mix` only when routing can run; update `tests/host/commands/jev.test.ts` (default status, no executor, duplicate executor reported, without agent registry, no mix without the executor)
 
 ## 3. Host harness on the pinned executor
 
