@@ -16,7 +16,7 @@
 - **Branch**: `feat/remove-cli-review`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending (filled in after gh pr create)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/101`
 
 ---
 
@@ -34,7 +34,7 @@ Deviations from the schema's closeout, following the project `AGENTS.md`:
 
 ## PR comment
 
-- **PR comment status**: `pending`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/101#issuecomment-7045527961)
 
 ---
 
