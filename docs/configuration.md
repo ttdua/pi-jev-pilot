@@ -107,7 +107,7 @@ A tier names how much the model knows, not how hard or long the work is; effort 
 
 The old tier keys are read for one minor release as aliases: `tiers.fast` → `tiers.basic`, `tiers.balanced` → `tiers.broad`, `tiers.expert` → `tiers.frontier` (`deep` keeps its name). `/jev` shows `tiers.<old> is deprecated; rename it to tiers.<new>` for each one. A file that sets an alias and its new key is invalid, with the problem at the alias.
 
-At each main session start, a valid `config.json` that still holds an alias is rewritten once: each key is renamed in place, and every other key, value, order and the file mode are kept. One notification names the renamed keys and the path. An invalid or conflicting file is left alone. If the write fails, the aliases keep working and the next start tries again. The same start moves `switches.expert` in `state.json` to `switches.frontier`. Child sessions never rewrite either file.
+At each main session start, a valid `config.json` that still holds an alias is rewritten once: each key is renamed in place, and the retired `review` section is removed in the same rewrite; every other key, value, order and the file mode are kept. One notification names the renamed and removed keys and the `config.json` path, for example `Jev: renamed tiers.fast → tiers.basic; removed review in <path>/config.json.` An invalid or conflicting file is left alone. If the write fails, the aliases keep working and the next start tries again. The same start moves `switches.expert` in `state.json` to `switches.frontier`. Child sessions never rewrite either file.
 
 ### `crew.slots`
 

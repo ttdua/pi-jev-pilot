@@ -28,7 +28,6 @@ TypeSafe states that Jev is not trained on customer requests or responses. See i
 ## Other destinations
 
 - **Your selected models** receive the injected skills and advice as part of normal Pi requests, and workers go to whichever provider the routed model uses. **A routed worker can reach a different provider than your main model**, including a slot such as `9router/gpt-6.1-sol`, so its brief and files it reads go there. Only configure models you trust with your code.
-  - This package stores nothing of the brief or the output. The Codex output file is a temporary file, removed after each run.
 
 ## What is stored locally
 
