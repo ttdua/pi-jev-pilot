@@ -56,7 +56,7 @@ Blocked by: 2, 3
 
 Blocked by: 2, 4, 5
 
-- [ ] 6.1 `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun run test` all pass
-- [ ] 6.2 `rg -n "packages/pi-subagents|VENDORED|vendored executor|executor-only|duplicate executor|test:executor" --glob '!openspec/**' --glob '!CHANGELOG.md' --glob '!docs/evidence/**' --glob '!docs/decisions/**'` returns nothing outside history
-- [ ] 6.3 E2E: in a temp `PI_CODING_AGENT_DIR`, `pi install` the executor at `v0.1.1` and this checkout; `/jev` shows `executor: @ttdua/pi-subagents`; without the executor `/jev` shows `executor: no executor; worker routing is off`
-- [ ] 6.4 `openspec validate extract-pi-subagents --strict`; after archive, the 13 emptied capability folders under `openspec/specs/` are gone (hand-delete any that remain)
+- [x] 6.1 `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run fmt:check`, `bun run test` all pass
+- [x] 6.2 `rg -n "packages/pi-subagents|VENDORED|vendored executor|executor-only|duplicate executor|test:executor" --glob '!openspec/**' --glob '!CHANGELOG.md' --glob '!docs/evidence/**' --glob '!docs/decisions/**'` returns nothing outside history
+- [x] 6.3 E2E: in a temp `PI_CODING_AGENT_DIR`, `pi install` the executor at `v0.1.1` and this checkout; `/jev` shows `executor: @ttdua/pi-subagents`; without the executor `/jev` shows `executor: no executor; worker routing is off`
+- [x] 6.4 `openspec validate extract-pi-subagents --strict`; after archive, the 13 emptied capability folders under `openspec/specs/` are gone (hand-delete any that remain)
