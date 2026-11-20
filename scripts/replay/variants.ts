@@ -12,7 +12,7 @@ export type PlainConfig = {
   tiers: Partial<Record<TierName, string>>;
   slots: { name: string; model: string; when: string }[];
   mode: ModeName;
-  expertOn: boolean;
+  frontierOn: boolean;
 };
 
 export type PlannedRequest = {
@@ -145,7 +145,7 @@ function withoutPromptChars(state: ReturnType<typeof mainState>): unknown {
 }
 
 function planMain(variants: MainVariant[], main: RebuiltMain[], plan: Plan): void {
-  const base = deepFreeze(mainQuestions({ askEffort: true, askStrategy: true }));
+  const base = deepFreeze(mainQuestions({ applyEffort: true, askStrategy: true }));
   const reversed = deepFreeze(withEffortOrder(base, reversedOrder(base)));
   for (const v of variants) {
     const q = v.order !== undefined ? reversed : base;
@@ -226,7 +226,7 @@ const WORKER_VARIANTS: WorkerVariant[] = [
 ];
 
 export function workerQuestions(config: PlainConfig) {
-  const offered = offeredTiers(config.tiers, config.expertOn);
+  const offered = offeredTiers(config.tiers, config.frontierOn);
   const slots = config.slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
   return buildWorkerQuestions(offered, {}, slots);
 }

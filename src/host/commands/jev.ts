@@ -11,7 +11,7 @@ import { applyCommand } from "./apply.ts";
 import { parseJevArgs, type JevArgs } from "./args.ts";
 import { checkCliReview, type CliReviewChoice } from "./cli-review.ts";
 import { notifier, type Notify } from "./jev-notify.ts";
-import { runSlot } from "./slots.ts";
+import { refuseSlotWrite, runSlot } from "./slots.ts";
 import { statusReply } from "./status-reply.ts";
 
 export { parseJevArgs, type JevArgs } from "./args.ts";
@@ -124,6 +124,11 @@ async function dispatch(
   deps: Deps,
   notify: Notify,
 ): Promise<void> {
+  const refused = refuseSlotWrite(args, deps.dir);
+  if (refused !== undefined) {
+    notify(refused.message, "error");
+    return;
+  }
   const parsed = parseJevArgs(args);
   if (runStandalone(parsed, ctx, deps, notify)) return;
   const cliReview =

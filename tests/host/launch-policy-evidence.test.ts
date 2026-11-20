@@ -168,14 +168,14 @@ function choice(pick: string, options: string[]): object {
   return { type: "choice", choice: pick, probabilities, confidence: 0.9 };
 }
 
-/** Answers every asked question: route `fast`/`medium`. */
+/** Answers every asked question: route `basic`/`medium`. */
 function answersFor(): FixtureRoute {
   return {
     json: {
       answers: {
         effort: choice("medium", ["low", "medium", "high", "xhigh", "max"]),
         risky: { type: "noul", noul: 0.2 },
-        tier: choice("fast", ["fast", "balanced"]),
+        tier: choice("basic", ["basic", "broad"]),
       },
     },
   };
@@ -191,7 +191,7 @@ const answering = (): FixtureRoute => answersFor();
 function jevConfig(jev: JevFixture): Record<string, unknown> {
   return {
     classifier: { url: jev.url("/classify"), timeoutMs: 5000 },
-    tiers: { fast: "fixture/fixture-fast", balanced: "fixture/fixture-balanced" },
+    tiers: { basic: "fixture/fixture-fast", broad: "fixture/fixture-balanced" },
   };
 }
 
@@ -563,7 +563,7 @@ describe("jev-pilot launch policy through the installed checkout", () => {
       await s.waitFor(() => workerLines(s).length >= 2, "second worker line");
       const children = fixture.requests.filter(isChild);
       expect(children.map((c) => c.model)).toEqual(["fixture-fast", "fixture-fast"]);
-      expect(workerLines(s).map((l) => l["tier"])).toEqual(["fast", "fast"]);
+      expect(workerLines(s).map((l) => l["tier"])).toEqual(["basic", "basic"]);
       expect(fixture.unmatched).toEqual([]);
     },
     TIMEOUT,
@@ -650,7 +650,7 @@ describe("e2e", () => {
       expect(lines).toHaveLength(2);
       for (const line of lines) {
         expect(line).toMatchObject({
-          tier: "fast",
+          tier: "basic",
           status: "completed",
           effectiveModel: "fixture/fixture-fast",
         });

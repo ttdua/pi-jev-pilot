@@ -121,7 +121,7 @@ export function tallyLines(t: Tally): string[] {
 }
 
 const EFFORT_ORDER: readonly EffortLevel[] = ["low", "medium", "high", "xhigh", "max"];
-const TIER_ORDER: readonly string[] = ["fast", "balanced", "deep", "expert"];
+const TIER_ORDER: readonly string[] = ["basic", "broad", "deep", "frontier"];
 
 const seconds = (ms: number): string => (ms / 1000).toFixed(1);
 

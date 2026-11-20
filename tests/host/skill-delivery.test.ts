@@ -337,6 +337,7 @@ describe("skill delivery through the real CLI", () => {
     async () => {
       const { s, fixture, jev } = await setup(PICK);
       await s.prompt("/jev effort off");
+      await s.prompt("/jev strategy off");
       const level = async (): Promise<unknown> =>
         ((await s.send({ type: "get_state" })).data as { thinkingLevel?: unknown }).thinkingLevel;
       const before = await level();

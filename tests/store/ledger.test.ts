@@ -254,7 +254,7 @@ describe("read", () => {
 
   test("old reason line skipped", () => {
     const { dir } = mk();
-    const old = { ...entry(1), reason: "fable", tier: "expert" };
+    const old = { ...entry(1), reason: "fable", tier: "frontier" };
     writeFileSync(active(dir), `${J(old)}${J(entry(2))}`);
     const r = readLedger(dir);
     expect(chars(r)).toEqual([2]);

@@ -5,6 +5,7 @@ import {
   isChild,
   jevDir,
   loadSnapshot,
+  migrateLegacyNames,
   setMainCwd,
 } from "../platform/index.ts";
 import { readLedger } from "../../store/ledger.ts";
@@ -26,9 +27,18 @@ function loadWindow(parts: Parts): void {
   }
 }
 
+// DEPRECATED(remove next minor)
+/** Moves the old tier names on disk before the first read; shows one notice when a UI is present. */
+function migrateNames(ctx: ExtensionContext): void {
+  migrateLegacyNames(jevDir(), (message) => {
+    if (ctx.hasUI) ctx.ui.notify(message, "info");
+  });
+}
+
 /** The main-session steps of `session_start`, in order; a throw skips the rest of them. */
 function startMain(pi: ExtensionAPI, parts: Parts, ctx: ExtensionContext): void {
   captureMainService();
+  migrateNames(ctx);
   parts.routing.start(ctx);
   parts.main.sessionStart();
   loadWindow(parts);

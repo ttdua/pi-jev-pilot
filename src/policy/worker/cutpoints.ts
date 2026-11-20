@@ -1,20 +1,18 @@
 // Pure cut points from a window of scores and a mode target. Imports nothing outside src/policy/.
 
 import { WINDOW_MIN } from "./cut-window.ts";
-import type { EffortLevel } from "../effort.ts";
 import type { TierName } from "../launch.ts";
 import { MODE_TARGETS, type ModeName, type ModeTarget } from "./modes.ts";
 import { SEED_CUTPOINTS } from "./seed.ts";
 
 export interface CutPoints {
-  readonly fastMax: number;
-  readonly balancedMax: number;
-  readonly expertMin: number;
+  readonly basicMax: number;
+  readonly broadMax: number;
+  readonly frontierMin: number;
 }
 
 export interface WindowEntry {
   readonly score: number;
-  readonly effort: EffortLevel;
   readonly decided: TierName;
 }
 
@@ -25,12 +23,12 @@ function quantileAt(sorted: readonly number[], percent: number): number {
   return sorted[pos - 1] ?? Infinity;
 }
 
-// Lowest score above `balancedMax` among high-effort entries whose count at or above it fits the cap.
-function expertCut(entries: readonly WindowEntry[], balancedMax: number, cap: number): number {
+// Lowest score above `broadMax` whose count at or above it fits the cap.
+function frontierCut(entries: readonly WindowEntry[], broadMax: number, cap: number): number {
   const limit = Math.floor((cap * entries.length) / 100);
   if (limit <= 0) return Infinity;
   const scores = entries
-    .filter((e) => (e.effort === "xhigh" || e.effort === "max") && e.score > balancedMax)
+    .filter((e) => e.score > broadMax)
     .map((e) => e.score)
     .sort((a, b) => a - b);
   const fits = scores.find((s, i) => scores[i - 1] !== s && scores.length - i <= limit);
@@ -39,14 +37,14 @@ function expertCut(entries: readonly WindowEntry[], balancedMax: number, cap: nu
 
 export function cutPoints(entries: readonly WindowEntry[], target: ModeTarget): CutPoints {
   if (entries.length === 0)
-    return { fastMax: Infinity, balancedMax: Infinity, expertMin: Infinity };
+    return { basicMax: Infinity, broadMax: Infinity, frontierMin: Infinity };
   const sorted = entries.map((e) => e.score).sort((a, b) => a - b);
-  const fastMax = target.fast === 0 ? -Infinity : quantileAt(sorted, target.fast);
-  const balancedMax = quantileAt(sorted, target.fast + target.balanced);
+  const basicMax = target.basic === 0 ? -Infinity : quantileAt(sorted, target.basic);
+  const broadMax = quantileAt(sorted, target.basic + target.broad);
   return {
-    fastMax,
-    balancedMax,
-    expertMin: expertCut(entries, balancedMax, target.expertCap),
+    basicMax,
+    broadMax,
+    frontierMin: frontierCut(entries, broadMax, target.frontierCap),
   };
 }
 

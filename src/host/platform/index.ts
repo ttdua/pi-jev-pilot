@@ -2,6 +2,7 @@ export { agentFacts, executorAgents } from "./agents.ts";
 export { childContext, isChild, subscribeChildren } from "./child.ts";
 export { branchItems, holdContext, previousTurnId, scanPlatforms } from "./context.ts";
 export { setMainCwd } from "./main-cwd.ts";
+export { migrateLegacyNames } from "./migrate.ts";
 export { checkModel, nearestModels, resolveModel, splitModel } from "./models.ts";
 export { loadSnapshot, type Snapshot } from "./readiness.ts";
 export {

@@ -55,7 +55,7 @@ describe("settings sections", () => {
 
   test("copy sections are fresh", () => {
     const config = {
-      tiers: { fast: "x" },
+      tiers: { basic: "x" },
       crew: { slots: [{ name: "a", model: "m", when: "w" }] },
       effort: { holdProviders: ["p"] },
     };

@@ -10,10 +10,10 @@ import {
 import { mainBody, mainReq, miss, ok, planOf, workerAnswers } from "./helpers.ts";
 
 const config: PlainConfig = {
-  tiers: { fast: "a/b", balanced: "b/c", deep: "c/d", expert: "e/f" },
+  tiers: { basic: "a/b", broad: "b/c", deep: "c/d", frontier: "e/f" },
   slots: [{ name: "reviewer", model: "m/n", when: "for review" }],
   mode: "standard",
-  expertOn: true,
+  frontierOn: true,
 };
 const { questions, specs } = workerQuestions(config);
 const workerReq = (variant: string, sample: number): PlannedRequest => ({
@@ -70,15 +70,21 @@ function build(cells: Cell[]) {
   }
   return reportCases(planOf(requests), results, config, text);
 }
+// Candidates come from the run's own answers: identical filler samples give the changed ones a spread to differ against.
+const FILLER: Cell[] = Array.from({ length: 20 }, (_, i) => {
+  const t = ["basic", "broad", "deep", "frontier"][i % 4];
+  return { worker: [t, t] };
+});
 const brief = (cs: ReturnType<typeof build>) =>
   cs.map((c) => [c.variant, c.key, c.base, c.value, c.text]);
 
 describe("reportCases characterization", () => {
   test("main cases come first, then worker cases by mode then routing, sample ascending", () => {
     const cases = build([
-      { main: ["low", "high"], worker: ["fast", "deep"] },
-      { main: ["low", "low"], worker: ["fast", "fast"] },
-      { main: ["medium", "xhigh"], worker: ["fast", "deep"] },
+      { main: ["low", "high"], worker: ["basic", "deep"] },
+      { main: ["low", "low"], worker: ["basic", "basic"] },
+      { main: ["medium", "xhigh"], worker: ["basic", "deep"] },
+      ...FILLER,
     ]);
     const keys = cases.map((c) => c.key);
     expect(keys.slice(0, 2)).toEqual(["effort", "effort"]);
@@ -95,10 +101,11 @@ describe("reportCases characterization", () => {
       "premium/slots",
       "premium/tiers",
     ]);
+    // Filler moves the rerun's candidate: samples 0 and 2 (`basic` in the report, `deep` in the rerun) route to `broad` in the rerun.
     const std = cases.filter((c) => c.key === "standard/tiers");
     expect(std.map((c) => [c.base, c.value, c.text])).toEqual([
-      ["fast", "deep", "worker-0"],
-      ["fast", "deep", "worker-2"],
+      ["basic", "broad", "worker-0"],
+      ["basic", "broad", "worker-2"],
     ]);
     expect(Object.keys(cases[0]!)).toEqual([
       "variant",
@@ -113,7 +120,7 @@ describe("reportCases characterization", () => {
   });
 
   test("identical runs yield no cases", () => {
-    expect(build([{ main: ["low", "low"], worker: ["fast", "fast"] }])).toEqual([]);
+    expect(build([{ main: ["low", "low"], worker: ["basic", "basic"] }])).toEqual([]);
   });
 
   test("a miss on either side is not a difference", () => {
@@ -129,16 +136,18 @@ describe("reportCases characterization", () => {
     expect(brief(build([{ main: ["low", "high"] }]))).toEqual([
       ["rerun", "effort", "low", "high", "main-0"],
     ]);
-    const w = build([{ worker: ["fast", "deep"] }]);
+    const w = build([{ worker: ["basic", "deep"] }, ...FILLER]);
     expect(w.length).toBeGreaterThan(0);
-    expect(w.every((c) => c.text === "worker-0" && c.key.includes("/"))).toBe(true);
+    expect(w.some((c) => c.text === "worker-0")).toBe(true);
+    expect(w.every((c) => c.text.startsWith("worker-") && c.key.includes("/"))).toBe(true);
   });
 
   test("answers are the raw effort choice (main) and the tier answer (worker)", () => {
-    const [m, ...rest] = build([{ main: ["low", "high"], worker: ["fast", "deep"] }]);
+    const [m, ...all] = build([{ main: ["low", "high"], worker: ["basic", "deep"] }, ...FILLER]);
     expect(m!.baseAnswer).toMatchObject({ type: "choice", choice: "low" });
     expect(m!.answer).toMatchObject({ type: "choice", choice: "high" });
-    expect(rest[0]!.baseAnswer).toMatchObject({ type: "choice", choice: "fast" });
+    const rest = all.filter((c) => c.text === "worker-0");
+    expect(rest[0]!.baseAnswer).toMatchObject({ type: "choice", choice: "basic" });
     expect(rest[0]!.answer).toMatchObject({ type: "choice", choice: "deep" });
   });
 
@@ -161,12 +170,19 @@ function digest(s: string): string {
   return h.toString(16);
 }
 const spread = (i: number) => {
-  const t = ["fast", "balanced", "deep", "expert"][i % 4] ?? "fast";
+  const t = ["basic", "broad", "deep", "frontier"][i % 4] ?? "basic";
   return workerAnswers({ tier: t, tierP: { [t]: 1 }, effort: i % 2 ? "high" : "low" });
 };
 const stream = (n: number) =>
   Array.from({ length: n }, (_, i) => (i % 17 === 5 ? undefined : spread(i * 7)));
-const opts = (n: number, over: object = {}) => ({
+// The seed is an input of the routing under test; fixed here so the digests do not track the shipped seed.
+const SEEDS = {
+  budget: { basicMax: 1.2, broadMax: 2.2, frontierMin: Infinity },
+  standard: { basicMax: 0.2, broadMax: 1.2, frontierMin: 3 },
+  premium: { basicMax: -Infinity, broadMax: 1.2, frontierMin: 2.9 },
+};
+const opts = (n: number, over: { mode?: "budget" | "premium" } = {}) => ({
+  seed: SEEDS[over.mode ?? "standard"],
   config,
   mode: "standard" as const,
   routing: "tiers" as const,
@@ -183,12 +199,12 @@ describe("routeStreamRecords characterization", () => {
   });
 
   const cases: [string, object, string][] = [
-    ["tiers standard", {}, "76eede99"],
-    ["slots standard", { routing: "slots" }, "76eede99"],
-    ["budget", { mode: "budget" }, "b548e261"],
-    ["premium slots", { mode: "premium", routing: "slots" }, "70619a25"],
+    ["tiers standard", {}, "e5112d53"],
+    ["slots standard", { routing: "slots" }, "e5112d53"],
+    ["budget", { mode: "budget" }, "9e02e30f"],
+    ["premium slots", { mode: "premium", routing: "slots" }, "7e3d60d5"],
     ["no tiers, no slots", { config: { ...config, tiers: {}, slots: [] } }, "ef48b183"],
-    ["tiers, expert off", { config: { ...config, expertOn: false, slots: [] } }, "1221733d"],
+    ["tiers, frontier off", { config: { ...config, frontierOn: false, slots: [] } }, "80aaac29"],
     ["slots only", { config: { ...config, tiers: {} }, routing: "slots" }, "ef48b183"],
   ];
   for (const [name, over, gold] of cases) {

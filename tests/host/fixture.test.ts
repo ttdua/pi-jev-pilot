@@ -85,7 +85,7 @@ describe("recording loopback provider", () => {
   test("routes concurrent requests by matcher", async () => {
     const f = await start([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "from-main" } },
-      { name: "fast", match: (r) => r.model === "fixture-fast", reply: { text: "from-fast" } },
+      { name: "basic", match: (r) => r.model === "fixture-fast", reply: { text: "from-fast" } },
     ]);
     const [a, b] = await Promise.all([
       post(f, { model: "fixture-main" }).then((r) => r.text()),

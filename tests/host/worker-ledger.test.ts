@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import {
   body,
+  bodyWith,
   effort,
   harness,
   ok,
@@ -31,7 +33,7 @@ describe("One line per launch", () => {
     const h = harness();
     await foreground(h);
     expect(h.lines).toHaveLength(1);
-    expect(h.lines[0]).toMatchObject({ kind: "worker", v: 1, tier: "fast" });
+    expect(h.lines[0]).toMatchObject({ kind: "worker", v: 1, tier: "basic" });
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
   });
 
@@ -172,7 +174,7 @@ describe("Outcome joined from the executor", () => {
   test("Concurrent workers joined correctly", async () => {
     const h = harness();
     h.setScript((req) => ok(body((req.state as { task: { brief: string } }).task.brief)));
-    const a = await h.launch({ prompt: "fast", agent: { name: "alpha", source: "project" } });
+    const a = await h.launch({ prompt: "basic", agent: { name: "alpha", source: "project" } });
     const b = await h.launch({ prompt: "deep", agent: { name: "beta", source: "project" } });
     h.created(a.request.agentId, { effectiveModel: "fx/fast" });
     h.created(b.request.agentId, { effectiveModel: "fx/deep" });
@@ -181,7 +183,7 @@ describe("Outcome joined from the executor", () => {
     expect(h.lines.map((l) => [l["agent"], l["tier"], l["toolUses"], l["effectiveModel"]])).toEqual(
       [
         ["beta", "deep", 9, "fx/deep"],
-        ["alpha", "fast", 1, "fx/fast"],
+        ["alpha", "basic", 1, "fx/fast"],
       ],
     );
   });
@@ -190,14 +192,17 @@ describe("Outcome joined from the executor", () => {
     const h = harness();
     await foreground(h, { origin: { kind: "service" } });
     expect(h.lines).toHaveLength(1);
-    expect(h.lines[0]).toMatchObject({ status: "completed", tier: "fast" });
+    expect(h.lines[0]).toMatchObject({ status: "completed", tier: "basic" });
   });
 });
+
+// Score 1.3, between the shipped standard seed's basicMax and broadMax: rule `cut` decides `broad`.
+const BROAD_1_3 = { basic: 0, broad: 0.7, deep: 0.3 };
 
 describe("Decision fields", () => {
   test("Routed fields", async () => {
     const h = harness();
-    h.setScript(() => ok(body("balanced", "high")));
+    h.setScript(() => ok(bodyWith("broad", BROAD_1_3, "high")));
     await foreground(h, {
       requested: { model: "fixture/fixture-main" },
       agent: { name: "general-purpose" },
@@ -212,11 +217,11 @@ describe("Decision fields", () => {
       ms: 1,
       agent: "general-purpose",
       briefChars: 10,
-      tier: "balanced",
+      tier: "broad",
       reason: "cut",
-      score: 1.25,
-      rubric: 2,
-      expertOffered: false,
+      score: 1.3,
+      rubric: RUBRIC_VERSION,
+      frontierOffered: false,
       model: "fx/balanced",
       effort: "high",
       callerModel: "fixture/fixture-main",
@@ -231,13 +236,13 @@ describe("Decision fields", () => {
   test("Expert offered recorded", async () => {
     const h = harness({ tiers: TIERS_X });
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ expertOffered: true, rubric: 2 });
+    expect(h.lines[0]).toMatchObject({ frontierOffered: true, rubric: RUBRIC_VERSION });
   });
 
   test("Expert switched off recorded", async () => {
-    const h = harness({ tiers: TIERS_X, switches: { expert: false } });
+    const h = harness({ tiers: TIERS_X, switches: { frontier: false } });
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ expertOffered: false, rubric: 2 });
+    expect(h.lines[0]).toMatchObject({ frontierOffered: false, rubric: RUBRIC_VERSION });
   });
 
   test("Tier asked, nothing decided", async () => {
@@ -246,12 +251,16 @@ describe("Decision fields", () => {
       ok({ answers: { effort: effort("medium"), risky: { type: "noul", noul: 0.1 } } }),
     );
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ reason: "untouched", rubric: 2, expertOffered: true });
+    expect(h.lines[0]).toMatchObject({
+      reason: "untouched",
+      rubric: RUBRIC_VERSION,
+      frontierOffered: true,
+    });
     expect(h.lines[0]).not.toHaveProperty("tier");
     expect(h.lines[0]).not.toHaveProperty("score");
   });
 
-  test("No expert needed field", async () => {
+  test("No frontier needed field", async () => {
     const h = harness({ tiers: TIERS_X });
     h.setScript(() =>
       ok({
@@ -267,21 +276,21 @@ describe("Decision fields", () => {
     const h = harness({ reg: { "fx/fast": {}, "fx/balanced": {}, "fx/deep": { auth: false } } });
     h.setScript(() => ok(body("deep")));
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ tier: "balanced", fallback: "deep" });
+    expect(h.lines[0]).toMatchObject({ tier: "broad", fallback: "deep" });
   });
 
   test("Nothing could run recorded", async () => {
     const h = harness({ reg: {} });
-    h.setScript(() => ok(body("balanced", "high")));
+    h.setScript(() => ok(bodyWith("broad", BROAD_1_3, "high")));
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ tier: "balanced", reason: "cut", fallback: "balanced" });
+    expect(h.lines[0]).toMatchObject({ tier: "broad", reason: "cut", fallback: "broad" });
     expect(h.lines[0]).not.toHaveProperty("model");
     expect(h.lines[0]).not.toHaveProperty("effort");
   });
 
   test("Thinking-only recorded", async () => {
     const h = harness({ forkLaunch: "thinking" });
-    h.setScript(() => ok(body("fast", "high")));
+    h.setScript(() => ok(body("basic", "high")));
     await foreground(h, { context: "fork" });
     expect(h.lines[0]).toMatchObject({ answered: true, reason: "untouched", effort: "high" });
     expect(h.lines[0]).not.toHaveProperty("tier");
@@ -298,7 +307,7 @@ describe("Decision fields", () => {
     h.setScript(() => ({ kind: "miss", miss: "timeout", reason: "t", ms: 5 }));
     await foreground(h);
     expect(h.lines[0]).toMatchObject({ answered: false, miss: "timeout", reason: "miss", ms: 5 });
-    expect(h.lines[0]).toMatchObject({ rubric: 2, expertOffered: false });
+    expect(h.lines[0]).toMatchObject({ rubric: RUBRIC_VERSION, frontierOffered: false });
     expect(h.lines[0]).not.toHaveProperty("tier");
     expect(h.lines[0]).not.toHaveProperty("score");
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
@@ -426,7 +435,7 @@ describe("Slot lines", () => {
         type: "choice",
         choice: "slot::reviewer",
         confidence: 0.9,
-        probabilities: { fast: 0, balanced: 0, deep: 0, "slot::reviewer": 0.9 },
+        probabilities: { basic: 0, broad: 0, deep: 0, "slot::reviewer": 0.9 },
       },
       effort: effort("high"),
       risky: { type: "noul", noul: 0.1 },
@@ -451,7 +460,7 @@ describe("Slot lines", () => {
     });
     h.setScript(() => answer);
     await foreground(h);
-    expect(h.lines[0]).toMatchObject({ tier: "balanced", fallback: "slot::reviewer" });
+    expect(h.lines[0]).toMatchObject({ tier: "broad", fallback: "slot::reviewer" });
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
   });
 });

@@ -43,7 +43,7 @@ describe("resolveSettings", () => {
         subagents: true,
         skills: true,
         strategy: true,
-        expert: true,
+        frontier: true,
         status: true,
         verbose: false,
       },
@@ -207,7 +207,7 @@ describe("resolveSettings", () => {
   test("result is fresh: mutation does not leak", () => {
     const config = {
       effort: { holdProviders: ["x"] },
-      tiers: { fast: "m" },
+      tiers: { basic: "m" },
       crew: { slots: [{ name: "a", model: "b", when: "w" }] },
     };
     const s = resolveSettings({ config, state: {} });
@@ -216,7 +216,7 @@ describe("resolveSettings", () => {
     s.crew.slots[0]!.name = "changed";
     s.crew.slots.push({ name: "n", model: "m", when: "w" });
     expect(config.effort.holdProviders).toEqual(["x"]);
-    expect(config.tiers).toEqual({ fast: "m" });
+    expect(config.tiers).toEqual({ basic: "m" });
     expect(config.crew.slots).toEqual([{ name: "a", model: "b", when: "w" }]);
 
     const d = resolveSettings({ config: {}, state: {} });

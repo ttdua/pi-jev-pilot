@@ -260,14 +260,14 @@ function launchScript(): ScriptEntry[] {
 }
 
 function tierAnswer(): FixtureRoute {
-  const probabilities = { fast: 0.1, balanced: 0.9 };
+  const probabilities = { basic: 0.1, broad: 0.9 };
   const effort = { low: 0.1, medium: 0.9, high: 0, xhigh: 0, max: 0 };
   return {
     json: {
       answers: {
         effort: { type: "choice", choice: "medium", probabilities: effort, confidence: 0.9 },
         risky: { type: "noul", noul: 0.2 },
-        tier: { type: "choice", choice: "balanced", probabilities, confidence: 0.9 },
+        tier: { type: "choice", choice: "broad", probabilities, confidence: 0.9 },
       },
     },
   };
@@ -296,7 +296,7 @@ describe("directory mode on worker launches", () => {
         join(dir, "config.json"),
         JSON.stringify({
           classifier: { url: jev.url("/classify"), timeoutMs: 1500 },
-          tiers: { fast: "fixture/fixture-fast", balanced: "fixture/fixture-balanced" },
+          tiers: { basic: "fixture/fixture-fast", broad: "fixture/fixture-balanced" },
         }),
       );
       writeFileSync(join(dir, "state.json"), JSON.stringify({ version: 1, mode: "premium" }));
@@ -313,8 +313,8 @@ describe("directory mode on worker launches", () => {
         return all.filter((e) => e["kind"] === "worker");
       };
       await session.waitFor(() => lines().length >= 1, "worker ledger line");
-      // Budget cut points send the 0.9-balanced answer to the fast tier; premium would pick balanced.
-      expect(lines()[0]).toMatchObject({ mode: "budget", tier: "fast", answered: true });
+      // Budget cut points send the 0.9-balanced answer to the basic tier; premium would pick broad.
+      expect(lines()[0]).toMatchObject({ mode: "budget", tier: "basic", answered: true });
       expect(lines()[0]).not.toHaveProperty("miss");
       expect(globalFiles(session.agentDir)).toEqual(globalBefore);
       expect(fixture.requests.find(isChild)?.model).toBe("fixture-fast");

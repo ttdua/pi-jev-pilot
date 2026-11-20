@@ -11,7 +11,8 @@ One decision per file. To change one, add a new record that supersedes it; do no
 | [0005](0005-bounded-auto-tuning.md) | Tuning applies itself, within limits | Accepted |
 | [0006](0006-gotgenes-executor.md) | Use `@gotgenes/pi-subagents` as the executor | Superseded by 0009 |
 | [0007](0007-no-mid-turn-raise.md) | No mid-turn effort escalation | Accepted |
-| [0008](0008-mode-target-cutpoints.md) | Modes are target tables, with cut points from the ledger | Accepted |
+| [0008](0008-mode-target-cutpoints.md) | Modes are target tables, with cut points from the ledger | Accepted; partly superseded by 0010 |
 | [0009](0009-vendored-executor.md) | Vendor the executor and add seams | Accepted |
+| [0010](0010-knowledge-tiers.md) | Tiers measure knowledge, effort measures work | Accepted |
 
 Template: Context, Decision, Consequences. Keep each under a page.

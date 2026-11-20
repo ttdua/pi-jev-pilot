@@ -1,6 +1,6 @@
 export { readWorkerOutcome, type WorkerAnswers } from "./answers.ts";
 export { recentMix, WINDOW_MAX, WINDOW_MIN, windowEntries, type WindowLine } from "./cut-window.ts";
-export { type CutPoints, cutPointsFor, type WindowEntry } from "./cutpoints.ts";
+export { type CutPoints, cutPoints, cutPointsFor, type WindowEntry } from "./cutpoints.ts";
 export { decisionFields } from "./ledger-line.ts";
 export {
   type EffectiveValues,

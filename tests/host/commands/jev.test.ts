@@ -260,23 +260,23 @@ describe("formatStatus", () => {
     expect(text).toContain("worker routing is off");
   });
   describe("mix", () => {
-    const entries = (n: number, fast: number, balanced: number, deep: number): WindowEntry[] => {
+    const entries = (n: number, basic: number, broad: number, deep: number): WindowEntry[] => {
       const tiers = [
-        ...Array<TierName>(fast).fill("fast"),
-        ...Array<TierName>(balanced).fill("balanced"),
+        ...Array<TierName>(basic).fill("basic"),
+        ...Array<TierName>(broad).fill("broad"),
         ...Array<TierName>(deep).fill("deep"),
       ];
-      const expert = n - tiers.length;
-      return [...tiers, ...Array<TierName>(expert).fill("expert")].map((decided) => ({
+      const frontier = n - tiers.length;
+      return [...tiers, ...Array<TierName>(frontier).fill("frontier")].map((decided) => ({
         score: 0.5,
         effort: "high",
         decided,
       }));
     };
-    test("standard, full window", () => {
+    test("Mix with a full window", () => {
       const lines = formatStatus(snap(), undefined, entries(200, 38, 110, 48)).split("\n");
       expect(lines).toContain(
-        "mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2",
+        "mix (last 200, standard): basic 19% / broad 55% / deep 24% / frontier 2% · target 20/53/26/≤1",
       );
       expect(lines).not.toContain("cut points: seed");
     });
@@ -287,9 +287,9 @@ describe("formatStatus", () => {
         entries(120, 60, 48, 12),
       );
       expect(text).toContain("mode: premium (this directory; global standard)");
-      expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/45\/≤5/);
+      expect(text).toMatch(/mix \(last 120, premium\):.* target 0\/50\/47\/≤3/);
     });
-    test("budget target", () => {
+    test("Budget target shown", () => {
       const text = formatStatus(
         snap({ state: { mode: "budget" } }),
         undefined,
@@ -454,6 +454,59 @@ describe("runJev", () => {
     expect(switches(dir)?.skills).toBe(true);
   });
 
+  test("Legacy frontier slot reported first at the command", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    const cfg = {
+      crew: {
+        slots: [
+          { name: "frontier", model: "fixture/fixture-main", when: "Legacy." },
+          { name: "reviewer", model: "fixture/fixture-review", when: "Reviews." },
+        ],
+      },
+    };
+    writeFileSync(join(dir, "config.json"), JSON.stringify(cfg));
+    const before = readFileSync(join(dir, "config.json"), "utf8");
+    const rec = await run("reviewer fixture/unknown extra", dir);
+    const errors = rec.notes.filter((n) => n[1] === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.[0]).toContain("rename");
+    expect(errors[0]?.[0]).not.toContain("usage");
+    expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(before);
+  });
+
+  test("Remove with extra words is usage without a frontier slot", async () => {
+    const dir = jevDir();
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "config.json"),
+      JSON.stringify({
+        crew: { slots: [{ name: "reviewer", model: "fixture/fixture-review", when: "R." }] },
+      }),
+    );
+    const before = readFileSync(join(dir, "config.json"), "utf8");
+    const rec = await run("remove reviewer now", dir);
+    expect(rec.notes[0]?.[0]).toContain("Usage:");
+    expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(before);
+  });
+
+  test("Frontier is the switch", async () => {
+    const dir = jevDir();
+    await run("frontier off", dir);
+    expect(switches(dir)?.frontier).toBe(false);
+    expect(existsSync(join(dir, "config.json"))).toBe(false);
+  });
+
+  test("Deprecated expert command", async () => {
+    const dir = jevDir();
+    const rec = await run("expert off", dir);
+    expect(switches(dir)).toEqual({ frontier: false });
+    expect(rec.notes[0]?.[0]).toContain("notice: /jev expert is deprecated; use /jev frontier");
+    expect(rec.notes[0]?.[0]).toContain("frontier: off");
+    const again = await run("frontier on", dir);
+    expect(again.notes.at(-1)?.[0]).not.toContain("deprecated");
+  });
+
   test("redraw keeps the decision suffix; effort off drops it", async () => {
     const dir = jevDir();
     const decision = (): Decision => ({
@@ -547,7 +600,7 @@ describe("runJev", () => {
       "subagents",
       "skills",
       "strategy",
-      "expert",
+      "frontier",
       "status",
       "verbose",
     ]);
@@ -723,7 +776,7 @@ describe("runJev slots", () => {
   const slotsOf = (dir: string) => load(dir)("main").settings.crew.slots;
   const offered = (dir: string) =>
     Object.keys(
-      buildWorkerQuestions(["fast", "balanced", "deep"], {}, slotsOf(dir)).questions["tier"]!
+      buildWorkerQuestions(["basic", "broad", "deep"], {}, slotsOf(dir)).questions["tier"]!
         .criteria!,
     );
 

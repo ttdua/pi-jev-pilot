@@ -49,6 +49,16 @@ describe("tuning content", () => {
   test("Valid file read", () => {
     expect(read({ version: 1, ...full })).toEqual({ kind: "ok", record: full });
   });
+  test("Tuning file from the previous version reads unchanged", () => {
+    const doc = {
+      version: 1,
+      timeoutMs: { value: 1900, base: 1500 },
+      pending: { from: 1500, to: 1900, at: 9, before: { asked: 40, timeouts: 6 } },
+      history: [entry, { ...entry, at: 2, from: 1700, to: 1900 }],
+    };
+    const { version: _version, ...record } = doc;
+    expect(read(doc)).toEqual({ kind: "ok", record });
+  });
   test("Other parameter rejected", () => {
     expect(paths(read({ version: 1, riskFloor: 1 }))).toEqual(["riskFloor"]);
   });

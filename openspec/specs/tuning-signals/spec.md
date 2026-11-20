@@ -13,7 +13,7 @@ The package SHALL compute, from ledger lines, the four signals of each mode with
 - **THEN** the `standard` signals count over the latest 200 `standard` decisions, and the `budget` signals over its 10
 
 #### Scenario: Modes never mixed
-- **WHEN** a `budget` worker line with `tier` `fast` has `status` `error`, and `standard` has one main decision and no worker line
+- **WHEN** a `budget` worker line with `tier` `basic` has `status` `error`, and `standard` has one main decision and no worker line
 - **THEN** `budget` reports 1 low worker error and `standard` reports 0
 
 #### Scenario: Empty mode left out
@@ -36,7 +36,11 @@ The signal function MUST do no I/O, MUST NOT call Jev and MUST NOT change its in
 - **THEN** no `tuning.json` is created
 
 ### Requirement: Low worker errors
-`lowWorkerErrors` SHALL count, among the window's worker lines routed low (`tier` `fast`, or `effort` `off`, `minimal` or `low`), those with `status` `error`, out of all worker lines routed low. `aborted` and `stopped` MUST NOT count as errors.
+`lowWorkerErrors` SHALL count, among the window's worker lines routed low (`tier` `basic` or the legacy `fast`, or `effort` `off`, `minimal` or `low`), those with `status` `error`, out of all worker lines routed low. `aborted` and `stopped` MUST NOT count as errors.
+
+#### Scenario: Legacy fast counts as low
+- **WHEN** a window has one worker line with `tier` `fast` and `status` `error` and one with `tier` `basic` and `status` `completed`
+- **THEN** `lowWorkerErrors` is 1 of 2
 
 #### Scenario: Counted and denominator
 - **WHEN** a window has three low worker lines with `status` `error`, `completed` and `aborted`, and one `deep` worker with `status` `error`

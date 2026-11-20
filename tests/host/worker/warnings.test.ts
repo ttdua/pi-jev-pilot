@@ -5,9 +5,9 @@ const target = { target: "deep", model: "fx/deep", why: "no credentials" } as co
 
 describe("warningText", () => {
   test("names the tier, model, cause, the tier used instead and where to fix it", () => {
-    const text = warningText({ ...target, to: "balanced" }, "/agent/jev/config.json");
+    const text = warningText({ ...target, to: "broad" }, "/agent/jev/config.json");
     expect(text).toBe(
-      "Jev: tier deep (fx/deep) cannot run (no credentials); using balanced. Fix tiers.deep in /agent/jev/config.json.",
+      "Jev: tier deep (fx/deep) cannot run (no credentials); using broad. Fix tiers.deep in /agent/jev/config.json.",
     );
   });
 
@@ -33,7 +33,7 @@ describe("LaunchWarnings", () => {
     const sink = ui();
 
     warnings.show(sink, { ...target, to: undefined });
-    warnings.show(sink, { ...target, to: "balanced" });
+    warnings.show(sink, { ...target, to: "broad" });
     warnings.clear();
     warnings.show(sink, { ...target, to: undefined });
 

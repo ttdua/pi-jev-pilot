@@ -43,7 +43,7 @@ export type TurnPlan = {
   branch: readonly SessionEntry[];
   apiKey: string;
   effortOn: boolean;
-  askEffort: boolean;
+  applyEffort: boolean;
   askStrategy: boolean;
   held: boolean;
   supported: ThinkingLevel[];
@@ -75,14 +75,14 @@ function eligible(input: GateInput): Eligible | undefined {
 }
 
 function questionsFor(o: {
-  askEffort: boolean;
+  applyEffort: boolean;
   askStrategy: boolean;
   first: CatalogSkill[] | undefined;
 }): SkillQuestions {
-  const { askEffort, askStrategy, first } = o;
+  const { applyEffort, askStrategy, first } = o;
   return first === undefined
-    ? mainQuestions({ askEffort, askStrategy })
-    : mainQuestions({ askEffort, askStrategy, skills: first });
+    ? mainQuestions({ applyEffort, askStrategy })
+    : mainQuestions({ applyEffort, askStrategy, skills: first });
 }
 
 /**
@@ -112,19 +112,19 @@ export function gateTurn(input: GateInput): TurnPlan | undefined {
   // A hold keeps the effort decision, so it applies only while `effort` is on.
   const held =
     effortOn && isHeld({ provider, model: modelId, holdProviders: effort.holdProviders, anchor });
-  const askEffort = effortOn && !held && canAskEffort(supported);
+  const applyEffort = effortOn && !held && canAskEffort(supported);
   return {
     sessionId,
     snapshot,
     branch,
     apiKey,
     effortOn,
-    askEffort,
+    applyEffort,
     askStrategy,
     held,
     supported,
     batches,
-    questions: questionsFor({ askEffort, askStrategy, first: batches[0] }),
+    questions: questionsFor({ applyEffort, askStrategy, first: batches[0] }),
     provider,
     modelId,
     compactionId,

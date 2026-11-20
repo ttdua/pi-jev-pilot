@@ -62,9 +62,10 @@ function stateValidator(): V<State & { version: 1 }> {
   return object(
     {
       version: integer({ min: 1, max: 1 }),
-      // `review` and `tools` are removed switches: still accepted on read, dropped by parseState.
+      // `review` and `tools` are removed switches and `expert` is the old `frontier`: still accepted
+      // on read, dropped or moved by parseState.
       switches: object(
-        Object.fromEntries([...FEATURES, "review", "tools"].map((f) => [f, boolean()])),
+        Object.fromEntries([...FEATURES, "review", "tools", "expert"].map((f) => [f, boolean()])),
       ),
       mode: oneOf(MODES),
       cliReview: cliReviewValidator,
@@ -74,10 +75,19 @@ function stateValidator(): V<State & { version: 1 }> {
   ) as V<State & { version: 1 }>;
 }
 
-/** Removes the retired `review` and `tools` switches, and `switches` itself when nothing is left. */
+/**
+ * Removes the retired `review` and `tools` switches, moves the legacy `expert` onto `frontier`
+ * (`frontier` wins when both are set), and drops `switches` itself when nothing is left.
+ */
 function dropLegacySwitches(state: State): State {
   if (state.switches === undefined) return state;
-  const { review: _review, tools: _tools, ...rest } = state.switches as Record<string, boolean>;
+  const {
+    review: _review,
+    tools: _tools,
+    expert, // DEPRECATED(remove next minor)
+    ...rest
+  } = state.switches as Record<string, boolean>;
+  if (expert !== undefined && rest.frontier === undefined) rest.frontier = expert;
   const { switches: _switches, ...others } = state;
   return Object.keys(rest).length === 0 ? others : { ...others, switches: rest };
 }
@@ -150,6 +160,24 @@ export function updateState(dir: string, mutate: (s: State) => State): WriteResu
     };
   }
   return { ok: true };
+}
+
+// DEPRECATED(remove next minor)
+/**
+ * Rewrites a valid state.json that still holds `switches.expert` (the read moves it onto
+ * `frontier`, the write drops it); `false` when there is nothing to do or the file is not valid.
+ */
+export function migrateLegacySwitch(dir: string): boolean {
+  let text: string;
+  try {
+    text = readFileSync(join(dir, "state.json"), "utf8");
+  } catch {
+    return false;
+  }
+  if (!("state" in parseState(text))) return false;
+  const switches = (JSON.parse(text) as { switches?: Record<string, unknown> }).switches;
+  if (switches === undefined || !Object.hasOwn(switches, "expert")) return false;
+  return updateState(dir, (state) => state).ok;
 }
 
 export function resetState(dir: string): WriteResult {

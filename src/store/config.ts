@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { writeFileAtomic } from "./atomic.ts";
 import { join } from "node:path";
 import { isAllowedJevUrl } from "../shared/urls.ts";
-import { RESERVED_SLOT_NAMES, TIERS } from "./defaults.ts";
+import { LEGACY_TIER, RESERVED_SLOT_NAMES, TIERS } from "./defaults.ts";
 import {
   array,
   boolean,
@@ -46,13 +46,18 @@ const url = refine(
   "expected an https URL, or http on a loopback host, without credentials",
 );
 
-function slotName(seen: Set<string>): V<string> {
+// DEPRECATED(remove next minor): a slot named `frontier` is read on, never written.
+const LEGACY_SLOT_NAME = "frontier";
+
+/** `strict` refuses every reserved name (writes); a read also accepts an existing `frontier` slot. */
+function slotName(seen: Set<string>, strict: boolean): V<string> {
   const base = string({ pattern: /^[a-z][a-z0-9-]{0,23}$/ });
   return (value, path, issues) => {
     const name = base(value, path, issues);
     if (name === undefined) return undefined;
-    if (RESERVED_SLOT_NAMES.includes(name)) {
-      issues.push({ path, message: "expected a name that is not reserved" });
+    if (RESERVED_SLOT_NAMES.includes(name) && (strict || name !== LEGACY_SLOT_NAME)) {
+      const hint = name === LEGACY_SLOT_NAME ? `; rename the "${name}" slot` : "";
+      issues.push({ path, message: `expected a name that is not reserved${hint}` });
       return undefined;
     }
     if (seen.has(name)) {
@@ -64,21 +69,25 @@ function slotName(seen: Set<string>): V<string> {
   };
 }
 
-/** Validates `crew.slots`; slot-name uniqueness is tracked per call. */
-export const slotsValidator: V<Slot[]> = (value, path, issues) => {
-  const seen = new Set<string>();
-  return array(
-    object(
-      {
-        name: slotName(seen),
-        model: modelId,
-        when: string({ min: 1, max: 500, trim: true }),
-      },
-      { required: ["name", "model", "when"] },
-    ),
-    { max: 8 },
-  )(value, path, issues) as Slot[] | undefined;
-};
+function slotsFor(strict: boolean): V<Slot[]> {
+  return (value, path, issues) => {
+    const seen = new Set<string>();
+    return array(
+      object(
+        {
+          name: slotName(seen, strict),
+          model: modelId,
+          when: string({ min: 1, max: 500, trim: true }),
+        },
+        { required: ["name", "model", "when"] },
+      ),
+      { max: 8 },
+    )(value, path, issues) as Slot[] | undefined;
+  };
+}
+
+/** Validates `crew.slots` for a write; slot-name uniqueness is tracked per call. */
+export const slotsValidator: V<Slot[]> = slotsFor(true);
 
 const providerName = string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ });
 
@@ -96,8 +105,11 @@ function configValidator(): V<Config> {
       apiKeyEnv: string({ pattern: /^[A-Z_][A-Z0-9_]{0,63}$/ }),
       timeoutMs: integer({ min: 300, max: 5000 }),
     }),
-    tiers: object(Object.fromEntries(TIERS.map((t) => [t, modelId]))),
-    crew: object({ slots: slotsValidator }),
+    // DEPRECATED(remove next minor): the legacy tier keys are accepted beside the new ones.
+    tiers: object(
+      Object.fromEntries([...TIERS, ...Object.keys(LEGACY_TIER)].map((t) => [t, modelId])),
+    ),
+    crew: object({ slots: slotsFor(false) }),
     effort: object({ holdProviders: array(providerName, { max: 32, uniqueBy: (s) => s }) }),
     skills: object({ inject: oneOf(["content", "suggest"] as const) }),
     tools: retiredSection,
@@ -139,12 +151,19 @@ function load(dir: string): Loaded {
   } catch {
     return { kind: "invalid", issues: [{ path: "", message: "config.json is not valid JSON" }] };
   }
+  const { config, issues } = validateRaw(raw);
+  if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
+  const notices = [...applyDeprecatedAlias(config), ...applyLegacyTierNames(config)];
+  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown>, notices };
+}
+
+/** The one validation a read and a migration share: schema plus the both-keys cross-field checks. */
+function validateRaw(raw: unknown): { config: Config | undefined; issues: Issue[] } {
   const issues: Issue[] = [];
   const config = configValidator()(raw, "", issues);
   reportBothForkKeys(raw, issues);
-  if (issues.length > 0 || config === undefined) return { kind: "invalid", issues };
-  const notices = applyDeprecatedAlias(config);
-  return { kind: "ok", present: true, config, raw: raw as Record<string, unknown>, notices };
+  reportBothTierKeys(raw, issues);
+  return { config, issues };
 }
 
 /** Both fork keys in the raw `subagents` object is a problem at the deprecated key, whatever else is wrong. */
@@ -170,6 +189,46 @@ function applyDeprecatedAlias(config: Config): string[] {
   return ["subagents.forkedLaunch is deprecated; rename it to subagents.forkLaunch"];
 }
 
+// DEPRECATED(remove next minor): tiers.fast|balanced|expert aliases
+/** A legacy tier key beside its new key in the raw `tiers` object is a problem at the legacy key. */
+function reportBothTierKeys(raw: unknown, issues: Issue[]): void {
+  const tiers = rawTiers(raw);
+  if (tiers === undefined) return;
+  for (const [legacy, current] of Object.entries(LEGACY_TIER)) {
+    if (Object.hasOwn(tiers, legacy) && Object.hasOwn(tiers, current)) {
+      issues.push({
+        path: `tiers.${legacy}`,
+        message: `expected only one of tiers.${current} and the deprecated tiers.${legacy}`,
+      });
+    }
+  }
+}
+
+function rawTiers(raw: unknown): Record<string, unknown> | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const tiers = (raw as { tiers?: unknown }).tiers;
+  return typeof tiers === "object" && tiers !== null && !Array.isArray(tiers)
+    ? (tiers as Record<string, unknown>)
+    : undefined;
+}
+
+// DEPRECATED(remove next minor): tiers.fast|balanced|expert aliases, and a `frontier` slot
+/** Moves the legacy tier keys onto the new ones and notes a `frontier` slot; both keys were rejected before this runs. */
+function applyLegacyTierNames(config: Config): string[] {
+  const notices: string[] = [];
+  const tiers = config.tiers as Record<string, string> | undefined;
+  for (const [legacy, current] of Object.entries(LEGACY_TIER)) {
+    if (tiers?.[legacy] === undefined) continue;
+    tiers[current] = tiers[legacy];
+    delete tiers[legacy];
+    notices.push(`tiers.${legacy} is deprecated; rename it to tiers.${current}`);
+  }
+  if (config.crew?.slots?.some((s) => s.name === LEGACY_SLOT_NAME)) {
+    notices.push(`crew.slots "${LEGACY_SLOT_NAME}" uses a reserved name; rename it`);
+  }
+  return notices;
+}
+
 export function readConfig(dir: string): ConfigRead {
   const loaded = load(dir);
   if (loaded.kind === "invalid") return loaded;
@@ -192,7 +251,8 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
   if (issues.length > 0) return { ok: false, issues };
   if (!current.present && slots.length === 0) return { ok: true };
 
-  const raw = current.raw;
+  // DEPRECATED(remove next minor): a slot write never re-emits the legacy tier keys.
+  const raw = { ...(migrateTierKeys(current.raw)?.raw ?? current.raw) };
   const crew = { ...(raw.crew as Record<string, unknown> | undefined) };
   if (slots.length > 0) {
     crew.slots = slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
@@ -212,4 +272,50 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
     };
   }
   return { ok: true };
+}
+
+// DEPRECATED(remove next minor)
+/**
+ * Renames the legacy tier keys in place, keeping every position and value; `undefined` when the
+ * file is invalid, has a legacy key beside its new key, or has nothing to rename. Does not mutate `raw`.
+ */
+export function migrateTierKeys(
+  raw: Record<string, unknown>,
+): { raw: Record<string, unknown>; renamed: [string, string][] } | undefined {
+  const tiers = rawTiers(raw);
+  if (tiers === undefined) return undefined;
+  const renamed: [string, string][] = [];
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(tiers)) {
+    const current = (LEGACY_TIER as Record<string, string>)[key];
+    if (current === undefined) next[key] = value;
+    else {
+      next[current] = value;
+      renamed.push([`tiers.${key}`, `tiers.${current}`]);
+    }
+  }
+  if (renamed.length === 0) return undefined;
+  if (validateRaw(raw).issues.length > 0) return undefined;
+  return { raw: { ...raw, tiers: next }, renamed };
+}
+
+// DEPRECATED(remove next minor)
+/** Rewrites config.json with the new tier keys, keeping the mode; `undefined` when nothing needed to change. */
+export function migrateConfigFile(
+  dir: string,
+): { renamed: [string, string][] } | { error: string } | undefined {
+  const current = load(dir);
+  if (current.kind === "invalid" || !current.present) return undefined;
+  const migrated = migrateTierKeys(current.raw);
+  if (migrated === undefined) return undefined;
+  const written = writeFileAtomic(
+    dir,
+    "config.json",
+    JSON.stringify(migrated.raw, null, 2) + "\n",
+    {
+      keepMode: true,
+    },
+  );
+  if (!written.ok) return { error: `cannot write config.json (${written.code})` };
+  return { renamed: migrated.renamed };
 }

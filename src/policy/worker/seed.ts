@@ -1,11 +1,11 @@
-// Seed cut points per mode, computed offline from the 2026-11-07 WG-12 replay answers.
-// The values are published in the tier-mix evidence note. Data only.
+// Seed cut points per mode. Data only.
+// From the rubric-3 corpus replay: docs/evidence/2026-11-20-knowledge-tier-mix.md.
 
 import type { CutPoints } from "./cutpoints.ts";
 import type { ModeName } from "./modes.ts";
 
 export const SEED_CUTPOINTS: Readonly<Record<ModeName, CutPoints>> = {
-  budget: { fastMax: 1.42, balancedMax: 2.135, expertMin: Infinity },
-  standard: { fastMax: 1.165, balancedMax: 1.81, expertMin: 2.345 },
-  premium: { fastMax: -Infinity, balancedMax: 1.42, expertMin: 2.125 },
+  budget: { basicMax: 1.36, broadMax: 1.868, frontierMin: Infinity },
+  standard: { basicMax: 1.045, broadMax: 1.636, frontierMin: 2.055 },
+  premium: { basicMax: -Infinity, broadMax: 1.36, frontierMin: 1.984 },
 };
