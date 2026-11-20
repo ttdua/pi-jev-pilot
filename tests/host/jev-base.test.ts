@@ -41,7 +41,6 @@ async function host(
 ): Promise<HostSession> {
   const s = await startHostSession({
     fixture,
-    self: true,
     env: KEY,
     timeoutMs: TIMEOUT,
     ...opts,
@@ -139,12 +138,12 @@ describe("status line and /jev through the real CLI", () => {
   test(
     "/jev reports the executor when present",
     async () => {
-      const s = await host(await fixtureWith(), { executor: true });
+      const s = await host(await fixtureWith(), {});
       await command(s, "/jev");
       await s.waitFor(() => notifies(s).length >= 1, "notify");
       const m = notifies(s).at(-1)?.message ?? "";
       expect(m).not.toContain("duplicate executor");
-      expect(m).toContain("executor: present");
+      expect(m).toContain("executor: @ttdua/pi-subagents");
     },
     TIMEOUT,
   );
@@ -152,7 +151,7 @@ describe("status line and /jev through the real CLI", () => {
   test(
     "/jev reports a missing executor",
     async () => {
-      const s = await host(await fixtureWith(), { self: false, install: "jev-only" });
+      const s = await host(await fixtureWith(), { install: "jev" });
       await command(s, "/jev");
       await s.waitFor(() => notifies(s).length >= 1, "notify");
       expect(notifies(s).at(-1)?.message).toContain("no executor");
@@ -231,8 +230,7 @@ describe("print and JSON mode", () => {
         fixture: plain,
         mode: "print",
         message: "hello",
-        self: false,
-        install: "executor-only",
+        install: "none",
         agentDir,
         cwd,
         env: KEY,
@@ -243,8 +241,7 @@ describe("print and JSON mode", () => {
         fixture: withPkg,
         mode: "print",
         message: "hello",
-        self: false,
-        install: "jev-only",
+        install: "jev",
         agentDir,
         cwd,
         env: KEY,
@@ -272,7 +269,6 @@ describe("print and JSON mode", () => {
         fixture,
         mode: "json",
         message: "hello",
-        self: true,
         env: KEY,
       });
       dirs.push(r.agentDir, r.cwd);
@@ -295,7 +291,6 @@ describe("print and JSON mode", () => {
         fixture,
         mode: "json",
         message: "/jev skills off",
-        self: true,
         env: KEY,
       });
       dirs.push(r.agentDir, r.cwd);
@@ -318,7 +313,6 @@ describe("print and JSON mode", () => {
         fixture,
         mode: "print",
         message: "/jev skills off",
-        self: true,
         env: KEY,
       });
       dirs.push(r.agentDir, r.cwd);
@@ -383,7 +377,6 @@ describe("executor child", () => {
     const { isChild, script } = workerScript();
     const fixture = await fixtureWith(script);
     const s = await host(fixture, {
-      executor: true,
       agents: {
         "smoke-worker": "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
       },
@@ -410,7 +403,6 @@ describe("executor child", () => {
     const fixture = await fixtureWith(script);
     const s = await host(fixture, {
       agentDir,
-      executor: true,
       agents: {
         "smoke-worker": "---\ndescription: Smoke worker\ntools: read\n---\nYou are a worker.\n",
       },

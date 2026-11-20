@@ -111,7 +111,6 @@ async function makeEnv(o: EnvOptions): Promise<Env> {
 async function open(env: Env): Promise<HostSession> {
   const s = await startHostSession({
     fixture: env.fixture,
-    self: true,
     env: KEY,
     timeoutMs: 60_000,
     persist: true,
@@ -287,7 +286,6 @@ describe("tuning through the real CLI", () => {
         fixture: env.fixture,
         mode: "print",
         message: "hello",
-        self: true,
         agentDir: env.agentDir,
         cwd: env.cwd,
         env: KEY,

@@ -43,7 +43,6 @@ function sharedDirs(): Shared {
 async function open(fixture: Fixture, dirs: Shared, args: string[] = []): Promise<HostSession> {
   const s = await startHostSession({
     fixture,
-    self: true,
     env: KEY,
     timeoutMs: 60_000,
     persist: true,
@@ -283,8 +282,6 @@ describe("directory mode on worker launches", () => {
       jevs.push(jev);
       const session = await startHostSession({
         fixture,
-        self: true,
-        executor: true,
         agents: { [AGENT]: AGENT_TEXT },
         env: KEY,
         timeoutMs: 60_000,

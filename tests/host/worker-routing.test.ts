@@ -166,8 +166,6 @@ async function setup(
   fixtures.push(fixture);
   const session = await startHostSession({
     fixture,
-    self: true,
-    executor: true,
     probes: opts.probes ?? [],
     keyless: opts.keyless === true,
     agents: { [AGENT]: AGENT_TEXT },

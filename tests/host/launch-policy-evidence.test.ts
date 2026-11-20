@@ -9,7 +9,7 @@ import { readLedger } from "../../src/store/ledger.ts";
 import { validateLedgerEntry } from "../../src/store/ledger-schema.ts";
 import { SLOT_TAKEN } from "../../src/host/worker/routing.ts";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
-import { startHostSession, type HostSession, type InstallMode } from "./harness";
+import { executorDir, startHostSession, type HostSession } from "./harness";
 import { command, notifies } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
@@ -27,7 +27,6 @@ afterEach(async () => {
 const TIMEOUT = 90_000;
 const MARKER = "JEV-MARKER-4e2b";
 const PROBE_TOOL = "probe_tool";
-const PROBE_TOOL_TEXT = "PROBE-TOOL-OK";
 
 const WORKER = "probe-worker";
 const OPEN = "probe-open";
@@ -46,12 +45,6 @@ const AGENTS = {
 type Msg = { role?: string; content?: unknown };
 const messages = (r: RecordedRequest): Msg[] =>
   Array.isArray(r.body.messages) ? (r.body.messages as Msg[]) : [];
-const textOf = (content: unknown): string =>
-  typeof content === "string"
-    ? content
-    : Array.isArray(content)
-      ? content.map((p) => (p as { text?: string }).text ?? "").join("\n")
-      : "";
 const lastIsUser = (r: RecordedRequest, text: string): boolean => {
   const last = messages(r).at(-1);
   return last?.role === "user" && JSON.stringify(last).includes(text);
@@ -110,35 +103,6 @@ const MAIN_AFTER: ScriptEntry = {
 };
 
 const childOf = (f: Fixture): RecordedRequest | undefined => f.requests.find(isChild);
-
-const FILE_MARKER = "JEV-MARKER-file-7d3a";
-/** A fork's request: only a fork holds the instructions block. */
-const isForkRequest = (r: RecordedRequest): boolean =>
-  JSON.stringify(messages(r)).includes("<subagent_instructions>");
-/**
- * Main prompt `START-MAIN` reads `marker.txt` first, then launches `call`: the parent's leaf
- * holds a real tool result when the fork starts.
- */
-function forkAfterRead(call: Call): ScriptEntry[] {
-  return [
-    {
-      name: "main-read",
-      match: (r) => isMainPrompt(r, "START-MAIN"),
-      reply: { toolCalls: [{ name: "read", arguments: { path: "marker.txt" } }] },
-      times: 1,
-    },
-    {
-      name: "main-fork-call",
-      match: (r) =>
-        r.model === "fixture-main" &&
-        !isForkRequest(r) &&
-        messages(r).at(-1)?.role === "tool" &&
-        messages(r).filter((m) => m.role === "tool").length === 1,
-      reply: { toolCalls: [call] },
-      times: 1,
-    },
-  ];
-}
 
 // ---- Policy probe ----
 
@@ -207,27 +171,6 @@ function agentDirWith(config: Record<string, unknown>, state?: Record<string, un
 
 // ---- Sessions ----
 
-async function session(opts: {
-  script: ScriptEntry[];
-  install: InstallMode;
-  env?: Record<string, string>;
-  agentDir?: string;
-}): Promise<{ fixture: Fixture; session: HostSession }> {
-  const fixture = await startFixture([...opts.script, MAIN_AFTER]);
-  fixtures.push(fixture);
-  const s = await startHostSession({
-    fixture,
-    install: opts.install,
-    probes: opts.agentDir === undefined ? ["policy"] : [],
-    agentDir: opts.agentDir,
-    agents: AGENTS,
-    env: { TYPESAFE_API_KEY: "test-key", ...opts.env },
-    timeoutMs: 60_000,
-  });
-  sessions.push(s);
-  return { fixture, session: s };
-}
-
 /**
  * A checkout session with Jev config in place before start. The harness installs probes only
  * into an agent directory it creates, so the probe is installed here as a package path.
@@ -243,7 +186,7 @@ async function jevSession(opts: {
   fixtures.push(fixture);
   const s = await startHostSession({
     fixture,
-    installs: [REPO_ROOT_SOURCE, PROBE_SOURCE],
+    installs: [executorDir(), REPO_ROOT_SOURCE, PROBE_SOURCE],
     agentDir,
     agents: AGENTS,
     env: { TYPESAFE_API_KEY: "test-key", ...opts.env },
@@ -303,234 +246,7 @@ async function reload(s: HostSession): Promise<void> {
   await s.waitFor(() => records(s, "session_start").length > before, "session_start after reload");
 }
 
-const toolResult = (r: RecordedRequest | undefined): string =>
-  textOf(
-    messages(r ?? ({ body: {} } as RecordedRequest))
-      .filter((m) => m.role === "tool")
-      .at(-1)?.content,
-  );
-
-// ---- Seam evidence: the vendored executor alone, with the probe policy ----
-
-const POLICY_FAST = { adjustment: { model: "fixture/fixture-fast", thinking: "medium" } };
-// For checkout sessions: a child on `fixture-expert` would mean the probe, not jev-pilot, held the slot.
 const POLICY_EXPERT = { adjustment: { model: "fixture/fixture-expert", thinking: "max" } };
-
-describe("launch policy seam evidence", () => {
-  test(
-    "Policy model reaches the child: foreground",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy(POLICY_FAST),
-        script: [...childScript([]), ...mainScript("START-MAIN", [launch(WORKER)])],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      expect(childOf(fixture)?.model).toBe("fixture-fast");
-      expect(childOf(fixture)?.reasoningEffort).toBe("medium");
-      expect(records(s, "policy:call")[0]?.data).toMatchObject({ origin: "tool", bg: false });
-      expect(fixture.unmatched).toEqual([]);
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Policy model reaches the child: background",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy(POLICY_FAST),
-        script: [
-          ...childScript([]),
-          ...mainScript("START-MAIN", [launch(WORKER, { run_in_background: true })]),
-        ],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      expect(childOf(fixture)?.model).toBe("fixture-fast");
-      expect(childOf(fixture)?.reasoningEffort).toBe("medium");
-      expect(records(s, "policy:call")[0]?.data).toMatchObject({ origin: "tool", bg: true });
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Policy model reaches the child: service launch",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy(POLICY_FAST),
-        script: childScript([]),
-      });
-      await command(s, `/probe-spawn ${WORKER} CHILD-TASK service ${MARKER}`);
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      expect(records(s, "spawn")).toHaveLength(1);
-      expect(childOf(fixture)?.model).toBe("fixture-fast");
-      expect(childOf(fixture)?.reasoningEffort).toBe("medium");
-      expect(records(s, "policy:call")[0]?.data).toMatchObject({ origin: "service" });
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Inherited context with a policy model",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy(POLICY_FAST),
-        script: [...childScript([]), ...forkAfterRead(launch(WORKER, { context: "fork" }))],
-      });
-      writeFileSync(join(s.cwd, "marker.txt"), FILE_MARKER);
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      const child = childOf(fixture);
-      expect(child?.model).toBe("fixture-fast");
-      expect(child?.reasoningEffort).toBe("medium");
-      // The parent's tool result reached the child as a tool result, not as text elsewhere.
-      const toolMessages = messages(child as RecordedRequest).filter((m) => m.role === "tool");
-      expect(toolMessages.some((m) => textOf(m.content).includes(FILE_MARKER))).toBe(true);
-      expect(records(s, "policy:call")[0]?.data).toMatchObject({ inherit: true });
-      expect(JSON.stringify(s.probeRecords())).not.toContain(FILE_MARKER);
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Untouched fork keeps the parent prefix",
-    async () => {
-      // No policy, no model or thinking on the launch: the fork runs on the parent's model.
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        script: [
-          ...childScript([]),
-          ...forkAfterRead(
-            subagent({
-              prompt: "CHILD-TASK untouched",
-              description: "probe",
-              subagent_type: WORKER,
-              context: "fork",
-            }),
-          ),
-        ],
-      });
-      writeFileSync(join(s.cwd, "marker.txt"), FILE_MARKER);
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      const child = childOf(fixture) as RecordedRequest;
-      const parent = fixture.requests.findLast(
-        (r) => !isForkRequest(r) && r.seq < child.seq,
-      ) as RecordedRequest;
-      expect(child.model).toBe(parent.model);
-      expect(["system", "developer"]).toContain(messages(parent)[0]?.role as string);
-      expect(JSON.stringify(messages(child)[0])).toBe(JSON.stringify(messages(parent)[0]));
-      expect(JSON.stringify(child.body.tools)).toBe(JSON.stringify(parent.body.tools));
-      expect(child.toolNames).toEqual(parent.toolNames);
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Locked field wins over the policy",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy(POLICY_FAST),
-        script: [...childScript([]), ...mainScript("START-MAIN", [launch(LOCKED)])],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      // `locked: model` keeps the agent's model; thinking is not locked and follows the policy.
-      expect(childOf(fixture)?.model).toBe("fixture-main");
-      expect(childOf(fixture)?.reasoningEffort).toBe("medium");
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Policy past its timeout: the launch runs with the requested values",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy({ ...POLICY_FAST, timeoutMs: 300, delayMs: 20_000 }),
-        script: [...childScript([]), ...mainScript("START-MAIN", [launch(WORKER)])],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      expect(childOf(fixture)?.model).toBe("fixture-balanced");
-      expect(childOf(fixture)?.reasoningEffort).toBe("low");
-      // The watchdog aborted the policy's signal; the 20 s delay never ran out.
-      await s.waitFor(() => records(s, "policy:aborted").length === 1, "policy aborted");
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Grant reaches the child",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy({ adjustment: { addTools: [PROBE_TOOL] } }),
-        script: [
-          ...childScript([{ name: PROBE_TOOL, arguments: {} }]),
-          ...mainScript("START-MAIN", [launch(OPEN)]),
-        ],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => fixture.requests.some(isChildAfterTool), "child after tool");
-      expect(childOf(fixture)?.toolNames).toContain(PROBE_TOOL);
-      expect(toolResult(fixture.requests.find(isChildAfterTool))).toContain(PROBE_TOOL_TEXT);
-      expect(records(s, "tool:executed")).toHaveLength(1);
-      expect(records(s, "child:bound").some((r) => r.data?.["granted"] === true)).toBe(true);
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "disallowed_tools wins over a grant",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy({ adjustment: { addTools: [PROBE_TOOL] } }),
-        script: [...childScript([]), ...mainScript("START-MAIN", [launch(DENIED)])],
-      });
-      await s.prompt("START-MAIN");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      expect(childOf(fixture)?.toolNames).not.toContain(PROBE_TOOL);
-      expect(childOf(fixture)?.toolNames).toContain("read");
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "Published before capture and found at load, on start and after reload",
-    async () => {
-      const { fixture, session: s } = await session({
-        install: "executor-only",
-        env: probePolicy(POLICY_FAST),
-        script: [
-          ...childScript([]),
-          ...mainScript("START-AFTER-RELOAD", [launch(WORKER, { description: "after reload" })]),
-        ],
-      });
-      await s.waitFor(() => records(s, "session_start").length >= 1, "session_start");
-      await reload(s);
-      // Load-time consumer finds the service: once per load.
-      expect(records(s, "load").map((r) => r.data?.["service"])).toEqual([true, true]);
-      expect(records(s, "session_start").map((r) => r.data)).toEqual([
-        { reason: "startup", service: true },
-        { reason: "reload", service: true },
-      ]);
-      expect(records(s, "policy:registered")).toHaveLength(2);
-      expect(records(s, "policy:taken")).toHaveLength(0);
-      await s.prompt("START-AFTER-RELOAD");
-      await s.waitFor(() => childOf(fixture) !== undefined, "child request");
-      expect(childOf(fixture)?.model).toBe("fixture-fast");
-      expect(records(s, "policy:call")).toHaveLength(1);
-    },
-    TIMEOUT,
-  );
-});
 
 // ---- jev-pilot through the installed checkout ----
 
@@ -639,7 +355,7 @@ describe("e2e", () => {
       await command(s, `/probe-spawn ${OPEN} CHILD-TASK service ${MARKER}`);
       await s.waitFor(() => workerLines(s).length >= 2, "service launch line");
       const text = await status(s);
-      expect(text).toContain("executor: present");
+      expect(text).toContain("executor: @ttdua/pi-subagents");
       expect(text).not.toContain(SLOT_TAKEN);
 
       const children = fixture.requests.filter(isChild);

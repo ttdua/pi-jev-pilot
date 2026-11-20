@@ -91,7 +91,6 @@ async function setup(
   jevs.push(jev);
   const s = await startHostSession({
     fixture,
-    self: true,
     env: KEY,
     timeoutMs: 60_000,
     jevConfig: {
@@ -299,7 +298,6 @@ describe("skill delivery through the real CLI", () => {
         fixtures.push(fixture);
         const s = await startHostSession({
           fixture,
-          self: true,
           env: KEY,
           timeoutMs: 60_000,
           agentDir,
