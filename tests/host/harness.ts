@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { PI_BIN, REPO_ROOT, tempDir } from "../helpers";
 import { fixtureModelsJson, type Fixture } from "./fixture";
@@ -27,8 +27,14 @@ export function assertProbeReportClean(reportPath: string): void {
   }
 }
 
-const EXECUTOR_ONLY_DIR = join(REPO_ROOT, "tests", "fixtures", "executor-only");
-const JEV_ONLY_DIR = join(REPO_ROOT, "tests", "fixtures", "jev-only");
+/** Real path of the pinned executor dev dependency under `<root>/node_modules`; throws when it is not installed. */
+export function executorDir(root: string = REPO_ROOT): string {
+  const dir = join(root, "node_modules", "@ttdua", "pi-subagents");
+  if (!existsSync(dir)) {
+    throw new Error(`pinned executor not found at ${dir}; run \`bun install\``);
+  }
+  return realpathSync(dir);
+}
 
 type Dirs = { agentDir: string; home: string; cwd: string };
 
@@ -75,29 +81,19 @@ type Prepared = {
   cleanDirs: () => void;
 };
 
-/** `jev-only` installs jev-pilot alone, to layer it over an already installed executor or to test its absence. */
-export type InstallMode = "checkout" | "executor-only" | "jev-only" | "none";
-
-const INSTALL_SOURCES: Record<Exclude<InstallMode, "none">, string> = {
-  checkout: REPO_ROOT,
-  "executor-only": EXECUTOR_ONLY_DIR,
-  "jev-only": JEV_ONLY_DIR,
-};
+/** `jev+executor`: the pinned executor, then jev-pilot; `jev`: jev-pilot alone; `none`: no package. */
+export type InstallMode = "jev+executor" | "jev" | "none";
 
 type PrepareOpts = {
   fixture: Fixture;
   probes?: string[];
-  /** Needs the vendored executor; installs the checkout when `self` is set, else the executor-only fixture. */
-  executor?: boolean;
-  /** Which package to install: the whole checkout (executor and jev-pilot) or only the vendored executor. */
+  /** Which packages to install; the default is the pinned executor followed by this checkout. */
   install?: InstallMode;
   /** Package sources installed in this order instead of `install`; sets the extension load order. */
   installs?: string[];
   /** Adds provider `fixture2` (no credentials) to models.json. */
   keyless?: boolean;
   agents?: Record<string, string>;
-  /** Install this checkout (`pi install REPO_ROOT`) into the agent directory; same as `install: "checkout"`. */
-  self?: boolean;
   /** Reuse an agent directory (left for the caller to remove); packages already listed in its settings.json are not installed again. */
   agentDir?: string;
   /** Reuse a working directory. */
@@ -136,30 +132,30 @@ function writeJevConfig(agentDir: string, jevConfig: PrepareOpts["jevConfig"]): 
   );
 }
 
-/** Maps the older `self` / `executor` flags onto an install mode; undefined when neither is set. */
-function legacyMode(opts: PrepareOpts): InstallMode | undefined {
-  if (opts.self === true) return "checkout";
-  if (opts.self === false) return opts.executor ? "executor-only" : "none";
-  if (opts.executor === true) return "executor-only";
-  return opts.executor === false ? "none" : undefined;
+function installAll(sources: string[], dirs: Dirs): void {
+  for (const source of sources) {
+    const resolved = realpathSync(source);
+    if (isInstalled(dirs, (p) => p === resolved || p === source)) continue;
+    const r = install(source, dirs);
+    if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
+  }
 }
 
-/** Installs the checkout (the default) or the executor-only fixture, unless the agent directory already lists it. */
+/** Installs the packages for the mode (or the explicit list), each unless the agent directory already lists it. */
 function installMode(opts: PrepareOpts, dirs: Dirs): void {
   if (opts.installs !== undefined) {
-    for (const source of opts.installs) {
-      if (isInstalled(dirs, (p) => p === source)) continue;
-      const r = install(source, dirs);
-      if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
+    const real = opts.installs.map((s) => (existsSync(s) ? realpathSync(s) : s));
+    if (real.includes(executorDir()) && !real.includes(realpathSync(REPO_ROOT))) {
+      throw new Error(
+        "installs lists the executor without jev-pilot; there is no executor-only install",
+      );
     }
+    installAll(opts.installs, dirs);
     return;
   }
-  const mode = opts.install ?? legacyMode(opts) ?? "checkout";
+  const mode = opts.install ?? "jev+executor";
   if (mode === "none") return;
-  const source = INSTALL_SOURCES[mode];
-  if (isInstalled(dirs, (p) => p === source)) return;
-  const r = install(source, dirs);
-  if (r.code !== 0) throw new Error(`package install failed: ${r.out}`);
+  installAll(mode === "jev" ? [REPO_ROOT] : [executorDir(), REPO_ROOT], dirs);
 }
 
 /** Shared setup: temp dirs, models.json, agents and installs. */
@@ -275,7 +271,6 @@ export async function runOnce(opts: {
   fixture: Fixture;
   mode: "print" | "json";
   message: string;
-  self: boolean;
   install?: InstallMode;
   /** Package sources installed in this order instead of `install`. */
   installs?: string[];
@@ -286,7 +281,6 @@ export async function runOnce(opts: {
 }): Promise<{ code: number; stdout: string; stderr: string; agentDir: string; cwd: string }> {
   const { dirs, cleanDirs } = prepare({
     fixture: opts.fixture,
-    self: opts.self,
     install: opts.install,
     installs: opts.installs,
     agentDir: opts.agentDir,

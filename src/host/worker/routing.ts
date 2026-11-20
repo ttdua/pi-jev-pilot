@@ -8,7 +8,7 @@ import {
   loadSnapshot,
   mainService,
   type Snapshot,
-  type VendoredService,
+  type ExecutorService,
 } from "../platform/index.ts";
 import { LaunchBook } from "./launches.ts";
 import { OUTCOME_EVENTS, onOutcome, onSessionCreated, SESSION_CREATED } from "./outcomes.ts";
@@ -30,7 +30,7 @@ export type WorkerDeps = {
   snapshot?: () => Snapshot;
   now?: () => number;
   /** The captured main-session executor service; default `mainService`. */
-  service?: () => VendoredService | undefined;
+  service?: () => ExecutorService | undefined;
 };
 
 export type WorkerRouting = {
@@ -101,12 +101,19 @@ class Registration {
   #unregister: (() => void) | undefined;
   #taken = false;
 
-  register(service: VendoredService | undefined, host: WorkerHost): void {
+  register(service: ExecutorService | undefined, host: WorkerHost): void {
     this.unregister();
     this.#taken = false;
-    if (service === undefined || typeof service.registerLaunchPolicy !== "function") return;
+    if (service === undefined) return;
+    let registerPolicy: ExecutorService["registerLaunchPolicy"];
     try {
-      this.#unregister = service.registerLaunchPolicy(createWorkerPolicy(host), {
+      registerPolicy = service.registerLaunchPolicy;
+    } catch {
+      return;
+    }
+    if (typeof registerPolicy !== "function") return;
+    try {
+      this.#unregister = registerPolicy.call(service, createWorkerPolicy(host), {
         timeoutMs: POLICY_TIMEOUT_MS,
       });
     } catch {

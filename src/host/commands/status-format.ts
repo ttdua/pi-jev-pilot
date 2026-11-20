@@ -2,7 +2,7 @@
 import { FEATURES, type Mode } from "../../store/defaults.ts";
 import { recentMix, WINDOW_MIN, MODE_TARGETS } from "../../policy/worker/index.ts";
 import type { WindowEntry } from "../../policy/worker/index.ts";
-import type { Snapshot } from "../platform/index.ts";
+import { canRoute, type Snapshot } from "../platform/index.ts";
 import { issueLines } from "../../policy/tuning/index.ts";
 import { statusText, tallyLines, type Tally } from "../status/index.ts";
 
@@ -36,12 +36,12 @@ function modeLine(s: Snapshot): string {
 }
 
 function executorLine(e: Snapshot["executor"]): string {
-  if (e.kind === "present") return "executor: present";
-  if (e.kind === "absent") {
-    return "executor: no executor; worker routing is off";
-  }
-  const other = e.path === undefined ? "" : ` (${e.path})`;
-  return `executor: duplicate executor${other}; uninstall @gotgenes/pi-subagents; worker routing is off`;
+  if (e.kind === "absent") return "executor: no executor; worker routing is off";
+  const name = e.implementation ?? "unknown";
+  const head = e.launchPolicy
+    ? `executor: ${name}`
+    : `executor: ${name}; no launch policy, worker routing is off`;
+  return e.agentRegistry ? head : `${head}; no agent registry`;
 }
 
 /** The problem lines of the report: invalid or deprecated config, store issues, then `extra`. */
@@ -73,7 +73,7 @@ export function formatStatus(
   if (problems.length > 0) lines.push("problems:", ...problems);
   if (s.config.valid) lines.push(...s.config.notices.map((n) => `notice: ${n}`));
 
-  if (s.executor.kind === "present" && window) lines.push(...mixLines(s.settings.mode, window));
+  if (canRoute(s.executor) && window) lines.push(...mixLines(s.settings.mode, window));
   if (t) lines.push(...tallyLines(t));
   return lines.join("\n");
 }

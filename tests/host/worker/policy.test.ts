@@ -195,14 +195,14 @@ describe("Launch policy slot taken", () => {
 
   test("a later start that registers clears the problem", () => {
     const executor = fakeService();
-    const blocker = executor.service.registerLaunchPolicy(() => undefined, { timeoutMs: 1 });
+    const blocker = executor.service.registerLaunchPolicy?.(() => undefined, { timeoutMs: 1 });
     const routing = registerWorkerRouting(
       { on: () => () => {}, events: { on: () => () => {} } } as never,
       { snapshot: () => snap(), service: () => executor.service },
     );
     routing.start(harness().ctx as never);
     expect(routing.problems()).toEqual([SLOT_TAKEN]);
-    blocker();
+    blocker?.();
     routing.start(harness().ctx as never);
     expect(routing.problems()).toEqual([]);
   });
@@ -213,7 +213,7 @@ describe("When routing runs", () => {
     ["Switch off", { switches: { subagents: false } }],
     ["No key", { keySet: false }],
     ["Invalid config", { valid: false }],
-    ["Duplicate executor", { executor: "duplicate" }],
+    ["Executor without a launch policy (snapshot gate)", { executor: { launchPolicy: false } }],
   ];
   for (const [name, o] of gated) {
     test(name, async () => {
@@ -223,6 +223,14 @@ describe("When routing runs", () => {
       expect(adjustment).toBeUndefined();
     });
   }
+
+  test("Executor without a launch policy: service has no registerLaunchPolicy", () => {
+    const h = harness({ service: {} });
+    expect(h.executor.registrations).toHaveLength(0);
+    expect(h.executor.policy()).toBeUndefined();
+    expect(h.asks).toHaveLength(0);
+    expect(h.routing.problems()).toEqual([]);
+  });
 
   test("Executor absent", async () => {
     const h = harness({ executor: false });
@@ -737,5 +745,21 @@ describe("Slots", () => {
       return slotAnswer();
     });
     expect((await h.launch()).adjustment).toMatchObject({ model: "fx/review" });
+  });
+});
+
+describe("Launch policy capability read", () => {
+  test("a throwing registerLaunchPolicy getter is no policy, not a taken slot", () => {
+    const service = {
+      get registerLaunchPolicy(): never {
+        throw new Error("boom");
+      },
+    };
+    const routing = registerWorkerRouting(
+      { on: () => () => {}, events: { on: () => () => {} } } as never,
+      { snapshot: () => snap(), service: () => service as never },
+    );
+    expect(() => routing.start(harness().ctx as never)).not.toThrow();
+    expect(routing.problems()).toEqual([]);
   });
 });

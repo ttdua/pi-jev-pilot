@@ -76,7 +76,6 @@ async function setup(
   jevs.push(jev);
   const s = await startHostSession({
     fixture,
-    self: true,
     env: KEY,
     timeoutMs: 60_000,
     jevConfig: { url: jev.url(ASK), timeoutMs: opts.timeoutMs ?? 5000 },
@@ -198,8 +197,7 @@ describe("main effort through the real CLI", () => {
         fixture: plain,
         mode: "print",
         message: "hello",
-        self: false,
-        install: "executor-only",
+        install: "none",
         agentDir,
         cwd,
         env: KEY,
@@ -213,7 +211,7 @@ describe("main effort through the real CLI", () => {
       fixtures.push(fixture);
       const s = await startHostSession({
         fixture,
-        install: "jev-only",
+        install: "jev",
         env: KEY,
         timeoutMs: 60_000,
         agentDir,

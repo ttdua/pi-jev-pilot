@@ -6,22 +6,15 @@ Evidence from real runs for each WG-02 host-seam question, pinned by host tests 
 ## Requirements
 
 ### Requirement: Answers are pinned by host tests
-Each host test for WG-02 questions 3 to 6 SHALL assert, as fixed expected values in the test, the values stated for that question in the evidence report, so that a change in Pi or executor behavior makes the test fail. A negative answer MUST be pinned the same way as a positive one. A question the report marks unsettled or superseded is exempt.
+Each host test for WG-02 questions 4 to 6 SHALL assert, as fixed expected values in the test, the values stated for that question in the evidence report, so that a change in Pi or executor behavior makes the test fail. A negative answer MUST be pinned the same way as a positive one. A question the report marks unsettled, superseded or moved is exempt. The Q4 host test SHALL run jev-pilot's extension together with the pinned executor (see `host-test-harness`).
 
 #### Scenario: Changed host behavior fails the test
 - **WHEN** a host test's observed value differs from the value stated in the evidence report
 - **THEN** the test fails and names the question it covers
 
-### Requirement: Child tool removal
-A host test SHALL establish whether a child session's `before_agent_start` handler that removes a tool from `systemPromptOptions.selectedTools` removes it from the child's provider request, and whether a call to that tool then fails.
-
-#### Scenario: Removed tool is absent
-- **WHEN** a probe in the child removes one tool from `selectedTools`
-- **THEN** the test asserts whether the child's first request `tools` list contains that tool, as recorded
-
-#### Scenario: Call to a removed tool
-- **WHEN** the fixture scripts the child to call the removed tool
-- **THEN** the test asserts whether the call executes or returns an error result, as recorded
+#### Scenario: Q4 runs with jev-pilot
+- **WHEN** the Q4 host test starts its session
+- **THEN** both jev-pilot's extension and the pinned executor are installed, and the test still names `WG-02 Q4`
 
 ### Requirement: Child session detection
 A host test SHALL establish whether an extension subscribed to `subagents:child:session-created` on `pi.events` receives it before the child's extension handlers run, with a session id equal to the child's `ctx.sessionManager.getSessionId()`.
@@ -60,15 +53,23 @@ A manual script SHALL run a short controlled session on `claude-code/claude-haik
 - **THEN** it prints, for each turn before and after the level change, the level, the events seen and the cache read and write counts, followed by the run date and versions
 
 ### Requirement: Evidence report
-The repository SHALL contain an evidence report in `docs/evidence/` giving, per WG-02 question, the answer, its supporting test or run, its testing level as named in `docs/testing.md`, and the tested versions. An answer MUST come from a run; a negative answer is an answer; a question no run settled MUST be marked unsettled with the reason. A question whose seam the package no longer uses SHALL be marked superseded, keep its recorded answer, and link the requirement and host test that replace it. The report MUST NOT contain real prompts, session content, request bodies, secrets or account details.
+The repository SHALL contain an evidence report in `docs/evidence/` giving, per WG-02 question, the answer, its supporting test or run, its testing level as named in `docs/testing.md`, and the tested versions. An answer MUST come from a run; a negative answer is an answer; a question no run settled MUST be marked unsettled with the reason. A question whose seam the package no longer uses SHALL be marked superseded, keep its recorded answer, and link the requirement that replaces it; a link to a requirement held by `ttdua/pi-subagents` SHALL be a URL into that repository. A question whose seam is executor behavior SHALL be marked moved, keep its recorded answer, and name `ttdua/pi-subagents` as where it is now tested. The report MUST NOT contain real prompts, session content, request bodies, secrets or account details.
 
 #### Scenario: Every question answered or marked unsettled
 - **WHEN** the report is read
-- **THEN** each of the eight questions has an answer citing a test or run and a testing level, or is marked unsettled with a reason
+- **THEN** each of the eight questions has an answer citing a test or run and a testing level, or is marked unsettled, superseded or moved with a reason
 
 #### Scenario: Superseded questions kept
 - **WHEN** the report is read after the launch policy replaced the `tool_call` and `message_end` seams
-- **THEN** Q1, Q2 and Q7 are marked superseded, keep their answers, and link `executor-launch-policy` and its host tests
+- **THEN** Q1, Q2 and Q7 are marked superseded, keep their answers, and link `executor-launch-policy` in `ttdua/pi-subagents` and jev-pilot's launch policy host test
+
+#### Scenario: Q3 marked moved
+- **WHEN** the report is read after the executor moved to its own repository
+- **THEN** Q3 is marked moved, keeps its answer, names `ttdua/pi-subagents`, and cites no file under `tests/host/`
+
+#### Scenario: Service launch escalation section marked moved
+- **WHEN** the report's service launch escalation section is read
+- **THEN** it keeps its recorded observations, is marked moved, and names `ttdua/pi-subagents`
 
 ### Requirement: Documents agree with the evidence
 When an answer contradicts `docs/architecture.md`, `docs/roadmap.md`, `docs/testing.md` or another document, that document SHALL be updated in the same change, and the host seams table SHALL no longer mark as **Verify** any seam the evidence settled. The roadmap SHALL show WG-02 as done and name any later work group an answer changed.
@@ -84,44 +85,3 @@ When an answer contradicts `docs/architecture.md`, `docs/roadmap.md`, `docs/test
 #### Scenario: Roadmap reflects the group
 - **WHEN** the roadmap status table is read after the change
 - **THEN** WG-02 shows as done, and each later work group whose scope an answer changed is updated
-
-### Requirement: Launch policy host evidence
-Host tests SHALL show, through real Pi sessions against the recording fixture, that:
-- a launch policy's model and thinking reach the child's first provider request, for foreground, background and service launches, and for a fork launch (with the parent marker still present, inside a tool result where the parent had one);
-- a fork with no policy adjustment sends a first request whose system prompt and tool list equal the parent's last request;
-- a locked agent field wins over the policy;
-- a policy that exceeds its timeout lets the launch run with the requested values;
-- a granted extension tool is offered and callable in the child;
-- a `disallowed_tools` entry is absent even when granted;
-- the effective model on the worker's ledger line equals the child's first request `model`.
-
-#### Scenario: Policy model reaches the child
-- **WHEN** a probe policy sets `fixture/fixture-fast` and `medium` for a foreground launch
-- **THEN** the child's first request has that `model` and `reasoning_effort` `medium`
-
-#### Scenario: Inherited context with a policy model
-- **WHEN** a probe policy sets a model for a fork launch, and the parent conversation contains a synthetic marker
-- **THEN** the child's first request uses the policy's model and contains the marker
-
-#### Scenario: Untouched fork keeps the parent prefix
-- **WHEN** a fork launch runs with no policy adjustment on the parent's model
-- **THEN** the child's first request has the parent's last-request system prompt and tool list byte-for-byte
-
-#### Scenario: Grant reaches the child
-- **WHEN** a probe policy grants a probe extension's tool to an agent without `tools`
-- **THEN** the child's first request lists that tool and the fixture-scripted call to it executes
-
-### Requirement: Service launch escalation host evidence
-Host tests SHALL show, through real Pi sessions against the recording fixture, how a service launch's `notify_parent` and `ask_parent` reach the main session and the launching extension, with and without a pending `wait()`, in foreground and background. The child is scripted to call `notify_parent`, then `ask_parent`, then end its turn. The evidence report SHALL record the answers in a section of its own, with the test, testing level and tested versions.
-
-#### Scenario: Unwaited service launch escalates to the main session
-- **WHEN** a service launch with metadata runs the scripted child and no caller waits, in foreground and in background
-- **THEN** `subagents:update` and `subagents:asked` carry the launch's metadata, the main session receives one `subagent-update` and one `subagent-notification` message, and `getRecord(id)` reads `completed` with `pendingQuestion` and no `resumeRefusal`
-
-#### Scenario: Waited service launch escalates to the caller only
-- **WHEN** the same child runs while a probe extension's `wait(id)` is pending, in foreground and in background
-- **THEN** the main session receives no `subagent-update` and no `subagent-notification` message, the probe records `subagents:asked` with the launch's metadata, and the wait resolves with `status` `completed` and the question
-
-#### Scenario: Caller answers
-- **WHEN** the probe calls `resume(id, answer)` and, without awaiting it, `wait(id)`
-- **THEN** the child's next provider request contains the answer, the second wait resolves with the child's final text, and the main session receives no `subagent-notification` message for the resumed run

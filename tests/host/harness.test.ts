@@ -3,7 +3,12 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSyn
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
-import { startHostSession, type HostSession } from "./harness";
+import { PI_BIN, REPO_ROOT, tempDir } from "../helpers";
+import { DEFAULT_JEV_CONFIG, executorDir, startHostSession, type HostSession } from "./harness";
+import { isolatedEnv } from "./rpc";
+
+// jev_review is registered only while review is enabled.
+const REVIEW_ON = { ...DEFAULT_JEV_CONFIG, reviewEnabled: true };
 
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -26,6 +31,13 @@ async function sessionWith(
   const s = await startHostSession({ fixture, ...opts });
   sessions.push(s);
   return s;
+}
+
+function installedPackages(s: HostSession): string[] {
+  const settings = JSON.parse(readFileSync(join(s.agentDir, "settings.json"), "utf8")) as {
+    packages: string[];
+  };
+  return settings.packages.map((p) => realpathSync(join(s.agentDir, p)));
 }
 
 function groupGone(pid: number): boolean {
@@ -99,24 +111,6 @@ describe("host session harness", () => {
     });
   }, 60_000);
 
-  test("installs the vendored executor offline", async () => {
-    const fixture = await fixtureWith([
-      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
-    ]);
-    const s = await sessionWith(fixture, { install: "executor-only" });
-    await s.prompt("hi");
-    expect(fixture.requests[0]?.toolNames).toContain("subagent");
-  }, 60_000);
-
-  test("installs the checkout, which brings the executor", async () => {
-    const fixture = await fixtureWith([
-      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
-    ]);
-    const s = await sessionWith(fixture, { install: "checkout" });
-    await s.prompt("hi");
-    expect(fixture.requests[0]?.toolNames).toContain("subagent");
-  }, 60_000);
-
   test("installs the checkout by default", async () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
@@ -124,15 +118,93 @@ describe("host session harness", () => {
     const s = await sessionWith(fixture);
     const state = (await s.send({ type: "get_state" })) as { success: boolean };
     expect(state.success).toBe(true);
-    const settings = JSON.parse(readFileSync(join(s.agentDir, "settings.json"), "utf8")) as {
-      packages: string[];
-    };
-    expect(settings.packages.map((p) => realpathSync(join(s.agentDir, p)))).toEqual([
-      realpathSync(join(import.meta.dir, "..", "..")),
-    ]);
+    expect(installedPackages(s)).toEqual([executorDir(), REPO_ROOT].map((p) => realpathSync(p)));
     await s.prompt("hi");
     expect(fixture.requests[0]?.toolNames).toContain("subagent");
   }, 60_000);
+
+  test("Executor installs offline", () => {
+    const dirs = [tempDir("jev-off-agent-"), tempDir("jev-off-cwd-")];
+    try {
+      const [agentDir, cwd] = dirs as [string, string];
+      const env = isolatedEnv(agentDir, join(agentDir, "home"), { PI_OFFLINE: "1" });
+      for (const source of [executorDir(), REPO_ROOT]) {
+        const r = Bun.spawnSync([PI_BIN, "install", source], { cwd, env, timeout: 60_000 });
+        expect(r.exitCode, `${source}: ${r.stderr.toString()}`).toBe(0);
+      }
+    } finally {
+      for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  test("Executor and probe are loaded", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { probes: ["noop"], jevConfig: REVIEW_ON });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).toContain("subagent");
+    expect(fixture.requests[0]?.toolNames).toContain("jev_review");
+    expect(s.probeRecords()).toContainEqual(
+      expect.objectContaining({ probe: "noop", event: "session_start" }),
+    );
+  }, 60_000);
+
+  test("Probes only", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, {
+      install: "none",
+      probes: ["noop"],
+      jevConfig: REVIEW_ON,
+    });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).not.toContain("subagent");
+    expect(fixture.requests[0]?.toolNames).not.toContain("jev_review");
+    expect(s.probeRecords()).toContainEqual(
+      expect.objectContaining({ probe: "noop", event: "session_start" }),
+    );
+  }, 60_000);
+
+  test("jev-pilot without an executor", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { install: "jev", jevConfig: REVIEW_ON });
+    await s.prompt("hi");
+    expect(fixture.requests[0]?.toolNames).toContain("jev_review");
+    expect(fixture.requests[0]?.toolNames).not.toContain("subagent");
+  }, 60_000);
+
+  test("Harness installs the resolved package", async () => {
+    const fixture = await fixtureWith([
+      { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
+    ]);
+    const s = await sessionWith(fixture, { probes: ["tools"] });
+    await s.prompt("hi");
+    const packages = installedPackages(s);
+    expect(packages.indexOf(realpathSync(executorDir()))).toBe(0);
+    expect(packages.indexOf(realpathSync(REPO_ROOT))).toBe(1);
+    const tool = s.probeRecords().find((r) => r.probe === "tools" && r.data?.name === "subagent");
+    expect(realpathSync(String(tool?.data?.path))).toStartWith(realpathSync(executorDir()));
+  }, 60_000);
+
+  test("executorDir names bun install when the dependency is missing", () => {
+    const root = tempDir("jev-noexec-");
+    try {
+      expect(() => executorDir(root)).toThrow(/bun install/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("an install list with the executor alone is rejected", async () => {
+    const fixture = await fixtureWith([]);
+    await expect(startHostSession({ fixture, installs: [executorDir()] })).rejects.toThrow(
+      /executor/,
+    );
+  });
 
   test("install none installs nothing", async () => {
     const fixture = await fixtureWith([
@@ -182,7 +254,6 @@ describe("host session harness", () => {
       { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
     ]);
     const s = await sessionWith(fixture, {
-      executor: true,
       agents: {
         "probe-worker":
           "---\ndescription: Probe worker\ntools: read, grep\n---\nYou are a probe worker.\n",
@@ -228,7 +299,7 @@ describe("host session harness", () => {
 
   test("close kills executor descendants", async () => {
     const fixture = await fixtureWith([]);
-    const s = await sessionWith(fixture, { executor: true, probes: ["spawner"] });
+    const s = await sessionWith(fixture, { probes: ["spawner"] });
     await s.waitFor(
       () => s.probeRecords().some((r) => r.probe === "spawner" && r.event === "child"),
       "spawner child",

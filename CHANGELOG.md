@@ -4,8 +4,14 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
+Tag: v0.6.0
+
 ### Changed
 
+- **Breaking: the executor is installed separately.** Install `pi install git:github.com/ttdua/pi-subagents@v0.1.1` first, then `pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0`. This package no longer ships a vendored executor and `packages/` is gone ([ADR 0011](docs/decisions/0011-executor-as-installed-package.md)).
+- `/jev` reports the executor from the capabilities its service publishes: `executor: @ttdua/pi-subagents`, `executor: no executor; worker routing is off`, or `executor: <impl>; no launch policy, worker routing is off`, with `; no agent registry` when the registry is missing. The `duplicate executor` state is gone.
 - **Breaking:** model tiers now describe how much the model knows, and effort how hard it works ([ADR 0010](docs/decisions/0010-knowledge-tiers.md)). Renamed:
   - `tiers.fast` → `tiers.basic`, `tiers.balanced` → `tiers.broad`, `tiers.expert` → `tiers.frontier` in `config.json` (`tiers.deep` is unchanged).
   - The feature switch `expert` → `frontier`: `/jev expert on|off` → `/jev frontier on|off`, and `switches.expert` → `switches.frontier` in `state.json`.
@@ -21,7 +27,15 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 - Strategy advice: the main request no longer asks `tier`. With `strategy` on it asks `effort`, also when the effort result will not apply; that answer only feeds the gate and is not recorded. `delegate` and `parallel` need effort at least `medium`, `graph` at least `xhigh`.
 - New seed cut points from a rubric-3 replay ([evidence](docs/evidence/2026-11-20-knowledge-tier-mix.md)).
 
-**Rollback:** an older build rejects the new keys. Before rolling back, rename `tiers.basic`, `tiers.broad` and `tiers.frontier` back to `tiers.fast`, `tiers.balanced` and `tiers.expert` in `config.json`, and `switches.frontier` back to `switches.expert` in `state.json`, by hand. Ledger lines with new names are skipped by the older read.
+### Removed
+
+- The executor-only tests and `bun run test:executor`; they run in the executor repository. Q3 and service-escalation host evidence moved there too.
+
+### Migration
+
+From 0.5.x: remove the old install of this package, install the executor, then reinstall `pi-jev-pilot@v0.6.0`. Uninstalling `@gotgenes/pi-subagents` is no longer a documented step; if it is the only executor loaded, worker routing stays off.
+
+**Rollback (knowledge tiers):** an older build rejects the new keys. Before rolling back, rename `tiers.basic`, `tiers.broad` and `tiers.frontier` back to `tiers.fast`, `tiers.balanced` and `tiers.expert` in `config.json`, and `switches.frontier` back to `switches.expert` in `state.json`, by hand. Ledger lines with new names are skipped by the older read.
 
 ## [0.5.0] - 2026-11-19
 

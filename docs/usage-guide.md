@@ -18,13 +18,18 @@ The package never edits your `settings.json` or agent files, and nothing is impo
 
 ## Install
 
-This package ships its own executor (vendored from `@gotgenes/pi-subagents`), so one install is enough.
+Worker routing needs the executor, [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), which is a separate package. Install it first, then Jev.
 
 ```bash
-pi install git:github.com/ttdua/pi-jev-pilot@v0.5.0
+pi install git:github.com/ttdua/pi-subagents@v0.1.1
+pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0
 ```
 
-If you installed `@gotgenes/pi-subagents`, uninstall it first. Pi refuses to start when two extensions register the `subagent` tool, so the session fails at startup and names the conflict. `@gotgenes/pi-subagents-worktrees` keeps working. `/jev` reports `duplicate executor` only in the narrower case where this package's Jev extension runs with the original executor but without the vendored one; worker routing stays off until the original is removed.
+Without the executor, `/jev` shows `executor: no executor; worker routing is off` and everything else keeps working.
+
+Only one executor providing the `subagent` tool may be installed; Pi refuses to start with two. When switching to `@ttdua/pi-subagents`, remove the old executor first (for example `@gotgenes/pi-subagents`, or jev-pilot 0.5.x or older, which bundled one).
+
+**Upgrading from 0.5.x.** Remove the old install of this package, install the executor, then reinstall `pi-jev-pilot@v0.6.0`.
 
 ```bash
 export TYPESAFE_API_KEY="…"
@@ -58,8 +63,8 @@ Start Pi and type `/jev`. You should see the status, with the mode and no warnin
 | `Jev · config error` | `config.json` is malformed or invalid. `/jev` names the field |
 | `Jev · off` | All five decision features are switched off |
 | `Jev · premium (local)` | A directory mode is set for this directory. It overrides the global mode in every session started here |
-| `no executor` in `/jev` | Worker routing is off |
-| `duplicate executor` in `/jev` | Jev's extension runs with the original `@gotgenes/pi-subagents` but without the vendored one. Routing is off. Uninstall the original |
+| `executor: no executor; worker routing is off` in `/jev` | The executor is not installed. Install `@ttdua/pi-subagents` (see [Install](#install)) |
+| `executor: <name>; no launch policy, worker routing is off` in `/jev` | Another executor is loaded and offers no launch policy (for example the original `@gotgenes/pi-subagents`, shown as `unknown`). Install `@ttdua/pi-subagents` instead |
 
 If several apply, the first in this order wins: config error, no key, off, mode. The line is drawn only when Pi has a UI (interactive or RPC), never in print or JSON mode. `/jev status off` removes it.
 

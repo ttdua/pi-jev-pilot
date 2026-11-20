@@ -47,7 +47,6 @@ async function setup(
   const log = join(tmp, "codex.log");
   const session = await startHostSession({
     fixture,
-    self: true,
     jevConfig: { ...DEFAULT_JEV_CONFIG, reviewEnabled: true },
     timeoutMs: TIMEOUT,
     env: {
@@ -146,7 +145,6 @@ describe("cli-review through the real CLI", () => {
         ],
         "ok",
         {
-          executor: true,
           agents: {
             "free-worker": "---\ndescription: Unrestricted worker\n---\nYou are a worker.\n",
           },

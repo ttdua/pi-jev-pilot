@@ -1,30 +1,35 @@
 import type { SubagentsService } from "@ttdua/pi-subagents";
 
-/** The vendored executor's service; a service published by any other implementation is not one. */
-export type VendoredService = SubagentsService & {
-  readonly implementation: "@ttdua/pi-subagents";
+/**
+ * The raw executor service as found in the slot. Any implementation may publish it, so
+ * every member is optional and `implementation` is unchecked; readiness reads it by capability.
+ */
+export type ExecutorService = Partial<
+  Pick<SubagentsService, "registerLaunchPolicy" | "listAgentTypes">
+> & {
+  readonly implementation?: unknown;
 };
 
-const VENDORED_IMPLEMENTATION = "@ttdua/pi-subagents";
 const EXECUTOR_KEY: unique symbol = Symbol.for("@gotgenes/pi-subagents:service") as never;
 /** Process-wide slot for the captured main-session service. */
 export const MAIN_SERVICE_KEY: unique symbol = Symbol.for("pi-jev-pilot.mainService") as never;
 
 type Slots = Record<symbol, unknown>;
 
-function isVendoredService(value: unknown): value is VendoredService {
-  if (typeof value !== "object" || value === null) return false;
-  const service = value as { implementation?: unknown; listAgents?: unknown };
-  return (
-    service.implementation === VENDORED_IMPLEMENTATION && typeof service.listAgents === "function"
-  );
+function isObject(value: unknown): value is ExecutorService {
+  return typeof value === "object" && value !== null;
 }
 
-/** Copy the vendored executor's service into the package slot; store nothing for any other value. */
+/** Copy the executor's service into the package slot; store nothing for a non-object. */
 export function captureMainService(): void {
   const g = globalThis as Slots;
-  const found = g[EXECUTOR_KEY];
-  if (isVendoredService(found)) g[MAIN_SERVICE_KEY] = found;
+  let found: unknown;
+  try {
+    found = g[EXECUTOR_KEY];
+  } catch {
+    found = undefined;
+  }
+  if (isObject(found)) g[MAIN_SERVICE_KEY] = found;
   else delete g[MAIN_SERVICE_KEY];
 }
 
@@ -32,18 +37,9 @@ export function clearMainService(): void {
   delete (globalThis as Slots)[MAIN_SERVICE_KEY];
 }
 
-export function mainService(): VendoredService | undefined {
+export function mainService(): ExecutorService | undefined {
   const value = (globalThis as Slots)[MAIN_SERVICE_KEY];
-  return isVendoredService(value) ? value : undefined;
-}
-
-/** The executor's slot as it is now, whichever implementation published into it. */
-export function publishedService(): unknown {
-  try {
-    return (globalThis as Slots)[EXECUTOR_KEY];
-  } catch {
-    return undefined;
-  }
+  return isObject(value) ? value : undefined;
 }
 
 /** The slot this package copied at the last capture. */

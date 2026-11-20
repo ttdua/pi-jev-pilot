@@ -81,7 +81,6 @@ async function setup(opts: { holdProviders: string[]; thinking: string }): Promi
   jevs.push(jev);
   const s = await startHostSession({
     fixture,
-    self: true,
     env: KEY,
     timeoutMs: 60_000,
     jevConfig: { url: jev.url(ASK), timeoutMs: 5000, holdProviders: opts.holdProviders },
@@ -334,7 +333,6 @@ describe("effort hold through the real CLI", () => {
       jevs.push(jev);
       const common = {
         fixture,
-        self: true,
         env: KEY,
         timeoutMs: 60_000,
         jevConfig: { url: jev.url(ASK), timeoutMs: 5000, holdProviders: ["fixture"] },

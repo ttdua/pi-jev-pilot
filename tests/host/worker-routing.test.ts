@@ -7,6 +7,7 @@ import { readLedger } from "../../src/store/ledger.ts";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { startHostSession, type HostSession } from "./harness";
 import type { RpcEvent } from "./rpc";
+import { notifies } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const jevs: JevFixture[] = [];
@@ -168,8 +169,6 @@ async function setup(
   fixtures.push(fixture);
   const session = await startHostSession({
     fixture,
-    self: true,
-    executor: true,
     probes: opts.probes ?? [],
     keyless: opts.keyless === true,
     agents: { [AGENT]: AGENT_TEXT },
@@ -613,6 +612,48 @@ describe("worker routing through the real CLI", () => {
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
       expect(workerLines(session)[0]).toMatchObject({ reason: "miss" });
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Present after children",
+    async () => {
+      const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium" }));
+      const entries: ScriptEntry[] = [
+        { name: "child", match: isChild, reply: { text: "child done" } },
+        {
+          name: "main-two",
+          match: isMainFirst,
+          reply: { toolCalls: [subagentCall(launch()), subagentCall(launch())] },
+          times: 1,
+        },
+        {
+          name: "main-second",
+          match: (r) => r.model === "fixture-main" && lastIsUser(r, "SECOND-MAIN"),
+          reply: { toolCalls: [subagentCall(launch())] },
+          times: 1,
+        },
+        { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+      ];
+      const { fixture, session } = await setup(entries);
+      writeJev(session.agentDir, { config: config(jev) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 2, "two ledger lines");
+      await session.waitFor(() => afterTool(fixture), "main turn after the children");
+      await session.send({ type: "prompt", message: "/jev" });
+      await session.waitFor(
+        () => notifies(session).some((n) => n.message?.includes("executor:")),
+        "/jev report",
+      );
+      const report = notifies(session).find((n) => n.message?.includes("executor:"));
+      expect(report?.message).toContain("executor: @ttdua/pi-subagents");
+      // The main session still routes a launch made after both children were disposed.
+      await session.prompt("SECOND-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 3, "third ledger line");
+      const children = fixture.requests.filter(isChild);
+      expect(children.at(-1)?.model).toBe("fixture-fast");
+      expect(workerLines(session).at(-1)).toMatchObject({ tier: "basic", status: "completed" });
     },
     TIMEOUT,
   );

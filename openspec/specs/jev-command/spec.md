@@ -6,11 +6,11 @@ The `/jev` command reports the status and changes feature switches through `stat
 ## Requirements
 
 ### Requirement: Status report
-`/jev` with no argument SHALL report the status: the status line text, the effective mode (as `mode: <m>`, or `mode: <m> (this directory; global <g>)` while a directory mode is set, with `<g>` the global mode), each of the seven feature switches with `on` or `off`, the CLI review on one line `cli review: <on|off> (<cli>, <details>)` where `<details>` is `model <m>` and `effort <e>` when set, joined by `, `, or `CLI defaults` when neither is set, whether the API key is set (naming the environment variable, never its value), whether the executor is present, the duplicate executor problem when one is detected (see `readiness-checks`), every config, state, directory mode and `tuning.json` problem with its field path, one line `deprecated: config tools is ignored` under the problems when the config read reports `tools` as deprecated (this report is the only place the deprecation is shown; it MUST NOT be notified on its own), the recent worker mix when the executor is present, and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): basic <a>% / broad <b>% / deep <c>% / frontier <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. Without the executor, the report MUST say `no executor` and that worker routing is off. With a duplicate executor, the report MUST say `duplicate executor`, name the path of the other `subagent` tool's extension, say to uninstall `@gotgenes/pi-subagents`, and say that worker routing is off. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
+`/jev` with no argument SHALL report the status: the status line text, the effective mode (as `mode: <m>`, or `mode: <m> (this directory; global <g>)` while a directory mode is set, with `<g>` the global mode), each of the seven feature switches with `on` or `off`, the CLI review on one line `cli review: <on|off> (<cli>, <details>)` where `<details>` is `model <m>` and `effort <e>` when set, joined by `, `, or `CLI defaults` when neither is set, whether the API key is set (naming the environment variable, never its value), the executor line (see `readiness-checks`), every config, state, directory mode and `tuning.json` problem with its field path, one line `deprecated: config tools is ignored` under the problems when the config read reports `tools` as deprecated (this report is the only place the deprecation is shown; it MUST NOT be notified on its own), the recent worker mix when worker routing can run (the executor is present with a launch policy), and, last, the session tally. The recent worker mix SHALL be one line `mix (last <n>, <mode>): basic <a>% / broad <b>% / deep <c>% / frontier <d>% · target <f>/<b>/<d>/≤<cap>` from the cut-point window and the effective mode's target table, followed by `cut points: seed` while the window holds fewer than 100 entries. With an empty window it SHALL read `mix: no routed workers yet` and the seed line. Shares are rounded to whole percents independently, so they may not sum to 100. The executor line SHALL read `executor: no executor; worker routing is off` when the executor is absent; `executor: <implementation>` when it is present with a launch policy, where `<implementation>` is the service's `implementation` or `unknown`; and `executor: <implementation>; no launch policy, worker routing is off` when the launch policy is missing. When the agent registry is missing, the line SHALL end with `; no agent registry`. The report MUST NOT advise uninstalling any package. The tally SHALL be a `session:` line followed by lines indented by two spaces: `prompts <P>`, `workers <W>` followed by ` (<model> <n>, ...)` in first-seen order when `W` is not 0 (lines without a model appear as `unrouted <n>`), `worker tokens <T>` and `fallbacks <F>`. It MUST show no price and no tools count. The command MUST NOT call Jev or any other network service.
 
 #### Scenario: Default status
 - **WHEN** the config is valid, the key is set, the executor is installed, and `/jev` runs
-- **THEN** the report names mode `standard`, lists every feature `on` except `verbose`, contains `cli review: off (codex, CLI defaults)`, says the key in `TYPESAFE_API_KEY` is set, and reports the executor as present
+- **THEN** the report names mode `standard`, lists every feature `on` except `verbose`, contains `cli review: off (codex, CLI defaults)`, says the key in `TYPESAFE_API_KEY` is set, and contains `executor: @ttdua/pi-subagents`
 
 #### Scenario: Directory mode in the report
 - **WHEN** `state.json` sets the mode to `standard`, the directory mode is `premium`, and `/jev` runs
@@ -26,7 +26,7 @@ The `/jev` command reports the status and changes feature switches through `stat
 
 #### Scenario: No executor
 - **WHEN** the executor is not installed and `/jev` runs
-- **THEN** the report contains `no executor` and says worker routing is off
+- **THEN** the report contains `executor: no executor; worker routing is off`
 
 #### Scenario: Key name, never value
 - **WHEN** the key is set to a test value and `/jev` runs
@@ -80,10 +80,13 @@ The `/jev` command reports the status and changes feature switches through `stat
 - **WHEN** the executor is not installed and `/jev` runs
 - **THEN** the report has no `mix` line
 
-
 #### Scenario: Duplicate executor reported
-- **WHEN** jev-pilot's extension runs with `@gotgenes/pi-subagents` and without the vendored executor, and `/jev` runs
-- **THEN** the report contains `duplicate executor`, the other extension's path, the advice to uninstall `@gotgenes/pi-subagents`, and says worker routing is off
+- **WHEN** jev-pilot runs with an executor whose service, like that of `@gotgenes/pi-subagents` 25.0.5, has no `implementation`, no `registerLaunchPolicy` and no `listAgentTypes`, and `/jev` runs
+- **THEN** the report contains `executor: unknown; no launch policy, worker routing is off; no agent registry`, has no `mix` line, and does not contain `uninstall`
+
+#### Scenario: Executor without an agent registry reported
+- **WHEN** the executor's service has `registerLaunchPolicy` and no `listAgentTypes`, and `/jev` runs
+- **THEN** the executor line ends with `; no agent registry`
 
 ### Requirement: All features
 `/jev all on|off` SHALL set the five decision features (`effort`, `subagents`, `skills`, `strategy`, `frontier`) in one state update, and MUST leave `status`, `verbose` and the CLI review on/off setting unchanged.

@@ -9,7 +9,11 @@ import {
   loadSnapshot,
 } from "../../../src/host/platform/readiness.ts";
 import { MAIN_CWD_KEY, setMainCwd } from "../../../src/host/platform/main-cwd.ts";
-import { captureMainService, clearMainService } from "../../../src/host/platform/index.ts";
+import {
+  capturedService,
+  captureMainService,
+  clearMainService,
+} from "../../../src/host/platform/index.ts";
 import { writeLocalMode } from "../../../src/store/local-mode.ts";
 import type { Config, ConfigRead } from "../../../src/store/config.ts";
 import type { StateRead } from "../../../src/store/state-file.ts";
@@ -99,6 +103,8 @@ describe("buildSnapshot", () => {
   test("executor", () => {
     expect(snap({ toolNames: ["read", "subagent"] }).executor).toEqual({
       kind: "present",
+      launchPolicy: true,
+      agentRegistry: true,
     });
     expect(snap({ toolNames: ["read"] }).executor).toEqual({ kind: "absent" });
   });
@@ -211,7 +217,7 @@ describe("loadSnapshot", () => {
     const pi = { getAllTools: () => [{ name: "subagent" }] } as never;
     const s = loadSnapshot(pi);
     expect(s.settings.mode).toBe("budget");
-    expect(s.executor).toEqual({ kind: "absent" });
+    expect(s.executor).toEqual({ kind: "present", launchPolicy: false, agentRegistry: false });
     expect(s.tuning.kind).toBe("ok");
     expect(s.settings.classifier.timeoutMs).toBe(1700);
   });
@@ -257,92 +263,122 @@ describe("loadSnapshot", () => {
 });
 
 describe("executorState", () => {
-  const VENDORED = {
-    implementation: "@ttdua/pi-subagents",
-    listAgents: () => [],
-    registerLaunchPolicy: () => () => {},
-  };
-  const tool = (path: string) => [{ name: "subagent", sourceInfo: { path } }] as never;
-  const inside = "/repo/packages/pi-subagents/src/index.ts";
+  const tools = [{ name: "subagent" }] as never;
+  const none = [{ name: "read" }] as never;
+  const both = { registerLaunchPolicy() {}, listAgentTypes() {} };
 
-  test("installed executor with a usable captured service is present", () => {
-    expect(executorState(tool(inside), VENDORED, VENDORED)).toEqual({ kind: "present" });
-  });
-
-  test("no captured service is absent", () => {
-    expect(executorState(tool(inside), undefined, undefined)).toEqual({ kind: "absent" });
-  });
-
-  test("a captured service from another implementation is absent", () => {
-    const other = { ...VENDORED, implementation: "@gotgenes/pi-subagents" };
-    expect(executorState(tool(inside), undefined, other)).toEqual({ kind: "absent" });
-  });
-
-  test("a captured service without registerLaunchPolicy is absent", () => {
-    const { registerLaunchPolicy: _drop, ...bare } = VENDORED;
-    expect(executorState(tool(inside), VENDORED, bare)).toEqual({ kind: "absent" });
-  });
-
-  test("no subagent tool is absent", () => {
-    expect(
-      executorState(
-        [{ name: "read", sourceInfo: { path: inside } }] as never,
-        undefined,
-        undefined,
-      ),
-    ).toEqual({ kind: "absent" });
-  });
-
-  test("a winning tool outside the vendored executor is a duplicate with its path", () => {
-    const path = "/x/node_modules/@gotgenes/pi-subagents/src/index.ts";
-    expect(executorState(tool(path), VENDORED, VENDORED)).toEqual({ kind: "duplicate", path });
-    expect(executorState(tool(path), undefined, undefined)).toEqual({ kind: "duplicate", path });
-  });
-
-  test("a Windows-separator path inside the vendored directory is not a duplicate", () => {
-    expect(
-      executorState(tool("C:\\r\\packages\\pi-subagents\\src\\index.ts"), VENDORED, VENDORED),
-    ).toEqual({ kind: "present" });
-  });
-
-  test("a published service from another implementation is a duplicate", () => {
-    expect(executorState(tool(inside), { listAgents: () => [] }, VENDORED)).toEqual({
-      kind: "duplicate",
-      path: inside,
+  test("Executor installed", () => {
+    const service = { implementation: "@ttdua/pi-subagents", ...both };
+    expect(executorState(tools, service)).toEqual({
+      kind: "present",
+      implementation: "@ttdua/pi-subagents",
+      launchPolicy: true,
+      agentRegistry: true,
     });
+  });
+
+  test("service without the tool is present with its capabilities", () => {
+    expect(executorState(none, both)).toEqual({
+      kind: "present",
+      launchPolicy: true,
+      agentRegistry: true,
+    });
+  });
+
+  test("a non-object service gives no capabilities", () => {
+    const fn = Object.assign(() => {}, both);
+    expect(executorState(tools, fn)).toEqual({
+      kind: "present",
+      launchPolicy: false,
+      agentRegistry: false,
+    });
+    expect(executorState(none, fn)).toEqual({ kind: "absent" });
+  });
+
+  test("Executor absent", () => {
+    expect(executorState(none, undefined)).toEqual({ kind: "absent" });
+  });
+
+  test("Original loaded first / last: a service of another shape", () => {
+    expect(executorState(tools, { listAgents() {} })).toEqual({
+      kind: "present",
+      launchPolicy: false,
+      agentRegistry: false,
+    });
+  });
+
+  test("Another compatible executor", () => {
+    expect(executorState(tools, { implementation: "example-executor", ...both })).toEqual({
+      kind: "present",
+      implementation: "example-executor",
+      launchPolicy: true,
+      agentRegistry: true,
+    });
+  });
+
+  test("Tool without a service", () => {
+    expect(executorState(tools, undefined)).toEqual({
+      kind: "present",
+      launchPolicy: false,
+      agentRegistry: false,
+    });
+  });
+
+  test("a null slot with the tool is present without capabilities", () => {
+    expect(executorState(tools, null)).toEqual({
+      kind: "present",
+      launchPolicy: false,
+      agentRegistry: false,
+    });
+  });
+
+  test("a throwing getter makes only that fact false", () => {
+    const service = {
+      listAgentTypes() {},
+      get registerLaunchPolicy(): never {
+        throw new Error("boom");
+      },
+    };
+    expect(executorState(tools, service)).toEqual({
+      kind: "present",
+      launchPolicy: false,
+      agentRegistry: true,
+    });
+  });
+
+  test("Present after children: the same facts after capturing twice", () => {
+    const g = globalThis as Record<symbol, unknown>;
+    const EXECUTOR = Symbol.for("@gotgenes/pi-subagents:service");
+    g[EXECUTOR] = both;
+    try {
+      captureMainService();
+      const first = executorState(tools, capturedService());
+      captureMainService();
+      expect(executorState(tools, capturedService())).toEqual(first);
+    } finally {
+      delete g[EXECUTOR];
+      clearMainService();
+    }
   });
 });
 
-describe("loadSnapshot reads the executor slot at check time", () => {
+describe("loadSnapshot captures at reload", () => {
   const EXECUTOR = Symbol.for("@gotgenes/pi-subagents:service");
   const g = globalThis as Record<symbol, unknown>;
-  const vendored = {
-    implementation: "@ttdua/pi-subagents",
-    listAgents: () => [],
-    registerLaunchPolicy: () => () => {},
-  };
-  const inside = "/repo/packages/pi-subagents/src/index.ts";
-  const pi = { getAllTools: () => [{ name: "subagent", sourceInfo: { path: inside } }] } as never;
+  const pi = { getAllTools: () => [{ name: "subagent" }] } as never;
 
   afterEach(() => {
     delete g[EXECUTOR];
     clearMainService();
   });
 
-  test("a slot replaced after capture turns present into duplicate", () => {
-    g[EXECUTOR] = vendored;
-    captureMainService();
-    expect(loadSnapshot(pi).executor).toEqual({ kind: "present" });
-    g[EXECUTOR] = { listAgents: () => [] };
-    expect(loadSnapshot(pi).executor).toEqual({ kind: "duplicate", path: inside });
-  });
-
-  test("after a reload the new slot value decides, not the old capture", () => {
+  test("after a reload the new capture decides", () => {
     g[EXECUTOR] = { listAgents: () => [] };
     captureMainService();
-    g[EXECUTOR] = vendored;
-    expect(loadSnapshot(pi).executor).toEqual({ kind: "absent" });
+    expect(loadSnapshot(pi).executor).toMatchObject({ launchPolicy: false });
+    g[EXECUTOR] = { registerLaunchPolicy() {}, listAgentTypes() {} };
+    expect(loadSnapshot(pi).executor).toMatchObject({ launchPolicy: false });
     captureMainService();
-    expect(loadSnapshot(pi).executor).toEqual({ kind: "present" });
+    expect(loadSnapshot(pi).executor).toMatchObject({ launchPolicy: true, agentRegistry: true });
   });
 });

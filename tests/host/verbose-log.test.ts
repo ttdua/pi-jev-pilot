@@ -100,7 +100,6 @@ async function setup(opts: { verbose: boolean; jev: FixtureRoute }): Promise<{
   jevs.push(jev);
   const s = await startHostSession({
     fixture,
-    self: true,
     env: KEY,
     timeoutMs: 60_000,
     jevConfig: { url: jev.url(ASK), timeoutMs: 5000 },

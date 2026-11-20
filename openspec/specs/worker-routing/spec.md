@@ -6,7 +6,7 @@ When and how a main session's `subagent` launches are classified and rewritten, 
 ## Requirements
 
 ### Requirement: When routing runs
-Worker routing SHALL act only inside its launch policy, for launches started from a main session. It MUST do nothing, and call Jev for nothing, when `config.json` is invalid, the API key is unset, the executor is absent or duplicated (see `readiness-checks`), or the `subagents` switch is off. These conditions SHALL be read fresh at each policy call. Doing nothing MUST mean returning no adjustment. The launch policy MUST NOT ask Jev about tools and MUST NOT return `addTools` or `removeTools`, so a worker gets exactly the tool set the executor resolves without a policy.
+Worker routing SHALL act only inside its launch policy, for launches started from a main session. It MUST do nothing, and call Jev for nothing, when `config.json` is invalid, the API key is unset, the executor is absent or offers no launch policy (see `readiness-checks`), or the `subagents` switch is off. These conditions SHALL be read fresh at each policy call. Doing nothing MUST mean returning no adjustment. The launch policy MUST NOT ask Jev about tools and MUST NOT return `addTools` or `removeTools`, so a worker gets exactly the tool set the executor resolves without a policy.
 
 #### Scenario: Switch off
 - **WHEN** the `subagents` switch is off and the main model launches a worker
@@ -23,6 +23,10 @@ Worker routing SHALL act only inside its launch policy, for launches started fro
 #### Scenario: Executor absent
 - **WHEN** the executor is not installed
 - **THEN** no launch policy is registered and no worker request is sent
+
+#### Scenario: Executor without a launch policy
+- **WHEN** the installed executor's service has no `registerLaunchPolicy`
+- **THEN** no launch policy is registered, no worker request is sent, and every other feature keeps working
 
 #### Scenario: Child session
 - **WHEN** a child session's assistant message calls `subagent`
@@ -162,7 +166,7 @@ When the decided target cannot run, routing SHALL warn through the UI, naming th
 - **THEN** the warning is shown again
 
 ### Requirement: Routing fails open
-Any Jev failure (timeout, error, unreadable answers) SHALL return no model and no thinking. A launch cancelled while its policy call runs MUST record nothing. An error inside routing itself MUST be caught, return no model and no thinking, and never block or fail the launch. If the policy call outlives its `timeoutMs`, the executor launches with the requested values (see `executor-launch-policy`).
+Any Jev failure (timeout, error, unreadable answers) SHALL return no model and no thinking. A launch cancelled while its policy call runs MUST record nothing. An error inside routing itself MUST be caught, return no model and no thinking, and never block or fail the launch. If the policy call outlives its `timeoutMs`, the executor launches with the requested values (specified by the executor, `ttdua/pi-subagents` `executor-launch-policy`).
 
 #### Scenario: Jev timeout
 - **WHEN** Jev does not answer within `classifier.timeoutMs`
@@ -261,10 +265,10 @@ Routing SHALL compute each launch's cut points once, from the window as it is wh
 - **THEN** that launch's cut points include the added line
 
 ### Requirement: Routing is the executor's launch policy
-In a main session, the extension SHALL register its launch policy with the executor service captured at `session_start` (see `executor-launch-policy`), with a watchdog `timeoutMs` of 10000 ms. Each policy call SHALL read `classifier.timeoutMs` fresh and bound its Jev requests by that value, so a tuned or edited timeout applies to the next launch; the watchdog only guards against a policy that hangs. It SHALL unregister it at `session_shutdown` and before registering again. A child session MUST NOT register a policy.
+In a main session, the extension SHALL register its launch policy with the executor service captured at `session_start` when it offers `registerLaunchPolicy` (see `readiness-checks`; the contract is `ttdua/pi-subagents` `executor-launch-policy`), with a watchdog `timeoutMs` of 10000 ms. Each policy call SHALL read `classifier.timeoutMs` fresh and bound its Jev requests by that value, so a tuned or edited timeout applies to the next launch; the watchdog only guards against a policy that hangs. It SHALL unregister it at `session_shutdown` and before registering again. A child session MUST NOT register a policy.
 
 #### Scenario: Registered at session start
-- **WHEN** a main session starts with the executor present
+- **WHEN** a main session starts with the executor present and offering a launch policy
 - **THEN** the executor has exactly one launch policy registered, and it is this extension's
 
 #### Scenario: Re-registered after reload

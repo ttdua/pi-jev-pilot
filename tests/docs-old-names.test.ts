@@ -1,28 +1,17 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { REPO_ROOT } from "./helpers";
 
 const OLD_NAMES = /\btwin\b|prompt_mode|inherit_context|inheritContext|forkedLaunch/i;
 
 // Exactly the spec's exemptions: dated evidence, archived changes, ADRs, changelog, plans, retros, architecture history.
-const EXEMPT = [
-  /^docs\/evidence\//,
-  /^openspec\/changes\/archive\//,
-  /^(packages\/pi-subagents\/)?docs\/decisions\//,
-  /^packages\/pi-subagents\/CHANGELOG\.md$/,
-  /^packages\/pi-subagents\/docs\/plans\//,
-  /^packages\/pi-subagents\/docs\/retro\//,
-  /^packages\/pi-subagents\/docs\/architecture\/history\//,
-  /node_modules/,
-];
+const EXEMPT = [/^docs\/evidence\//, /^docs\/decisions\//, /node_modules/];
 
 function docFiles(): string[] {
   const out: string[] = [];
-  for (const pattern of ["docs/**/*.md", "packages/pi-subagents/**/*.md"]) {
-    for (const file of new Bun.Glob(pattern).scanSync({ cwd: REPO_ROOT })) {
-      if (!EXEMPT.some((re) => re.test(file))) out.push(file);
-    }
+  for (const file of new Bun.Glob("docs/**/*.md").scanSync({ cwd: REPO_ROOT })) {
+    if (!EXEMPT.some((re) => re.test(file))) out.push(file);
   }
   return out.sort();
 }
@@ -55,13 +44,4 @@ test("Old names gone from current docs", () => {
     }
   }
   expect(hits).toEqual([]);
-});
-
-test("Decision record present", () => {
-  const dir = join(REPO_ROOT, "packages/pi-subagents/docs/decisions");
-  const adr14 = join(dir, "0014-subagent-context-is-fresh-or-fork.md");
-  expect(existsSync(adr14)).toBe(true);
-  const adr8 = readFileSync(join(dir, "0008-inherited-region-is-shared-parts.md"), "utf8");
-  expect(adr8).toMatch(/^status:.*superseded by 0014/m);
-  expect(adr8.split("## Status")[1]).toContain("ADR 0014");
 });

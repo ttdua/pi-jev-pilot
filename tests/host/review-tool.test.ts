@@ -35,7 +35,7 @@ const snap = (review: Review, extra: Record<string, unknown> = {}) =>
     settings: { review },
     keyVar: "X",
     keySet: false,
-    executor: false,
+    executor: { kind: "absent" },
     ...extra,
   }) as unknown as Snapshot;
 

@@ -6,7 +6,7 @@ const SERVICE_KEY = Symbol.for("@gotgenes/pi-subagents:service");
 
 /**
  * Writes the active tools (name and description) of this session to JEV_TOOLS_OUT, then the
- * executor's agents as facts to JEV_AGENTS_OUT (empty without the vendored executor).
+ * executor's agents as facts to JEV_AGENTS_OUT (empty without the installed executor).
  */
 export default function (pi: ExtensionAPI): void {
   pi.on("session_start", async () => {

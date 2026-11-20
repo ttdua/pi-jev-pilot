@@ -2,7 +2,7 @@
 
 ## Overview
 
-pi-jev-pilot is one Pi package with two extensions: the [vendored executor](decisions/0009-vendored-executor.md) in `packages/pi-subagents/`, loaded first, and the Jev extension in `src/`. The Jev extension watches a few host events, asks Jev typed questions, turns the answers into decisions with deterministic rules, and applies them through public Pi APIs.
+pi-jev-pilot is one Pi package with one extension, in `src/`. The executor, [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), is a separate package installed beside it ([ADR 0011](decisions/0011-executor-as-installed-package.md)); Jev detects what it offers at run time. The Jev extension watches a few host events, asks Jev typed questions, turns the answers into decisions with deterministic rules, and applies them through public Pi APIs.
 
 Jev never controls anything directly. **Code owns the control flow; Jev only answers questions.**
 
@@ -19,7 +19,7 @@ flowchart LR
         S["Stores"]
     end
     J[("TypeSafe API<br/>Jev")]
-    X["Vendored executor<br/>(packages/pi-subagents)"]
+    X["Executor<br/>(@ttdua/pi-subagents, separate package)"]
     CLI["codex / opencode CLI"]
 
     E --> H
@@ -117,7 +117,7 @@ src/
       migrate.ts            Main session_start rename of deprecated tier keys in config.json and switches.expert in state.json
       models.ts             Model id helpers shared by worker routing and slot commands
       readiness.ts          Key and executor checks; snapshot of config and state
-      service.ts            Captures the executor service at main session_start; accepts only the vendored one
+      service.ts            Captures the executor service at main session_start; accepts any object service; routing needs `registerLaunchPolicy`, the agent list needs `listAgentTypes`
       stores.ts             Directory holding the package's files
     status/
       index.ts              Entry point for other folders
@@ -178,12 +178,6 @@ src/
     tuning-file.ts          tuning.json: changes, history
     validate.ts             Small validators that collect issues with field paths
 
-packages/
-  pi-subagents/             Vendored executor (private `@ttdua/pi-subagents`). Own toolchain and tests.
-    VENDORED.md             Upstream tag and commit, and every local change
-    src/seams/              The seams, in new files: launch identity, registry, launch policy, grants, launch metadata, child-session lookup, per-launch resources (skills, extension exclusion, cwd, context files), structured child results (`resultSchema`, `submit_result`)
-                            (existing upstream files only get thin call sites)
-
 scripts/
   replay/                   Offline measurement. Output stays outside the repository.
     cli.ts                  Entry point: dry run by default, --send to call Jev
@@ -229,13 +223,13 @@ flowchart TD
 - `store/` knows files and schemas, nothing about decisions.
 - Only `host/` imports `@earendil-works/pi-coding-agent` or reads executor events.
 - `src/` may `import type` from `@ttdua/pi-subagents`, never at runtime: the two extensions are separate module instances, and the service is reached through the global slot.
-- jev-pilot's import-graph test, lint and `tsc` skip `packages/`; the executor runs its own suite (`bun run test:executor`).
+- The executor lives in its own repository and runs its own suite; this repository pins it as a dev dependency for types and host tests.
 
 
 
 ## Host seams
 
-Each row is a contract the package relies on: a public Pi API, or a seam of the vendored executor ([ADR 0009](decisions/0009-vendored-executor.md)). Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md). Q1, Q2 and Q7 of that report are superseded: their seams are gone and the launch policy replaces them.
+Each row is a contract the package relies on: a public Pi API, or a seam of the executor ([ADR 0011](decisions/0011-executor-as-installed-package.md)). Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md). Q1, Q2 and Q7 of that report are superseded: their seams are gone and the launch policy replaces them.
 
 | Purpose | Seam | Status |
 |---|---|---|
@@ -258,7 +252,7 @@ Each row is a contract the package relies on: a public Pi API, or a seam of the 
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
 | CLI review | `pi.registerTool`, `pi.exec` | Verified by host test `tests/host/cli-review.test.ts` (fake `codex` and `opencode` on `PATH`) |
-| Reach the executor | Service on `globalThis`, published when the executor loads and captured at main `session_start`; only a service whose `implementation` is `@ttdua/pi-subagents` counts | `tests/host/platform/service.test.ts` |
+| Reach the executor | Service on `globalThis`, published when the executor loads and captured at main `session_start`; any object service is kept; worker routing needs `registerLaunchPolicy` and the agent list needs `listAgentTypes` | `tests/host/platform/service.test.ts` |
 | Hide the review tool in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` (the Q3 seam) | Verified by the same host test: absent in a child's request |
 
 ## Runtime contexts
@@ -276,7 +270,7 @@ A child session binds the parent's extension set and runs in the same process, s
 
 **Policy registration.** The main-session instance captures the executor service at `session_start`, registers the launch policy and unregisters it at `session_shutdown`. Workers still running at a reload or session switch get no ledger line.
 
-**Executor states.** `/jev` reports one of three. `present`: the vendored service is captured. `absent`: no `subagent` provider, so worker routing is off with a note. `duplicate executor`: jev-pilot's extension runs with the original `@gotgenes/pi-subagents` but without the vendored executor. Pi refuses to start when two extensions register `subagent`, so installing this package next to the original fails at startup; uninstall the original first. A provider that loses both load races cannot be detected.
+**Executor capability.** `/jev` reports the executor from facts the service publishes, not from an install check. `executor: @ttdua/pi-subagents` means the service carries a launch policy and worker routing is on. `executor: no executor; worker routing is off` means no `subagent` provider. `executor: <impl>; no launch policy, worker routing is off` means another executor is loaded (`<impl>` is `unknown` when it names none, as the original `@gotgenes/pi-subagents` does); `; no agent registry` is appended when the registry query is missing. A provider that loses a load race cannot be detected.
 
 ## Display surfaces
 
@@ -308,7 +302,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Nothing can run | Input unchanged | Warning |
 | Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
 | Launch policy throws, is slow or returns nonsense | Launch proceeds unchanged (the executor falls open after 10 s) | Debug note in the executor |
-| Original executor present without the vendored one | Worker routing off | `duplicate executor` in `/jev` |
+| Executor missing, or without a launch policy | Worker routing off | `executor:` line in `/jev` |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
 | CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |
 | Ledger write fails | Decision still applied | Verbose log |

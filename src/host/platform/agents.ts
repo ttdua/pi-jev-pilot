@@ -1,6 +1,7 @@
-import type { AgentTypeSnapshot, SubagentsService } from "@ttdua/pi-subagents";
+import type { AgentTypeSnapshot } from "@ttdua/pi-subagents";
 import type { AgentFacts } from "../../policy/launch.ts";
 import { cutCodePoints } from "../../shared/text.ts";
+import type { ExecutorService } from "./service.ts";
 
 const EXCERPT_MAX = 500;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -36,11 +37,9 @@ export function agentFacts(snapshot: AgentTypeSnapshot): AgentFacts {
 }
 
 /** The executor's agents as facts; empty without the executor or when its registry throws. */
-export function executorAgents(
-  service: Pick<SubagentsService, "listAgentTypes"> | undefined,
-): AgentFacts[] {
-  if (service === undefined) return [];
+export function executorAgents(service: ExecutorService | undefined): AgentFacts[] {
   try {
+    if (typeof service?.listAgentTypes !== "function") return [];
     return service.listAgentTypes().map(agentFacts);
   } catch {
     return [];

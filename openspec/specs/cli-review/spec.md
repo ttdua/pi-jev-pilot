@@ -29,7 +29,7 @@ The extension SHALL register one tool named `jev_review` with a required `brief`
 - **THEN** `codex` runs
 
 ### Requirement: Review tool in the main session only
-In a fresh child session, `jev_review` MUST be removed from the session's selected tools before the child's first provider request, whatever the CLI review setting. In a fork (see `subagent-context-mode`), `jev_review` SHALL stay declared when the parent declares it, so the fork's tool list stays the parent's, and every call to it MUST be refused. If it is called in any child session anyway, it MUST return an error result without running any process.
+In a fresh child session, `jev_review` MUST be removed from the session's selected tools before the child's first provider request, whatever the CLI review setting. In a fork (a child that clones the parent's conversation, as `ttdua/pi-subagents` `subagent-context-mode` defines it), `jev_review` SHALL stay declared when the parent declares it, so the fork's tool list stays the parent's, and every call to it MUST be refused. If it is called in any child session anyway, it MUST return an error result without running any process.
 
 #### Scenario: Offered in the main session
 - **WHEN** the CLI review is on, the package is loaded in a main session, and the first provider request is sent

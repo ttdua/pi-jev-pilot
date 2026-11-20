@@ -43,15 +43,23 @@ The fixture SHALL answer each request from a test-supplied script whose entries 
 - **THEN** the fixture returns an error response and the test can read that request in the unmatched list
 
 ### Requirement: Extensions under test are installed by a real install
-The harness SHALL install this repository's checkout, which brings the vendored executor (see `executor-vendoring`), and each probe extension a test names into the isolated agent directory with `pi install`, and SHALL write the agent definition files a test supplies into that directory before the session starts. The install MUST succeed with `PI_OFFLINE=1` and no network beyond loopback, from the checkout or from a tarball packed from it. A test that needs the executor without jev-pilot SHALL install a fixture package whose manifest lists only `packages/pi-subagents/src/index.ts`.
+The harness SHALL install, with `pi install`, into the isolated agent directory: the pinned executor (see "Executor comes from the pinned dev dependency") unless the test asks for no executor, then this repository's checkout, then each probe extension a test names, in that order; and SHALL write the agent definition files a test supplies into that directory before the session starts. Every install MUST succeed with `PI_OFFLINE=1` and no network beyond loopback. The harness MUST NOT offer an install that loads the executor without jev-pilot's extension. A test MAY ask for no package at all, for probes that check Pi itself.
 
 #### Scenario: Executor installs offline
-- **WHEN** the harness installs the checkout with `PI_OFFLINE=1`
-- **THEN** the install exits with code 0
+- **WHEN** the harness installs the pinned executor and the checkout with `PI_OFFLINE=1`
+- **THEN** both installs exit with code 0
 
 #### Scenario: Executor and probe are loaded
 - **WHEN** a host test asks for the executor and one probe
-- **THEN** the session's tools include `subagent` and the probe's handlers run during the session
+- **THEN** the session's tools include `subagent` and `jev_review`, and the probe's handlers run during the session
+
+#### Scenario: Probes only
+- **WHEN** a host test asks for no package and one probe
+- **THEN** the session's tools include neither `subagent` nor `jev_review`, and the probe's handlers run
+
+#### Scenario: jev-pilot without an executor
+- **WHEN** a host test asks for no executor
+- **THEN** the session's tools include `jev_review` and no `subagent`
 
 ### Requirement: Probe report channel
 The harness SHALL give each session a report file path through an environment variable, and probe extensions SHALL append one JSON object per line to it. Probe reports MUST contain only identifiers, event names, counters and timestamps, never prompt text, tool arguments or tool output.
@@ -60,8 +68,16 @@ The harness SHALL give each session a report file path through an environment va
 - **WHEN** a probe appends records during a session
 - **THEN** the test reads them, in write order, after the run settles
 
-### Requirement: Executor comes from the vendored package
-The executor SHALL come only from `packages/pi-subagents/`. The root `package.json` MUST NOT list `@gotgenes/pi-subagents` in any dependency field, and the package MUST still have no runtime `dependencies`.
+### Requirement: Executor comes from the pinned dev dependency
+The executor for type checks and host tests SHALL come only from the dev dependency `@ttdua/pi-subagents`, pinned in `devDependencies` to an exact release tag of `github:ttdua/pi-subagents` and locked in `bun.lock`. The harness SHALL install it from its directory under `node_modules`. `tsconfig.json` MUST NOT map `@ttdua/pi-subagents` to a path, and `@gotgenes/pi-subagents` MUST NOT appear in any dependency field.
+
+#### Scenario: Pinned to a release tag
+- **WHEN** `package.json` is read
+- **THEN** `devDependencies["@ttdua/pi-subagents"]` matches `github:ttdua/pi-subagents#v<major>.<minor>.<patch>`
+
+#### Scenario: Harness installs the resolved package
+- **WHEN** a host test asks for the executor
+- **THEN** the harness runs `pi install` on the directory of `@ttdua/pi-subagents` under `node_modules`, and the session's `subagent` tool comes from it
 
 #### Scenario: No published executor dependency
 - **WHEN** `package.json` is read

@@ -8,7 +8,7 @@ context: |
   strategy advice. Code owns the control flow; Jev only answers.
 
   Stack: TypeScript run by Pi, Bun for tooling and tests, official Pi
-  (@earendil-works/pi-coding-agent), @gotgenes/pi-subagents as executor,
+  (@earendil-works/pi-coding-agent), @ttdua/pi-subagents as executor, installed separately,
   TypeSafe as the only classifier backend.
 
   Specification lives in docs/; decisions in docs/decisions/. Use the
