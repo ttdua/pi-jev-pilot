@@ -1,95 +1,16 @@
 # state-file Specification
 
 ## Purpose
-`state.json` holds the switches, mode and CLI review default set through `/jev`, written atomically, falling back to defaults when missing or malformed and never discarding a file that cannot be read.
+`state.json` holds the switches and mode set through `/jev`, written atomically, falling back to defaults when missing or malformed and never discarding a file that cannot be read.
 
 ## Requirements
-
-### Requirement: State file content
-`state.json` SHALL hold `version` `1` and the optional fields `switches` (feature name to boolean), `mode` (`budget`, `standard` or `premium`), `cliReviewEnabled` (a boolean: whether the CLI review is on) and `cliReview` (required `cli` of `codex` or `opencode`; optional `model` of 1–128 characters from letters, digits, `.`, `_`, `-`, `:`, `/`, not starting with `-`, `:` or `/`; optional `effort` of 1–64 characters from letters, digits, `.`, `_`, `-`; neither of them the word `default`, which the `/jev cli-review` command expresses by omitting the field). The features are those in `docs/usage-guide.md`. A field MUST be present only when the operator set it. A boolean `switches.review` or `switches.tools`, left by an older version, MUST be accepted on read and dropped from the returned state (with `switches` itself dropped when nothing else is left in it), so it is gone after the next write. A non-boolean `switches.review` or `switches.tools` is malformed. A boolean `switches.expert`, the former name of `switches.frontier`, MUST be accepted on read and returned as `switches.frontier` when `switches.frontier` is absent, and dropped when it is present, so it is gone after the next write. A non-boolean `switches.expert` is malformed.
-
-#### Scenario: Valid state read
-- **WHEN** `state.json` holds `{"version":1,"switches":{"skills":false},"mode":"budget","cliReview":{"cli":"codex","model":"luna","effort":"high"}}`
-- **THEN** the read returns those values
-
-#### Scenario: OpenCode model id accepted
-- **WHEN** `cliReview` is `{"cli":"opencode","model":"ollama-cloud/gpt-oss:120b"}`
-- **THEN** the read returns that model
-
-#### Scenario: Model that looks like a flag
-- **WHEN** `cliReview.model` is `"-m"`
-- **THEN** the read is malformed with a problem at `cliReview.model`
-
-#### Scenario: Every documented feature accepted
-- **WHEN** `state.json` sets each of `effort`, `subagents`, `skills`, `strategy`, `frontier`, `status`, `verbose` to `false`
-- **THEN** the read returns all seven switches off
-
-#### Scenario: Legacy review switch accepted and dropped
-- **WHEN** `state.json` holds `{"version":1,"mode":"budget","switches":{"review":false,"skills":false}}`
-- **THEN** the read is ok and returns mode `budget` and `switches` `{"skills":false}`, with no `review`
-
-#### Scenario: Legacy review switch alone
-- **WHEN** `state.json` holds `{"version":1,"switches":{"review":true}}`
-- **THEN** the read is ok and returns a state with no `switches`
-
-#### Scenario: Legacy review switch gone after a write
-- **WHEN** `state.json` holds `switches.review` `false` and an update sets `mode` to `premium`
-- **THEN** the written file has `mode` `premium` and no `switches.review`
-
-#### Scenario: Non-boolean legacy review switch
-- **WHEN** `switches.review` is `"off"`
-- **THEN** the read is malformed with a problem at `switches.review`
-
-#### Scenario: Legacy tools switch accepted and dropped
-- **WHEN** `state.json` holds `{"version":1,"switches":{"tools":false,"skills":false}}`
-- **THEN** the read is ok and returns `switches` `{"skills":false}`, with no `tools`
-
-#### Scenario: Legacy tools switch gone after a write
-- **WHEN** `state.json` holds `switches.tools` `true` and an update sets `mode` to `premium`
-- **THEN** the written file has `mode` `premium` and no `switches.tools`
-
-#### Scenario: Non-boolean legacy tools switch
-- **WHEN** `switches.tools` is `"on"`
-- **THEN** the read is malformed with a problem at `switches.tools`
-
-#### Scenario: Literal default rejected
-- **WHEN** `cliReview.model` is `"default"`
-- **THEN** the read is malformed with a problem at `cliReview.model`
-
-#### Scenario: CLI review switch read
-- **WHEN** `state.json` holds `{"version":1,"cliReviewEnabled":true}`
-- **THEN** the read returns `cliReviewEnabled` `true` and no `cliReview`
-
-#### Scenario: Non-boolean CLI review switch
-- **WHEN** `cliReviewEnabled` is `"yes"`
-- **THEN** the read is malformed with a problem at `cliReviewEnabled`
-
-#### Scenario: Legacy expert switch moved
-- **WHEN** `state.json` holds `{"version":1,"switches":{"expert":false}}`
-- **THEN** the read is ok and returns `switches` `{"frontier":false}`, with no `expert`
-
-#### Scenario: Frontier wins over the legacy switch
-- **WHEN** `state.json` holds `switches.expert` `false` and `switches.frontier` `true`
-- **THEN** the read returns `switches.frontier` `true` and no `expert`
-
-#### Scenario: Legacy expert switch gone after a write
-- **WHEN** `state.json` holds `switches.expert` `false` and an update sets `mode` to `premium`
-- **THEN** the written file has `switches.frontier` `false`, `mode` `premium` and no `switches.expert`
-
-#### Scenario: Non-boolean legacy expert switch
-- **WHEN** `switches.expert` is `"off"`
-- **THEN** the read is malformed with a problem at `switches.expert`
-
-#### Scenario: Unknown feature
-- **WHEN** `state.json` has `switches.colors`
-- **THEN** the read is malformed with a problem at `switches.colors`
 
 ### Requirement: Missing state means defaults
 A missing `state.json` SHALL read as missing, with no fields set, and MUST NOT be reported as a problem.
 
 #### Scenario: No file
 - **WHEN** the jev directory has no `state.json`
-- **THEN** the read is missing, with no switches, mode or CLI review default
+- **THEN** the read is missing, with no switches and no mode
 
 ### Requirement: Malformed state falls back to defaults
 A `state.json` that is not valid JSON, is not an object, has a `version` other than `1`, has an unknown key or has a wrong value SHALL read as malformed, with no fields set and the list of problems, so the caller can use defaults and warn. A malformed file MUST NOT make the package inert, and no field MUST be salvaged from it. Problem messages MUST NOT include the value found.
@@ -129,8 +50,79 @@ Updating the state SHALL read the current file, apply the change, validate the r
 - **THEN** the update returns a problem at `mode` and `state.json` is unchanged
 
 ### Requirement: Reset
-Resetting the state SHALL write a state with no fields set, so every switch, the mode, the CLI review default and the CLI review on/off setting fall back to their config or code defaults.
+Resetting the state SHALL write a state with no fields set, so every switch and the mode fall back to their config or code defaults.
 
 #### Scenario: Reset clears everything
-- **WHEN** the state has switches, a mode, a CLI review default and `cliReviewEnabled` `true`, and it is reset
-- **THEN** a new read returns no switches, no mode, no CLI review default and no `cliReviewEnabled`
+- **WHEN** the state has switches and a mode, and it is reset
+- **THEN** a new read returns no switches and no mode
+
+### Requirement: State file fields
+`state.json` SHALL hold `version` `1` and the optional fields `switches` (feature name to boolean) and `mode` (`budget`, `standard` or `premium`). The features are those in `docs/usage-guide.md`. A field MUST be present only when the operator set it. A boolean `switches.review` or `switches.tools`, left by an older version, MUST be accepted on read and dropped from the returned state (with `switches` itself dropped when nothing else is left in it), so it is gone after the next write. A non-boolean `switches.review` or `switches.tools` is malformed. A boolean `switches.expert`, the former name of `switches.frontier`, MUST be accepted on read and returned as `switches.frontier` when `switches.frontier` is absent, and dropped when it is present, so it is gone after the next write. A non-boolean `switches.expert` is malformed. For one minor release, `cliReview` and `cliReviewEnabled`, left by the removed CLI review, MUST be accepted on read with any value and dropped from the returned state, so they are gone after the next write.
+
+#### Scenario: Valid state read
+- **WHEN** `state.json` holds `{"version":1,"switches":{"skills":false},"mode":"budget"}`
+- **THEN** the read returns those values
+
+#### Scenario: Retired CLI review fields accepted and dropped
+- **WHEN** `state.json` holds `{"version":1,"mode":"budget","cliReview":{"cli":"codex","model":"luna"},"cliReviewEnabled":true}`
+- **THEN** the read is ok and returns only mode `budget`, with no `cliReview` or `cliReviewEnabled`
+
+#### Scenario: Retired CLI review fields of any shape
+- **WHEN** `cliReview.model` is `"-m"` in one read and `cliReviewEnabled` is `"yes"` in another
+- **THEN** both reads are ok and return no `cliReview` or `cliReviewEnabled`
+
+#### Scenario: Retired CLI review fields gone after a write
+- **WHEN** `state.json` holds `cliReviewEnabled` `true` and an update sets `mode` to `premium`
+- **THEN** the written file has `mode` `premium` and no `cliReviewEnabled`
+
+#### Scenario: Every documented feature accepted
+- **WHEN** `state.json` sets each of `effort`, `subagents`, `skills`, `strategy`, `frontier`, `status`, `verbose` to `false`
+- **THEN** the read returns all seven switches off
+
+#### Scenario: Legacy review switch accepted and dropped
+- **WHEN** `state.json` holds `{"version":1,"mode":"budget","switches":{"review":false,"skills":false}}`
+- **THEN** the read is ok and returns mode `budget` and `switches` `{"skills":false}`, with no `review`
+
+#### Scenario: Legacy review switch alone
+- **WHEN** `state.json` holds `{"version":1,"switches":{"review":true}}`
+- **THEN** the read is ok and returns a state with no `switches`
+
+#### Scenario: Legacy review switch gone after a write
+- **WHEN** `state.json` holds `switches.review` `false` and an update sets `mode` to `premium`
+- **THEN** the written file has `mode` `premium` and no `switches.review`
+
+#### Scenario: Non-boolean legacy review switch
+- **WHEN** `switches.review` is `"off"`
+- **THEN** the read is malformed with a problem at `switches.review`
+
+#### Scenario: Legacy tools switch accepted and dropped
+- **WHEN** `state.json` holds `{"version":1,"switches":{"tools":false,"skills":false}}`
+- **THEN** the read is ok and returns `switches` `{"skills":false}`, with no `tools`
+
+#### Scenario: Legacy tools switch gone after a write
+- **WHEN** `state.json` holds `switches.tools` `true` and an update sets `mode` to `premium`
+- **THEN** the written file has `mode` `premium` and no `switches.tools`
+
+#### Scenario: Non-boolean legacy tools switch
+- **WHEN** `switches.tools` is `"on"`
+- **THEN** the read is malformed with a problem at `switches.tools`
+
+#### Scenario: Legacy expert switch moved
+- **WHEN** `state.json` holds `{"version":1,"switches":{"expert":false}}`
+- **THEN** the read is ok and returns `switches` `{"frontier":false}`, with no `expert`
+
+#### Scenario: Frontier wins over the legacy switch
+- **WHEN** `state.json` holds `switches.expert` `false` and `switches.frontier` `true`
+- **THEN** the read returns `switches.frontier` `true` and no `expert`
+
+#### Scenario: Legacy expert switch gone after a write
+- **WHEN** `state.json` holds `switches.expert` `false` and an update sets `mode` to `premium`
+- **THEN** the written file has `switches.frontier` `false`, `mode` `premium` and no `switches.expert`
+
+#### Scenario: Non-boolean legacy expert switch
+- **WHEN** `switches.expert` is `"off"`
+- **THEN** the read is malformed with a problem at `switches.expert`
+
+#### Scenario: Unknown feature
+- **WHEN** `state.json` has `switches.colors`
+- **THEN** the read is malformed with a problem at `switches.colors`
