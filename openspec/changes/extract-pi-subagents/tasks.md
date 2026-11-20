@@ -46,11 +46,11 @@ Blocked by: 3
 
 Blocked by: 2, 3
 
-- [ ] 5.1 `tests/release-check.ts` and `tests/release.test.ts`: executor install line pinned to the dev-dependency tag and before the jev-pilot install (`release-metadata` scenarios); see them fail
-- [ ] 5.2 `README.md` and `docs/usage-guide.md`: install `git:github.com/ttdua/pi-subagents@v0.1.1` first, then `git:github.com/ttdua/pi-jev-pilot@v0.6.0`; say worker routing needs the executor; replace the uninstall-the-original advice
-- [ ] 5.3 New `docs/decisions/0010-executor-as-installed-package.md`; mark 0009 superseded in it and in `docs/decisions/README.md`
-- [ ] 5.4 Update `docs/architecture.md`, `docs/project-brief.md`, `docs/glossary.md`, `docs/testing.md`, `docs/roadmap.md` for the separate executor, capability detection and the pinned dev dependency; `NOTICE.md`: drop the vendored entries and name `ttdua/pi-subagents`; `openspec/config.yaml` context: executor is `@ttdua/pi-subagents`, installed separately
-- [ ] 5.5 `package.json` version `0.6.0`; `CHANGELOG.md` `## [0.6.0]` with the breaking install change and migration (`v0.6.0`, date)
+- [x] 5.1 `tests/release-check.ts` and `tests/release.test.ts`: executor install line pinned to the dev-dependency tag and before the jev-pilot install (`release-metadata` scenarios); see them fail
+- [x] 5.2 `README.md` and `docs/usage-guide.md`: install `git:github.com/ttdua/pi-subagents@v0.1.1` first, then `git:github.com/ttdua/pi-jev-pilot@v0.6.0`; say worker routing needs the executor; replace the uninstall-the-original advice
+- [x] 5.3 New `docs/decisions/0010-executor-as-installed-package.md`; mark 0009 superseded in it and in `docs/decisions/README.md`
+- [x] 5.4 Update `docs/architecture.md`, `docs/project-brief.md`, `docs/glossary.md`, `docs/testing.md`, `docs/roadmap.md` for the separate executor, capability detection and the pinned dev dependency; `NOTICE.md`: drop the vendored entries and name `ttdua/pi-subagents`; `openspec/config.yaml` context: executor is `@ttdua/pi-subagents`, installed separately
+- [x] 5.5 `package.json` version `0.6.0`; `CHANGELOG.md` `## [0.6.0]` with the breaking install change and migration (`v0.6.0`, date)
 
 ## 6. Whole-change verification
 
