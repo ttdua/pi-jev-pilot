@@ -9,7 +9,6 @@ import {
   CORRECTS_QUESTION,
   GATE_QUESTIONS,
   MAIN_EFFORT_INSTRUCTION,
-  MAIN_TIER_QUESTION,
   NONE_CRITERION,
   RISKY_QUESTION,
   SLOT_CRITERION_INFIX,
@@ -66,28 +65,28 @@ export function skillBatchQuestions(batch: readonly SkillEntry[]): MainQuestions
 }
 
 /**
- * Questions for a main request: `effort` and `risky` when `askEffort`, `tier` and `strategy` when
- * `askStrategy`, then `corrects`.
+ * Questions for a main request: `effort` when `applyEffort` or `askStrategy` (the gate reads it),
+ * `risky` only when `applyEffort`, then `strategy` when `askStrategy`, then `corrects`.
  */
 export function mainQuestions(o: {
-  askEffort: boolean;
+  applyEffort: boolean;
   askStrategy?: boolean;
   skills?: undefined;
 }): MainQuestions;
 /** With a non-empty first skill batch, appends `which` then the three gates. */
 export function mainQuestions(o: {
-  askEffort: boolean;
+  applyEffort: boolean;
   askStrategy?: boolean;
   skills: readonly SkillEntry[];
 }): SkillQuestions;
 export function mainQuestions(o: {
-  askEffort: boolean;
+  applyEffort: boolean;
   askStrategy?: boolean;
   skills?: readonly SkillEntry[] | undefined;
 }): SkillQuestions {
   const wire: Record<string, WireQuestion | BareNoulQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
-  if (o.askEffort) {
+  if (o.applyEffort || o.askStrategy === true) {
     // The five effort criteria are shared with the worker question; only the instruction differs.
     wire["effort"] = {
       type: "choice",
@@ -95,12 +94,12 @@ export function mainQuestions(o: {
       criteria: { ...WORKER_EFFORT_QUESTION.criteria },
     };
     specs["effort"] = { type: "choice", options: EFFORT_OPTION_ORDER };
+  }
+  if (o.applyEffort) {
     wire["risky"] = copy(RISKY_QUESTION);
     specs["risky"] = { type: "noul" };
   }
   if (o.askStrategy === true) {
-    wire["tier"] = copy(MAIN_TIER_QUESTION);
-    specs["tier"] = { type: "choice", options: Object.keys(MAIN_TIER_QUESTION.criteria) };
     wire["strategy"] = copy(STRATEGY_QUESTION);
     specs["strategy"] = { type: "choice", options: [...STRATEGIES] };
   }
@@ -118,13 +117,13 @@ export function mainQuestions(o: {
   return { wire, specs };
 }
 
-/** Configured tiers in ladder order; `expert` only when its switch is on. */
+/** Configured tiers in ladder order; `frontier` only when its switch is on. */
 export function offeredTiers(
   tiers: Partial<Record<TierName, string>>,
-  expertOn: boolean,
+  frontierOn: boolean,
 ): TierName[] {
   return TIER_LADDER.filter((tier) => {
-    if (tier === "expert" && !expertOn) return false;
+    if (tier === "frontier" && !frontierOn) return false;
     const value = tiers[tier];
     return typeof value === "string" && value !== "";
   });

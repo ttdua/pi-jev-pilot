@@ -1,17 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  LEGACY_TIER,
   TIER_LADDER,
   effectiveLaunch,
   isSlot,
   slotName,
   slotTarget,
 } from "../../src/policy/launch.ts";
-import { TIERS } from "../../src/store/defaults.ts";
+import { LEGACY_TIER as STORE_LEGACY_TIER, TIERS } from "../../src/store/defaults.ts";
 
 describe("Tier ladder", () => {
   test("TIER_LADDER equals the store TIERS", () => {
     expect([...TIER_LADDER]).toEqual([...TIERS]);
+  });
+  test("LEGACY_TIER equals the store copy and maps onto the ladder", () => {
+    expect(LEGACY_TIER).toEqual(STORE_LEGACY_TIER);
+    expect(LEGACY_TIER).toEqual({ fast: "basic", balanced: "broad", expert: "frontier" });
+    for (const name of Object.values(LEGACY_TIER)) expect(TIER_LADDER).toContain(name);
   });
 });
 
@@ -62,7 +68,7 @@ describe("Effective launch fields", () => {
 describe("Slot targets", () => {
   test("isSlot tells slots from tiers", () => {
     expect(isSlot("slot::a")).toBe(true);
-    expect(isSlot("fast")).toBe(false);
+    expect(isSlot("basic")).toBe(false);
   });
   test("slotName strips the prefix", () => {
     expect(slotName(slotTarget("a-b"))).toBe("a-b");

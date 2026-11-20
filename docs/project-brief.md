@@ -5,7 +5,7 @@ Date of this scope: 2026-11-05
 | | |
 |---|---|
 | **Target host** | Official Pi, `@earendil-works/pi-coding-agent` 1.5.0 |
-| **Subagent executor** | `@ttdua/pi-subagents`, installed separately ([ADR 0010](decisions/0010-executor-as-installed-package.md)) |
+| **Subagent executor** | `@ttdua/pi-subagents`, installed separately ([ADR 0011](decisions/0011-executor-as-installed-package.md)) |
 | **Decision model** | TypeSafe Jev, `POST /v1/systemone`, `jev-latest` |
 
 ## Intent
@@ -47,7 +47,7 @@ The work has failed, even if it technically runs, when:
 ## Constraints
 
 - Public Pi APIs only. No user-message metadata tricks, no patches, no package-cache edits.
-- The executor (`@ttdua/pi-subagents`, a separate package) runs workers. It runs children in-process, and a child binds the parent's extension set. See [ADR 0010](decisions/0010-executor-as-installed-package.md).
+- The executor (`@ttdua/pi-subagents`, a separate package) runs workers. It runs children in-process, and a child binds the parent's extension set. See [ADR 0011](decisions/0011-executor-as-installed-package.md).
 - Jev's primary language is English, and TypeSafe documents lower accuracy for other languages. The operator writes prompts in Vietnamese, so every threshold is uncalibrated until measured.
 - Package code, docs, commits and comments are in English. This repository is public.
 - Upstream is MIT. [NOTICE.md](../NOTICE.md) carries the attribution.
@@ -121,5 +121,5 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 - Exact file layout within the [module boundaries](architecture.md#module-layout).
 - Language and tooling details: TypeScript run by Pi directly, Bun for tests, matching the Pi ecosystem.
 - Ledger concurrency and trimming, provided lines are never silently lost to a parallel Pi process.
-- ~~How agent files are parsed, and the table of the executor's built-in agents~~. Removed: the executor's registry supplies agent facts ([ADR 0010](decisions/0010-executor-as-installed-package.md)).
+- ~~How agent files are parsed, and the table of the executor's built-in agents~~. Removed: the executor's registry supplies agent facts ([ADR 0011](decisions/0011-executor-as-installed-package.md)).
 - ~~How `workspace.languages` is detected~~. Removed: the [WG-16 replay](evidence/2026-11-07-state-replay.md) found it within noise.

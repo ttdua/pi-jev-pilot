@@ -5,7 +5,7 @@ import { parseSlotArgs, type SlotArgs } from "./slots.ts";
 
 export type JevArgs =
   | { kind: "status" }
-  | { kind: "set"; feature: Feature; on: boolean }
+  | { kind: "set"; feature: Feature; on: boolean; deprecatedName?: "expert" }
   | { kind: "all"; on: boolean }
   | { kind: "mode"; mode: Mode; target: "local" | "global" }
   | { kind: "mode-clear" }
@@ -61,6 +61,8 @@ function parseSwitch(head: string, value: string | undefined, rest: string[]): J
   if ((FEATURES as readonly string[]).includes(head)) {
     return { kind: "set", feature: head as Feature, on };
   }
+  // DEPRECATED(remove next minor): `/jev expert` is `/jev frontier`
+  if (head === "expert") return { kind: "set", feature: "frontier", on, deprecatedName: "expert" };
   return USAGE;
 }
 

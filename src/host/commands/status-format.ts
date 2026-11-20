@@ -20,9 +20,9 @@ function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
   if (shares === undefined) return ["mix: no routed workers yet", "cut points: seed"];
   const tg = MODE_TARGETS[mode];
   const lines = [
-    `mix (last ${n}, ${mode}): fast ${shares.fast}% / balanced ${shares.balanced}% / ` +
-      `deep ${shares.deep}% / expert ${shares.expert}% · ` +
-      `target ${tg.fast}/${tg.balanced}/${tg.deep}/≤${tg.expertCap}`,
+    `mix (last ${n}, ${mode}): basic ${shares.basic}% / broad ${shares.broad}% / ` +
+      `deep ${shares.deep}% / frontier ${shares.frontier}% · ` +
+      `target ${tg.basic}/${tg.broad}/${tg.deep}/≤${tg.frontierCap}`,
   ];
   if (n < WINDOW_MIN) lines.push("cut points: seed");
   return lines;

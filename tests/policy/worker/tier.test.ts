@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import type { Answer } from "../../../src/policy/answers.ts";
 import type { CutPoints } from "../../../src/policy/worker/cutpoints.ts";
-import { EFFORT_LEVELS } from "../../../src/policy/effort.ts";
 import { TIER_LADDER, type Target, type TierName } from "../../../src/policy/launch.ts";
 import { difficultyScore } from "../../../src/policy/worker/score.ts";
 import {
@@ -14,23 +13,11 @@ import {
 import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 
 const ALL: readonly TierName[] = TIER_LADDER;
-const NO_EXPERT: readonly TierName[] = ["fast", "balanced", "deep"];
+const NO_FRONTIER: readonly TierName[] = ["basic", "broad", "deep"];
 
-const BUDGET: CutPoints = {
-  fastMax: 1.41,
-  balancedMax: 2.13,
-  expertMin: Infinity,
-};
-const STANDARD: CutPoints = {
-  fastMax: 1.17,
-  balancedMax: 1.81,
-  expertMin: 2.34,
-};
-const PREMIUM: CutPoints = {
-  fastMax: -Infinity,
-  balancedMax: 1.41,
-  expertMin: 2.12,
-};
+const BUDGET: CutPoints = { basicMax: 1.0, broadMax: 1.9, frontierMin: Infinity };
+const STANDARD: CutPoints = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 };
+const PREMIUM: CutPoints = { basicMax: -Infinity, broadMax: 1.2, frontierMin: 2.3 };
 
 type Input = {
   tier?: [string, Record<string, number>];
@@ -46,10 +33,10 @@ function answers(input: Input): WorkerAnswers {
     const probabilities: Record<string, number> = {};
     if (!Object.keys(given).some((k) => k.startsWith("slot::"))) {
       Object.assign(probabilities, {
-        fast: 0,
-        balanced: 0,
+        basic: 0,
+        broad: 0,
         deep: 0,
-        expert: 0,
+        frontier: 0,
       });
     }
     for (const [k, v] of Object.entries(given)) probabilities[k] = v;
@@ -67,16 +54,13 @@ function answers(input: Input): WorkerAnswers {
   return { kind: "read", answers: out, unanswered };
 }
 
-// Answers whose difficulty score is `score`: the expected tier rank is score minus the effort part.
+// Answers whose difficulty score is `score`: tier probabilities spread over two adjacent ranks.
 function answersForScore(score: number, effort?: string, risky?: number): WorkerAnswers {
-  const rank =
-    effort === undefined ? EFFORT_LEVELS.indexOf("high") : EFFORT_LEVELS.indexOf(effort as never);
-  const x = score - rank / 8;
-  const r = Math.min(Math.floor(x), 2);
-  const probs = { fast: 0, balanced: 0, deep: 0, expert: 0 };
-  probs[TIER_LADDER[r] as TierName] = r + 1 - x;
-  probs[TIER_LADDER[r + 1] as TierName] = x - r;
-  const choice = TIER_LADDER[Math.round(x)] ?? "deep";
+  const r = Math.min(Math.floor(score), 2);
+  const probs = { basic: 0, broad: 0, deep: 0, frontier: 0 };
+  probs[TIER_LADDER[r] as TierName] = r + 1 - score;
+  probs[TIER_LADDER[r + 1] as TierName] = score - r;
+  const choice = TIER_LADDER[Math.round(score)] ?? "deep";
   return answers({
     tier: [choice, probs],
     ...(effort === undefined ? {} : { effort }),
@@ -97,182 +81,153 @@ describe("Score helper", () => {
     expect(scoreOf(answersForScore(2.4, "max"))).toBe(2.4);
     expect(scoreOf(answersForScore(1.17, "high"))).toBe(1.17);
     expect(scoreOf(answersForScore(0, "low"))).toBe(0);
-    expect(scoreOf(answersForScore(3.4, "max"))).toBe(3.4);
+    expect(scoreOf(answersForScore(3, "max"))).toBe(3);
   });
-  test("a named tier mix gives 2.275", () => {
+  test("a named tier mix gives 1.9", () => {
     expect(
       scoreOf(
         answers({
-          tier: ["deep", { deep: 0.9, balanced: 0.1 }],
+          tier: ["deep", { deep: 0.9, broad: 0.1 }],
           effort: "xhigh",
         }),
       ),
-    ).toBe(2.275);
+    ).toBe(1.9);
   });
 });
 
 describe("Decision order", () => {
   test("Ordinary choice", () => {
-    expect(decideTier(answersForScore(1.3, "high", 0.1), ALL, STANDARD)).toEqual(
-      decided("balanced", "cut"),
+    const cuts: CutPoints = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.3 };
+    expect(decideTier(answersForScore(1.2, undefined, 0.1), ALL, cuts)).toEqual(
+      decided("broad", "cut"),
     );
   });
   test("Same answers, different modes", () => {
-    const a = answersForScore(2.2, "xhigh", 0.1);
+    const a = answersForScore(2.4);
     expect(decideTier(a, ALL, BUDGET)).toEqual(decided("deep", "cut"));
     expect(decideTier(a, ALL, STANDARD)).toEqual(decided("deep", "cut"));
-    expect(decideTier(a, ALL, PREMIUM)).toEqual(decided("expert", "expert"));
+    expect(decideTier(a, ALL, PREMIUM)).toEqual(decided("frontier", "frontier"));
   });
   test("Same score, different tiers", () => {
-    const a = answersForScore(1.85, "high");
-    const budget: CutPoints = {
-      fastMax: 1.41,
-      balancedMax: 2.13,
-      expertMin: Infinity,
-    };
-    const premium: CutPoints = {
-      fastMax: -Infinity,
-      balancedMax: 1.41,
-      expertMin: 2.12,
-    };
-    expect(decideTier(a, ALL, budget)).toEqual(decided("balanced", "cut"));
-    expect(decideTier(a, ALL, premium)).toEqual(decided("deep", "cut"));
+    const a = answersForScore(1.6);
+    expect(decideTier(a, ALL, BUDGET)).toEqual(decided("broad", "cut"));
+    expect(decideTier(a, ALL, PREMIUM)).toEqual(decided("deep", "cut"));
+  });
+  test("Effort does not move the tier", () => {
+    for (const cuts of [BUDGET, STANDARD, PREMIUM]) {
+      const low = decideTier(answersForScore(2.4, "low"), ALL, cuts);
+      expect(decideTier(answersForScore(2.4, "max"), ALL, cuts)).toEqual(low);
+    }
   });
 });
 
-describe("Expert rule", () => {
-  const cuts: CutPoints = { fastMax: 1.17, balancedMax: 1.81, expertMin: 2.3 };
+describe("Frontier rule", () => {
+  const cuts: CutPoints = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.3 };
   test("Expert by score and effort", () => {
-    expect(decideTier(answersForScore(2.35, "xhigh"), ALL, cuts)).toEqual(
-      decided("expert", "expert"),
-    );
+    expect(decideTier(answersForScore(2.35), ALL, cuts)).toEqual(decided("frontier", "frontier"));
   });
   test("Expert at the cut", () => {
-    expect(decideTier(answersForScore(2.3, "max"), ALL, cuts)).toEqual(decided("expert", "expert"));
+    expect(decideTier(answersForScore(2.3), ALL, cuts)).toEqual(decided("frontier", "frontier"));
   });
   test("High effort is not enough", () => {
-    expect(decideTier(answersForScore(2.4, "high"), ALL, cuts)).toEqual(decided("deep", "cut"));
+    expect(decideTier(answersForScore(2.4, "low"), ALL, cuts)).toEqual(
+      decided("frontier", "frontier"),
+    );
+  });
+  test("Below the frontier cut", () => {
+    expect(decideTier(answersForScore(2.29), ALL, cuts)).toEqual(decided("deep", "cut"));
   });
   test("Expert not offered", () => {
-    expect(decideTier(answersForScore(2.4, "max"), NO_EXPERT, cuts)).toEqual(
-      decided("deep", "cut"),
-    );
+    expect(decideTier(answersForScore(2.4), NO_FRONTIER, cuts)).toEqual(decided("deep", "cut"));
   });
   test("Budget never reaches expert", () => {
-    expect(decideTier(answersForScore(3.4, "max"), ALL, BUDGET)).toEqual(decided("deep", "cut"));
-  });
-  test("expert switched off gives expertMin +Infinity and no expert", () => {
-    const off: CutPoints = {
-      fastMax: 1.17,
-      balancedMax: 1.81,
-      expertMin: Infinity,
-    };
-    expect(decideTier(answersForScore(3.4, "max"), NO_EXPERT, off)).toEqual(decided("deep", "cut"));
+    expect(decideTier(answersForScore(3.0), ALL, BUDGET)).toEqual(decided("deep", "cut"));
   });
   test("Expert stands on high risk", () => {
-    expect(decideTier(answersForScore(2.4, "max", 0.9), ALL, cuts)).toEqual(
-      decided("expert", "expert"),
-    );
+    const a = answers({
+      tier: ["slot::reviewer", { "slot::reviewer": 0.6, frontier: 0.4 }],
+      risky: 0.9,
+    });
+    expect(scoreOf(a)).toBe(3);
+    expect(decideTier(a, ALL, cuts, ["reviewer"])).toEqual(decided("frontier", "frontier"));
   });
 });
 
 describe("Cut rule", () => {
-  const cuts: CutPoints = {
-    fastMax: 1.17,
-    balancedMax: 1.81,
-    expertMin: Infinity,
-  };
+  const cuts: CutPoints = { basicMax: 0.9, broadMax: 1.5, frontierMin: Infinity };
   test("Fast at the cut", () => {
-    expect(decideTier(answersForScore(1.17, "high"), ALL, cuts)).toEqual(decided("fast", "cut"));
+    expect(decideTier(answersForScore(0.9), ALL, cuts)).toEqual(decided("basic", "cut"));
   });
   test("Balanced", () => {
-    expect(decideTier(answersForScore(1.5, "high"), ALL, cuts)).toEqual(decided("balanced", "cut"));
+    expect(decideTier(answersForScore(1.2), ALL, cuts)).toEqual(decided("broad", "cut"));
   });
   test("Deep", () => {
-    expect(decideTier(answersForScore(1.82, "high"), ALL, cuts)).toEqual(decided("deep", "cut"));
+    expect(decideTier(answersForScore(1.51), ALL, cuts)).toEqual(decided("deep", "cut"));
   });
   test("Premium never cuts to fast", () => {
-    expect(decideTier(answersForScore(0, "low"), ALL, PREMIUM)).toEqual(decided("balanced", "cut"));
+    expect(decideTier(answersForScore(0), ALL, PREMIUM)).toEqual(decided("broad", "cut"));
   });
   test("Unoffered tier moves down", () => {
-    expect(decideTier(answersForScore(1.5, "high"), ["fast", "deep"], cuts)).toEqual(
-      decided("fast", "cut"),
+    expect(decideTier(answersForScore(1.2), ["basic", "deep"], cuts)).toEqual(
+      decided("basic", "cut"),
     );
   });
   test("Unoffered tier moves up", () => {
-    expect(decideTier(answersForScore(0.5, "high"), ["balanced", "deep"], cuts)).toEqual(
-      decided("balanced", "cut"),
+    expect(decideTier(answersForScore(0.5), ["broad", "deep"], cuts)).toEqual(
+      decided("broad", "cut"),
     );
   });
 });
 
-type Cell = [TierName, "expert" | "risky" | "cut"];
+type Cell = [TierName, "frontier" | "cut"];
 const ROWS: {
   name: string;
   answers: WorkerAnswers;
   cells: [Cell, Cell, Cell];
 }[] = [
   {
-    name: "score 2.4, max, risky .9",
-    answers: answersForScore(2.4, "max", 0.9),
+    name: "score 2.6, low",
+    answers: answersForScore(2.6, "low"),
     cells: [
-      ["deep", "risky"],
-      ["expert", "expert"],
-      ["expert", "expert"],
+      ["deep", "cut"],
+      ["frontier", "frontier"],
+      ["frontier", "frontier"],
     ],
   },
   {
-    name: "score 2.4, high",
-    answers: answersForScore(2.4, "high"),
+    name: "score 2.4, max",
+    answers: answersForScore(2.4, "max"),
     cells: [
       ["deep", "cut"],
       ["deep", "cut"],
-      ["deep", "cut"],
+      ["frontier", "frontier"],
     ],
   },
   {
-    name: "score 2.2, xhigh",
-    answers: answersForScore(2.2, "xhigh"),
+    name: "score 1.7, low",
+    answers: answersForScore(1.7, "low"),
     cells: [
-      ["deep", "cut"],
-      ["deep", "cut"],
-      ["expert", "expert"],
-    ],
-  },
-  {
-    name: "score 1.9, high",
-    answers: answersForScore(1.9, "high"),
-    cells: [
-      ["balanced", "cut"],
+      ["broad", "cut"],
       ["deep", "cut"],
       ["deep", "cut"],
     ],
   },
   {
-    name: "score 1.3, high",
-    answers: answersForScore(1.3, "high"),
+    name: "score 1.0, max",
+    answers: answersForScore(1.0, "max"),
     cells: [
-      ["fast", "cut"],
-      ["balanced", "cut"],
-      ["balanced", "cut"],
+      ["basic", "cut"],
+      ["broad", "cut"],
+      ["broad", "cut"],
     ],
   },
   {
-    name: "score 1.0, risky .9",
-    answers: answersForScore(1.0, undefined, 0.9),
+    name: "score 0.5, risky .9",
+    answers: answersForScore(0.5, undefined, 0.9),
     cells: [
-      ["deep", "risky"],
-      ["deep", "risky"],
-      ["deep", "risky"],
-    ],
-  },
-  {
-    name: "score 1.0, risky .7",
-    answers: answersForScore(1.0, undefined, 0.7),
-    cells: [
-      ["fast", "cut"],
-      ["fast", "cut"],
-      ["balanced", "cut"],
+      ["basic", "cut"],
+      ["basic", "cut"],
+      ["broad", "cut"],
     ],
   },
 ];
@@ -298,39 +253,19 @@ describe("Table per mode", () => {
   });
 });
 
-describe("Risk floor rule", () => {
-  test("Risk floor", () => {
-    expect(decideTier(answersForScore(0.5, "high", 0.71), ALL, STANDARD)).toEqual(
-      decided("deep", "risky"),
-    );
-  });
-  test("Risk boundary", () => {
-    expect(decideTier(answersForScore(1.5, "high", 0.7), ALL, STANDARD)).toEqual(
-      decided("balanced", "cut"),
-    );
-  });
-  test("Risk floor without deep", () => {
-    expect(decideTier(answersForScore(0.5, "high", 0.9), ["fast", "balanced"], STANDARD)).toEqual(
-      decided("balanced", "risky"),
-    );
-  });
-});
-
 describe("Partial answers in the decision", () => {
   test("Risk floor without a tier answer", () => {
-    expect(decideTier(answers({ risky: 0.9 }), ["deep"], STANDARD)).toEqual(
-      decided("deep", "risky"),
-    );
-  });
-  test("Expert needed unanswered (no rule reads it)", () => {
-    expect(decideTier(answersForScore(2.4, "max"), ALL, STANDARD)).toEqual(
-      decided("expert", "expert"),
-    );
+    expect(decideTier(answers({ risky: 0.9 }), ["deep"], STANDARD)).toEqual({ kind: "none" });
   });
   test("Effort unanswered in premium", () => {
     const a = answersForScore(3.0);
     expect(scoreOf(a)).toBe(3);
-    expect(decideTier(a, ALL, PREMIUM)).toEqual(decided("deep", "cut"));
+    expect(decideTier(a, ALL, PREMIUM)).toEqual(decided("frontier", "frontier"));
+  });
+  test("Expert needed unanswered", () => {
+    expect(decideTier(answersForScore(2.6), ALL, STANDARD)).toEqual(
+      decided("frontier", "frontier"),
+    );
   });
   test("Slot without a score", () => {
     const a = answers({
@@ -355,11 +290,6 @@ describe("Partial answers in the decision", () => {
 });
 
 describe("Fallthrough without a qualifying tier", () => {
-  test("Risk floor with only fast", () => {
-    expect(decideTier(answersForScore(0.5, "high", 0.9), ["fast"], STANDARD)).toEqual(
-      decided("fast", "risky"),
-    );
-  });
   test("Risk floor with only a slot", () => {
     const a = answers({
       tier: ["slot::reviewer", { "slot::reviewer": 0.95 }],
@@ -367,13 +297,16 @@ describe("Fallthrough without a qualifying tier", () => {
     });
     expect(decideTier(a, [], STANDARD, ["reviewer"])).toEqual(decided("slot::reviewer", "slot"));
   });
-  test("Only fast offered", () => {
-    expect(decideTier(answersForScore(2.0, "high"), ["fast"], STANDARD)).toEqual(
-      decided("fast", "cut"),
+  test("Risk floor with only fast", () => {
+    expect(decideTier(answersForScore(2.0, undefined, 0.9), ["basic"], STANDARD)).toEqual(
+      decided("basic", "cut"),
     );
   });
+  test("Only fast offered", () => {
+    expect(decideTier(answersForScore(2.0), ["basic"], STANDARD)).toEqual(decided("basic", "cut"));
+  });
   test("Only expert offered", () => {
-    expect(decideTier(answersForScore(2.0, "high"), ["expert"], STANDARD)).toEqual({
+    expect(decideTier(answersForScore(2.0), ["frontier"], STANDARD)).toEqual({
       kind: "none",
     });
   });
@@ -395,7 +328,7 @@ describe("Slot rule", () => {
       tier: ["slot::reviewer", { "slot::reviewer": 0.95 }],
       risky: 0.8,
     });
-    expect(decideTier(a, ALL, STANDARD, R)).toEqual(decided("deep", "risky"));
+    expect(decideTier(a, ALL, STANDARD, R)).toEqual(decided("slot::reviewer", "slot"));
   });
   test("Two slots", () => {
     const a = answers({
@@ -407,7 +340,7 @@ describe("Slot rule", () => {
   });
   test("Slot in every mode", () => {
     const a = answers({
-      tier: ["slot::reviewer", { "slot::reviewer": 0.92, balanced: 0.02, deep: 0.06 }],
+      tier: ["slot::reviewer", { "slot::reviewer": 0.92, deep: 0.08 }],
       effort: "high",
       risky: 0.1,
     });
@@ -417,22 +350,23 @@ describe("Slot rule", () => {
     }
   });
   test("Slot below the bar", () => {
-    const a = slotAt(0.5, { balanced: 0.3, deep: 0.15, fast: 0.05 });
-    expect(scoreOf(a)).toBe(1.45);
-    expect(decideTier(a, ALL, STANDARD, R)).toEqual(decided("balanced", "cut"));
+    const a = slotAt(0.5, { broad: 0.3, deep: 0.15, basic: 0.05 });
+    expect(scoreOf(a)).toBe(1.2);
+    const cuts: CutPoints = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 };
+    expect(decideTier(a, ALL, cuts, R)).toEqual(decided("broad", "cut"));
   });
   test("Slot not offered", () => {
     const a = answers({
-      tier: ["slot::old", { "slot::old": 0.9, balanced: 0.08 }],
+      tier: ["slot::old", { "slot::old": 0.9, broad: 0.08 }],
       effort: "high",
     });
-    expect(decideTier(a, ALL, STANDARD, [])).toEqual(decided("balanced", "cut"));
+    expect(decideTier(a, ALL, STANDARD, [])).toEqual(decided("broad", "cut"));
   });
   test("Slot below the bar reaches expert", () => {
-    const a = slotAt(0.5, { deep: 0.975, expert: 0.025 }, "xhigh");
+    const a = slotAt(0.5, { deep: 0.6, frontier: 0.4 });
     expect(scoreOf(a)).toBe(2.4);
-    const cuts: CutPoints = { ...STANDARD, expertMin: 2.34 };
-    expect(decideTier(a, ALL, cuts, R)).toEqual(decided("expert", "expert"));
+    const cuts: CutPoints = { ...STANDARD, frontierMin: 2.3 };
+    expect(decideTier(a, ALL, cuts, R)).toEqual(decided("frontier", "frontier"));
   });
   test("Only a slot offered below the bar", () => {
     expect(decideTier(slotAt(0.5), [], STANDARD, R)).toEqual({ kind: "none" });
@@ -448,26 +382,26 @@ describe("Slot rule", () => {
   test("Runnable slot not in slots is not kept", () => {
     expect(chooseFallback("slot::reviewer", ALL, () => true, [])).toEqual({
       kind: "moved",
-      tier: "balanced",
+      tier: "broad",
       from: "slot::reviewer",
     });
   });
   test("Slot falls back to balanced", () => {
     expect(chooseFallback("slot::reviewer", ALL, notReviewer, R)).toEqual({
       kind: "moved",
-      tier: "balanced",
+      tier: "broad",
       from: "slot::reviewer",
     });
   });
   test("Slot falls back to fast", () => {
-    expect(chooseFallback("slot::reviewer", ["fast", "deep"], notReviewer, R)).toEqual({
+    expect(chooseFallback("slot::reviewer", ["basic", "deep"], notReviewer, R)).toEqual({
       kind: "moved",
-      tier: "fast",
+      tier: "basic",
       from: "slot::reviewer",
     });
   });
   test("Slot never moves up", () => {
-    const deepOnly = (t: Target) => t === "deep" || t === "expert";
+    const deepOnly = (t: Target) => t === "deep" || t === "frontier";
     expect(chooseFallback("slot::reviewer", ALL, deepOnly, R)).toEqual({
       kind: "unchanged",
     });
@@ -495,31 +429,31 @@ function runs(...ok: TierName[]): (t: Target) => boolean {
 describe("Fallback choice", () => {
   const cases: [string, TierName, readonly TierName[], TierName[], FallbackResult][] = [
     ["Target usable", "deep", ALL, ["deep"], { kind: "keep", tier: "deep" }],
-    ["Usable expert kept", "expert", ALL, ["expert"], { kind: "keep", tier: "expert" }],
-    ["Move down", "deep", ALL, ["balanced"], { kind: "moved", tier: "balanced", from: "deep" }],
+    ["Usable expert kept", "frontier", ALL, ["frontier"], { kind: "keep", tier: "frontier" }],
+    ["Move down", "deep", ALL, ["broad"], { kind: "moved", tier: "broad", from: "deep" }],
     [
       "Skip an unusable lower tier",
       "deep",
       ALL,
-      ["fast"],
-      { kind: "moved", tier: "fast", from: "deep" },
+      ["basic"],
+      { kind: "moved", tier: "basic", from: "deep" },
     ],
     [
       "Unoffered tier skipped",
       "deep",
-      ["fast", "deep"],
-      ["balanced", "fast"],
-      { kind: "moved", tier: "fast", from: "deep" },
+      ["basic", "deep"],
+      ["broad", "basic"],
+      { kind: "moved", tier: "basic", from: "deep" },
     ],
     [
       "Expert never a target",
-      "expert",
+      "frontier",
       ALL,
-      ["deep", "balanced", "fast"],
-      { kind: "moved", tier: "deep", from: "expert" },
+      ["deep", "broad", "basic"],
+      { kind: "moved", tier: "deep", from: "frontier" },
     ],
-    ["Fast cannot run", "fast", ALL, [], { kind: "unchanged" }],
-    ["Nothing can run", "balanced", ALL, ["deep", "expert"], { kind: "unchanged" }],
+    ["Fast cannot run", "basic", ALL, [], { kind: "unchanged" }],
+    ["Nothing can run", "broad", ALL, ["deep", "frontier"], { kind: "unchanged" }],
   ];
   for (const [name, tier, offered, ok, expected] of cases) {
     test(name, () => {

@@ -30,20 +30,22 @@ function ans(choice: string, p: number) {
 
 describe("adviseStrategy gates", () => {
   test.each([
-    ["delegate", 0.6, undefined, true],
-    ["delegate", 0.59, undefined, false],
-    ["parallel", 0.6, "balanced", true],
-    ["parallel", 0.59, "deep", false],
-    ["parallel", 0.9, "fast", false],
-    ["parallel", 0.95, undefined, false],
-    ["graph", 0.8, "deep", true],
-    ["graph", 0.79, "deep", false],
-    ["graph", 0.95, "balanced", false],
-    ["graph", 0.95, undefined, false],
-    ["delegate", 0.7, undefined, true],
-  ] as const)("%s at %d with tier %s -> advised %s", (choice, p, tier, advised) => {
+    ["delegate at 0.6 with effort medium", "delegate", 0.6, "medium", true],
+    ["delegate at 0.59 with effort medium", "delegate", 0.59, "medium", false],
+    ["Delegate on low effort", "delegate", 0.9, "low", false],
+    ["Tier unanswered does not block delegate", "delegate", 0.7, undefined, true],
+    ["parallel at 0.6 with effort medium", "parallel", 0.6, "medium", true],
+    ["parallel at 0.59 with effort high", "parallel", 0.59, "high", false],
+    ["Parallel on the fast tier", "parallel", 0.9, "low", false],
+    ["Tier unanswered", "parallel", 0.95, undefined, false],
+    ["graph at 0.8 with effort xhigh", "graph", 0.8, "xhigh", true],
+    ["graph at 0.79 with effort xhigh", "graph", 0.79, "xhigh", false],
+    ["Graph off the deep tier", "graph", 0.95, "high", false],
+    ["graph at 0.95 with effort max", "graph", 0.95, "max", true],
+    ["Tier unanswered", "graph", 0.95, undefined, false],
+  ] as const)("%s", (_name, choice, p, effort, advised) => {
     const input =
-      tier === undefined ? { strategy: ans(choice, p) } : { strategy: ans(choice, p), tier };
+      effort === undefined ? { strategy: ans(choice, p) } : { strategy: ans(choice, p), effort };
     const out = adviseStrategy(input);
     expect(out?.advised).toBe(advised);
     expect(out?.block !== undefined).toBe(advised);

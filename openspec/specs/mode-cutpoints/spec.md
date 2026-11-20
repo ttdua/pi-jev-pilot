@@ -6,27 +6,29 @@ The difficulty score of a worker launch, the cut points that turn it into a tier
 ## Requirements
 
 ### Requirement: Difficulty score
-A pure function SHALL compute a worker's difficulty score from the `tier` and `effort` answers as `Σ rank(t) · P̂(t) + rank(e) / 8`, rounded to 3 decimals. The tier ranks are `fast` 0, `balanced` 1, `deep` 2, `expert` 3. `P̂` is the `tier` probabilities of tier keys only, divided by their sum, so slot keys never shift the score. The effort ranks are `low` 0, `medium` 1, `high` 2, `xhigh` 3, `max` 4, and an unanswered `effort` MUST count as `high`. With `tier` unanswered, or when the tier probabilities sum to 0, there SHALL be no score. The score MUST NOT depend on the mode.
+A pure function SHALL compute a worker's difficulty score from the `tier` answer as `Σ rank(t) · P̂(t)`, rounded to 3 decimals. The tier ranks are `basic` 0, `broad` 1, `deep` 2, `frontier` 3. `P̂` is the `tier` probabilities of tier keys only, divided by their sum, so slot keys never shift the score. The `effort` answer MUST NOT affect the score. With `tier` unanswered, or when the tier probabilities sum to 0, there SHALL be no score. The score MUST NOT depend on the mode.
 
 #### Scenario: Balanced with high effort
-- **WHEN** the `tier` probabilities are `balanced` 1 and `effort.choice` is `high`
-- **THEN** the score is 1.25
+<!-- Intentional change: `balanced` is renamed `broad` and effort no longer adds to the score. -->
+- **WHEN** the `tier` probabilities are `broad` 1 and `effort.choice` is `high`
+- **THEN** the score is 1
 
 #### Scenario: Mixed probabilities
-- **WHEN** the `tier` probabilities are `balanced` .6 and `deep` .4, and `effort.choice` is `high`
-- **THEN** the score is 1.65
+- **WHEN** the `tier` probabilities are `broad` .6 and `deep` .4
+- **THEN** the score is 1.4
 
 #### Scenario: Slot keys ignored
-- **WHEN** the `tier` probabilities are `slot::reviewer` .5 and `balanced` .5, and `effort.choice` is `high`
-- **THEN** the score is 1.25
+- **WHEN** the `tier` probabilities are `slot::reviewer` .5 and `broad` .5
+- **THEN** the score is 1
 
 #### Scenario: Effort unanswered
-- **WHEN** the `tier` probabilities are `deep` 1 and `effort` is unanswered
-- **THEN** the score is 2.25
+<!-- Intentional change: effort no longer adds to the score, answered or not. -->
+- **WHEN** the `tier` probabilities are `deep` 1, once with `effort.choice` `low`, once with `max` and once with `effort` unanswered
+- **THEN** the score is 2 each time
 
 #### Scenario: Rounded before use
-- **WHEN** the `tier` probabilities are `balanced` .45 and `deep` .55, and `effort.choice` is `high`
-- **THEN** the score is exactly 1.8
+- **WHEN** the `tier` probabilities are `basic` .3333, `broad` .3333 and `deep` .3334
+- **THEN** the score is exactly 1
 
 #### Scenario: Only slot probability
 - **WHEN** the `tier` probabilities are `slot::reviewer` 1 and every tier key is 0
@@ -37,40 +39,47 @@ A pure function SHALL compute a worker's difficulty score from the `tier` and `e
 - **THEN** there is no score
 
 ### Requirement: Cut points from a window
-A pure function SHALL compute a mode's cut points `fastMax`, `balancedMax` and `expertMin` from a window of entries, each with a score and an effort, and the mode's target. Targets are whole percents. Over the `n` scores sorted ascending:
-- `fastMax` is the score at position `k = ⌊(fast · n + 50) / 100⌋`, counted from 1 and kept within 1 to `n`, or −∞ when `fast` is 0.
-- `balancedMax` is the score at position `⌊((fast + balanced) · n + 50) / 100⌋`, kept within 1 to `n`.
-- `expertMin` is the lowest score `s` held by an entry with effort `xhigh` or `max`, such that `s > balancedMax` and at most `⌊expertCap · n / 100⌋` such entries have a score of at least `s`. With no such score, or an `expertCap` of 0, it is +∞.
+A pure function SHALL compute a mode's cut points `basicMax`, `broadMax` and `frontierMin` from a window of scores and the mode's target. Targets are whole percents. Over the `n` scores sorted ascending:
+- `basicMax` is the score at position `k = ⌊(basic · n + 50) / 100⌋`, counted from 1 and kept within 1 to `n`, or −∞ when `basic` is 0.
+- `broadMax` is the score at position `⌊((basic + broad) · n + 50) / 100⌋`, kept within 1 to `n`.
+- `frontierMin` is the lowest score `s` in the window such that `s > broadMax` and at most `⌊frontierCap · n / 100⌋` entries have a score of at least `s`. With no such score, or a `frontierCap` of 0, it is +∞. Effort MUST NOT be read.
 
 With an empty window all three cut points SHALL be +∞. The result MUST NOT depend on the order of the entries.
 
 #### Scenario: Standard target on ten scores
-- **WHEN** the window holds the scores .1, .2, … 1.0 with effort `high`, and the target is `standard`
-- **THEN** `fastMax` is .2, `balancedMax` is .7, and `expertMin` is +∞
+- **WHEN** the window holds the scores .1, .2, … 1.0, and the target is `standard`
+- **THEN** `basicMax` is .2, `broadMax` is .7, and `frontierMin` is +∞
 
 #### Scenario: Budget target on ten scores
 - **WHEN** the window holds the scores .1, .2, … 1.0, and the target is `budget`
-- **THEN** `fastMax` is .5, `balancedMax` is .9, and `expertMin` is +∞
+- **THEN** `basicMax` is .5, `broadMax` is .9, and `frontierMin` is +∞
 
 #### Scenario: Premium has no fast cut
+<!-- Intentional change: `fast` is renamed `basic`. -->
 - **WHEN** the window holds the scores .1, .2, … 1.0, and the target is `premium`
-- **THEN** `fastMax` is −∞ and `balancedMax` is .5
+- **THEN** `basicMax` is −∞ and `broadMax` is .5
 
 #### Scenario: Expert cap
-- **WHEN** the window holds the 100 scores .01, .02, … 1.00, the 6 entries scoring .95 or more have effort `xhigh`, the rest have effort `high`, and the target is `premium`
-- **THEN** `expertMin` is .96
+<!-- Intentional change: `expert` is renamed `frontier` and the cut no longer reads effort. -->
+- **WHEN** the window holds the 100 scores .01, .02, … 1.00, and the target is `premium`
+- **THEN** `frontierMin` is .98, since 3 entries score .98 or more
+
+#### Scenario: Frontier cap in standard
+- **WHEN** the window holds the 100 scores .01, .02, … 1.00, and the target is `standard`
+- **THEN** `frontierMin` is 1.00
 
 #### Scenario: Expert never below the balanced cut
-- **WHEN** the window holds the 100 scores .01, … 1.00, only the entries scoring .10 or less have effort `xhigh`, and the target is `standard`
-- **THEN** `expertMin` is +∞
+<!-- Intentional change: `expert` and `balanced` are renamed `frontier` and `broad`. -->
+- **WHEN** the window holds 100 entries all scoring 0.5, and the target is `premium`
+- **THEN** `frontierMin` is +∞, since no score is above `broadMax` 0.5
 
 #### Scenario: Ties stay under the cap
-- **WHEN** the window holds 100 entries, 97 scoring 1.0 with effort `high` and 3 scoring 2.5 with effort `max`, and the target is `standard`
-- **THEN** `expertMin` is +∞, since 3 entries at 2.5 exceed the cap of 2
+- **WHEN** the window holds 100 entries, 97 scoring 1.0 and 3 scoring 2.5, and the target is `standard`
+- **THEN** `frontierMin` is +∞, since 3 entries at 2.5 exceed the cap of 1
 
 #### Scenario: Empty window
 - **WHEN** the window is empty
-- **THEN** `fastMax`, `balancedMax` and `expertMin` are +∞
+- **THEN** `basicMax`, `broadMax` and `frontierMin` are +∞
 
 #### Scenario: Order independent
 - **WHEN** the same window is given in two different orders
@@ -79,10 +88,10 @@ With an empty window all three cut points SHALL be +∞. The result MUST NOT dep
 ### Requirement: Window entries
 A pure function SHALL select the window from ledger entries. An entry SHALL be eligible only when all of the following hold:
 - it is a `worker` line whose `rubric` equals the current rubric version;
-- it carries a `score` and `expertOffered` true;
-- its `reason` is `expert`, `risky` or `cut`.
+- it carries a `score` and `frontierOffered` true;
+- its `reason` is `frontier` or `cut`.
 
-The window SHALL be the latest 200 eligible entries by `at`; among entries with equal `at`, later input counts as later. Each window entry SHALL carry the score, the effort and the decided tier. The effort is the highest-probability key of `effortP`, the higher level on a tie, or `high` without `effortP`; Jev's `effort.choice` is that same key. The decided tier is `fallback` when present and otherwise `tier`.
+The window SHALL be the latest 200 eligible entries by `at`; among entries with equal `at`, later input counts as later. Each window entry SHALL carry the score and the decided tier. The decided tier is `fallback` when present and otherwise `tier`.
 
 #### Scenario: Slot launch left out
 - **WHEN** a worker line has `reason` `slot`
@@ -93,11 +102,13 @@ The window SHALL be the latest 200 eligible entries by `at`; among entries with 
 - **THEN** it is not in the window
 
 #### Scenario: Setup without expert left out
-- **WHEN** a worker line has `expertOffered` false
+<!-- Intentional change: `expertOffered` is renamed `frontierOffered`. -->
+- **WHEN** a worker line has `frontierOffered` false, or only the legacy `expertOffered`
 - **THEN** it is not in the window
 
 #### Scenario: Miss and untouched left out
-- **WHEN** worker lines have `reason` `miss` or `untouched`
+<!-- Intentional change: reasons `risky` and `expert` are no longer written. -->
+- **WHEN** worker lines have `reason` `miss`, `untouched`, `risky` or `expert`
 - **THEN** they are not in the window
 
 #### Scenario: Latest 200
@@ -105,7 +116,7 @@ The window SHALL be the latest 200 eligible entries by `at`; among entries with 
 - **THEN** the window holds the 200 with the latest `at`
 
 #### Scenario: Decided tier before fallback
-- **WHEN** an eligible line has `tier` `balanced` and `fallback` `deep`
+- **WHEN** an eligible line has `tier` `broad` and `fallback` `deep`
 - **THEN** its window entry has the decided tier `deep`
 
 #### Scenario: Equal times at the boundary
@@ -113,15 +124,17 @@ The window SHALL be the latest 200 eligible entries by `at`; among entries with 
 - **THEN** the window drops the first of those two in input order
 
 #### Scenario: Effort tie
+<!-- Intentional change: window entries no longer carry effort. -->
 - **WHEN** an eligible line has `effortP` with `high` .5 and `xhigh` .5
-- **THEN** its window entry has effort `xhigh`
+- **THEN** its window entry carries only the score and the decided tier
 
 #### Scenario: Effort from the distribution
-- **WHEN** an eligible line has `effortP` with `xhigh` .6 and `high` .4
-- **THEN** its window entry has effort `xhigh`
+<!-- Intentional change: window entries no longer carry effort. -->
+- **WHEN** two eligible lines have the same score and decided tier, one with `effortP` `xhigh` .6 and one with `low` .9
+- **THEN** their window entries are equal
 
 ### Requirement: Seed cut points
-The package SHALL ship seed cut points per mode, computed offline from the 2026-11-07 replay answers with the difficulty score and cut-point rules above. A window with fewer than 100 entries SHALL use the seed for the launch's mode. A window with 100 or more entries SHALL use the cut points computed from it. The seed values MUST be published, as aggregates, in a dated `docs/evidence/` note.
+The package SHALL ship seed cut points per mode, computed offline from a replay of the worker corpus with rubric version 3, with the difficulty score and cut-point rules above. A window with fewer than 100 entries SHALL use the seed for the launch's mode. A window with 100 or more entries SHALL use the cut points computed from it. The seed values MUST be published, as aggregates, in a dated `docs/evidence/` note together with the resulting mix per mode.
 
 #### Scenario: Short window uses the seed
 - **WHEN** the window holds 99 entries
@@ -137,14 +150,14 @@ The package SHALL ship seed cut points per mode, computed offline from the 2026-
 
 #### Scenario: Seed is a valid result
 - **WHEN** the seed for each mode is read
-- **THEN** `fastMax ≤ balancedMax < expertMin`, with `fastMax` −∞ for `premium` and `expertMin` +∞ for `budget`
+- **THEN** `basicMax ≤ broadMax < frontierMin`, with `basicMax` −∞ for `premium` and `frontierMin` +∞ for `budget`
 
 ### Requirement: Recent mix
-A pure function SHALL report the window's mix: the number of entries and the share of each decided tier, `fast`, `balanced`, `deep` and `expert`, as whole percents rounded to the nearest. With an empty window, it SHALL report no shares.
+A pure function SHALL report the window's mix: the number of entries and the share of each decided tier, `basic`, `broad`, `deep` and `frontier`, as whole percents rounded to the nearest. With an empty window, it SHALL report no shares.
 
 #### Scenario: Mix of four entries
-- **WHEN** the window holds decided tiers `fast`, `balanced`, `balanced` and `deep`
-- **THEN** the mix is 4 entries, `fast` 25%, `balanced` 50%, `deep` 25%, `expert` 0%
+- **WHEN** the window holds decided tiers `basic`, `broad`, `broad` and `deep`
+- **THEN** the mix is 4 entries, `basic` 25%, `broad` 50%, `deep` 25%, `frontier` 0%
 
 #### Scenario: Empty window
 - **WHEN** the window is empty

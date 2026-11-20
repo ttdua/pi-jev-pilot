@@ -6,15 +6,15 @@ import type { WorkerAnswers } from "../../src/policy/worker/answers.ts";
 
 export const MARKER = "JEV-MARKER-PROMPT";
 export const config: PlainConfig = {
-  tiers: { fast: "a/b", deep: "c/d" },
+  tiers: { basic: "a/b", deep: "c/d" },
   slots: [],
   mode: "standard",
-  expertOn: false,
+  frontierOn: false,
 };
 
-const main = mainQuestions({ askEffort: true, askStrategy: true });
+const main = mainQuestions({ applyEffort: true, askStrategy: true });
 
-export type MainPick = { effort?: string; strategy?: string; risky?: number; tier?: string };
+export type MainPick = { effort?: string; strategy?: string; risky?: number };
 
 const choice = (options: readonly string[], pick: string) => ({
   type: "choice",
@@ -30,12 +30,10 @@ export function mainBody(p: MainPick = {}): unknown {
     const spec = main.specs[key];
     return spec?.type === "choice" ? spec.options : [];
   };
-  const tier = p.tier ?? opts("tier")[0] ?? "";
   return {
     answers: {
       effort: choice(opts("effort"), p.effort ?? "low"),
       risky: { type: "noul", noul: p.risky ?? 0.1 },
-      tier: choice(opts("tier"), tier),
       strategy: choice(opts("strategy"), p.strategy ?? "direct"),
       corrects: { type: "noul", noul: 0.1 },
     },
@@ -84,7 +82,7 @@ export type WorkerPick = {
 
 /** A parsed worker answer set, as `readWorkerOutcome` would return it. */
 export function workerAnswers(p: WorkerPick = {}): Extract<WorkerAnswers, { kind: "read" }> {
-  const tier = p.tier ?? "fast";
+  const tier = p.tier ?? "basic";
   const effort = p.effort ?? "low";
   return {
     kind: "read",

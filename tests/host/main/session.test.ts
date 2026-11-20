@@ -6,7 +6,7 @@ const record = (turnId = "t-1"): TurnRecord => ({
   turnId,
   at: 0,
   sessionId: "s",
-  mode: "balanced",
+  mode: "broad",
   from: "low",
   answered: false,
   ms: 0,

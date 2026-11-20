@@ -1,6 +1,6 @@
-export type TierName = "fast" | "balanced" | "deep" | "expert";
+export type TierName = "basic" | "broad" | "deep" | "frontier";
 
-export const TIER_LADDER: readonly TierName[] = ["fast", "balanced", "deep", "expert"];
+export const TIER_LADDER: readonly TierName[] = ["basic", "broad", "deep", "frontier"];
 
 const SLOT_PREFIX = "slot::";
 
@@ -85,3 +85,11 @@ export function effectiveLaunch(request: LaunchRequestFacts): EffectiveLaunch {
     thinkingLocked: locks("thinking"),
   };
 }
+
+// DEPRECATED(remove next minor)
+/** The pre-rename tier names and the names they became; read paths only, writers never emit them. */
+export const LEGACY_TIER: Readonly<Record<"fast" | "balanced" | "expert", TierName>> = {
+  fast: "basic",
+  balanced: "broad",
+  expert: "frontier",
+};

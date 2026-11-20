@@ -123,15 +123,15 @@ describe("worker log line reasons", () => {
     briefChars: 10,
     status: "completed",
     agent: "worker",
-    tier: "balanced",
+    tier: "broad",
     effort: "high",
     ms: 300,
   };
   test("Cut reason hidden", () => {
-    expect(logLine({ ...worker, reason: "cut" })).toBe("jev · worker → balanced · high · 0.3s");
+    expect(logLine({ ...worker, reason: "cut" })).toBe("jev · worker → broad · high · 0.3s");
   });
   test("Expert reason shown", () => {
-    expect(logLine({ ...worker, reason: "expert" })).toContain(" · why expert");
+    expect(logLine({ ...worker, reason: "frontier" })).toContain(" · why frontier");
   });
 });
 

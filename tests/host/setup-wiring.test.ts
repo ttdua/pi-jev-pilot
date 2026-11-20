@@ -610,6 +610,36 @@ describe("setup launch policy registration", () => {
     expect(log).toEqual([]);
   });
 
+  test("Config migrated at start: before the status line, one notification", async () => {
+    const dir = join(agentDir, "jev");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "config.json"), '{"tiers":{"fast":"a/x"}}');
+    writeFileSync(join(dir, "state.json"), '{"version":1,"switches":{"expert":false}}');
+    const log: string[] = [];
+    const f = fakePi();
+    setup(f.pi, { window: fakeWindow(log), readLines: () => [] });
+    await f.fire("session_start", {}, loggingCtx("main", log));
+    expect(log).toEqual(["getSessionId", "tuning", "window.load", "getSessionId", "draw"]);
+    expect(JSON.parse(readFileSync(join(dir, "config.json"), "utf8"))).toEqual({
+      tiers: { basic: "a/x" },
+    });
+    expect(JSON.parse(readFileSync(join(dir, "state.json"), "utf8")).switches).toEqual({
+      frontier: false,
+    });
+  });
+
+  test("Child session: legacy files are left alone", async () => {
+    const dir = join(agentDir, "jev");
+    mkdirSync(dir, { recursive: true });
+    const text = '{"tiers":{"fast":"a/x"}}';
+    writeFileSync(join(dir, "config.json"), text);
+    const f = fakePi();
+    setup(f.pi);
+    f.markChild("kid");
+    await f.fire("session_start", {}, loggingCtx("kid", []));
+    expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
+  });
+
   test("/jev reports a launch policy slot held by another extension", async () => {
     const log: string[] = [];
     g[EXECUTOR_KEY] = vendored(log, true);

@@ -10,11 +10,11 @@ Questions follow the documented Choice and Noul shapes. A choice has `type`, `in
 
 ## Tier rubrics
 
-Rubric version: `RUBRIC_VERSION` is 2 (one worker rubric, no `expert_needed`).
+Rubric version: `RUBRIC_VERSION` is 3 (knowledge tiers, work-and-care effort, no `expert_needed`).
 
 Instruction, in every mode:
 
-> Which is the cheapest tier that can complete this coding task well?
+> Which is the least knowledgeable model tier that has the knowledge this task needs?
 
 Each criterion is prefixed with the configured model's display name from Pi's registry, such as `Claude Haiku 5.5. `.
 
@@ -24,12 +24,12 @@ One rubric for every mode.
 
 | Tier | Criterion |
 |---|---|
-| `fast` | Fast and low cost, for bounded work with nothing to decide. Choose when the task itself says exactly what to do and a mistake is cheap to spot: searching or reading and reporting what is there, running commands and reporting the result, mechanical edits such as a rename, a typo, a config value, applying changes already written out in the brief, or a small change to one file that a named check confirms. |
-| `balanced` | The default for ordinary engineering. Choose when some working out is needed inside a clear spec: a feature or fix across a few files with a test, build or type check that shows it works, a bug whose cause is known, writing tests for existing code, a scoped refactor, reviewing a small or medium diff, or summarizing and explaining code. |
-| `deep` | For careful judgment or long work. Choose when the spec is open or nothing can check the result, the cause of a bug is unknown, the change spans many components or needs design decisions, or it touches security, data migrations, concurrency, production or money. A large cross-cutting review belongs here too. |
-| `expert` | Rare. Choose only for exceptionally difficult architectural or advisory reasoning that resolves a specific unresolved technical decision with tightly interacting constraints or conflicting evidence, where the expected result is a reusable diagnosis, decision or plan. Ordinary design, review, implementation, long tasks and security or production labels are not expert work; an agent's title grants no eligibility. |
+| `basic` | Common, well-documented knowledge. The syntax, standard library and tools most programmers know or can look up in the official docs. Choose when the task needs nothing beyond that. Length, number of files, number of steps, care and risk are effort, not tier. |
+| `broad` | Broad engineering knowledge across stacks and libraries: how common frameworks, databases, build tools and test runners behave, and the usual patterns for them. Choose when the task needs that knowledge, even across several of them. Length, number of files, number of steps, care and risk are effort, not tier. |
+| `deep` | Specialist depth in one domain: the internals, edge cases and conventions of a particular system, runtime or protocol, which a generalist would get wrong without study. Choose when the task needs that depth. Length, number of files, number of steps, care and risk are effort, not tier. |
+| `frontier` | Rare, frontier-level expertise. Knowledge that few practitioners hold and that weaker models are likely to get wrong, such as subtle interactions between systems or unusual failure modes. Choose only when the task needs that knowledge. Length, number of files, number of steps, care and risk are effort, not tier. |
 
-The main request's `tier` uses its own `fast`, `balanced` and `deep` criteria, without the display-name prefix. Today their text equals the rows above; the main question has no slots and no `expert`.
+The main request asks no `tier`; the strategy gate reads `effort` instead.
 
 ### Slots
 
@@ -45,19 +45,19 @@ Choice. The same five criteria for main and worker requests. The table lists the
 
 | Level | Criterion |
 |---|---|
-| `low` | Answered from what is already known, or mechanical work with nothing to work out: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, a one-line change. |
-| `medium` | An ordinary, well-specified change to one or a few files, or a direct question about code already in view. |
-| `high` | A change across several files that needs working out, a bug whose cause is described but has to be traced, writing tests, or reviewing a diff with care. |
-| `xhigh` | Design across several components, a bug whose cause is unknown, a refactor with many dependents, or careful reasoning about concurrency, performance or failure modes. |
-| `max` | Novel architecture, a security or data-integrity question, a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo. |
+| `low` | Little or no work: a lookup, a single command, a rename or find-and-replace (even across many files), a search that lists what it finds, formatting, or a one-line change. Nothing to trace; the output is the check. |
+| `medium` | A few steps: an ordinary, well-specified change to one or a few files with a check to run, or a direct question about code already in view. |
+| `high` | Several steps with tracing: a change across several files that needs working out, a bug whose cause is described but has to be traced, writing tests, or reviewing a diff with care. |
+| `xhigh` | Long reasoning and verification: design across several components, a bug whose cause is unknown, a refactor with many dependents to verify, or careful reasoning about concurrency, performance or failure modes. |
+| `max` | Heavy care: a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo, such as a security or data-integrity question that must be verified step by step. |
 
 **Main instruction:**
 
-> How much step-by-step reasoning does the work this request asks for need? Rate the work, not how important the topic sounds: a question or advice answered in words, even about architecture or security, is low or medium, and reviewing a small diff is medium. A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.
+> How much step-by-step reasoning does the work this request asks for need? Rate the amount of work and care, not how important the topic sounds: a question or advice answered in words, even about architecture or security, is low or medium, and reviewing a small diff is medium. Rare knowledge is a tier matter, not an effort signal. A reply to the assistant's own question, proposal, review or approval request, such as approving it, picking an option, answering it or asking to continue, whatever its length and however it is formatted, takes the size of the work it approves or starts, judged from the recent conversation rather than from the reply's own text.
 
 **Worker instruction:**
 
-> How much step-by-step reasoning does a subagent need to carry out this brief? A brief that already names the files, the steps and the tests has done the design: carrying it out is execution. Rate higher only when the brief itself asks for design, an unknown cause, or reasoning that is not already written out. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.
+> How much work and care does a subagent need to put into carrying out this brief? Count the steps, the tracing, the tool calls and the verification, even when the brief names them. A brief that already names the files, the steps and the tests has settled the design, but carrying it out still rates by its total steps, tracing, tool use and verification. Rate higher when the brief itself asks for design, tracing an unknown cause, or reasoning that is not already written out. Rare knowledge is a tier matter, not an effort signal. Rate the work, not how important the topic sounds: reviewing a small diff is medium, even for security.
 
 ## `risky`
 

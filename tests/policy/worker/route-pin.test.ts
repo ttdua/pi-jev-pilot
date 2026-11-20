@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import type { Answer } from "../../../src/policy/answers.ts";
 import type { ModelThinking } from "../../../src/policy/effort.ts";
 import { type EffectiveLaunch, type Target, type TierName } from "../../../src/policy/launch.ts";
-import { SEED_CUTPOINTS } from "../../../src/policy/worker/seed.ts";
 import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 import {
   launchKind,
@@ -13,7 +12,7 @@ import {
   type RouteInput,
 } from "../../../src/policy/worker/route.ts";
 
-const ALL: readonly TierName[] = ["fast", "balanced", "deep"];
+const ALL: readonly TierName[] = ["basic", "broad", "deep"];
 
 function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
   return {
@@ -31,7 +30,7 @@ function read(o: { tier?: [string, number]; effort?: string; risky?: number }): 
     answers["tier"] = {
       type: "choice",
       choice: o.tier[0],
-      probabilities: { fast: 0, balanced: 0, deep: 0, expert: 0, [o.tier[0]]: o.tier[1] },
+      probabilities: { basic: 0, broad: 0, deep: 0, frontier: 0, [o.tier[0]]: o.tier[1] },
     };
   }
   if (o.effort !== undefined) {
@@ -45,6 +44,9 @@ function read(o: { tier?: [string, number]; effort?: string; risky?: number }): 
   return { kind: "read", answers, unanswered: {} };
 }
 
+// Fixed cuts, independent of the shipped seed: score 0 → basic, 1 → broad, 2 → deep, 3 → frontier.
+const CUTS = { basicMax: 0.9, broadMax: 1.5, frontierMin: 2.5 };
+
 type Spy = { models: Target[]; thinkings: Target[]; runs: Target[] };
 
 function build(
@@ -57,7 +59,7 @@ function build(
     answers: read({}),
     launch: launch(),
     offered: ALL,
-    cuts: SEED_CUTPOINTS.standard,
+    cuts: CUTS,
     forkLaunch: "untouched",
     canRun: (t) => {
       spy.runs.push(t);
@@ -146,7 +148,7 @@ describe("launchKind (exhaustive pin)", () => {
 });
 
 describe("routeLaunch (pin)", () => {
-  const good = read({ tier: ["balanced", 0.9], effort: "high" });
+  const good = read({ tier: ["broad", 0.9], effort: "high" });
 
   test("untouched launch skips answers and deps", () => {
     const { input, spy } = build({ launch: launch({ context: "fork" }), answers: good });
@@ -191,21 +193,21 @@ describe("routeLaunch (pin)", () => {
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/balanced", thinking: "high" },
-      record: { reason: "cut", tier: "balanced", effort: "high" },
+      write: { model: "fx/broad", thinking: "high" },
+      record: { reason: "cut", tier: "broad", effort: "high" },
     });
     expect(Object.keys(r)).toEqual(["kind", "write", "record"]);
     expect(Object.keys(r.write)).toEqual(["model", "thinking"]);
     expect(Object.keys(r.record)).toEqual(["reason", "tier", "effort"]);
-    expect(spy.models).toEqual(["balanced"]);
-    expect(spy.thinkings).toEqual(["balanced"]);
-    expect(spy.runs).toEqual(["balanced"]);
+    expect(spy.models).toEqual(["broad"]);
+    expect(spy.thinkings).toEqual(["broad"]);
+    expect(spy.runs).toEqual(["broad"]);
   });
 
   test("keep with a lock puts locked between tier and effort", () => {
     const { input } = build({ answers: good, launch: launch({ thinkingLocked: true }) });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
-    expect(r.write).toEqual({ model: "fx/balanced" });
+    expect(r.write).toEqual({ model: "fx/broad" });
     expect(Object.keys(r.record)).toEqual(["reason", "tier", "locked"]);
   });
 
@@ -213,31 +215,31 @@ describe("routeLaunch (pin)", () => {
     const { input, spy } = build({ answers: good, launch: launch({ thinkingLocked: true }) });
     routeLaunch(input);
     expect(spy.thinkings).toEqual([]);
-    expect(spy.models).toEqual(["balanced"]);
+    expect(spy.models).toEqual(["broad"]);
   });
 
   test("no effort answer: model only, thinkingOf not read", () => {
-    const { input, spy } = build({ answers: read({ tier: ["balanced", 0.9] }) });
+    const { input, spy } = build({ answers: read({ tier: ["broad", 0.9] }) });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
-    expect(r.write).toEqual({ model: "fx/balanced" });
-    expect(r.record).toEqual({ reason: "cut", tier: "balanced" });
+    expect(r.write).toEqual({ model: "fx/broad" });
+    expect(r.record).toEqual({ reason: "cut", tier: "broad" });
     expect(spy.thinkings).toEqual([]);
   });
 
   test("unknown effort choice yields no thinking", () => {
-    const { input } = build({ answers: read({ tier: ["balanced", 0.9], effort: "weird" }) });
+    const { input } = build({ answers: read({ tier: ["broad", 0.9], effort: "weird" }) });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
-    expect(r.write).toEqual({ model: "fx/balanced" });
+    expect(r.write).toEqual({ model: "fx/broad" });
   });
 
-  test("risky lifts a low effort to high", () => {
+  test("risky lifts a low effort to high without moving the tier", () => {
     const { input } = build({
-      answers: read({ tier: ["fast", 0.9], effort: "low", risky: 0.8 }),
+      answers: read({ tier: ["basic", 0.9], effort: "low", risky: 0.8 }),
     });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
-    expect(r.record.reason).toBe("risky");
-    expect(r.record.tier).toBe("deep");
-    expect(r.write).toEqual({ model: "fx/deep", thinking: "high" });
+    expect(r.record.reason).toBe("cut");
+    expect(r.record.tier).toBe("basic");
+    expect(r.write).toEqual({ model: "fx/basic", thinking: "high" });
   });
 
   test("max effort is capped at xhigh, then clamped to the model's levels", () => {
@@ -253,7 +255,7 @@ describe("routeLaunch (pin)", () => {
   });
 
   test("model without reasoning clamps to off; undefined thinking defaults to reasoning", () => {
-    const ans = read({ tier: ["balanced", 0.9], effort: "high" });
+    const ans = read({ tier: ["broad", 0.9], effort: "high" });
     const off = routeLaunch(build({ answers: ans }, () => true, { reasoning: false }).input);
     expect((off as Extract<Route, { kind: "routed" }>).write.thinking).toBe("off");
     const dflt = routeLaunch(build({ answers: ans }, () => true, undefined).input);
@@ -261,31 +263,31 @@ describe("routeLaunch (pin)", () => {
   });
 
   test("moved by fallback: record fallback before effort, effort forced to xhigh then clamped", () => {
-    const ans = read({ tier: ["balanced", 0.9], effort: "high" });
-    const { input, spy } = build({ answers: ans }, (t) => t !== "balanced", {
+    const ans = read({ tier: ["broad", 0.9], effort: "high" });
+    const { input, spy } = build({ answers: ans }, (t) => t !== "broad", {
       reasoning: true,
       thinkingLevelMap: { xhigh: "x" },
     });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
     expect(r).toEqual({
       kind: "routed",
-      write: { model: "fx/fast", thinking: "xhigh" },
-      record: { reason: "cut", tier: "fast", fallback: "balanced", effort: "xhigh" },
+      write: { model: "fx/basic", thinking: "xhigh" },
+      record: { reason: "cut", tier: "basic", fallback: "broad", effort: "xhigh" },
     });
     expect(Object.keys(r.record)).toEqual(["reason", "tier", "fallback", "effort"]);
-    expect(spy.models).toEqual(["fast"]);
-    expect(spy.thinkings).toEqual(["fast"]);
+    expect(spy.models).toEqual(["basic"]);
+    expect(spy.thinkings).toEqual(["basic"]);
   });
 
   test("moved by fallback with lock: locked sits before fallback", () => {
-    const ans = read({ tier: ["balanced", 0.9], effort: "high" });
+    const ans = read({ tier: ["broad", 0.9], effort: "high" });
     const { input } = build(
       { answers: ans, launch: launch({ thinkingLocked: true }) },
-      (t) => t !== "balanced",
+      (t) => t !== "broad",
     );
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
     expect(Object.keys(r.record)).toEqual(["reason", "tier", "locked", "fallback"]);
-    expect(r.write).toEqual({ model: "fx/fast" });
+    expect(r.write).toEqual({ model: "fx/basic" });
   });
 
   test("unchanged fallback: empty write, fallback equals the decided tier, no model read", () => {
@@ -294,7 +296,7 @@ describe("routeLaunch (pin)", () => {
     expect(r).toEqual({
       kind: "routed",
       write: {},
-      record: { reason: "cut", tier: "balanced", fallback: "balanced" },
+      record: { reason: "cut", tier: "broad", fallback: "broad" },
     });
     expect(Object.keys(r.record)).toEqual(["reason", "tier", "fallback"]);
     expect(spy.models).toEqual([]);
@@ -322,13 +324,13 @@ describe("routeLaunch (pin)", () => {
     expect(spy.models).toEqual(["slot::x"]);
   });
 
-  test("slot target moved to balanced when not runnable", () => {
+  test("slot target moved to broad when not runnable", () => {
     const ans = read({ tier: ["slot::x", 0.9], effort: "high" });
     const { input } = build({ answers: ans, slots: ["x"] }, (t) => t !== "slot::x");
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
     expect(r.record).toEqual({
       reason: "slot",
-      tier: "balanced",
+      tier: "broad",
       fallback: "slot::x",
       effort: "high",
     });
@@ -340,15 +342,15 @@ describe("routeLaunch (pin)", () => {
     expect(r).toEqual({
       kind: "routed",
       write: { thinking: "high" },
-      record: { reason: "cut", tier: "balanced", locked: true, effort: "high" },
+      record: { reason: "cut", tier: "broad", locked: true, effort: "high" },
     });
     expect(Object.keys(r.record)).toEqual(["reason", "tier", "locked", "effort"]);
     expect(Object.keys(r.write)).toEqual(["thinking"]);
     expect(spy).toEqual({ models: [], thinkings: [], runs: [] });
   });
 
-  test("model locked: effort is not clamped nor tier-capped (fast tier keeps high)", () => {
-    const ans = read({ tier: ["fast", 0.9], effort: "max" });
+  test("model locked: effort is not clamped nor tier-capped (basic tier keeps high)", () => {
+    const ans = read({ tier: ["basic", 0.9], effort: "max" });
     const { input } = build({ answers: ans, launch: launch({ modelLocked: true }) }, () => true, {
       reasoning: false,
     });
@@ -366,7 +368,7 @@ describe("routeLaunch (pin)", () => {
 
   test("model locked, thinking free, no effort answer: empty write", () => {
     const { input } = build({
-      answers: read({ tier: ["balanced", 0.9] }),
+      answers: read({ tier: ["broad", 0.9] }),
       launch: launch({ modelLocked: true }),
     });
     const r = routeLaunch(input) as Extract<Route, { kind: "routed" }>;
@@ -398,7 +400,7 @@ describe("routeLaunch (pin)", () => {
 
   test("forked thinking: thinking only; effort tier cap does not apply", () => {
     const { input } = build({
-      answers: read({ tier: ["fast", 0.9], effort: "xhigh" }),
+      answers: read({ tier: ["basic", 0.9], effort: "xhigh" }),
       launch: launch({ context: "fork" }),
       forkLaunch: "thinking",
     });

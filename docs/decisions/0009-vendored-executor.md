@@ -1,6 +1,6 @@
 # 0009: Vendor the executor and add seams
 
-**Status:** Superseded by [0010](0010-executor-as-installed-package.md). Was accepted 2026-11-11; supersedes [0006](0006-gotgenes-executor.md).
+**Status:** Superseded by [0011](0011-executor-as-installed-package.md). Was accepted 2026-11-11; supersedes [0006](0006-gotgenes-executor.md).
 
 ## Context
 

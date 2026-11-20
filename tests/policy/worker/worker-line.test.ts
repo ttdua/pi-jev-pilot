@@ -6,8 +6,8 @@ import { workerLine, type WorkerLineInput } from "../../../src/policy/worker/wor
 
 const tierAnswer: Answer = {
   type: "choice",
-  choice: "fast",
-  probabilities: { fast: 0.9, balanced: 0.1 },
+  choice: "basic",
+  probabilities: { basic: 0.9, broad: 0.1 },
 };
 const effortAnswer: Answer = {
   type: "choice",
@@ -22,7 +22,7 @@ const read: WorkerAnswers = {
 const routed: Route = {
   kind: "routed",
   write: { model: "fx/fast", thinking: "medium" },
-  record: { reason: "cut", tier: "fast", effort: "medium" },
+  record: { reason: "cut", tier: "basic", effort: "medium" },
 };
 
 const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
@@ -34,7 +34,7 @@ const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
   jev: { kind: "ok", body: {}, ms: 7.4 },
   answers: read,
   route: routed,
-  offered: ["fast", "balanced", "deep"],
+  offered: ["basic", "broad", "deep"],
   tierQuestion: true,
   rubric: 2,
   callerModel: undefined,
@@ -64,7 +64,7 @@ describe("workerLine", () => {
       "tierP",
       "effortP",
       "rubric",
-      "expertOffered",
+      "frontierOffered",
       "score",
       "reason",
       "tier",

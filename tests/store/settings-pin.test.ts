@@ -56,7 +56,7 @@ describe("resolveSettings precedence", () => {
     const s = resolveSettings({
       config: {
         classifier: { url: "u", model: "m", apiKeyEnv: "K", timeoutMs: 700 },
-        tiers: { fast: "x" },
+        tiers: { basic: "x" },
         effort: { holdProviders: ["a"] },
         skills: { inject: "suggest" },
         state: { parentRequest: true },
@@ -71,7 +71,7 @@ describe("resolveSettings precedence", () => {
       apiKeyEnv: "K",
       timeoutMs: 700,
     });
-    expect(s.tiers).toEqual({ fast: "x" });
+    expect(s.tiers).toEqual({ basic: "x" });
     expect(s.effort.holdProviders).toEqual(["a"]);
     expect(s.skills.inject).toBe("suggest");
     expect(s.state.parentRequest).toBe(true);
@@ -149,7 +149,7 @@ describe("resolveSettings switches", () => {
           effort: false,
           skills: "no",
           tools: 1,
-          expert: null,
+          frontier: null,
           verbose: true,
         } as never,
       },
@@ -189,7 +189,7 @@ describe("resolveSettings timeout tuning", () => {
 describe("resolveSettings freshness", () => {
   test("arrays and objects share no reference with the inputs or DEFAULTS", () => {
     const config = {
-      tiers: { fast: "x" },
+      tiers: { basic: "x" },
       crew: { slots: [{ name: "a", model: "m", when: "w" }] },
       effort: { holdProviders: ["p"] },
     };

@@ -2,7 +2,7 @@
 
 ## Overview
 
-pi-jev-pilot is one Pi package with one extension, in `src/`. The executor, [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), is a separate package installed beside it ([ADR 0010](decisions/0010-executor-as-installed-package.md)); Jev detects what it offers at run time. The Jev extension watches a few host events, asks Jev typed questions, turns the answers into decisions with deterministic rules, and applies them through public Pi APIs.
+pi-jev-pilot is one Pi package with one extension, in `src/`. The executor, [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), is a separate package installed beside it ([ADR 0011](decisions/0011-executor-as-installed-package.md)); Jev detects what it offers at run time. The Jev extension watches a few host events, asks Jev typed questions, turns the answers into decisions with deterministic rules, and applies them through public Pi APIs.
 
 Jev never controls anything directly. **Code owns the control flow; Jev only answers questions.**
 
@@ -49,7 +49,7 @@ src/
 
   policy/                   Pure. No Pi imports, no I/O. One folder per capability.
     answers.ts              Validates a raw response, per question (shared by several capabilities)
-    effort.ts               Effort rules: risk floor, ceiling, fast-tier cap
+    effort.ts               Effort rules: risk floor, ceiling
     launch.ts               Effective launch fields and locks
     main/
       index.ts              Entry point for other folders
@@ -73,7 +73,7 @@ src/
       answers.ts            Reads worker answers
       cut-window.ts         Which ledger lines are eligible; window size
       cutpoints.ts          Cut points from a window
-      ledger-line.ts        Worker ledger line decision fields: rubric, expertOffered, score
+      ledger-line.ts        Worker ledger line decision fields: rubric, frontierOffered, score
       worker-line.ts        The whole `worker` ledger line for a settled launch
       modes.ts              Mode names, target tables
       route.ts              Launch route: untouched checks, thinking-only, fallback, clamp
@@ -114,6 +114,7 @@ src/
       context.ts            Previous turn id and hold context from the branch; re-exports
                             branchItems and scanPlatforms from jev/
       main-cwd.ts           Cwd of the newest main session, for the directory mode
+      migrate.ts            Main session_start rename of deprecated tier keys in config.json and switches.expert in state.json
       models.ts             Model id helpers shared by worker routing and slot commands
       readiness.ts          Key and executor checks; snapshot of config and state
       service.ts            Captures the executor service at main session_start; accepts any object service; routing needs `registerLaunchPolicy`, the agent list needs `listAgentTypes`
@@ -166,7 +167,7 @@ src/
 
   store/                    Files under <agentDir>/jev/. Flat.
     atomic.ts               Atomic write: owner-only directory and file
-    config.ts               config.json: reads and validates; writes only crew.slots
+    config.ts               config.json: reads and validates (deprecated tier aliases); writes only crew.slots and the tier-key rename
     defaults.ts             Default values and feature and mode names
     ledger-schema.ts        Ledger line schema and field lists
     ledger.ts               ledger.jsonl: append, rotate, read
@@ -228,7 +229,7 @@ flowchart TD
 
 ## Host seams
 
-Each row is a contract the package relies on: a public Pi API, or a seam of the executor ([ADR 0010](decisions/0010-executor-as-installed-package.md)). Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md). Q1, Q2 and Q7 of that report are superseded: their seams are gone and the launch policy replaces them.
+Each row is a contract the package relies on: a public Pi API, or a seam of the executor ([ADR 0011](decisions/0011-executor-as-installed-package.md)). Rows marked **Verified** were confirmed by [WG-02](roadmap.md#wg-02-host-seam-verification); see the [evidence report](evidence/2026-11-05-host-seams.md). Q1, Q2 and Q7 of that report are superseded: their seams are gone and the launch policy replaces them.
 
 | Purpose | Seam | Status |
 |---|---|---|
@@ -279,7 +280,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Base states | Drawn from WG-06 as `Jev · <mode>` (`Jev · <mode> (local)` under a directory mode), `Jev · no key`, `Jev · config error` or `Jev · off`. First that applies: config error > no key > off > mode. `/jev status off` clears the line. Nothing is drawn in print or JSON mode | `Jev · standard` |
 | `/jev` output | `ctx.ui.notify` only, so nothing is printed without a UI | Status, features, key, executor, problems |
 | Tally | At the end of `/jev`, and on the status line every 10th prompt (replaces the level and advice suffixes for that prompt) | Prompts, workers by model, tokens on workers, fallbacks. Counts only, no dollars |
-| Log | Only while `verbose` is on. `pi.appendEntry("jev-log")` with `registerEntryRenderer`, not sent to the model | `jev · general → balanced · high · 0.5s` |
+| Log | Only while `verbose` is on. `pi.appendEntry("jev-log")` with `registerEntryRenderer`, not sent to the model | `jev · general → broad · high · 0.5s` |
 | Verbose | Turns the log on. Lines carry raw probabilities, and why something was skipped | Errors always show |
 | Effort difference | Shown when clamping changed a level | `requested → effective`, such as `xhigh → high` |
 
@@ -297,7 +298,7 @@ A child session binds the parent's extension set and runs in the same process, s
 | Unreadable `state.json` | Defaults apply; file left alone, changes refused | Problem reported to `/jev` |
 | Malformed or unreadable `<cwd>/.pi/jev-mode.json` | Global mode applies; file left alone; `/jev mode <m>` overwrites it | `local mode (malformed)` or `local mode (unreadable)` in `/jev` |
 | Tier model unavailable | Next lower tier, with a warning shown once per tier and model per session | Warning; ledger `fallback` |
-| Slot model unavailable | `balanced`, then `fast`, with a warning naming `crew.slots "<name>" model` | Warning; ledger `fallback` |
+| Slot model unavailable | `broad`, then `basic`, with a warning naming `crew.slots "<name>" model` | Warning; ledger `fallback` |
 | Nothing can run | Input unchanged | Warning |
 | Agent file locks the model | Only thinking is written; the tier is recorded | Ledger `locked` |
 | Launch policy throws, is slow or returns nonsense | Launch proceeds unchanged (the executor falls open after 10 s) | Debug note in the executor |

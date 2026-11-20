@@ -235,8 +235,8 @@ Not committed. Each needs evidence or a decision first.
 | Quality check of `budget` | Unknown whether Haiku does this work well | Ledger comparison after real use, or a fixture benchmark |
 | Quality check of the reviewer slot | Routing is proven, review quality is not | Real findings compared |
 | Decision on threshold tuning | Upstream's rules never fired on real data | About 200 decisions per signal, then keep or drop |
-| Calibrating the expert cut | Two cases in replay | More data |
-| More work reaching the fast tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
+| Calibrating the frontier cut | 9–10 `standard` cases in the [rubric-3 replay](evidence/2026-11-20-knowledge-tier-mix.md) | More data |
+| More work reaching the basic tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
 | OpenRouter or Vercel backends | Excluded for now | Demand |
 
 The executor is released separately from [ttdua/pi-subagents](https://github.com/ttdua/pi-subagents). Adopting a release means bumping the pin, which re-runs the host tests.

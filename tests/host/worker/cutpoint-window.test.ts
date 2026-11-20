@@ -23,8 +23,8 @@ const worker = (at: number, extra: Record<string, unknown> = {}) => ({
   status: "completed",
   rubric: RUBRIC_VERSION,
   score: 2,
-  expertOffered: true,
-  tier: "balanced",
+  frontierOffered: true,
+  tier: "broad",
   ...extra,
 });
 const many = (n: number) => Array.from({ length: n }, (_, i) => worker(i + 1));
@@ -50,7 +50,7 @@ describe("cut-point window", () => {
     w.add(worker(900, { reason: "miss" }));
     w.add(worker(901, { rubric: RUBRIC_VERSION - 1 }));
     expect(w.entries()).toHaveLength(200);
-    w.add(worker(902, { tier: "fast", score: 1 }));
+    w.add(worker(902, { tier: "basic", score: 1 }));
     expect(w.entries()).toHaveLength(200);
     expect(w.entries().at(-1)?.score).toBe(1);
   });

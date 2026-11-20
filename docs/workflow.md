@@ -37,7 +37,7 @@ sequenceDiagram
 
 **Skipped when** the run was started by a custom message, the prompt is empty, the session is a child, or every applicable feature is off. Skills apply only with a catalog and no explicit `/skill:name`.
 
-**While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `effort` and `risky` are not asked. Only `corrects` is asked. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
+**While held** (provider in `effort.holdProviders`, and the newest decision after the latest compaction was made on the same provider and model), `risky` is not asked, and `effort` is asked only for the strategy gate when `strategy` is on. Otherwise only `corrects` is asked. The thinking level is never touched, and the status line shows the level in force, also when Jev misses.
 
 **If the operator changes the thinking level while waiting**, that result is discarded. The next prompt decides again. With a catalog over 254 skills the effort level is applied only once every batch has answered (still within one timeout), so a manual level change during that wait also discards the effort result.
 
@@ -90,16 +90,16 @@ What the policy leaves alone:
 
 If the policy throws, is too slow or returns something malformed, the launch runs unchanged. The ledger joins events to launches by `agentId`; a resumed launch writes no line.
 
-**Model selection example** with the default `standard` mode. The tier follows the difficulty score and the mode's cut points; the table shows only typical reads:
+**Model selection example** with the default `standard` mode. The tier follows the knowledge score and the mode's cut points; effort follows the work and care. The table shows only typical reads:
 
 | Brief reads as | Jev answers | Result |
 |---|---|---|
-| Fix three named wording issues, check named | `fast` .86 (low score) | Haiku, effort capped at `medium` |
-| Same, but less certain | `fast` .52 (score near the cut) | Haiku or Sonnet, by the cut |
-| Implement a feature to a written spec | `balanced` .95 | Sonnet |
-| Task spanning many crates | `deep` .66 | Opus |
+| Fix three named wording issues, check named | `basic` .86 (low score) | Haiku, effort as Jev chose |
+| Same, but less certain | `basic` .52 (score near the cut) | Haiku or Sonnet, by the cut |
+| Implement a feature with a common framework | `broad` .95 | Sonnet |
+| Debug a runtime's memory model | `deep` .66 | Opus |
 | Review a pull request | `slot::reviewer` .92 | The `reviewer` slot's model |
-| Anything that would deploy or delete data | `risky` .9 | Opus, effort at least `high` |
+| Anything that would deploy or delete data | `risky` .9 | The tier its knowledge needs, effort at least `high` |
 
 **Effect on the session:** worker model and effort differ from what the main model asked for, and the ledger records `callerModel`, plus `effectiveModel` and `effectiveThinking` as the executor applied them. The executor's widget shows the actual model.
 

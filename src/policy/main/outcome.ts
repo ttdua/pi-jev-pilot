@@ -1,5 +1,5 @@
 import type { Answer, ReadResult } from "../answers.ts";
-import { decideEffort, type EffortLevel, type ThinkingLevel } from "../effort.ts";
+import { decideEffort, EFFORT_LEVELS, type EffortLevel, type ThinkingLevel } from "../effort.ts";
 import { adviseStrategy, type Strategy } from "./strategy.ts";
 import type { TurnRecord } from "./record.ts";
 
@@ -12,7 +12,8 @@ export type ClassifierReply =
 export type OutcomeFlags = {
   held: boolean;
   effortOn: boolean;
-  askEffort: boolean;
+  /** Effort-eligible: the feature is on, the prompt is not held, the model supports levels. */
+  applyEffort: boolean;
   askStrategy: boolean;
   supported: readonly ThinkingLevel[];
 };
@@ -49,6 +50,9 @@ export type OutcomePlan =
   | ({ kind: "held" } & Advised)
   | ({ kind: "answered"; effort: EffortPlan } & Advised);
 
+const isEffortLevel = (value: string): value is EffortLevel =>
+  (EFFORT_LEVELS as readonly string[]).includes(value);
+
 const noulOf = (answer: Answer | undefined): number | undefined =>
   answer?.type === "noul" ? answer.noul : undefined;
 
@@ -68,10 +72,10 @@ function planAdvice(
 ): Advised {
   if (!askStrategy) return { patch: {}, nextAdvice: currentAdvice, adviceBlock: undefined };
   const strategy = answers["strategy"];
-  const tier = answers["tier"];
+  const effort = answers["effort"];
   const advice = adviseStrategy({
     ...(strategy?.type === "choice" ? { strategy } : {}),
-    ...(tier?.type === "choice" ? { tier: tier.choice } : {}),
+    ...(effort?.type === "choice" && isEffortLevel(effort.choice) ? { effort: effort.choice } : {}),
   });
   const patch: RecordPatch =
     advice === undefined
@@ -111,7 +115,7 @@ function planEffort(
   risky: number | undefined,
 ): { patch: RecordPatch; effort: EffortPlan } {
   if (effort?.type !== "choice") {
-    return { patch: {}, effort: { kind: "unanswered", showNoAnswer: flags.askEffort } };
+    return { patch: {}, effort: { kind: "unanswered", showNoAnswer: flags.applyEffort } };
   }
   const { requested, target } = decideEffort({
     choice: effort.choice as EffortLevel,
@@ -121,6 +125,27 @@ function planEffort(
   return {
     patch: { effortP: effort.probabilities, requested },
     effort: { kind: "target", target },
+  };
+}
+
+/** A decided turn: records the answers; effort is planned only when the turn is effort-eligible. */
+function planAnswered(
+  flags: OutcomeFlags,
+  answers: Record<string, Answer>,
+  currentAdvice: Strategy | undefined,
+): OutcomePlan {
+  const risky = flags.applyEffort ? noulOf(answers["risky"]) : undefined;
+  const recorded = definedOnly({ answered: true, risky, corrects: noulOf(answers["corrects"]) });
+  const advice = planAdvice(flags.askStrategy, answers, currentAdvice);
+  // A gate-only `effort` answer feeds the advice and nothing else.
+  const effort = flags.applyEffort
+    ? planEffort(flags, answers["effort"], risky)
+    : { patch: {}, effort: { kind: "unanswered", showNoAnswer: false } as const };
+  return {
+    kind: "answered",
+    ...advice,
+    patch: { ...recorded, ...advice.patch, ...effort.patch },
+    effort: effort.effort,
   };
 }
 
@@ -155,15 +180,5 @@ export function planOutcome(
       showNoAnswer: flags.effortOn || flags.askStrategy,
     };
   }
-  const { answers } = read;
-  const risky = noulOf(answers["risky"]);
-  const recorded = definedOnly({ answered: true, risky, corrects: noulOf(answers["corrects"]) });
-  const advice = planAdvice(flags.askStrategy, answers, currentAdvice);
-  const effort = planEffort(flags, answers["effort"], risky);
-  return {
-    kind: "answered",
-    ...advice,
-    patch: { ...recorded, ...advice.patch, ...effort.patch },
-    effort: effort.effort,
-  };
+  return planAnswered(flags, read.answers, currentAdvice);
 }

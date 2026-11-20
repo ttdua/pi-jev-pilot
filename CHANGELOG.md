@@ -10,8 +10,22 @@ Tag: v0.6.0
 
 ### Changed
 
-- **Breaking: the executor is installed separately.** Install `pi install git:github.com/ttdua/pi-subagents@v0.1.1` first, then `pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0`. This package no longer ships a vendored executor and `packages/` is gone ([ADR 0010](docs/decisions/0010-executor-as-installed-package.md)).
+- **Breaking: the executor is installed separately.** Install `pi install git:github.com/ttdua/pi-subagents@v0.1.1` first, then `pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0`. This package no longer ships a vendored executor and `packages/` is gone ([ADR 0011](docs/decisions/0011-executor-as-installed-package.md)).
 - `/jev` reports the executor from the capabilities its service publishes: `executor: @ttdua/pi-subagents`, `executor: no executor; worker routing is off`, or `executor: <impl>; no launch policy, worker routing is off`, with `; no agent registry` when the registry is missing. The `duplicate executor` state is gone.
+- **Breaking:** model tiers now describe how much the model knows, and effort how hard it works ([ADR 0010](docs/decisions/0010-knowledge-tiers.md)). Renamed:
+  - `tiers.fast` → `tiers.basic`, `tiers.balanced` → `tiers.broad`, `tiers.expert` → `tiers.frontier` in `config.json` (`tiers.deep` is unchanged).
+  - The feature switch `expert` → `frontier`: `/jev expert on|off` → `/jev frontier on|off`, and `switches.expert` → `switches.frontier` in `state.json`.
+  - Ledger worker lines: `expertOffered` → `frontierOffered`, targets `fast`/`balanced`/`expert` → `basic`/`broad`/`frontier`, and reason `expert` → `frontier`.
+  - The `/jev` mix line names the new tiers: `mix (last <n>, <mode>): basic … / broad … / deep … / frontier …`.
+- Deprecated, kept for one minor release: `tiers.fast`, `tiers.balanced`, `tiers.expert`, `switches.expert` and `/jev expert on|off` are still accepted, with a notice in `/jev`. A `config.json` that sets an old key and its new key is invalid. Older ledger lines still load.
+- At the first main session start after the upgrade, `config.json` is rewritten once with the old tier keys renamed in place (other keys, values, order and file mode kept; one notification names the renames), and `switches.expert` in `state.json` moves to `switches.frontier`. An invalid or conflicting file is left alone; if the write fails, the old keys keep working and the next start retries.
+- `frontier` is a reserved slot name. An existing slot named `frontier` still routes, with a notice to rename it; slot commands refuse to write until it is renamed in `config.json` by hand.
+- Worker rubric version 3: the tier question asks for the least knowledgeable tier that has the knowledge the task needs; the effort question rates the amount of work and care. Older worker lines leave the cut-point window, so the built-in seed applies again for the first 100 launches.
+- The difficulty score reads only the `tier` answer (range 0–3); the effort term is gone. The `frontier` tier needs only a score at or above the frontier cut, counted over every window entry; effort is no longer read.
+- `risky` above .7 raises worker effort to at least `high` and no longer lifts the tier to `deep`. The `medium` effort cap on the lowest tier is removed.
+- Frontier caps: `standard` 1% (was 2%), `premium` 3% (was 5%); the difference goes to `deep` (26% and 47%). `budget` is unchanged.
+- Strategy advice: the main request no longer asks `tier`. With `strategy` on it asks `effort`, also when the effort result will not apply; that answer only feeds the gate and is not recorded. `delegate` and `parallel` need effort at least `medium`, `graph` at least `xhigh`.
+- New seed cut points from a rubric-3 replay ([evidence](docs/evidence/2026-11-20-knowledge-tier-mix.md)).
 
 ### Removed
 
@@ -20,6 +34,8 @@ Tag: v0.6.0
 ### Migration
 
 From 0.5.x: remove the old install of this package, install the executor, then reinstall `pi-jev-pilot@v0.6.0`. Uninstalling `@gotgenes/pi-subagents` is no longer a documented step; if it is the only executor loaded, worker routing stays off.
+
+**Rollback (knowledge tiers):** an older build rejects the new keys. Before rolling back, rename `tiers.basic`, `tiers.broad` and `tiers.frontier` back to `tiers.fast`, `tiers.balanced` and `tiers.expert` in `config.json`, and `switches.frontier` back to `switches.expert` in `state.json`, by hand. Ledger lines with new names are skipped by the older read.
 
 ## [0.5.0] - 2026-11-19
 

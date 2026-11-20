@@ -1,4 +1,4 @@
-# 0010: The executor is an installed package, detected at run time
+# 0011: The executor is an installed package, detected at run time
 
 **Status:** Accepted, 2026-11-20. Supersedes [0009](0009-vendored-executor.md).
 

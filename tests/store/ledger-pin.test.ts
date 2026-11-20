@@ -50,11 +50,12 @@ const WORKER: Obj = {
   durationMs: 7,
   agent: "worker.a",
   briefChars: 812,
-  tierP: { fast: 0.5, "slot::a-b": 0.5 },
+  tierP: { basic: 0.5, "slot::a-b": 0.5 },
   expertNeeded: 0.1,
   score: 3.5,
   rubric: 99,
-  expertOffered: true,
+  frontierOffered: true,
+  expertOffered: false,
   tier: "slot::x1",
   fallback: "deep",
   model: "anthropic/claude-x",
@@ -189,6 +190,7 @@ const WORKER_BAD: Record<string, [unknown, string]> = {
   expertNeeded: [3, PROB],
   score: [3.6, "expected a number from 0 to 3.5"],
   rubric: [0, INT(99).replace("from 0", "from 1")],
+  frontierOffered: ["t", BOOL],
   expertOffered: ["t", BOOL],
   tier: ["huge", TARGET],
   fallback: [1, TARGET],
@@ -196,7 +198,7 @@ const WORKER_BAD: Record<string, [unknown, string]> = {
   effort: ["max2", LEVELS],
   reason: [
     "because",
-    "expected one of: expert-admitted, risky, slot, expert-denied, fast-unsure, choice, expert, cut, untouched, miss",
+    "expected one of: expert-admitted, risky, slot, expert-denied, fast-unsure, choice, frontier, expert, cut, untouched, miss",
   ],
   callerModel: ["a b", "expected a string matching ^[A-Za-z0-9._:/-]{1,128}$"],
   locked: [1, BOOL],
@@ -364,13 +366,13 @@ describe("ledger schema pin: structural failures and ordering", () => {
   });
 
   test("tierP rejects bad targets with the target message and limits keys to 12", () => {
-    const r = run({ ...WORKER, tierP: { huge: 0.5, "slot::BAD": 0.5, fast: 3 } });
+    const r = run({ ...WORKER, tierP: { huge: 0.5, "slot::BAD": 0.5, basic: 3 } });
     expect(r).toEqual({
       ok: false,
       issues: [
         { path: "tierP.huge", message: TARGET },
         { path: "tierP.slot::BAD", message: TARGET },
-        { path: "tierP.fast", message: PROB },
+        { path: "tierP.basic", message: PROB },
       ],
     });
     const many = Object.fromEntries(Array.from({ length: 13 }, (_, i) => [`slot::s${i}`, 0.1]));
@@ -381,7 +383,7 @@ describe("ledger schema pin: structural failures and ordering", () => {
   });
 
   test("tierP with __proto__ key stays an own property", () => {
-    const tierP = JSON.parse('{"fast":0.5}') as Obj;
+    const tierP = JSON.parse('{"basic":0.5}') as Obj;
     const r = run({ ...WORKER, tierP });
     expect(r.ok).toBe(true);
   });
@@ -398,7 +400,7 @@ describe("ledger schema pin: cross-field checks", () => {
       "expert-denied",
       "fast-unsure",
       "choice",
-      "expert",
+      "frontier",
       "cut",
     ]) {
       const { tier: _t, ...rest } = worker({ reason });

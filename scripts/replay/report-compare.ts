@@ -2,8 +2,16 @@
 import type { Answer } from "../../src/policy/answers.ts";
 import { isSlot } from "../../src/policy/launch.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
-import type { ModeName } from "../../src/policy/worker/index.ts";
-import { readWorkerOutcome, type WorkerAnswers } from "../../src/policy/worker/index.ts";
+import {
+  cutPoints,
+  difficultyScore,
+  MODE_TARGETS,
+  readWorkerOutcome,
+  type CutPoints,
+  type ModeName,
+  type WindowEntry,
+  type WorkerAnswers,
+} from "../../src/policy/worker/index.ts";
 import { cutCodePoints } from "../../src/shared/text.ts";
 import {
   CASE_TEXT_POINTS,
@@ -17,6 +25,14 @@ import { variantKey, type Plan, type PlainConfig, type PlannedRequest } from "./
 
 type Counts = Record<string, number>;
 type Kind = "review" | "scout" | "implementation";
+
+/** A cut point as written to `aggregates.json`: ±∞ become strings. */
+export type SerializedCut = number | "Infinity" | "-Infinity";
+export type SerializedCuts = {
+  basicMax: SerializedCut;
+  broadMax: SerializedCut;
+  frontierMin: SerializedCut;
+};
 
 export type ReportAggregates = {
   v: 1;
@@ -39,6 +55,7 @@ export type ReportAggregates = {
       };
     }
   >;
+  seedCandidates: Record<"report" | "rerun", Record<ModeName, SerializedCuts>>;
   workers: Record<
     "report" | "rerun",
     Record<
@@ -167,8 +184,44 @@ function tallyMain(side: Side, startEffort: readonly (string | undefined)[]) {
   return out;
 }
 
-function routeSide(side: Side, config: PlainConfig, mode: ModeName, routing: Routing) {
+const serializeCut = (n: number): SerializedCut =>
+  n === Infinity ? "Infinity" : n === -Infinity ? "-Infinity" : n;
+
+/** `cutPoints` per mode over every scored worker answer of a side; misses and unscored answers are left out. */
+function seedCandidates(side: Side): Record<ModeName, CutPoints> {
+  const entries: WindowEntry[] = [];
+  for (const read of side.workers) {
+    const score = read === undefined ? undefined : difficultyScore(read.answers);
+    // `decided` is unused by the cut rules; only scores count.
+    if (score !== undefined) entries.push({ score, decided: "basic" });
+  }
+  return Object.fromEntries(
+    REPORT_MODES.map((m) => [m, cutPoints(entries, MODE_TARGETS[m])]),
+  ) as Record<ModeName, CutPoints>;
+}
+
+function serializeCuts(cuts: Record<ModeName, CutPoints>): Record<ModeName, SerializedCuts> {
+  return Object.fromEntries(
+    REPORT_MODES.map((m) => [
+      m,
+      {
+        basicMax: serializeCut(cuts[m].basicMax),
+        broadMax: serializeCut(cuts[m].broadMax),
+        frontierMin: serializeCut(cuts[m].frontierMin),
+      },
+    ]),
+  ) as Record<ModeName, SerializedCuts>;
+}
+
+function routeSide(
+  side: Side,
+  config: PlainConfig,
+  at: { mode: ModeName; routing: Routing },
+  seed: CutPoints,
+) {
+  const { mode, routing } = at;
   return routeStreamRecords(side.workers, {
+    seed,
     config,
     mode,
     routing,
@@ -216,6 +269,7 @@ function perModeRouting<T>(f: (mode: ModeName, routing: Routing) => T) {
 
 type Analysis = {
   sides: Record<Variant, Side>;
+  seeds: Record<Variant, Record<ModeName, CutPoints>>;
   routed: Record<Variant, Record<ModeName, Record<Routing, (Targets | undefined)[]>>>;
 };
 
@@ -225,11 +279,16 @@ function analyse(plan: Plan, results: readonly Result[], config: PlainConfig): A
     report: sideOf(plan, results, config, "report"),
     rerun: sideOf(plan, results, config, "rerun"),
   };
+  const seeds = { report: seedCandidates(sides.report), rerun: seedCandidates(sides.rerun) };
   const routed = {
-    report: perModeRouting((m, r) => routeSide(sides.report, config, m, r)),
-    rerun: perModeRouting((m, r) => routeSide(sides.rerun, config, m, r)),
+    report: perModeRouting((m, r) =>
+      routeSide(sides.report, config, { mode: m, routing: r }, seeds.report[m]),
+    ),
+    rerun: perModeRouting((m, r) =>
+      routeSide(sides.rerun, config, { mode: m, routing: r }, seeds.rerun[m]),
+    ),
   };
-  return { sides, routed };
+  return { sides, seeds, routed };
 }
 
 export function compareReport(
@@ -237,7 +296,7 @@ export function compareReport(
   results: readonly Result[],
   meta: ReportMeta,
 ): ReportAggregates {
-  const { sides, routed } = analyse(plan, results, meta.config);
+  const { sides, seeds, routed } = analyse(plan, results, meta.config);
   const workers = (v: Variant) =>
     perModeRouting((m, r) => tallyWorkers(routed[v][m][r], meta.workerKind, r === "slots"));
   return {
@@ -252,6 +311,7 @@ export function compareReport(
       report: tallyMain(sides.report, meta.startEffort),
       rerun: tallyMain(sides.rerun, meta.startEffort),
     },
+    seedCandidates: { report: serializeCuts(seeds.report), rerun: serializeCuts(seeds.rerun) },
     workers: { report: workers("report"), rerun: workers("rerun") },
     noise: {
       mainEffort: differing(

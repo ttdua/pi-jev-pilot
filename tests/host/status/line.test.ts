@@ -303,14 +303,14 @@ describe("logLine", () => {
         ...worker,
         agent: "general-purpose",
         reason: "choice",
-        tier: "balanced",
+        tier: "broad",
         fallback: "deep",
         effort: "high",
         ms: 480,
-        tierP: { fast: 0.1, balanced: 0.3, deep: 0.6 },
+        tierP: { basic: 0.1, broad: 0.3, deep: 0.6 },
       }),
     ).toBe(
-      "jev · general-purpose → balanced · high · 0.5s · p fast 0.10 balanced 0.30 deep 0.60 · fallback deep",
+      "jev · general-purpose → broad · high · 0.5s · p basic 0.10 broad 0.30 deep 0.60 · fallback deep",
     ));
   test("worker miss text", () =>
     expect(
@@ -329,8 +329,8 @@ describe("logLine", () => {
     ));
   test("worker locked", () =>
     expect(
-      logLine({ ...worker, agent: "scout", reason: "choice", tier: "fast", locked: true }),
-    ).toBe("jev · scout → fast · - · locked"));
+      logLine({ ...worker, agent: "scout", reason: "choice", tier: "basic", locked: true }),
+    ).toBe("jev · scout → basic · - · locked"));
   test("correction text", () =>
     expect(
       logLine({ v: 1, at: 1, session: "s1", kind: "correction", turnId: "t1", corrects: 0.8 }),

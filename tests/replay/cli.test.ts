@@ -93,19 +93,34 @@ describe("readConfig", () => {
     const dir = agentDir(
       {
         classifier: { url: "https://x.example/v1", model: "m1", apiKeyEnv: "MY_KEY" },
-        tiers: { fast: "a/b" },
+        tiers: { basic: "a/b" },
         crew: { slots: [{ name: "s", model: "c/d", when: "always" }] },
       },
-      { mode: "premium", switches: { expert: false } },
+      { mode: "premium", switches: { frontier: false } },
     );
     const c = readConfig(join(dir, "jev"));
     expect(c).toMatchObject({ url: "https://x.example/v1", model: "m1", apiKeyEnv: "MY_KEY" });
     expect(c.plain).toEqual({
-      tiers: { fast: "a/b" },
+      tiers: { basic: "a/b" },
       slots: [{ name: "s", model: "c/d", when: "always" }],
       mode: "premium",
-      expertOn: false,
+      frontierOn: false,
     });
+  });
+
+  test("legacy tier keys are normalized, new keys win", () => {
+    const dir = agentDir(
+      { tiers: { fast: "a/b", balanced: "c/d", expert: "e/f", deep: "g/h", basic: "n/n" } },
+      { switches: { expert: false } },
+    );
+    const c = readConfig(join(dir, "jev"));
+    expect(c.plain.tiers).toEqual({ basic: "n/n", broad: "c/d", deep: "g/h", frontier: "e/f" });
+    expect(c.plain.frontierOn).toBe(false);
+  });
+
+  test("frontier switch wins over the legacy expert switch", () => {
+    const dir = agentDir({}, { switches: { expert: false, frontier: true } });
+    expect(readConfig(join(dir, "jev")).plain.frontierOn).toBe(true);
   });
 
   test("defaults when files are missing", () => {
@@ -115,7 +130,7 @@ describe("readConfig", () => {
       model: "jev-latest",
       apiKeyEnv: "TYPESAFE_API_KEY",
     });
-    expect(c.plain).toMatchObject({ mode: "standard", expertOn: true });
+    expect(c.plain).toMatchObject({ mode: "standard", frontierOn: true });
   });
 });
 

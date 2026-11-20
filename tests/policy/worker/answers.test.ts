@@ -4,7 +4,7 @@ import type { JevOutcome } from "../../../src/jev/client.ts";
 import { buildWorkerQuestions } from "../../../src/jev/questions.ts";
 import { readWorkerOutcome } from "../../../src/policy/worker/answers.ts";
 
-const { specs } = buildWorkerQuestions(["fast", "balanced", "deep"], {});
+const { specs } = buildWorkerQuestions(["basic", "broad", "deep"], {});
 
 function choice(name: string, options: string[]): unknown {
   return {

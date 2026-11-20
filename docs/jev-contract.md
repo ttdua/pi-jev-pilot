@@ -140,9 +140,9 @@ Nothing found sends `none found`.
 
 ## Eligibility
 
-A main request is sent when `messageType` is `user`, the text is not empty, the session is not a child, and effort, strategy or skills apply. Skills apply when `skills` is on, the catalog is not empty, and the prompt has no explicit `/skill:name`, which Pi has already expanded to a leading `<skill name=…>` block. `corrects` is asked on every main request. When nothing applies, or effort is held and nothing else applies, no request is made. `effort` and `risky` need `effort` on; `tier` and `strategy` need `strategy` on.
+A main request is sent when `messageType` is `user`, the text is not empty, the session is not a child, and effort, strategy or skills apply. Skills apply when `skills` is on, the catalog is not empty, and the prompt has no explicit `/skill:name`, which Pi has already expanded to a leading `<skill name=…>` block. `corrects` is asked on every main request. When nothing applies, or effort is held and nothing else applies, no request is made. The effort result applies only when the request is effort-eligible: `effort` is on, the model supports at least two levels from `low` upward, and the prompt is not held; such a request asks `effort` and `risky`. With `strategy` on, the request asks `effort` and `strategy`, held or not and whatever the model supports; `effort` is then asked once, and `risky` only when effort-eligible. An `effort` answer asked only for the strategy gate never changes the level and is not recorded. The main request never asks `tier`.
 
-Non-reasoning models, and models with one supported level, skip `effort` and `risky`. While effort is held, they are skipped too.
+Non-reasoning models, models with one supported level and held prompts skip `risky`, and skip `effort` too unless `strategy` is on.
 
 A worker request is skipped when:
 
@@ -157,9 +157,9 @@ A fork launch with `subagents.forkLaunch` set to `thinking`, or a launch with no
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
-| `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max` | Main thinking level |
+| `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max` | Main thinking level, and the strategy gates |
+| `effort` (gate only) | choice | Same options | Strategy gates, when `strategy` is on and the request is not effort-eligible. **Never a level** |
 | `risky` | noul | | Risk floor |
-| `tier` | choice | `fast`, `balanced`, `deep` (main wording) | Strategy gates. **Never a model** |
 | `strategy` | choice | `direct`, `delegate`, `parallel`, `graph` | Advice |
 | `corrects` | noul | | Marks the previous turn |
 | `which` | choice | Every skill, plus `(none)` | Skill pick |
@@ -201,7 +201,7 @@ The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.
 
 | Key | Type | Options | Decides |
 |---|---|---|---|
-| `tier` | choice | Configured tiers (one worker rubric for every mode) and `slot::<name>` | Worker model, through the difficulty score |
+| `tier` | choice | Configured tiers, `basic`, `broad`, `deep`, `frontier` (one knowledge rubric for every mode), and `slot::<name>` | Worker model, through the difficulty score |
 | `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max`, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
 
@@ -232,8 +232,8 @@ If the same name with the same body fingerprint is still in the context Pi sends
 | Input | Rule | Effect |
 |---|---|---|
 | `effort.choice` | Authoritative | Effort, before floor, ceiling and clamp |
-| `risky` | `> .7` | Effort at least `high`; model at least `deep` |
-| `tier` probabilities, `effort.choice` | Difficulty score against the mode's cut points; a slot needs ≥ .6 | See the [decision order](domain-model.md#workerdecision) and [cut points](domain-model.md#difficulty-score-and-cut-points) |
+| `risky` | `> .7` | Effort at least `high`; never the model |
+| `tier` probabilities | Difficulty score against the mode's cut points; a slot needs ≥ .6 | See the [decision order](domain-model.md#workerdecision) and [cut points](domain-model.md#difficulty-score-and-cut-points) |
 | `strategy` probabilities | See the table below; `direct` attaches nothing | Advice |
 | `which` probability | ≥ .5; or ≥ .3 with gate mean ≥ .3 | Skill pick |
 | `corrects` | ≥ .7 | Marks the previous turn |
@@ -242,11 +242,11 @@ Strategy gates:
 
 | Strategy | Probability | Also |
 |---|---|---|
-| `delegate` | ≥ .6 | |
-| `parallel` | ≥ .6 | `tier` is not `fast` |
-| `graph` | ≥ .8 | `tier` is `deep` |
+| `delegate` | ≥ .6 | `effort` is unanswered, or at least `medium` |
+| `parallel` | ≥ .6 | `effort` is answered and at least `medium` |
+| `graph` | ≥ .8 | `effort` is answered and at least `xhigh` |
 
-An unanswered `tier` attaches nothing for `parallel` or `graph`. User and project instructions and a loaded skill keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
+The gates read Jev's raw `effort.choice`, before the risk lift, ceiling or clamp, so advice does not depend on the level applied. An unanswered `effort` attaches nothing for `parallel` or `graph`. User and project instructions and a loaded skill keep authority over this advice. On the ledger it was attached on 5 of 500 turns.
 
 **How much these thresholds can be trusted** is recorded in the [evidence](evidence/2026-11-05-replay.md#threshold-provenance).
 

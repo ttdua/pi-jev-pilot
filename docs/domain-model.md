@@ -19,7 +19,7 @@ classDiagram
     class Mode {
       name
       targets
-      expertCap
+      frontierCap
     }
     class Tier {
       name
@@ -83,34 +83,34 @@ classDiagram
 
 ### Tier
 
-`fast`, `balanced`, `deep`, `expert`. A tier is a role, not a model. Configuration maps each to a physical `provider/id`.
+`basic`, `broad`, `deep`, `frontier`, from least to most knowledgeable. A tier is how much a model knows, not how hard or long the work is: that is effort ([ADR 0010](decisions/0010-knowledge-tiers.md)). Configuration maps each to a physical `provider/id`.
 
-| Tier | Typical model | For |
+| Tier | Typical model | Knowledge the task needs |
 |---|---|---|
-| `fast` | Haiku | Bounded work with nothing to decide |
-| `balanced` | Sonnet | Ordinary engineering inside a clear spec |
-| `deep` | Opus | Judgment, open specs, unknown causes |
-| `expert` | Fable | The hardest work; gated |
+| `basic` | Haiku | Common, well-documented knowledge |
+| `broad` | Sonnet | Broad engineering knowledge across stacks and libraries |
+| `deep` | Opus | Specialist depth in one domain |
+| `frontier` | Fable | Rare, frontier-level expertise; capped per mode |
 
-All tiers are optional. An unconfigured tier is never offered.
+All tiers are optional. An unconfigured tier is never offered. The names before ADR 0010 were `fast`, `balanced`, `deep` and `expert`; they are read as deprecated aliases in `config.json`, `state.json` and the ledger, and never written.
 
 ### Mode
 
-`budget`, `standard` (default), `premium`. A mode is a **target table**: the share of tier-routed worker launches for `fast`, `balanced` and `deep`, and a cap for `expert` (see [ADR 0008](decisions/0008-mode-target-cutpoints.md)). Nothing else changes: not the questions, not the worker rubric, not the thresholds for slots or risk, not the main session.
+`budget`, `standard` (default), `premium`. A mode is a **target table**: the share of tier-routed worker launches for `basic`, `broad` and `deep`, and a cap for `frontier` (see [ADR 0008](decisions/0008-mode-target-cutpoints.md) and [ADR 0010](decisions/0010-knowledge-tiers.md)). Nothing else changes: not the questions, not the worker rubric, not the thresholds for slots or risk, not the main session.
 
-| Mode | `fast` | `balanced` | `deep` | `expert` cap |
+| Mode | `basic` | `broad` | `deep` | `frontier` cap |
 |---|---|---|---|---|
 | `budget` | 50% | 40% | 10% | 0% |
-| `standard` | 20% | 53% | 25% | ≤ 2% |
-| `premium` | 0% | 50% | 45% | ≤ 5% |
+| `standard` | 20% | 53% | 26% | ≤ 1% |
+| `premium` | 0% | 50% | 47% | ≤ 3% |
 
-Each share is meant to stay within ±10 points over recent tier-routed launches. Expert is a cap, not a quota. The targets never change automatically.
+Each share is meant to stay within ±10 points over recent tier-routed launches. Frontier is a cap, not a quota. The targets never change automatically.
 
 ### Slot
 
 A named custom model with a `when` description. It joins the tier question as `slot::<name>` in every mode. A slot is a candidate Jev chooses from the brief, not a role bound to an agent. Review routing is simply a slot named `reviewer`.
 
-Unlike upstream, `fast` stays offered when slots exist. Replay showed no interference. Slots do not depend on a mode.
+Unlike upstream, `basic` stays offered when slots exist. Replay showed no interference. Slots do not depend on a mode.
 
 ## Decisions
 
@@ -122,47 +122,44 @@ Made once per eligible main prompt.
 |---|---|---|
 | Effort | `effort`, `risky` | Choice; `risky > .7` raises to at least `high`; start capped at `xhigh`; clamped with `clampThinkingLevel`; a current `max` is left alone. No confidence gate, no close-call lean |
 | Manual change | | The operator changing the level during an outstanding request discards that result. The next prompt decides again. `/jev effort off` hands the level back |
-| Hold | Config | Providers in `holdProviders` keep the level of the newest decision (anchored on provider and model) until a compaction or a provider or model switch, without asking `effort` or `risky` |
+| Hold | Config | Providers in `holdProviders` keep the level of the newest decision (anchored on provider and model) until a compaction or a provider or model switch, without asking `risky`. `effort` is asked only for the strategy gate when `strategy` is on |
 | Skill | `which`, `gate::*` | At most one; probability ≥ .5, or probability and gate mean both ≥ .3 |
-| Advice | `strategy`, `tier` | `direct` attaches nothing; see the strategy gates. Independent of the effort result |
+| Advice | `strategy`, `effort` | `direct` attaches nothing; see the strategy gates, which read Jev's raw `effort` choice. Independent of the effort result. The main request asks no `tier` |
 | Correction mark | `corrects` | ≥ .7 writes a `correction` line for the previous turn |
 
 ### WorkerDecision
 
 Made once per `subagent` launch, in this order. The first match wins.
 
-1. `expert`: `expert` is offered, the [difficulty score](#difficulty-score-and-cut-points) is at least the expert cut, and effort is `xhigh` or `max`.
-2. `risky > .7`: `deep`, or the highest configured tier below `expert`.
-3. A slot with probability ≥ .6: that slot. Below .6, continue with the cut.
-4. `cut`: the score gives `fast` (at or below the first cut), `balanced` (at or below the second) or `deep`. A tier that is not configured moves to the nearest configured tier below it, else the nearest above it, never `expert`. With no tier configured, nothing is decided.
+1. `frontier`: `frontier` is offered and the [difficulty score](#difficulty-score-and-cut-points) is at least the frontier cut. Effort is not read.
+2. A slot with probability ≥ .6: that slot. Below .6, continue with the cut.
+3. `cut`: the score gives `basic` (at or below the first cut), `broad` (at or below the second) or `deep`. A tier that is not configured moves to the nearest configured tier below it, else the nearest above it, never `frontier`. With no tier configured, nothing is decided.
 
-The ledger reason is `expert`, `risky`, `slot` or `cut`.
+The tier is decided from the knowledge axis only: neither `effort` nor `risky` is read. The ledger reason is `frontier`, `slot` or `cut`.
 
-Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, capped at `medium` on `fast`, clamped to the final model. After a fallback move, effort is `xhigh` on every tier, without the `fast` cap.
+Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, clamped to the final model. The tier never caps or raises it, so a `basic` launch may run at `high` or `xhigh`. After a fallback move, effort is `xhigh` on every tier.
 
-Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `expert` (the warning is shown once per tier and model per session, and `/jev` clears it); an unusable slot moves to `balanced`, then `fast`, never up; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
+Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `frontier` (the warning is shown once per tier and model per session, and `/jev` clears it); an unusable slot moves to `broad`, then `basic`, never up; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
 
 A launch with `resume` is always left untouched. A fork launch (`context: fork`) follows `subagents.forkLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
 
 ### Difficulty score and cut points
 
-`score = Σ rank(t) · P̂(t) + effortRank / 8`, rounded to 3 decimals. Tier ranks are `fast` 0, `balanced` 1, `deep` 2, `expert` 3. `P̂` is the worker `tier` probabilities restricted to tier keys and renormalised, so slots and unconfigured tiers do not shift the scale. Effort ranks are `low` 0 to `max` 4; an unanswered effort counts as `high`. The range is 0–3.5.
+`score = Σ rank(t) · P̂(t)`, rounded to 3 decimals. Tier ranks are `basic` 0, `broad` 1, `deep` 2, `frontier` 3. `P̂` is the worker `tier` probabilities restricted to tier keys and renormalised, so slots and unconfigured tiers do not shift the scale. The `effort` answer is not part of the score. The range is 0–3. With `tier` unanswered there is no score.
 
-Cut points come from a window of the latest 200 eligible `worker` ledger lines: rubric version 2, with a `score`, with `expertOffered`, and with reason `expert`, `risky` or `cut`. The window is pooled across modes, loaded from the ledger at session start and grown in memory as this session writes lines. It is recomputed before each batch of sibling launches, using each launch's mode.
+Cut points come from a window of the latest 200 eligible `worker` ledger lines: rubric version 3, with a `score`, with `frontierOffered`, and with reason `frontier` or `cut`. Lines from older rubrics never enter the window, so after an upgrade the seed applies until 100 new lines exist. The window is pooled across modes, loaded from the ledger at session start and grown in memory as this session writes lines. It is recomputed before each batch of sibling launches, using each launch's mode.
 
-Each window entry's effort is the most likely level of its `effortP`; ties go to the higher level, and `high` when there is no `effortP`.
+- `basicMax` and `broadMax` sit at the score where the cumulative target share ends (rounded half up in integers); equal scores go to the lower tier.
+- `frontierMin` is the lowest score above `broadMax` where the window entries at or above it stay within the frontier cap. Every entry counts; effort is not read. It is infinite when the cap is 0.
+- With fewer than 100 eligible lines, the **seed** applies. It comes from the 2026-11-20 replay with rubric version 3:
 
-- `fastMax` and `balancedMax` sit at the score where the cumulative target share ends (rounded half up in integers); equal scores go to the lower tier.
-- `expertMin` is the lowest score above `balancedMax` where entries at or above it with effort `xhigh` or `max` stay within the expert cap. It is infinite when the cap is 0.
-- With fewer than 100 eligible lines, the **seed** applies. It comes from the 2026-11-07 replay:
-
-| Mode | `fastMax` | `balancedMax` | `expertMin` |
+| Mode | `basicMax` | `broadMax` | `frontierMin` |
 |---|---|---|---|
-| `budget` | 1.42 | 2.135 | none |
-| `standard` | 1.165 | 1.81 | 2.345 |
-| `premium` | none | 1.42 | 2.125 |
+| `budget` | 1.36 | 1.868 | none |
+| `standard` | 1.045 | 1.636 | 2.055 |
+| `premium` | none | 1.36 | 1.984 |
 
-Jev's `expert` answer is not asked for any more. An admitted `expert` stands even on high risk, since it is not a cheaper choice.
+A decided `frontier` stands even on high risk; risk raises effort only.
 
 This is not tuning under [ADR 0005](decisions/0005-bounded-auto-tuning.md): the targets never change automatically and nothing is stored.
 
@@ -176,13 +173,13 @@ These hold everywhere and each has tests.
 2. A cancelled turn starts nothing.
 3. The main model is never changed.
 4. `max` is never chosen as a starting level, and is never lowered once the operator has set it.
-5. `expert` is never a fallback target.
+5. `frontier` is never a fallback target.
 6. A worker's model is written as an exact, validated `provider/id`.
 7. The ledger never contains prompt text, briefs, tool arguments or output.
 8. The API key is never written to disk or logs.
-9. `config.json` is never written by automatic behavior.
+9. `config.json` is never written by automatic behavior, except the start-up rename of deprecated tier keys (one minor release; a valid file only, values untouched).
 10. Automatic tuning touches only allowlisted parameters, one step at a time, inside a fixed range, and every change is visible and undoable.
-11. Risk floor, effort ceiling and expert rules are never tuned automatically.
+11. Risk floor, effort ceiling and the frontier rule are never tuned automatically.
 12. `confidence` never gates a decision.
 
 ## Lifecycles
@@ -249,9 +246,9 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | | `toolCalls`, `failures`, `outcome`, `durationMs`, `inputTokens`, `outputTokens` | Filled at turn end. `outcome` is `ok`, `error` or `aborted` |
 | Worker | `agent`, `briefChars` | Agent name and brief length |
 | | `tierP`, `risky` | All raw answers, with `effortP`. Lines from before ADR 0008 may also hold `expertNeeded` |
-| | `score`, `rubric`, `expertOffered` | Difficulty score, rubric version and whether `expert` was offered; they make the line eligible for the cut-point window |
-| | `tier`, `model`, `effort` | The decision. `tier` is a slot name when a slot won |
-| | `reason` | Which rule decided the model: `expert`, `risky`, `slot`, `cut`, `untouched` or `miss`; older lines may hold `expert-admitted`, `expert-denied`, `fast-unsure` or `choice`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
+| | `score`, `rubric`, `frontierOffered` | Difficulty score, rubric version and whether `frontier` was offered; they make the line eligible for the cut-point window. Lines from before ADR 0010 hold `expertOffered` instead |
+| | `tier`, `model`, `effort` | The decision. `tier` is a slot name when a slot won. Lines from before ADR 0010 may hold `fast`, `balanced` or `expert` |
+| | `reason` | Which rule decided the model: `frontier`, `slot`, `cut`, `untouched` or `miss`; older lines may hold `expert`, `risky`, `expert-admitted`, `expert-denied`, `fast-unsure` or `choice`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
 | | `effectiveModel`, `effectiveThinking` | What the executor applied to the child, joined by `agentId`; absent when the executor reported none |
@@ -277,7 +274,7 @@ Stored in `tuning.json`, never in `config.json`.
 | Cooldown | At least 40 decisions between changes |
 | Revert | Automatic, if the 40 decisions after a change are worse than the 40 before, by the signal that caused it |
 | Display | One line on every change, such as `Jev tune: timeoutMs 1500→1800 · /jev tune undo` |
-| Never tuned automatically | Risk floor, effort ceiling, expert rules |
+| Never tuned automatically | Risk floor, effort ceiling, frontier rule |
 
 **Phase 1 automatically changes `timeoutMs` only:**
 
@@ -290,7 +287,7 @@ Stored in `tuning.json`, never in `config.json`.
 
 **Signals observed and shown by `/jev tune`, per mode, not applied.** Each is a count over the latest 200 decisions of that mode (modes are never mixed), shown as `count/of`:
 
-- `lowWorkerErrors`: `low` or `fast` workers failing, of worker decisions.
+- `lowWorkerErrors`: `basic` (or legacy `fast`) or low-effort workers failing, of worker decisions.
 - `corrected`: main turns with a correction line, of main decisions.
 - `largeAtLow`: large turns at low effort (at least 15 tool calls), of main decisions at low effort.
 - `highSmall`: `high` starts finishing in at most two tool calls, without failures, of main decisions at `high`.

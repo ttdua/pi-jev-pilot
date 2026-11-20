@@ -13,10 +13,10 @@ const FULL = `{
     "timeoutMs": 1500
   },
   "tiers": {
-    "fast": "claude-code/claude-haiku-5-5",
-    "balanced": "claude-code/claude-sonnet-5-5",
+    "basic": "claude-code/claude-haiku-5-5",
+    "broad": "claude-code/claude-sonnet-5-5",
     "deep": "claude-code/claude-opus-5-5",
-    "expert": "claude-code/claude-fable-5-1"
+    "frontier": "claude-code/claude-fable-5-1"
   },
   "crew": {
     "slots": [
@@ -124,7 +124,7 @@ describe("readConfig", () => {
   });
 
   test("Invalid result has no values", () => {
-    const r = readJson({ tiers: { fast: "a/b" }, classifier: { timeoutMs: 100 } });
+    const r = readJson({ tiers: { basic: "a/b" }, classifier: { timeoutMs: 100 } });
     expect(r.kind).toBe("invalid");
     expect("config" in r).toBe(false);
     expect(JSON.stringify(r)).not.toContain("a/b");
@@ -298,7 +298,7 @@ describe("readConfig", () => {
   });
 
   test("Tier without provider rejected", () => {
-    expect(paths(readJson({ tiers: { fast: "claude-haiku-5-5" } }))).toEqual(["tiers.fast"]);
+    expect(paths(readJson({ tiers: { basic: "claude-haiku-5-5" } }))).toEqual(["tiers.basic"]);
   });
 
   test("Unknown tier rejected", () => {
@@ -409,6 +409,45 @@ describe("readConfig", () => {
     expect(r.kind).toBe("invalid");
     expect(paths(r).sort()).toEqual(["review.cli", "subagents.forkedLaunch"]);
     expect("config" in r).toBe(false);
+  });
+
+  test("Deprecated tier key accepted", () => {
+    const r = readJson({ tiers: { fast: "fixture/fixture-basic" } });
+    expectValid(r);
+    if (r.kind !== "ok") return;
+    expect(r.config.tiers).toEqual({ basic: "fixture/fixture-basic" });
+    expect(r.notices).toEqual(["tiers.fast is deprecated; rename it to tiers.basic"]);
+  });
+
+  test("Every deprecated tier key", () => {
+    const r = readJson({ tiers: { fast: "a/b", balanced: "c/d", deep: "e/f", expert: "g/h" } });
+    expectValid(r);
+    if (r.kind !== "ok") return;
+    expect(r.config.tiers).toEqual({ basic: "a/b", broad: "c/d", deep: "e/f", frontier: "g/h" });
+    expect(r.notices).toEqual([
+      "tiers.fast is deprecated; rename it to tiers.basic",
+      "tiers.balanced is deprecated; rename it to tiers.broad",
+      "tiers.expert is deprecated; rename it to tiers.frontier",
+    ]);
+  });
+
+  test("Alias and new key both present", () => {
+    const r = readJson({ tiers: { expert: "a/b", frontier: "c/d" } });
+    expect(r.kind).toBe("invalid");
+    expect(paths(r)).toEqual(["tiers.expert"]);
+    expect("config" in r).toBe(false);
+  });
+
+  test("Invalid alias value", () => {
+    expect(paths(readJson({ tiers: { balanced: "claude-sonnet" } }))).toEqual(["tiers.balanced"]);
+  });
+
+  test("Existing frontier slot still read", () => {
+    const r = readJson({ crew: { slots: [slot("frontier")] } });
+    expectValid(r);
+    if (r.kind !== "ok") return;
+    expect(r.config.crew?.slots?.map((x) => x.name)).toEqual(["frontier"]);
+    expect(r.notices).toEqual(['crew.slots "frontier" uses a reserved name; rename it']);
   });
 
   test("Forked launch setting rejected", () => {

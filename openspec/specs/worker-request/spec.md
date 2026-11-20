@@ -32,54 +32,63 @@ Lengths SHALL count Unicode code points. `task.brief` MUST be the first 4000 cha
 - **THEN** `parent_request` is its first 500 characters
 
 ### Requirement: Offered tiers
-The request builder SHALL offer, in the order `fast`, `balanced`, `deep`, `expert`, each tier that is configured, then each configured slot as `slot::<name>`, in config order. `expert` MUST be offered only when it is configured and the `expert` switch is on. Slots MUST always be offered.
+The request builder SHALL offer, in the order `basic`, `broad`, `deep`, `frontier`, each tier that is configured, then each configured slot as `slot::<name>`, in config order. `frontier` MUST be offered only when it is configured and the `frontier` switch is on. Slots MUST always be offered.
 
 #### Scenario: Partial configuration
-- **WHEN** only `fast` and `deep` are configured
-- **THEN** the `tier` options are `fast`, `deep`
+- **WHEN** only `basic` and `deep` are configured
+- **THEN** the `tier` options are `basic`, `deep`
 
 #### Scenario: Expert switched off
-- **WHEN** all four tiers are configured and the `expert` switch is off
-- **THEN** the `tier` options are `fast`, `balanced`, `deep`
+<!-- Intentional change: the `expert` switch is renamed `frontier`. -->
+- **WHEN** all four tiers are configured and the `frontier` switch is off
+- **THEN** the `tier` options are `basic`, `broad`, `deep`
 
 #### Scenario: Slots after tiers
-- **WHEN** `fast` and `balanced` are configured, and slots `reviewer` then `bulk`
-- **THEN** the `tier` options are `fast`, `balanced`, `slot::reviewer`, `slot::bulk`
+- **WHEN** `basic` and `broad` are configured, and slots `reviewer` then `bulk`
+- **THEN** the `tier` options are `basic`, `broad`, `slot::reviewer`, `slot::bulk`
 
 #### Scenario: No slot, request unchanged
 - **WHEN** a request is built with all four tiers and no slot
-- **THEN** its `tier` options are exactly `fast`, `balanced`, `deep`, `expert`, with no `slot::` key
+- **THEN** its `tier` options are exactly `basic`, `broad`, `deep`, `frontier`, with no `slot::` key
 
 ### Requirement: Question wording
-Each worker question MUST carry `type`, `instructions` and `criteria`, with the wording of `docs/jev-questions.md`. `tier` SHALL use one instruction and one set of criteria for the offered tiers, the worker rubric, each prefixed with the configured model's display name and `. ` when one is given. `effort` SHALL use the worker instruction and the five level criteria. `risky` SHALL use its instruction and `true` and `false` criteria. The main request's `tier` question SHALL keep its own copy of the `fast`, `balanced` and `deep` criteria, so that a change to the worker rubric does not change the main request.
+Each worker question MUST carry `type`, `instructions` and `criteria`, with the wording of `docs/jev-questions.md`. `tier` SHALL use one instruction and one set of criteria for the offered tiers, the worker knowledge rubric, each prefixed with the configured model's display name and `. ` when one is given. The tier wording MUST describe only the knowledge a task needs and MUST state that length, number of steps, care and risk are not tier signals. `effort` SHALL use the worker instruction and the five level criteria; the effort wording MUST describe only the amount of work and care (steps, tracing, tool use, verification) and MUST state that how rare the knowledge is, is not an effort signal. `risky` SHALL use its instruction and `true` and `false` criteria.
 
 #### Scenario: Wording matches the docs
 - **WHEN** a request offering all four tiers is built
 - **THEN** every instruction and criterion equals the text in `docs/jev-questions.md` for its question
 
-#### Scenario: Standard request unchanged
+#### Scenario: Premium wording
+<!-- Intentional change: rubric version 3 asks about knowledge. -->
 - **WHEN** a request offering all four tiers is built
-- **THEN** its `tier` criteria equal the worker rubric text in `docs/jev-questions.md`, and the `fast` criterion starts with `Fast and low cost, for bounded work with nothing to decide`
+- **THEN** the `tier` instruction starts with `Which is the least knowledgeable model tier that has the knowledge this task needs?`
+
+#### Scenario: Standard request unchanged
+<!-- Intentional change: rubric version 3 replaces the difficulty wording with knowledge wording. -->
+- **WHEN** a request offering `basic` is built
+- **THEN** the `basic` criterion starts with `Common, well-documented knowledge.`
 
 #### Scenario: Budget expert criterion
-- **WHEN** a request offering `expert` is built
-- **THEN** the `expert` criterion starts with `Rare. Choose only for exceptionally difficult architectural or advisory reasoning`
+<!-- Intentional change: `expert` is renamed `frontier` with knowledge wording. -->
+- **WHEN** a request offering `frontier` is built
+- **THEN** the `frontier` criterion starts with `Rare, frontier-level expertise.`, and no `expert_needed` question is asked
 
-#### Scenario: Premium wording
-- **WHEN** a request offering all four tiers is built
-- **THEN** the `deep` criterion starts with `For careful judgment or long work`, and no `expert_needed` question is asked
+#### Scenario: Effort instruction asks about work
+- **WHEN** a worker request is built
+- **THEN** the `effort` instruction starts with `How much work and care does a subagent need to put into carrying out this brief`
 
 #### Scenario: Main criteria held apart
-- **WHEN** the main request's `tier` criteria are compared with the worker rubric
-- **THEN** they are equal in text but are separate data, so a test replacing the worker rubric leaves the main criteria unchanged
+<!-- Intentional change: the main request no longer asks `tier`; the scenario now checks that the worker rubrics do not overlap. -->
+- **WHEN** the `tier` criteria and the `effort` criteria are read
+- **THEN** no `tier` criterion names an unknown bug cause, the number of files or steps, or a security or production label as a reason to choose it
 
 #### Scenario: Display name prefix
-- **WHEN** `fast` is configured with display name `Claude Haiku 5.5`
-- **THEN** the `fast` criterion starts with `Claude Haiku 5.5. Fast and low cost`
+- **WHEN** `basic` is configured with display name `Claude Haiku 5.5`
+- **THEN** the `basic` criterion starts with `Claude Haiku 5.5. Common, well-documented knowledge.`
 
 #### Scenario: Missing display name
-- **WHEN** no display name is given for `balanced`
-- **THEN** the `balanced` criterion is the rubric text without a prefix
+- **WHEN** no display name is given for `broad`
+- **THEN** the `broad` criterion is the rubric text without a prefix
 
 ### Requirement: Reading worker answers
 A worker request's outcome SHALL be read into worker answers: on an `ok` outcome, answers are read with the request's question specs, and each valid answer counts even when others are unanswered; on a `miss` outcome, or a body that reads as a `schema` miss, there are no answers and the miss kind is kept; on `cancelled`, the result is cancelled. Reading MUST NOT throw.
@@ -120,21 +129,25 @@ Each offered slot's `tier` criterion SHALL be `<display name> (a custom model). 
 - **THEN** `tier` is answered with choice `slot::reviewer`, and its probabilities are kept for every option
 
 ### Requirement: No slot in the main request
-When a main request asks a `tier` question, it MUST NOT offer any slot, whatever slots are configured.
+A main request MUST NOT ask a `tier` question and MUST NOT offer any slot, whatever tiers and slots are configured.
 
 #### Scenario: Main request with a slot configured
 - **WHEN** slot `reviewer` is configured and a main request is built
 - **THEN** no `slot::` key appears in its questions or specs
 
+#### Scenario: Main request has no tier
+- **WHEN** a main request is built with `strategy` on and all four tiers configured
+- **THEN** its questions have no `tier` key
+
 ### Requirement: Rubric version
-The package SHALL hold one integer rubric version next to the worker `tier` wording, starting at `2` for this wording (the per-mode rubrics count as `1`). Any change to the worker `tier` instruction or criteria MUST raise it. The worker ledger line SHALL record it.
+The package SHALL hold one integer rubric version next to the worker `tier` wording, `3` for the knowledge rubric (the per-mode rubrics count as `1`, the single difficulty rubric as `2`). Any change to the worker `tier` instruction or criteria MUST raise it. The worker ledger line SHALL record it.
 
 #### Scenario: Version of this rubric
 - **WHEN** the rubric version is read
-- **THEN** it is `2`
+- **THEN** it is `3`
 
 #### Scenario: Wording pinned to the version
-- **WHEN** the worker `tier` instruction and criteria are compared with the snapshot kept for rubric version `2`
+- **WHEN** the worker `tier` instruction and criteria are compared with the snapshot kept for rubric version `3`
 - **THEN** they are equal, so changing the wording without raising the version fails a test
 
 ### Requirement: Worker question set
@@ -149,9 +162,10 @@ The request builder SHALL ask `effort` and `risky` in every worker request, and 
 - **THEN** the questions are `tier`, `effort` and `risky`, and the `tier` options are exactly `slot::reviewer`
 
 #### Scenario: Expert offered
-- **WHEN** `expert` is offered
-- **THEN** the questions are exactly `tier`, `effort` and `risky`, and the `tier` options, before any slot, end with `expert`
+<!-- Intentional change: `expert` is renamed `frontier`. -->
+- **WHEN** `frontier` is offered
+- **THEN** the questions are exactly `tier`, `effort` and `risky`, and the `tier` options, before any slot, end with `frontier`
 
 #### Scenario: Asked and accepted agree
-- **WHEN** a request offers `fast`, `deep` and slot `reviewer`
-- **THEN** the `tier` criteria keys and the `tier` spec options are both `fast`, `deep`, `slot::reviewer`
+- **WHEN** a request offers `basic`, `deep` and slot `reviewer`
+- **THEN** the `tier` criteria keys and the `tier` spec options are both `basic`, `deep`, `slot::reviewer`

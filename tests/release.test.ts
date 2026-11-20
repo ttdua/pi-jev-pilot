@@ -14,7 +14,7 @@ const SWITCHES = [
   "/jev subagents off",
   "/jev skills off",
   "/jev strategy off",
-  "/jev expert off",
+  "/jev frontier off",
   "/jev cli-review off",
 ];
 const README_OK = `${PINNED}${SWITCHES.join("\n")}\n`;
@@ -129,9 +129,9 @@ describe("user-facing docs carry no usage figures", () => {
   });
 
   test("off switch missing", () => {
-    const readme = README_OK.replace("/jev expert off", "");
+    const readme = README_OK.replace("/jev frontier off", "");
     const problems = checkRelease({ ...BASE, docs: { "README.md": readme } });
-    expect(problems).toContain("README.md: missing off switch /jev expert off");
+    expect(problems).toContain("README.md: missing off switch /jev frontier off");
   });
 });
 
@@ -143,6 +143,16 @@ describe("repository release metadata", () => {
       docs: readDocs(),
     });
     expect(problems).toEqual([]);
+  });
+});
+
+describe("README explains each feature's effect", () => {
+  test("Tier and effort explained", () => {
+    const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+    expect(readme).toMatch(/tier picks how much the model knows/i);
+    expect(readme).toMatch(/effort picks how hard it works/i);
+    expect(readme).toContain("`frontier`");
+    expect(readme).toContain("/jev frontier off");
   });
 });
 

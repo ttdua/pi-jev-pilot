@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { applyCommand } from "../../../src/host/commands/apply.ts";
+import { parseJevArgs } from "../../../src/host/commands/args.ts";
 import { readLocalMode } from "../../../src/store/local-mode.ts";
 import { readState, type State } from "../../../src/store/state-file.ts";
 import { tempDir } from "../../helpers.ts";
@@ -37,6 +38,22 @@ describe("applyCommand", () => {
     expect(st(w.dir).switches?.skills).toBe(false);
     applyCommand({ kind: "all", on: false }, w, undefined);
     expect(st(w.dir).switches?.strategy).toBe(false);
+  });
+  test("Deprecated expert command", () => {
+    const w = where();
+    const parsed = parseJevArgs("expert off");
+    expect(parsed).toEqual({
+      kind: "set",
+      feature: "frontier",
+      on: false,
+      deprecatedName: "expert",
+    });
+    if (parsed.kind !== "set") return;
+    expect(applyCommand(parsed, w, undefined)).toEqual({ ok: true });
+    expect(readState(w.dir).state).toEqual({ switches: { frontier: false } });
+    expect(JSON.parse(readFileSync(join(w.dir, "state.json"), "utf8")).switches).toEqual({
+      frontier: false,
+    });
   });
   test("a global mode is written to state, a local mode to the directory", () => {
     const w = where();

@@ -14,7 +14,7 @@ import type { State } from "../../src/store/state-file.ts";
 
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 
-type Extra = { strategy?: [string, number]; tier?: string };
+type Extra = { strategy?: [string, number] };
 
 function answer(choice: string, risky = 0.1, corrects = 0.05, extra: Extra = {}): JevOutcome {
   const probabilities = Object.fromEntries(EFFORTS.map((l) => [l, l === choice ? 0.6 : 0.1]));
@@ -29,13 +29,6 @@ function answer(choice: string, risky = 0.1, corrects = 0.05, extra: Extra = {})
       type: "choice",
       choice: c,
       probabilities: { direct: 0.1, delegate: 0.1, parallel: 0.1, graph: 0.1, [c]: p },
-    };
-  }
-  if (extra.tier !== undefined) {
-    answers["tier"] = {
-      type: "choice",
-      choice: extra.tier,
-      probabilities: { fast: 0.1, balanced: 0.1, deep: 0.1, [extra.tier]: 0.8 },
     };
   }
   return { kind: "ok", ms: 7, body: { answers } };
@@ -317,7 +310,7 @@ describe("decision", () => {
     const t = setup({ start: "off", model: { reasoning: false }, outcomes: [answer("high")] });
     await run(t);
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
-      "tier",
+      "effort",
       "strategy",
       "corrects",
     ]);
@@ -330,7 +323,7 @@ describe("decision", () => {
     });
     const r = await run(t);
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
-      "tier",
+      "effort",
       "strategy",
       "corrects",
     ]);
@@ -344,7 +337,7 @@ describe("decision", () => {
     t.ctxRaw.signal = ac.signal;
     await run(t, "why does src/a.ts fail?");
     const req = t.requests[0]!;
-    expect(req.questions).toEqual(mainQuestions({ askEffort: true, askStrategy: true }).wire);
+    expect(req.questions).toEqual(mainQuestions({ applyEffort: true, askStrategy: true }).wire);
     expect(req.state).toEqual(
       mainState({ prompt: "why does src/a.ts fail?", items: [], platforms: ["none found"] }),
     );
@@ -876,11 +869,31 @@ describe("strategy advice", () => {
       strategyP: 0.9,
       advised: true,
     });
-    expect(await mainLine(advised("graph", 0.7, { tier: "deep" }))).toMatchObject({
+    expect(await mainLine(advised("graph", 0.7))).toMatchObject({
       strategy: "graph",
       strategyP: 0.7,
       advised: false,
     });
+  });
+
+  test("Gate-only effort not recorded", async () => {
+    const line = await mainLine(advised("delegate", 0.9), { switches: { effort: false } });
+    expect(line).toMatchObject({ strategy: "delegate", advised: true });
+    for (const key of ["effortP", "risky", "requested"]) expect(line).not.toHaveProperty(key);
+  });
+
+  test("Gate-only effort on a non-reasoning model", async () => {
+    const unknown = answer("low");
+    (unknown as { body: { answers: { effort: { choice: string } } } }).body.answers.effort.choice =
+      "wild";
+    const t = setup({ outcomes: [answer("high"), unknown] });
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    t.ctxRaw.model = { reasoning: false };
+    t.setLevel("off");
+    await run(t);
+    expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
+    expect(t.main.decision()).toEqual({ effort: { kind: "level", level: "high" } });
   });
 
   test("no ledger fields for off, miss or unknown", async () => {
@@ -947,9 +960,9 @@ describe("hold", () => {
       return e as Record<string, unknown>;
     });
   const mainLine = (t: ReturnType<typeof setup>) => lines(t).find((l) => l["kind"] === "main")!;
-  /** Question keys apart from the strategy pair, which the `strategy` feature adds on any turn. */
+  /** Question keys apart from `strategy`; `effort` stays because a held turn asks it for the gate. */
   const keys = (t: ReturnType<typeof setup>, i: number): string[] =>
-    Object.keys(t.requests[i]!.questions as object).filter((k) => k !== "tier" && k !== "strategy");
+    Object.keys(t.requests[i]!.questions as object).filter((k) => k !== "strategy");
   const correctsOnly = (corrects: number): JevOutcome => ({
     kind: "ok",
     ms: 7,
@@ -959,7 +972,7 @@ describe("hold", () => {
   test("second prompt held", async () => {
     const t = heldSetup({ outcomes: [answer("xhigh")] });
     await run(t);
-    expect(keys(t, 0)).toEqual(["corrects"]);
+    expect(keys(t, 0)).toEqual(["effort", "corrects"]);
     expect(t.sets).toEqual([]);
     expect(t.widgets.at(-1)).toEqual(["Jev · standard · high"]);
   });
@@ -1054,7 +1067,7 @@ describe("hold", () => {
     });
     t.setBranch([heldTurn(), { type: "custom", customType: "jev-turn", data: entry.data }]);
     await run(t);
-    expect(keys(t, 1)).toEqual(["corrects"]);
+    expect(keys(t, 1)).toEqual(["effort", "corrects"]);
   });
 
   test("held with strategy off asks only corrects", async () => {
@@ -1066,11 +1079,11 @@ describe("hold", () => {
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual(["corrects"]);
   });
 
-  test("held with strategy on asks tier, strategy and corrects and attaches advice", async () => {
+  test("held with strategy on asks effort, strategy and corrects and attaches advice", async () => {
     const t = heldSetup({ outcomes: [advised("delegate", 0.9)] });
     const result = await run(t);
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
-      "tier",
+      "effort",
       "strategy",
       "corrects",
     ]);
@@ -1119,7 +1132,7 @@ describe("hold", () => {
     });
     expect(await run(t)).toBeDefined();
     expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
-      "tier",
+      "effort",
       "strategy",
       "corrects",
     ]);
@@ -1611,11 +1624,6 @@ describe("skill message", () => {
       choice: "delegate",
       probabilities: { direct: 0.025, delegate: 0.9, parallel: 0.05, graph: 0.025 },
     };
-    answers["tier"] = {
-      type: "choice",
-      choice: "balanced",
-      probabilities: { fast: 0.1, balanced: 0.8, deep: 0.1 },
-    };
     const t = setup({ skills, outcomes: [both] });
     const result = (await run(t)) as {
       message: { customType: string; content: string; details: unknown };
@@ -1988,7 +1996,7 @@ describe("rich state inputs", () => {
 
   test("last decision carried to the next prompt", async () => {
     const t = setup({
-      outcomes: [advised("delegate", 0.9, { tier: "balanced" }), answer("low")],
+      outcomes: [advised("delegate", 0.9), answer("low")],
       rich: { ...noRich, groups: ["last_decision"] },
     });
     await run(t);

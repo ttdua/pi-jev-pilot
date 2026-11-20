@@ -11,20 +11,28 @@ const line = (o: Partial<WindowLine> = {}): WindowLine => ({
   at: 1,
   rubric: 3,
   score: 5,
-  expertOffered: true,
+  frontierOffered: true,
   reason: "cut",
-  tier: "balanced",
+  tier: "broad",
   ...o,
 });
 
 describe("windowEntries", () => {
-  test("excludes slot, old rubric, not offered, miss and untouched", () => {
+  test("excludes slot and old rubric", () => {
+    expect(windowEntries([line({ tier: "slot-a" }), line({ rubric: 2 })], 3)).toEqual([]);
+  });
+  test("Setup without expert left out", () => {
+    const legacy: Record<string, unknown> = { ...line(), expertOffered: true };
+    delete legacy["frontierOffered"];
+    const lines = [line({ frontierOffered: false }), legacy as unknown as WindowLine];
+    expect(windowEntries(lines, 3)).toEqual([]);
+  });
+  test("Miss and untouched left out", () => {
     const lines = [
-      line({ tier: "slot-a" }),
-      line({ rubric: 2 }),
-      line({ expertOffered: false }),
       line({ reason: "miss" }),
       line({ reason: "untouched" }),
+      line({ reason: "risky" }),
+      line({ reason: "expert" }),
     ];
     expect(windowEntries(lines, 3)).toEqual([]);
   });
@@ -38,9 +46,7 @@ describe("windowEntries", () => {
     expect(out[0]?.score).toBe(50);
   });
   test("fallback is the decided tier", () => {
-    expect(windowEntries([line({ tier: "balanced", fallback: "deep" })], 3)[0]?.decided).toBe(
-      "deep",
-    );
+    expect(windowEntries([line({ tier: "broad", fallback: "deep" })], 3)[0]?.decided).toBe("deep");
   });
   test("ties on at: later input counts as later", () => {
     const lines = Array.from({ length: 201 }, (_, i) => line({ at: i < 2 ? 0 : i, score: i }));
@@ -48,24 +54,28 @@ describe("windowEntries", () => {
     expect(out).toHaveLength(200);
     expect(out[0]?.score).toBe(1);
   });
-  test("effort argmax, ties to higher, default high", () => {
-    const e = (effortP?: WindowLine["effortP"]) => windowEntries([line({ effortP })], 3)[0]?.effort;
-    expect(e({ high: 0.5, xhigh: 0.5 })).toBe("xhigh");
-    expect(e({ xhigh: 0.6 })).toBe("xhigh");
-    expect(e(undefined)).toBe("high");
+  test("Effort tie", () => {
+    const out = windowEntries([line({ effortP: { high: 0.5, xhigh: 0.5 } })], 3);
+    expect(out).toEqual([{ score: 5, decided: "broad" }]);
+  });
+  test("Effort from the distribution", () => {
+    const out = windowEntries(
+      [line({ effortP: { xhigh: 0.6 } }), line({ effortP: { low: 0.9 } })],
+      3,
+    );
+    expect(out[0]).toEqual(out[1]!);
   });
 });
 
 describe("recentMix", () => {
-  test("shares for fast, balanced, balanced, deep", () => {
-    const w = (["fast", "balanced", "balanced", "deep"] as const).map((decided) => ({
+  test("shares for basic, broad, broad, deep", () => {
+    const w = (["basic", "broad", "broad", "deep"] as const).map((decided) => ({
       score: 1,
-      effort: "high" as const,
       decided,
     }));
     expect(recentMix(w)).toEqual({
       n: 4,
-      shares: { fast: 25, balanced: 50, deep: 25, expert: 0 },
+      shares: { basic: 25, broad: 50, deep: 25, frontier: 0 },
     });
   });
   test("empty window", () => {

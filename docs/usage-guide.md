@@ -40,13 +40,15 @@ Create `~/.pi/agent/jev/config.json`:
 ```json
 {
   "tiers": {
-    "fast": "claude-code/claude-haiku-5-5",
-    "balanced": "claude-code/claude-sonnet-5-5",
+    "basic": "claude-code/claude-haiku-5-5",
+    "broad": "claude-code/claude-sonnet-5-5",
     "deep": "claude-code/claude-opus-5-5",
-    "expert": "claude-code/claude-fable-5-1"
+    "frontier": "claude-code/claude-fable-5-1"
   }
 }
 ```
+
+A tier picks how much the model knows; effort picks how hard it works. Upgrading from a release that used `fast`, `balanced` and `expert`: the next main session start renames them in `config.json` and shows one notification, and `/jev expert on|off` still works for one minor release as `/jev frontier on|off`.
 
 All other settings have defaults. See the [configuration reference](configuration.md).
 
@@ -96,9 +98,9 @@ If you press Esc before any provider request, the status line also returns to it
 ## Modes
 
 ```text
-/jev mode budget           target mix leans to the fast tier, in this directory
+/jev mode budget           target mix leans to the basic tier, in this directory
 /jev mode standard         the default, in this directory
-/jev mode premium          target mix leans to the deep tier, with an expert cap, in this directory
+/jev mode premium          target mix leans to the deep tier, with a frontier cap, in this directory
 /jev mode budget global    the same, for every directory without its own mode
 /jev mode clear            remove the directory mode
 ```
@@ -110,17 +112,17 @@ If you press Esc before any provider request, the status line also returns to it
 
 The file `.pi/jev-mode.json` may show up in `git status`. The package never edits `.gitignore`. A damaged file is ignored, so the global mode applies, and `/jev` lists it as `local mode (malformed)` or `local mode (unreadable)`. `/jev mode <m>` overwrites it. Only the mode has a directory layer; switches, the CLI review default and slots stay global.
 
-Each mode is a target mix of tier-routed worker launches. Jev scores every launch for difficulty, and cut points recomputed from your recent launches keep the mix near the target ([ADR 0008](decisions/0008-mode-target-cutpoints.md)):
+Each mode is a target mix of tier-routed worker launches. Jev scores every launch for the knowledge it needs, and cut points recomputed from your recent launches keep the mix near the target ([ADR 0008](decisions/0008-mode-target-cutpoints.md), [ADR 0010](decisions/0010-knowledge-tiers.md)):
 
-| Mode | `fast` | `balanced` | `deep` | `expert` cap |
+| Mode | `basic` | `broad` | `deep` | `frontier` cap |
 |---|---|---|---|---|
 | `budget` | 50% | 40% | 10% | 0% |
-| `standard` | 20% | 53% | 25% | ≤ 2% |
-| `premium` | 0% | 50% | 45% | ≤ 5% |
+| `standard` | 20% | 53% | 26% | ≤ 1% |
+| `premium` | 0% | 50% | 47% | ≤ 3% |
 
-Each share should stay within ±10 points over recent launches. `expert` is a cap, not a quota, and runs only for very hard work at `xhigh` or `max` effort. The targets never change on their own.
+Each share should stay within ±10 points over recent launches. `frontier` is a cap, not a quota, and runs only for work that needs the rarest knowledge; effort is not read. The targets never change on their own.
 
-`/jev` shows the recent mix beside the target, for example `mix (last 200, standard): fast 19% / balanced 55% / deep 24% / expert 2% · target 20/53/25/≤2`. While fewer than 100 launches are recorded, `cut points: seed` is shown and a built-in starting set is used.
+`/jev` shows the recent mix beside the target, for example `mix (last 200, standard): basic 19% / broad 55% / deep 25% / frontier 1% · target 20/53/26/≤1`. While fewer than 100 launches are recorded, `cut points: seed` is shown and a built-in starting set is used.
 
 A reviewer slot takes the review launches out of these shares. Without one, reviews count in the mix. These figures show where work is routed, not how well each model does it ([evidence](evidence/2026-11-07-replay.md)).
 
@@ -144,7 +146,8 @@ A slot offers Jev another model, with a description of when to choose it.
 - `when` is required: say what to choose the slot for and what not. A good one: `Choose when the task is to review existing work and report findings. Not for implementing or fixing.` A bad one: `good model`.
 - A new slot needs `when`; replacing a model keeps it.
 - Jev picks a slot only at probability .6 or higher.
-- Risky work goes to `deep`, even when a slot was chosen.
+- Risky work keeps its slot or tier and gets at least `high` effort. Only a launch that reaches the `frontier` cut wins over a slot.
+- `frontier` is reserved and cannot name a slot. If an older `config.json` has a slot named `frontier`, it still routes, but slot commands refuse to add, replace or remove slots until you rename it in `config.json` by hand.
 
 ## Reviews
 
@@ -199,7 +202,7 @@ A CLI review does not depend on the Jev key or the feature switches, only on its
 /jev reset               switches, mode (global and this directory) and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 ```
 
-Features: `effort`, `subagents`, `skills`, `strategy`, `expert`, `status`, `verbose`. `/jev all on|off` sets the five decision features (`effort`, `subagents`, `skills`, `strategy`, `expert`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
+Features: `effort`, `subagents`, `skills`, `strategy`, `frontier`, `status`, `verbose`. `/jev all on|off` sets the five decision features (`effort`, `subagents`, `skills`, `strategy`, `frontier`) and leaves `status` and `verbose` alone, and does not change the CLI review on/off setting. Switches persist across sessions and apply from the next prompt or launch.
 
 `/jev` ends with the session tally, which starts empty in each new or resumed session:
 
@@ -251,17 +254,17 @@ Jev tune since your last session: timeoutMs 1500→1800 (2 changes) · /jev tune
 
 The last line appears once at session start, and only when a change was not shown before. Without a UI (print or JSON mode) no line is shown, and the next session with a UI shows it. `/jev tune off` keeps a tuned value until `/jev tune undo` or `/jev tune reset`.
 
-`/jev tune` also lists signals per mode over the latest 200 decisions: errors from `fast` or low-effort workers, corrected main turns, large turns at low effort, and small turns at `high`. They are observed only and never change anything.
+`/jev tune` also lists signals per mode over the latest 200 decisions: errors from `basic` (or, in older lines, `fast`) or low-effort workers, corrected main turns, large turns at low effort, and small turns at `high`. They are observed only and never change anything.
 
 Tuning pauses while your config is invalid, or while `tuning.json` or the ledger cannot be read.
 
-Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling or the expert rules. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
+Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling or the frontier rule. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
 
 ## All commands
 
 ```text
 /jev                                         status and session tally
-/jev <feature> on|off                        effort, subagents, skills, strategy, expert, status, verbose
+/jev <feature> on|off                        effort, subagents, skills, strategy, frontier, status, verbose
 /jev all on|off                              the five decision features, not status or verbose
 /jev reset                                   switches, mode (global and this directory) and CLI review default back to config defaults; clears the CLI review override, off unless review.enabled is true
 /jev mode budget|standard|premium [global]
@@ -283,9 +286,9 @@ No command calls Jev. An unknown model in a slot command gets the three closest 
 | Nothing happens | No key, or malformed config | `/jev` shows which |
 | Workers keep their model | Agent file uses `locked`, the launch uses `resume`, a service `spawn()` names its own model, a fork launch has `subagents.forkLaunch` at its default `untouched`, the launch came from another worker, or there is no executor | `/jev verbose on` |
 | A worker has no ledger line | It was still running at a reload or session switch, or it was a `resume` | None; by design |
-| Almost nothing uses the fast tier | Few bounded tasks reach subagents, since the main session does its own lookups | Try `/jev mode budget`, or delegate lookups to a read-only agent |
+| Almost nothing uses the basic tier | Few bounded tasks reach subagents, since the main session does its own lookups | Try `/jev mode budget`, or delegate lookups to a read-only agent |
 | Worker effort is nearly always `high` | That is how the effort rubric currently reads delegated work | Known; a rubric revision is on the [roadmap](roadmap.md) |
-| Expert rarely runs | It needs a top difficulty score and `xhigh` or `max` effort, and is capped at 2% in `standard`, 5% in `premium`, 0% in `budget` | `/jev mode premium` |
+| Frontier rarely runs | It needs a top knowledge score, and is capped at 1% in `standard`, 3% in `premium`, 0% in `budget` | `/jev mode premium` |
 | The prompt cache keeps missing | Effort changes on a provider that loses cache | Add it to `effort.holdProviders` |
 | Vietnamese prompts seem misjudged | Jev is less accurate outside English | Report through `/jev verbose on` output, without sharing private text |
 

@@ -23,7 +23,7 @@ What each scenario changes for you, when it applies, and which rule wins.
 
 **What you do.** Set a mode for this directory with `/jev mode budget|standard|premium`. Add `global` (`/jev mode <m> global`) to set it for every directory without its own mode, and `/jev mode clear` removes the directory mode ([usage guide](usage-guide.md#modes)).
 
-**What the package decides.** The model tier and thinking level of each launch, so one command shifts the whole tier mix.
+**What the package decides.** The model tier and thinking level of each launch, so one command shifts the whole tier mix. The tier follows the knowledge the task needs (`basic`, `broad`, `deep`, `frontier`); the thinking level follows how much work and care it needs.
 
 ## Reviews go to your reviewer model
 
@@ -31,7 +31,7 @@ What each scenario changes for you, when it applies, and which rule wins.
 
 **What you do.** Name the model once. See [Configuration](configuration.md#crewslots).
 
-**What the package decides.** Where each launch goes. Any launch, review or not, goes to the slot when Jev's slot probability is at least .6 and neither the `expert` nor the `risky` rule matched first. Otherwise the launch gets `expert`, `deep` (risky) or a tier from the mode's cut points; see [the rules](domain-model.md#workerdecision).
+**What the package decides.** Where each launch goes. Any launch, review or not, goes to the slot when Jev's slot probability is at least .6 and the `frontier` rule did not match first. Otherwise the launch gets `frontier` or a tier from the mode's cut points; risk raises effort, never the target; see [the rules](domain-model.md#workerdecision).
 
 The reviewer slot is not the CLI review. The CLI review (`jev_review`, which runs Codex or OpenCode) is off by default and runs only when you ask. Turn it on with `/jev cli-review on` ([usage guide](usage-guide.md#reviews)).
 
@@ -56,22 +56,20 @@ Guards first. They leave a launch alone, or partly alone:
 
 Target, first match wins:
 
-1. `expert`
-2. `risky`
-3. Slot probability ≥ .6
-4. Cut points
+1. `frontier`
+2. Slot probability ≥ .6
+3. Cut points
 
-Then availability: an unusable tier moves down, never to `expert`; an unusable slot moves to `balanced`, then `fast`.
+Then availability: an unusable tier moves down, never to `frontier`; an unusable slot moves to `broad`, then `basic`.
 
 Effort, applied in order:
 
 1. Jev's choice
 2. At least `high` on risk
 3. Cap `xhigh`
-4. Cap `medium` on `fast`
-5. Clamp to the model
+4. Clamp to the model
 
-After a fallback move, effort is `xhigh` on every tier, without the `fast` cap.
+The tier never caps effort. After a fallback move, effort is `xhigh` on every tier.
 
 To override: lock the model or thinking in the agent file.
 
@@ -80,7 +78,7 @@ To override: lock the model or thinking in the agent file.
 Guards first:
 
 - A manual level change during an outstanding request discards that result.
-- `holdProviders` keep the newest level until a compaction or a provider or model switch, without asking Jev.
+- `holdProviders` keep the newest level until a compaction or a provider or model switch, without asking Jev for a level (with `strategy` on, `effort` is still asked to gate the advice; that answer never moves the level).
 - A current `max` is left alone.
 
 Then, applied in order:

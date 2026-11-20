@@ -6,7 +6,7 @@ All under `<agentDir>/jev/`, by default `~/.pi/agent/jev/`.
 
 | File | Written by | Holds |
 |---|---|---|
-| `config.json` | You, and `/jev` for slots | Settings below |
+| `config.json` | You, `/jev` for slots, and the start-up rename of deprecated tier keys | Settings below |
 | `state.json` | `/jev` | Switches, mode, CLI review default and on/off |
 | `tuning.json` | Automatic tuning | Applied changes and history |
 | `ledger.jsonl` | The package | Decisions and outcomes |
@@ -58,10 +58,10 @@ Error messages name the field and what was expected, never the value found, so a
     "timeoutMs": 1500
   },
   "tiers": {
-    "fast": "claude-code/claude-haiku-5-5",
-    "balanced": "claude-code/claude-sonnet-5-5",
+    "basic": "claude-code/claude-haiku-5-5",
+    "broad": "claude-code/claude-sonnet-5-5",
     "deep": "claude-code/claude-opus-5-5",
-    "expert": "claude-code/claude-fable-5-1"
+    "frontier": "claude-code/claude-fable-5-1"
   },
   "crew": {
     "slots": [
@@ -95,12 +95,20 @@ Error messages name the field and what was expected, never the value found, so a
 
 Each is optional: an exact `provider/id`, at most 128 characters. An unset tier is never offered. With no tier and no slot, workers keep their model.
 
+A tier names how much the model knows, not how hard or long the work is; effort covers that.
+
 | Key | Role |
 |---|---|
-| `fast` | Bounded work with nothing to decide |
-| `balanced` | Ordinary engineering |
-| `deep` | Judgment and long work |
-| `expert` | The hardest work; used only past the expert cut point with `xhigh` or `max` effort |
+| `basic` | Common, well-documented knowledge |
+| `broad` | Broad engineering knowledge across stacks and libraries |
+| `deep` | Specialist depth in one domain |
+| `frontier` | Rare, frontier-level expertise; used only at or above the frontier cut point, within a small cap per mode |
+
+#### Deprecated: `fast`, `balanced`, `expert`
+
+The old tier keys are read for one minor release as aliases: `tiers.fast` → `tiers.basic`, `tiers.balanced` → `tiers.broad`, `tiers.expert` → `tiers.frontier` (`deep` keeps its name). `/jev` shows `tiers.<old> is deprecated; rename it to tiers.<new>` for each one. A file that sets an alias and its new key is invalid, with the problem at the alias.
+
+At each main session start, a valid `config.json` that still holds an alias is rewritten once: each key is renamed in place, and every other key, value, order and the file mode are kept. One notification names the renamed keys and the path. An invalid or conflicting file is left alone. If the write fails, the aliases keep working and the next start tries again. The same start moves `switches.expert` in `state.json` to `switches.frontier`. Child sessions never rewrite either file.
 
 ### `crew.slots`
 
@@ -112,7 +120,9 @@ Up to 8 entries. Slot commands rewrite `config.json` as plain JSON with 2-space 
 | `model` | Yes | Exact `provider/id` with credentials, at most 128 characters |
 | `when` | Yes | When Jev should choose it, 1–500 characters after trim |
 
-Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `mode`, `off`, `on`, `premium`, `remove`, `reset`, `review`, `skills`, `standard`, `status`, `strategy`, `subagents`, `tools`, `tune`, `verbose`.
+Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `frontier`, `mode`, `off`, `on`, `premium`, `remove`, `reset`, `review`, `skills`, `standard`, `status`, `strategy`, `subagents`, `tools`, `tune`, `verbose`.
+
+`frontier` became reserved with the knowledge tiers. A slot named `frontier` already in `config.json` is still read and routed, with the notice `crew.slots "frontier" uses a reserved name; rename it`. It is never renamed automatically, and slot commands refuse to add, replace or remove any slot until you rename it in `config.json` by hand. `/jev frontier on|off` is the feature switch.
 
 ### `effort`
 
@@ -161,6 +171,8 @@ Content that leaves the machine with its own switch.
 
 > [!WARNING]
 > **Rollback.** Before you roll back to an older build, remove `review.enabled` from `config.json`. An older build rejects unknown keys: it reports `state.json` as malformed when it holds `cliReviewEnabled` (moved aside at the next `/jev` change), and `config.json` as invalid when it holds `review.enabled`.
+>
+> **Rollback past the knowledge tiers.** A build from before the knowledge tiers rejects `tiers.basic`, `tiers.broad` and `tiers.frontier`. Rename them back by hand to `tiers.fast`, `tiers.balanced` and `tiers.expert`, and `switches.frontier` in `state.json` to `switches.expert`.
 
 ## Fixed, not configurable
 
@@ -168,8 +180,7 @@ Content that leaves the machine with its own switch.
 |---|---|---|
 | Risk floor | `risky > .7` | Safety |
 | Effort ceiling | `xhigh` | Cost |
-| `fast` effort cap | `medium` | Cost |
-| `fast`, slot threshold | Probability .6 | Not yet calibrated; change through code and evidence |
+| Slot threshold | Probability .6 | Not yet calibrated; change through code and evidence |
 | Mode targets | See the [domain model](domain-model.md#mode) | Operator's choice; never change automatically |
 | Cut-point window | Latest 200 eligible lines; seed below 100 | Not yet calibrated |
 | Skill thresholds | .5, .3, .3 | From upstream |

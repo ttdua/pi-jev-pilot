@@ -1,7 +1,6 @@
 // Pure effort rules for the main session and workers. Imports nothing outside src/policy/.
 
 import type { ChoiceAnswer } from "./answers.ts";
-import type { Target } from "./launch.ts";
 
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -94,7 +93,6 @@ export const EFFORT_LADDER: readonly EffortLevel[] = EFFORT_LEVELS;
 export type EffortInput = {
   effort?: ChoiceAnswer;
   risky?: number;
-  tier?: Target;
   movedByFallback: boolean;
 };
 
@@ -120,7 +118,5 @@ export function workerEffort(input: EffortInput): EffortLevel | undefined {
   if (choice === undefined || !isEffortLevel(choice)) return undefined;
   let level: EffortLevel = choice;
   if (input.risky !== undefined && input.risky > 0.7) level = atLeast(level, "high");
-  level = atMost(level, "xhigh");
-  if (input.tier === "fast") level = atMost(level, "medium");
-  return level;
+  return atMost(level, "xhigh");
 }

@@ -10,7 +10,6 @@ import {
 } from "../launch.ts";
 import type { Answer } from "../answers.ts";
 import type { CutPoints } from "./cutpoints.ts";
-import { RISK_FLOOR } from "../effort.ts";
 import { difficultyScore } from "./score.ts";
 import type { WorkerAnswers } from "./answers.ts";
 
@@ -18,7 +17,7 @@ export type TierDecision =
   | {
       kind: "decided";
       tier: Target;
-      reason: "expert" | "risky" | "slot" | "cut";
+      reason: "frontier" | "slot" | "cut";
     }
   | { kind: "none"; reason?: "miss" };
 
@@ -33,42 +32,19 @@ function decide(tier: Target, reason: Decided["reason"]): TierDecision {
   return { kind: "decided", tier, reason };
 }
 
-// Highest offered tier below expert, scanning deep down to fast.
-function highestBelowExpert(offered: readonly TierName[]): TierName | undefined {
-  return (["deep", "balanced", "fast"] as const).find((t) => offered.includes(t));
-}
-
-function deepOrHighest(offered: readonly TierName[]): TierName | undefined {
-  return offered.includes("deep") ? "deep" : highestBelowExpert(offered);
-}
-
 const SLOT_BAR = 0.6;
-const CUT_LADDER = ["fast", "balanced", "deep"] as const;
+const CUT_LADDER = ["basic", "broad", "deep"] as const;
 
-// Rule expert: the score reaches the launch's expert cut and the model asked for high effort.
-function expertRule(
-  answers: Record<string, Answer>,
+// Rule frontier: the score reaches the launch's frontier cut. Wins over slots; never reads effort.
+function frontierRule(
   score: number | undefined,
   offered: readonly TierName[],
   cuts: CutPoints,
 ): TierDecision | undefined {
-  if (score === undefined || !offered.includes("expert") || score < cuts.expertMin) {
+  if (score === undefined || !offered.includes("frontier") || score < cuts.frontierMin) {
     return undefined;
   }
-  const effort = answers["effort"];
-  const high = effort?.type === "choice" && (effort.choice === "xhigh" || effort.choice === "max");
-  return high ? decide("expert", "expert") : undefined;
-}
-
-// Rule risky: the risk floor lifts the launch to deep, else the highest tier below expert.
-function riskRule(
-  answers: Record<string, Answer>,
-  offered: readonly TierName[],
-): TierDecision | undefined {
-  const risky = answers["risky"];
-  if (risky?.type !== "noul" || risky.noul <= RISK_FLOOR) return undefined;
-  const target = deepOrHighest(offered);
-  return target === undefined ? undefined : decide(target, "risky");
+  return decide("frontier", "frontier");
 }
 
 // Rule slot: an offered slot the model is sure of.
@@ -87,11 +63,11 @@ function slotRule(
 
 // The tier a score falls on between the cut points.
 function cutTier(score: number, cuts: CutPoints): (typeof CUT_LADDER)[number] {
-  if (score <= cuts.fastMax) return "fast";
-  return score <= cuts.balancedMax ? "balanced" : "deep";
+  if (score <= cuts.basicMax) return "basic";
+  return score <= cuts.broadMax ? "broad" : "deep";
 }
 
-// The wanted tier if offered, else the nearest offered below it, else the nearest above. Never expert.
+// The wanted tier if offered, else the nearest offered below it, else the nearest above. Never frontier.
 function nearestOffered(
   wanted: (typeof CUT_LADDER)[number],
   offered: readonly TierName[],
@@ -112,7 +88,7 @@ function cutRule(
   return target === undefined ? undefined : decide(target, "cut");
 }
 
-// Rules in order: expert, risky, slot, cut. The first match wins.
+// Rules in order: frontier, slot, cut. The first match wins.
 export function decideTier(
   answers: WorkerAnswers,
   offered: readonly TierName[],
@@ -126,21 +102,20 @@ export function decideTier(
   const given = answers.answers;
   const score = difficultyScore(given);
   return (
-    expertRule(given, score, offered, cuts) ??
-    riskRule(given, offered) ??
+    frontierRule(score, offered, cuts) ??
     slotRule(given, slots) ??
     cutRule(score, offered, cuts) ?? { kind: "none" }
   );
 }
 
-const SLOT_FALLBACK: readonly TierName[] = ["balanced", "fast"];
+const SLOT_FALLBACK: readonly TierName[] = ["broad", "basic"];
 
 function firstRunning(
   candidates: readonly TierName[],
   offered: readonly TierName[],
   canRun: (t: Target) => boolean,
 ): TierName | undefined {
-  return candidates.find((t) => t !== "expert" && offered.includes(t) && canRun(t));
+  return candidates.find((t) => t !== "frontier" && offered.includes(t) && canRun(t));
 }
 
 export function chooseFallback(

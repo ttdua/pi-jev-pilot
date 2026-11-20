@@ -46,10 +46,10 @@ const worker = (kind: string = "scout"): RebuiltWorker => ({
 });
 
 const config: PlainConfig = {
-  tiers: { fast: "a/b", balanced: "b/c", deep: "c/d", expert: "e/f" },
+  tiers: { basic: "a/b", broad: "b/c", deep: "c/d", frontier: "e/f" },
   slots: [{ name: "reviewer", model: "m/n", when: "for review" }],
   mode: "standard",
-  expertOn: true,
+  frontierOn: true,
 };
 
 const plan = (over: Partial<Parameters<typeof planReport>[0]> = {}): Plan =>
@@ -95,7 +95,7 @@ describe("planReport", () => {
     const specs = r?.specs["tier"];
     expect(specs).toEqual({
       type: "choice",
-      options: ["fast", "balanced", "deep", "expert", "slot::reviewer"],
+      options: ["basic", "broad", "deep", "frontier", "slot::reviewer"],
     });
   });
 

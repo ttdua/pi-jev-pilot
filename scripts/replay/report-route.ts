@@ -1,6 +1,13 @@
 // Pure per-mode, per-routing worker routing for the report pass. Mirrors the host's rolling window.
-import { cutPointsFor } from "../../src/policy/worker/index.ts";
-import { WINDOW_MAX, windowEntries, type WindowLine } from "../../src/policy/worker/index.ts";
+import type { CutPoints } from "../../src/policy/worker/index.ts";
+import {
+  cutPoints,
+  MODE_TARGETS,
+  WINDOW_MAX,
+  WINDOW_MIN,
+  windowEntries,
+  type WindowLine,
+} from "../../src/policy/worker/index.ts";
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
 import type { ModeName } from "../../src/policy/worker/index.ts";
 import { isSlot } from "../../src/policy/launch.ts";
@@ -17,6 +24,8 @@ export type Routing = "slots" | "tiers";
 
 type ReadAnswers = Extract<WorkerAnswers, { kind: "read" }>;
 type RouteOptions = {
+  /** Cut points used while the window holds fewer than WINDOW_MIN entries. */
+  seed: CutPoints;
   config: PlainConfig;
   mode: ModeName;
   routing: Routing;
@@ -63,7 +72,7 @@ function windowLine(
     kind: "worker",
     at,
     ...(ctx.tierQuestion
-      ? { rubric: RUBRIC_VERSION, expertOffered: ctx.offered.includes("expert") }
+      ? { rubric: RUBRIC_VERSION, frontierOffered: ctx.offered.includes("frontier") }
       : {}),
     ...(score !== undefined ? { score } : {}),
     reason: record.reason,
@@ -79,17 +88,18 @@ export function routeStreamRecords(
   o: RouteOptions,
 ): (RoutedLaunch | undefined)[] {
   const slots = o.routing === "slots" ? o.config.slots.map((s) => s.name) : [];
-  const offered = offeredTiers(o.config.tiers, o.config.expertOn);
+  const offered = offeredTiers(o.config.tiers, o.config.frontierOn);
   const ctx: StreamContext = { offered, tierQuestion: offered.length > 0 || slots.length > 0 };
   const modelOf = modelOfConfig(o.config);
   const lines: WindowLine[] = [];
   return answers.map((read, i) => {
     if (read === undefined) return undefined;
+    const window = windowEntries(lines.slice(-WINDOW_MAX), RUBRIC_VERSION);
     const route = routeLaunch({
       answers: read,
       launch: REPLAY_LAUNCH(o.background[i] === true),
       offered,
-      cuts: cutPointsFor(windowEntries(lines.slice(-WINDOW_MAX), RUBRIC_VERSION), o.mode),
+      cuts: window.length < WINDOW_MIN ? o.seed : cutPoints(window, MODE_TARGETS[o.mode]),
       forkLaunch: "untouched",
       canRun: () => true,
       thinkingOf: () => ({ reasoning: true }),

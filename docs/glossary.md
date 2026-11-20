@@ -23,18 +23,18 @@ Use these words consistently in code, docs and the user interface.
 | **Decision** | What the policy concludes from Jev's answers. Jev answers; code decides. |
 | **Policy** | The pure rules that turn answers into decisions. |
 | **Rubric** | The set of descriptions that define the tiers in a question. Workers share one rubric in every mode; it has a version. |
-| **Tier** | A role a model plays: `fast`, `balanced`, `deep`, `expert`. |
+| **Tier** | How much a model knows: `basic`, `broad`, `deep`, `frontier`. A tier picks how much the model knows; effort picks how hard it works. Older releases named them `fast`, `balanced`, `deep`, `expert`. |
 | **Slot** | A named custom model with a `when` description, offered beside the tiers. |
-| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. A target table of tier shares, with a cap for `expert`. |
+| **Mode** | The operator's cost preference: `budget`, `standard`, `premium`. A target table of tier shares, with a cap for `frontier`. |
 | **Directory mode** | A mode set for one directory with `/jev mode <m>`, stored in `<cwd>/.pi/jev-mode.json`. Every Pi run in that directory uses it in place of the global mode for worker routing. |
-| **Difficulty score** | A number from 0 to 3.5 for one worker launch: the expected tier rank from Jev's `tier` probabilities, plus `effortRank / 8`. |
+| **Difficulty score** | A number from 0 to 3 for one worker launch: the expected tier rank from Jev's `tier` probabilities. Effort is not part of it. |
 | **Cut point** | A score that separates two tiers, recomputed from recent ledger scores so the mode's target mix holds. |
-| **Expert gate** | The condition for the `expert` tier: the score reaches the expert cut point and effort is `xhigh` or `max`. |
-| **Effort** | How much reasoning a turn gets. Jev's ladder: `low` to `max`. |
+| **Frontier rule** | The condition for the `frontier` tier: `frontier` is offered and the score reaches the frontier cut point. Effort is not read. |
+| **Effort** | How much work and care a turn gets: steps, tracing, tool calls, verification. Jev's ladder: `low` to `max`. |
 | **Thinking level** | Pi's name for effort on a session or worker. |
 | **Requested / effective** | The effort the policy wanted, and what the model supports after clamping. |
 | **Clamp** | Reduce a level to the nearest one a model supports. |
-| **Risk floor** | `risky > .7` raises effort to at least `high` and forces at least `deep`. |
+| **Risk floor** | `risky > .7` raises effort to at least `high`. It never changes the tier. |
 | **Ceiling** | The highest level a turn or worker may start at: `xhigh`. |
 | **Hold** | Keep the level of the latest decision until a compaction or a provider or model switch, on providers where changing it loses the prompt cache. |
 | **Strategy** | How work should be carried out: `direct`, `delegate`, `parallel`, `graph`. Advice only. |
@@ -54,7 +54,7 @@ Use these words consistently in code, docs and the user interface.
 | **Main session** | The session the operator talks to. |
 | **Worker** | A subagent. Runs in a child session. |
 | **Child session** | A full Pi session in the same process, created by the executor. |
-| **Executor** | The package that runs workers: [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), installed separately from this package ([ADR 0010](decisions/0010-executor-as-installed-package.md)). Jev detects its capabilities at run time. |
+| **Executor** | The package that runs workers: [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), installed separately from this package ([ADR 0011](decisions/0011-executor-as-installed-package.md)). Jev detects its capabilities at run time. |
 | **Launch policy** | The one provider the executor consults for every new launch. jev-pilot registers it and answers with model and thinking only. The executor's contract still supports `addTools` and `removeTools`, but Jev no longer uses them. |
 | **Agent** | A worker's definition: a Markdown file with frontmatter, from the executor's built-in role agents, an installed package, the global or the project agents directory. |
 | **Role agent** | A built-in agent (`general`, `implementer`, `explore`, `scout`, `reviewer`, `verifier`). Its body states the role only; the process and task come from the launch. |
