@@ -244,6 +244,17 @@ describe("slot name frontier", () => {
       expect(out.tiers).toEqual({ basic: "a/x", frontier: "a/y" });
       expect(Object.keys(out.tiers)).toEqual(["basic", "frontier"]);
     }));
+
+  test("slot write on legacy tiers and a retired review writes tiers.basic and no review", () =>
+    withDir((dir) => {
+      const file = join(dir, "config.json");
+      writeFileSync(file, '{ "tiers": { "fast": "a/x" }, "review": {} }');
+      expect(writeSlots(dir, [slot("reviewer")])).toEqual({ ok: true });
+      const out = JSON.parse(readFileSync(file, "utf8"));
+      expect(out.tiers).toEqual({ basic: "a/x" });
+      expect(out.crew).toEqual({ slots: [slot("reviewer")] });
+      expect("review" in out).toBe(false);
+    }));
 });
 
 describe("migrateLegacyKeys", () => {
@@ -375,10 +386,15 @@ describe("migrateConfigFile", () => {
   test("removes only a review key and keeps the mode and key order", () =>
     withDir((dir) => {
       const file = join(dir, "config.json");
-      writeFileSync(file, '{"review":{"cli":"codex","enabled":true},"skills":{"inject":"suggest"}}');
+      writeFileSync(
+        file,
+        '{"classifier":{"model":"m"},"review":{"cli":"codex","enabled":true},"skills":{"inject":"suggest"}}',
+      );
       chmodSync(file, 0o640);
       expect(migrateConfigFile(dir)).toEqual({ renamed: [], removed: ["review"] });
-      expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ skills: { inject: "suggest" } });
+      const after = JSON.parse(readFileSync(file, "utf8"));
+      expect(Object.keys(after)).toEqual(["classifier", "skills"]);
+      expect(after.skills).toEqual({ inject: "suggest" });
       expect(statSync(file).mode & 0o777).toBe(0o640);
     }));
 
