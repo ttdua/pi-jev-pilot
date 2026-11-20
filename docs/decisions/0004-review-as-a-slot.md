@@ -10,7 +10,7 @@ Replay supported the operator's version: 18 of 18 review briefs chose the slot a
 
 ## Decision
 
-No review-specific routing. Reviews route through a slot, the same mechanism as any custom model. The CLI review tool (`jev_review`) stays separate, on demand, and its command is `/jev cli-review`, leaving `reviewer` free as a slot name.
+No review-specific routing. Reviews route through a slot, the same mechanism as any custom model. The CLI review tool that stood beside this slot was removed on 2026-11-20 (change `remove-cli-review`); `reviewer` stays a slot name.
 
 ## Consequences
 

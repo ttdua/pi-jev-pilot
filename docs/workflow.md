@@ -144,31 +144,14 @@ flowchart TD
 
 Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. Phase 1 allowlists `timeoutMs` only. Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
 
-## 5. A CLI review
-
-Only when the operator asks, such as "have Codex review this".
-
-1. The model calls `jev_review` with `brief`, and optionally `reviewer`, `model`, `effort`. The tool description tells it to call only when the user asks. Fields set in the call win over the `/jev cli-review` default for that call only. Naming another reviewer drops the default's model and effort. A new `model` drops the default's effort.
-2. The extension runs the CLI through `pi.exec`, with no relaying agent. The prompt is the [review instructions](jev-questions.md#cli-review-instructions) followed by the brief, passed as one argument (no stdin):
-   - Codex: `codex exec [-m <model>] [-c model_reasoning_effort="<effort>"] -s read-only --skip-git-repo-check --ephemeral -C <cwd> -o <temp file> <prompt>`. The result is read from the temp file, or from stdout when the file is empty. The file is removed after each run.
-   - OpenCode: `opencode run [-m <provider/model>[#<effort>]] --agent plan <prompt>`, run in the session's directory. The result is read from stdout.
-3. The tool returns findings and a verdict. On failure, the result says the review did not run, gives the reason (not found, exit code, timeout, cancelled, output over 8 MiB or could not start) and the last lines of the CLI's error output. It does not switch to the other reviewer.
-4. Timeout is 10 minutes per attempt, with one retry on timeout only. A failure is not retried. A review cancelled before any CLI starts reports one attempt with outcome `cancelled`.
-
-The review needs no Jev key and ignores the feature switches and `/jev all off`. It needs the CLI review to be on, and runs whenever the operator asks.
-
-Codex tier names (`sol`, `terra`, `luna`) resolve at each run to the newest model of that tier listed by `codex debug models`, so a newer model is picked up without a change here. When the list cannot be read, the stored name is passed to Codex as written. The success text names the model that ran.
-
-This is separate from the `reviewer` slot, which routes ordinary review subagents to a chosen model. See [ADR 0004](decisions/0004-review-as-a-slot.md).
-
-## 6. A compaction
+## 5. A compaction
 
 1. `session_compact` fires.
 2. A held effort is released because the anchor is now before the compaction, so the next prompt makes one new decision.
 3. Skill bodies that the compaction dropped are sent again in full if picked again; bodies it kept are referenced.
 4. Nothing else changes. The ledger is unaffected.
 
-## 7. Session start
+## 6. Session start
 
 1. Read `config.json`. If malformed, report and stay inert.
 2. Read `state.json` and `tuning.json`.

@@ -153,6 +153,12 @@ describe("README explains each feature's effect", () => {
     expect(readme).toContain("`frontier`");
     expect(readme).toContain("/jev frontier off");
   });
+
+  test("README does not mention the removed CLI review", () => {
+    const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+    expect(readme).not.toContain("jev_review");
+    expect(readme).not.toContain("cli-review");
+  });
 });
 
 describe("scenario documentation", () => {

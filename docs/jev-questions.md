@@ -147,18 +147,6 @@ Keep a plan file only if there are more than two waves. After the final join, on
 At most 4 subagents at a time. If it cannot be explained in one breath, work directly.
 ```
 
-### CLI review instructions
-
-Sent to the reviewing CLI, followed by `The change:` and the brief.
-
-```text
-Review a code change in this repository, read-only: don't edit anything.
-Read the changed files and `git diff` (or `git diff HEAD~1` when the change is already committed).
-Check that it does what the brief says, and look for wrong behavior, input that is not checked, broken edge cases and missing tests.
-Report each finding as P1 (wrong behavior or lost data), P2 (a likely bug or a missing check) or P3 (minor), with file:line and a one-line fix.
-End with one verdict: PASS, PASS-WITH-FOLLOWUP or NEEDS FIXES. Keep it tight.
-```
-
 ### Skill delivery
 
 Sent as a hidden message for a picked skill, in one of three forms. `<…>` values are inserted verbatim; lines are joined with `\n`.

@@ -4,6 +4,14 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+### Removed
+
+- CLI review: the `jev_review` tool and `/jev cli-review`. A `review` section in `config.json` and `cliReview` / `cliReviewEnabled` in `state.json` are accepted, ignored and removed at the first main session start.
+
+### Changed
+
+- `effort.holdProviders` defaults to `[]`. To keep the old behaviour, add `"effort": {"holdProviders": ["9router"]}` to `config.json`.
+
 ## [0.6.0] - 2026-11-20
 
 Tag: v0.6.0

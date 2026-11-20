@@ -76,7 +76,7 @@ The IDs are stable names for features, used in the [roadmap](roadmap.md).
 | F1 | Custom model slots, checked against Pi's registry | WG-13 |
 | H3 | Pre-launch fallback to a lower tier | WG-11 (tiers), WG-13 (slots) |
 | H2 | ~~Tool assessment at launch, through the executor's launch policy~~. Removed in [#81](https://github.com/ttdua/pi-jev-pilot/issues/81) | WG-14 |
-| F4 | On-demand CLI review with Codex or OpenCode | WG-15 |
+| F4 | ~~On-demand CLI review with Codex or OpenCode~~ (removed in `remove-cli-review`) | WG-15 |
 | G1 | Decision ledger | WG-05 |
 | G3 | Automatic tuning | WG-18 |
 | G4 | Session tally | WG-17 |
