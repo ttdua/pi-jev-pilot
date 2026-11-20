@@ -277,6 +277,24 @@ describe("executorState", () => {
     });
   });
 
+  test("service without the tool is present with its capabilities", () => {
+    expect(executorState(none, both)).toEqual({
+      kind: "present",
+      launchPolicy: true,
+      agentRegistry: true,
+    });
+  });
+
+  test("a non-object service gives no capabilities", () => {
+    const fn = Object.assign(() => {}, both);
+    expect(executorState(tools, fn)).toEqual({
+      kind: "present",
+      launchPolicy: false,
+      agentRegistry: false,
+    });
+    expect(executorState(none, fn)).toEqual({ kind: "absent" });
+  });
+
   test("Executor absent", () => {
     expect(executorState(none, undefined)).toEqual({ kind: "absent" });
   });

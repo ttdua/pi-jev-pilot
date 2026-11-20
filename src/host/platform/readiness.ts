@@ -37,26 +37,28 @@ export type ExecutorState =
   | { kind: "present"; implementation?: string; launchPolicy: boolean; agentRegistry: boolean };
 
 /** Read one property; a throwing getter reads as missing. */
-function readMember(service: unknown, key: string): unknown {
+function readMember(service: object, key: string): unknown {
   try {
-    return (service as Record<string, unknown> | null | undefined)?.[key];
+    return (service as Record<string, unknown>)[key];
   } catch {
     return undefined;
   }
 }
 
 /**
- * Pure. Present when the `subagent` tool is listed; the capabilities come from the
+ * Pure. Present when the `subagent` tool is listed or an object service was captured; the capabilities come from the
  * captured service, each fact read on its own so one bad getter costs only that fact.
  */
 export function executorState(tools: readonly ToolInfo[], captured: unknown): ExecutorState {
-  if (!tools.some((t) => t.name === "subagent")) return { kind: "absent" };
-  const impl = readMember(captured, "implementation");
+  const service = typeof captured === "object" && captured !== null ? captured : undefined;
+  if (service === undefined && !tools.some((t) => t.name === "subagent")) return { kind: "absent" };
+  if (service === undefined) return { kind: "present", launchPolicy: false, agentRegistry: false };
+  const impl = readMember(service, "implementation");
   return {
     kind: "present",
     ...(typeof impl === "string" && impl !== "" ? { implementation: impl } : {}),
-    launchPolicy: typeof readMember(captured, "registerLaunchPolicy") === "function",
-    agentRegistry: typeof readMember(captured, "listAgentTypes") === "function",
+    launchPolicy: typeof readMember(service, "registerLaunchPolicy") === "function",
+    agentRegistry: typeof readMember(service, "listAgentTypes") === "function",
   };
 }
 

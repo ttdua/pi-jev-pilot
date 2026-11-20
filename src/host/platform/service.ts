@@ -23,7 +23,12 @@ function isObject(value: unknown): value is ExecutorService {
 /** Copy the executor's service into the package slot; store nothing for a non-object. */
 export function captureMainService(): void {
   const g = globalThis as Slots;
-  const found = g[EXECUTOR_KEY];
+  let found: unknown;
+  try {
+    found = g[EXECUTOR_KEY];
+  } catch {
+    found = undefined;
+  }
   if (isObject(found)) g[MAIN_SERVICE_KEY] = found;
   else delete g[MAIN_SERVICE_KEY];
 }

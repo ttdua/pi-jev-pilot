@@ -104,9 +104,16 @@ class Registration {
   register(service: ExecutorService | undefined, host: WorkerHost): void {
     this.unregister();
     this.#taken = false;
-    if (service === undefined || typeof service.registerLaunchPolicy !== "function") return;
+    if (service === undefined) return;
+    let registerPolicy: ExecutorService["registerLaunchPolicy"];
     try {
-      this.#unregister = service.registerLaunchPolicy(createWorkerPolicy(host), {
+      registerPolicy = service.registerLaunchPolicy;
+    } catch {
+      return;
+    }
+    if (typeof registerPolicy !== "function") return;
+    try {
+      this.#unregister = registerPolicy.call(service, createWorkerPolicy(host), {
         timeoutMs: POLICY_TIMEOUT_MS,
       });
     } catch {

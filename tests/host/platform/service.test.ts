@@ -61,3 +61,19 @@ describe("tool service", () => {
     expect(mainService()).toBeUndefined();
   });
 });
+
+describe("slot read", () => {
+  test("a throwing slot getter clears the old capture and does not throw", () => {
+    g[EXECUTOR] = vendored();
+    captureMainService();
+    expect(mainService()).toBeDefined();
+    Object.defineProperty(g, EXECUTOR, {
+      configurable: true,
+      get() {
+        throw new Error("boom");
+      },
+    });
+    expect(() => captureMainService()).not.toThrow();
+    expect(mainService()).toBeUndefined();
+  });
+});

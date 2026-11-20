@@ -740,3 +740,19 @@ describe("Slots", () => {
     expect((await h.launch()).adjustment).toMatchObject({ model: "fx/review" });
   });
 });
+
+describe("Launch policy capability read", () => {
+  test("a throwing registerLaunchPolicy getter is no policy, not a taken slot", () => {
+    const service = {
+      get registerLaunchPolicy(): never {
+        throw new Error("boom");
+      },
+    };
+    const routing = registerWorkerRouting(
+      { on: () => () => {}, events: { on: () => () => {} } } as never,
+      { snapshot: () => snap(), service: () => service as never },
+    );
+    expect(() => routing.start(harness().ctx as never)).not.toThrow();
+    expect(routing.problems()).toEqual([]);
+  });
+});
