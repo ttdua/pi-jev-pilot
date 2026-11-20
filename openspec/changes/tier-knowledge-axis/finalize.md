@@ -16,7 +16,7 @@
 - **Branch**: `spec/tier-knowledge-axis`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending (set by the follow-up commit after the PR is opened)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/99`
 
 The git-side closeout merged the worktree branch `tier-knowledge-axis` into `spec/tier-knowledge-axis` locally with `--ff-only` (head `5cef1566`). No PR existed before finalize, so the PR is created here (outcome `pr-created`, not `pr-updated`). The project `AGENTS.md` requires explicit user approval before any push or PR. The user gave it in chat, which is why the push and the PR come after the local merge.
 
@@ -33,7 +33,7 @@ The worktree was created by Worktrunk (`wt`), outside `.worktrees/`, so finalize
 
 ## PR comment
 
-- **PR comment status**: `pending (set by the follow-up commit)`
+- **PR comment status**: `posted`
 
 ---
 
