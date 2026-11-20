@@ -11,6 +11,8 @@ pi install git:github.com/ttdua/pi-subagents@v0.1.1
 pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0
 ```
 
+Only one executor providing the `subagent` tool may be installed; Pi refuses to start with two. When switching to `@ttdua/pi-subagents`, remove the old executor first (for example `@gotgenes/pi-subagents`, or jev-pilot 0.5.x or older, which bundled one).
+
 Upgrading from 0.5.x: remove the old install, install the executor, then reinstall `pi-jev-pilot@v0.6.0`.
 
 ```bash

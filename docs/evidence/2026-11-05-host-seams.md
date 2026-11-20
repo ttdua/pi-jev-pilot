@@ -79,7 +79,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 ## Q7
 
-**Superseded.** Model and thinking changes on a launch with `inherit_context` go through the launch policy ([`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`, test "Inherited context with a policy model". The answer below is the one recorded on 2026-11-05.
+**Superseded.** Model and thinking changes on a launch with `inherit_context` go through the launch policy ([`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md)). Host evidence (retired): `tests/host/launch-policy-evidence.test.ts`, test "Inherited context with a policy model", was deleted with the vendored executor. Current evidence is in the executor repository: [`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md). The answer below is the one recorded on 2026-11-05.
 
 **Observed.** With `inherit_context: true`, a rewritten model applies and the parent conversation reaches the child. A rewritten thinking level applies too: the child's first request carried `reasoning_effort` `high` in all three runs.
 

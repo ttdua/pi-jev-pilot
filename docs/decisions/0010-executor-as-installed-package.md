@@ -15,7 +15,7 @@
 
 ## Consequences
 
-- Two install commands instead of one, and a migration note for 0.5.x users. The old advice to uninstall `@gotgenes/pi-subagents` no longer applies; the original has no launch policy and leaves routing off.
+- Two install commands instead of one, and a migration note for 0.5.x users. `/jev` no longer prints uninstall advice, because detection is by capability. Two executors still cannot coexist: Pi refuses to start with two `subagent` tools, so the old one must be removed first. The original `@gotgenes/pi-subagents` has no launch policy and leaves routing off.
 - Executor-only tests, the vendoring manifest and the sync procedure leave this repository. Executor evidence (Q3, service escalation) is cited from there.
 - A new executor release is adopted by bumping the pin, which reruns the host tests.
 - Other executors can work if they publish the same service facts.
