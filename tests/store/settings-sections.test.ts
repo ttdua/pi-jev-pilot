@@ -5,7 +5,6 @@ import {
   resolveCrew,
   resolveEffort,
   resolveMode,
-  resolveReview,
   resolveSkills,
   resolveStateSection,
   resolveSubagents,
@@ -28,16 +27,6 @@ describe("settings sections", () => {
     const s = resolveSwitches({ switches: { effort: false, skills: 1 as never } });
     expect(s).toEqual({ ...DEFAULTS.switches, effort: false });
     expect(s).not.toBe(DEFAULTS.switches);
-  });
-
-  test("review: state cli, enabled precedence, optional model/effort", () => {
-    expect(resolveReview({}, {})).toEqual({ cli: "codex", enabled: false });
-    expect(
-      resolveReview(
-        { review: { enabled: true } },
-        { cliReview: { cli: "opencode", model: "m", effort: "e" } },
-      ),
-    ).toEqual({ cli: "opencode", enabled: true, model: "m", effort: "e" });
   });
 
   test("mode: directory beats global", () => {

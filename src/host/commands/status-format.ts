@@ -6,15 +6,6 @@ import { canRoute, type Snapshot } from "../platform/index.ts";
 import { issueLines } from "../../policy/tuning/index.ts";
 import { statusText, tallyLines, type Tally } from "../status/index.ts";
 
-function reviewLine(r: Snapshot["settings"]["review"]): string {
-  const parts = [
-    ...(r.model ? [`model ${r.model}`] : []),
-    ...(r.effort ? [`effort ${r.effort}`] : []),
-  ];
-  const detail = parts.length > 0 ? parts : ["CLI defaults"];
-  return `cli review: ${r.enabled ? "on" : "off"} (${[r.cli, ...detail].join(", ")})`;
-}
-
 function mixLines(mode: Mode, window: readonly WindowEntry[]): string[] {
   const { n, shares } = recentMix(window);
   if (shares === undefined) return ["mix: no routed workers yet", "cut points: seed"];
@@ -66,7 +57,6 @@ export function formatStatus(
 ): string {
   const lines = [statusText(s), modeLine(s), "features:"];
   for (const f of FEATURES) lines.push(`  ${f}: ${s.settings.switches[f] ? "on" : "off"}`);
-  lines.push(reviewLine(s.settings.review));
   lines.push(`key: ${s.keyVar} ${s.keySet ? "set" : "not set"}`);
   lines.push(executorLine(s.executor));
   const problems = problemLines(s, extra);

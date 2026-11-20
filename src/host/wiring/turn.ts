@@ -1,23 +1,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isChild, loadSnapshot } from "../platform/index.ts";
-import { hideReviewInChild, syncReviewTool } from "../review/index.ts";
+import { isChild } from "../platform/index.ts";
 import { settleTuning } from "../tuning/index.ts";
 import type { Parts } from "./parts.ts";
 
-/** `before_agent_start`: a child hides the review tool; main syncs it, then decides. */
+/** `before_agent_start`: a child is left alone; main decides. */
 function subscribeBeforeAgentStart(pi: ExtensionAPI, parts: Parts): void {
   pi.on("before_agent_start", async (event, ctx) => {
     try {
-      const sessionId = ctx.sessionManager.getSessionId();
-      if (isChild(sessionId)) {
-        hideReviewInChild(event, sessionId);
-        return undefined;
-      }
-      try {
-        syncReviewTool(pi, loadSnapshot(pi).settings.review.enabled);
-      } catch {
-        /* the turn proceeds with the loadout as it is */
-      }
+      if (isChild(ctx.sessionManager.getSessionId())) return undefined;
       return await parts.main.beforeAgentStart(event, ctx);
     } catch {
       return undefined;

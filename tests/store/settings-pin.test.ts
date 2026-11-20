@@ -10,7 +10,6 @@ const TOP_KEYS = [
   "skills",
   "state",
   "subagents",
-  "review",
   "mode",
   "modeSource",
   "globalMode",
@@ -23,15 +22,6 @@ describe("resolveSettings key order", () => {
     expect(Object.keys(s)).toEqual(TOP_KEYS);
     expect(Object.keys(s.classifier)).toEqual(["url", "model", "apiKeyEnv", "timeoutMs"]);
     expect(Object.keys(s.switches)).toEqual([...FEATURES]);
-    expect(Object.keys(s.review)).toEqual(["cli", "enabled"]);
-  });
-
-  test("review key order with model and effort is cli, enabled, model, effort", () => {
-    const s = resolveSettings({
-      config: {},
-      state: { cliReview: { cli: "opencode", effort: "high", model: "m" } },
-    });
-    expect(Object.keys(s.review)).toEqual(["cli", "enabled", "model", "effort"]);
   });
 });
 
@@ -61,7 +51,6 @@ describe("resolveSettings precedence", () => {
         skills: { inject: "suggest" },
         state: { parentRequest: true },
         subagents: { forkLaunch: "thinking" },
-        review: { cli: "opencode", enabled: true },
       },
       state: {},
     });
@@ -76,7 +65,6 @@ describe("resolveSettings precedence", () => {
     expect(s.skills.inject).toBe("suggest");
     expect(s.state.parentRequest).toBe(true);
     expect(s.subagents.forkLaunch).toBe("thinking");
-    expect(s.review).toEqual({ cli: "opencode", enabled: true });
   });
 
   test("partial classifier config falls back per field", () => {
@@ -85,58 +73,6 @@ describe("resolveSettings precedence", () => {
       state: {},
     });
     expect(s.classifier).toEqual({ ...DEFAULTS.classifier, model: "m" });
-  });
-});
-
-describe("resolveSettings review", () => {
-  test("state.cliReview wins over config cli; config cli used when state absent", () => {
-    const withState = resolveSettings({
-      config: { review: { cli: "codex" } },
-      state: { cliReview: { cli: "opencode" } },
-    });
-    expect(withState.review).toEqual({ cli: "opencode", enabled: false });
-    const without = resolveSettings({
-      config: { review: { cli: "opencode" } },
-      state: {},
-    });
-    expect(without.review).toEqual({ cli: "opencode", enabled: false });
-    expect(resolveSettings({ config: {}, state: {} }).review.cli).toBe("codex");
-  });
-
-  test("model and effort are set only when present in state.cliReview", () => {
-    const only = (cliReview: { cli: "codex"; model?: string; effort?: string }) =>
-      resolveSettings({ config: {}, state: { cliReview } }).review;
-    expect(only({ cli: "codex", model: "m" })).toEqual({
-      cli: "codex",
-      enabled: false,
-      model: "m",
-    });
-    expect(only({ cli: "codex", effort: "e" })).toEqual({
-      cli: "codex",
-      enabled: false,
-      effort: "e",
-    });
-    expect("model" in only({ cli: "codex" })).toBe(false);
-    expect("effort" in only({ cli: "codex" })).toBe(false);
-  });
-
-  test("enabled: state beats config beats default, including explicit false", () => {
-    const e = (config: object, state: object) => resolveSettings({ config, state }).review.enabled;
-    expect(e({}, {})).toBe(false);
-    expect(e({ review: { enabled: true } }, {})).toBe(true);
-    expect(e({ review: { enabled: true } }, { cliReviewEnabled: false })).toBe(false);
-    expect(e({}, { cliReviewEnabled: true })).toBe(true);
-    expect(
-      e({ review: { enabled: false } }, { cliReviewEnabled: true, cliReview: { cli: "codex" } }),
-    ).toBe(true);
-  });
-
-  test("model/effort from config.review are ignored", () => {
-    const s = resolveSettings({
-      config: { review: { cli: "codex", model: "m", effort: "e" } } as never,
-      state: {},
-    });
-    expect(Object.keys(s.review)).toEqual(["cli", "enabled"]);
   });
 });
 
@@ -204,14 +140,13 @@ describe("resolveSettings freshness", () => {
     expect(d).not.toBe(resolveSettings({ config: {}, state: {} }));
     d.effort.holdProviders.push("mutated");
     d.switches.effort = false;
-    expect(DEFAULTS.effort.holdProviders).toEqual(["9router"]);
+    expect(DEFAULTS.effort.holdProviders).toEqual([]);
     expect(DEFAULTS.switches.effort).toBe(true);
   });
 
-  test("review and classifier are fresh per call", () => {
+  test("classifier and tiers are fresh per call", () => {
     const a = resolveSettings({ config: {}, state: {} });
     const b = resolveSettings({ config: {}, state: {} });
-    expect(a.review).not.toBe(b.review);
     expect(a.classifier).not.toBe(b.classifier);
     expect(a.tiers).not.toBe(b.tiers);
   });

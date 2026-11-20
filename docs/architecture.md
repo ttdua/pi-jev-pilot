@@ -59,9 +59,6 @@ src/
       record.ts             Per-turn bookkeeping, written to ledger lines when the run settles
       skill.ts              Skill criteria, batches, pick, delivery text, duplicate check
       strategy.ts           Advice gates and advice text
-    review/
-      index.ts              Entry point for other folders
-      cli.ts                CLI commands, model catalogs, tier names, result text, details
     tuning/
       index.ts              Entry point for other folders
       rules.ts              Tuning rules: step, revert, undo, reset, off
@@ -147,18 +144,11 @@ src/
       launches.ts           LaunchBook: decided launches waiting for their outcome
       warnings.ts           "Cannot run" warning text, shown once per target and model
       entry.ts              LaunchEntry and the executor outcome fields a line needs
-    review/
-      index.ts              Entry point for other folders
-      tool.ts               jev_review tool, hides the tool in children and while off
-      run.ts                runReview: prepare, attempt loop (one retry after a timeout), result
-      attempt.ts            One CLI exec with its error mapping, exec options
-      codex.ts              Codex tier-to-model resolve and the 0700 output directory
     commands/
       index.ts              Entry point for other folders
       jev.ts                runJev: child gate, parse, dispatch, one fail-open catch; usage text
       args.ts               /jev argument grammar: one parser per sub-command
       jev-notify.ts         notifier: the hasUI-guarded notify
-      cli-review.ts         checkCliReview: state rules and the model/effort check against the CLI list
       apply.ts              applyCommand: directory-mode forms, state change, reset cleanup
       status-format.ts      formatStatus: the status report text
       status-reply.ts       statusReply: status text plus partial-reset and shadowed-mode lines, level
@@ -174,7 +164,7 @@ src/
     local-mode.ts           <cwd>/.pi/jev-mode.json: reads and writes the directory mode
     settings.ts             Effective settings: directory (mode only) > tuning > state > config > default
     settings-sections.ts    One pure resolver per settings section, used by settings.ts
-    state-file.ts           state.json: switches, mode, CLI review default and on/off
+    state-file.ts           state.json: switches and mode
     tuning-file.ts          tuning.json: changes, history
     validate.ts             Small validators that collect issues with field paths
 
@@ -251,9 +241,7 @@ Each row is a contract the package relies on: a public Pi API, or a seam of the 
 | Idle moment for tuning; end of a turn (ledger line, Esc restore) | `pi.on("agent_settled")` | Documented |
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
-| CLI review | `pi.registerTool`, `pi.exec` | Verified by host test `tests/host/cli-review.test.ts` (fake `codex` and `opencode` on `PATH`) |
 | Reach the executor | Service on `globalThis`, published when the executor loads and captured at main `session_start`; any object service is kept; worker routing needs `registerLaunchPolicy` and the agent list needs `listAgentTypes` | `tests/host/platform/service.test.ts` |
-| Hide the review tool in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` (the Q3 seam) | Verified by the same host test: absent in a child's request |
 
 ## Runtime contexts
 
@@ -264,7 +252,6 @@ A child session binds the parent's extension set and runs in the same process, s
 | Effort, skill, advice | Yes | No |
 | Worker routing (launch policy) | Yes: the policy is registered here and decides every launch | Not possible: the executor removes `subagent`. A launch whose parent is a child session is left untouched |
 | Status line, tally | Yes | No |
-| Review tool | Yes | Not offered: removed from `selectedTools` in `before_agent_start`, and refused if called. This is the only guard the child keeps |
 
 **Child detection.** The extension subscribes to `subagents:child:session-created`, which the executor publishes before binding the child's extensions, and keeps child session ids in a registry on `globalThis` under a `Symbol.for` key, because the two extension instances do not share module state. The registry also drops an id on `subagents:child:disposed`, and each instance unsubscribes on `session_shutdown`. Every handler checks `ctx.sessionManager.getSessionId()` against it first. `@gotgenes/pi-permission-system` uses the same pattern. Visibility, timing and id match are verified ([Q4](evidence/2026-11-05-host-seams.md#q4)).
 
@@ -304,7 +291,6 @@ A child session binds the parent's extension set and runs in the same process, s
 | Launch policy throws, is slow or returns nonsense | Launch proceeds unchanged (the executor falls open after 10 s) | Debug note in the executor |
 | Executor missing, or without a launch policy | Worker routing off | `executor:` line in `/jev` |
 | Worker fails while running | Reported by the executor; **not retried** | Ledger `status` |
-| CLI review fails | Tool result says the review did not run, with the reason and the error tail; no other reviewer is tried | Tool result |
 | Ledger write fails | Decision still applied | Verbose log |
 
 ## Data flow boundaries

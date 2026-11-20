@@ -5,7 +5,6 @@ import { join } from "node:path";
 import type { ExtensionCommandContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { CHILDREN_KEY } from "../../../src/host/platform/child.ts";
 import { formatStatus, runJev, usageText } from "../../../src/host/commands/jev.ts";
-import type { Exec } from "../../../src/policy/review/cli.ts";
 import { EMPTY_TALLY, type Decision } from "../../../src/host/status/line.ts";
 import { buildSnapshot, type Snapshot } from "../../../src/host/platform/readiness.ts";
 import { readConfig } from "../../../src/store/config.ts";
@@ -74,11 +73,7 @@ function harness(o: { hasUI?: boolean; sessionId?: string; notifyThrows?: boolea
       toolNames: ["subagent"],
     });
   };
-  const exec: Exec = async () => {
-    events.push("exec");
-    throw new Error("exec must not be called");
-  };
-  const deps: Deps = { dir, load, decision: () => undefined, exec };
+  const deps: Deps = { dir, load, decision: () => undefined };
   return { events, notes, cwd, dir, ctx, deps };
 }
 
@@ -137,91 +132,6 @@ describe("runJev pin: notify texts and levels", () => {
     expect(h.events).not.toContain("load");
   });
 
-  test("cli-review value outside the state rules is refused before any exec", async () => {
-    const h = harness();
-    await runJev(`cli-review codex ${"x".repeat(300)}`, h.ctx, h.deps);
-    expect(h.notes).toHaveLength(1);
-    expect(h.notes[0]![1]).toBe("error");
-    expect(h.notes[0]![0]).toMatch(/^cliReview\.model: /);
-    expect(h.events).toEqual(["sessionId", "notify"]);
-  });
-
-  test("cli-review OpenCode effort without a model is refused without exec", async () => {
-    const h = harness();
-    await runJev("cli-review opencode default high", h.ctx, h.deps);
-    expect(h.notes).toHaveLength(1);
-    expect(h.notes[0]![1]).toBe("error");
-    expect(h.events).toEqual(["sessionId", "notify"]);
-    expect(readState(h.dir).kind).toBe("missing");
-  });
-
-  test("cli-review with an unreadable model list warns and still applies as typed", async () => {
-    const h = harness();
-    h.deps.exec = async (...a) => {
-      h.events.push("exec");
-      expect(a[2]).toEqual({ timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
-      throw new Error("spawn");
-    };
-    await runJev("cli-review codex luna high", h.ctx, h.deps);
-    expect(h.notes.map((n) => n[1])).toEqual(["warning", "info"]);
-    expect(h.notes[0]![0]).toBe("CLI review model not checked: could not read the model list.");
-    expect(h.notes[1]![0]).toContain("cli review: on (codex, model luna, effort high)");
-    expect(h.events).toEqual(["sessionId", "exec", "notify", "load", "draw", "notify"]);
-  });
-
-  test("cli-review with an ENOENT list names the missing CLI", async () => {
-    const h = harness();
-    h.deps.exec = async () => ({
-      stdout: "",
-      stderr: "spawn ENOENT",
-      code: 1,
-      killed: false,
-      truncated: false,
-    });
-    await runJev("cli-review opencode p/m", h.ctx, h.deps);
-    expect(h.notes[0]).toEqual(["CLI review model not checked: opencode not found.", "warning"]);
-  });
-
-  test("cli-review model absent from the list is refused with suggestions and nothing is written", async () => {
-    const h = harness();
-    h.deps.exec = async () => ({
-      stdout: "prov/luna\nprov/nebula\n",
-      stderr: "",
-      code: 0,
-      killed: false,
-      truncated: false,
-    });
-    await runJev("cli-review opencode lun", h.ctx, h.deps);
-    expect(h.notes).toHaveLength(1);
-    expect(h.notes[0]![1]).toBe("error");
-    expect(h.notes[0]![0]).toBe(`Unknown OpenCode model "lun".\nTry: prov/luna`);
-    expect(readState(h.dir).kind).toBe("missing");
-    expect(h.events).not.toContain("load");
-  });
-
-  test("cli-review resolves the model and effort the list confirms", async () => {
-    const h = harness();
-    h.deps.exec = async () => ({
-      stdout: "prov/luna-2\n",
-      stderr: "",
-      code: 0,
-      killed: false,
-      truncated: false,
-    });
-    await runJev("cli-review opencode prov/luna-2", h.ctx, h.deps);
-    expect(h.notes.map((n) => n[1])).toEqual(["info"]);
-    expect(h.notes[0]![0]).toContain("cli review: on (opencode, model prov/luna-2)");
-  });
-
-  test("exec is not called for a bare reviewer, a switch or a codex effort alone", async () => {
-    const h = harness();
-    await runJev("cli-review codex", h.ctx, h.deps);
-    await runJev("cli-review codex default high", h.ctx, h.deps);
-    await runJev("cli-review off", h.ctx, h.deps);
-    expect(h.events.filter((e) => e === "exec")).toEqual([]);
-    expect(h.notes.map((n) => n[1])).toEqual(["info", "info", "info"]);
-  });
-
   test("mode clear with no file says so as info and loads nothing", async () => {
     const h = harness();
     await runJev("mode clear", h.ctx, h.deps);
@@ -257,14 +167,11 @@ describe("runJev pin: notify texts and levels", () => {
 });
 
 describe("runJev pin: status reply", () => {
-  test("status text is the empty-tally status, info, with no sync for status", async () => {
+  test("status text is the empty-tally status, info", async () => {
     const h = harness();
-    let synced = 0;
-    h.deps.sync = () => void synced++;
     await runJev("", h.ctx, h.deps);
     const snapshot = h.deps.load(h.cwd);
     expect(h.notes).toEqual([[formatStatus(snapshot, EMPTY_TALLY, undefined), "info"]]);
-    expect(synced).toBe(0);
   });
 
   test("tally and window feed the status and are read after the draw", async () => {
@@ -280,7 +187,7 @@ describe("runJev pin: status reply", () => {
     expect(receivers.window).toBe(h.deps);
   });
 
-  test("a change runs load, sync, decision, overlay, draw, tally, window, notify in that order", async () => {
+  test("a change runs load, decision, overlay, draw, tally, window, notify in that order", async () => {
     const h = harness();
     const decision: Decision = { effort: { kind: "level", level: "high" } };
     h.deps.load = ((orig) =>
@@ -288,10 +195,6 @@ describe("runJev pin: status reply", () => {
         receivers.load = this;
         return orig(cwd);
       })(h.deps.load);
-    h.deps.sync = function (this: unknown) {
-      receivers.sync = this;
-      h.events.push("sync");
-    };
     h.deps.decision = spy(h, "decision", decision);
     h.deps.overlay = spy(h, "overlay", "ov");
     h.deps.tally = spy(h, "tally", EMPTY_TALLY);
@@ -300,7 +203,6 @@ describe("runJev pin: status reply", () => {
     expect(h.events).toEqual([
       "sessionId",
       "load",
-      "sync",
       "decision",
       "overlay",
       "draw",
@@ -308,7 +210,7 @@ describe("runJev pin: status reply", () => {
       "window",
       "notify",
     ]);
-    for (const k of ["load", "sync", "decision", "overlay", "tally", "window"]) {
+    for (const k of ["load", "decision", "overlay", "tally", "window"]) {
       expect(receivers[k]).toBe(h.deps);
     }
     expect(h.notes.map((n) => n[1])).toEqual(["info"]);
@@ -376,9 +278,8 @@ describe("runJev pin: status reply", () => {
     await runJev("mode budget", h.ctx, h.deps);
     h.events.length = 0;
     h.notes.length = 0;
-    h.deps.sync = () => h.events.push("sync");
     await runJev("mode clear", h.ctx, h.deps);
-    expect(h.events).toEqual(["sessionId", "load", "sync", "draw", "notify"]);
+    expect(h.events).toEqual(["sessionId", "load", "draw", "notify"]);
     expect(h.notes.map((n) => n[1])).toEqual(["info"]);
   });
 });
@@ -457,10 +358,9 @@ describe("runJev pin: fail-open /jev failed path", () => {
     expect(h.notes).toEqual([["/jev failed: UnknownError", "error"]]);
   });
 
-  test("load throwing after a change: the change stays written, no sync, no draw", async () => {
+  test("load throwing after a change: the change stays written, no draw", async () => {
     const h = harness();
     h.deps.load = boom;
-    h.deps.sync = spy(h, "sync", undefined as never);
     await runJev("skills off", h.ctx, h.deps);
     expect(h.notes).toEqual([["/jev failed: Error", "error"]]);
     expect(h.events).toEqual(["sessionId", "notify"]);
@@ -469,21 +369,12 @@ describe("runJev pin: fail-open /jev failed path", () => {
     ).toBe(false);
   });
 
-  test("a throwing sync is swallowed and the status still shows", async () => {
+  test("a throwing decision fails before the draw", async () => {
     const h = harness();
-    h.deps.sync = boom;
-    await runJev("skills off", h.ctx, h.deps);
-    expect(h.notes.map((n) => n[1])).toEqual(["info"]);
-    expect(h.events).toEqual(["sessionId", "load", "draw", "notify"]);
-  });
-
-  test("a throwing decision fails after sync and before the draw", async () => {
-    const h = harness();
-    h.deps.sync = spy(h, "sync", undefined as never);
     h.deps.decision = boom;
     h.deps.overlay = spy(h, "overlay", undefined);
     await runJev("skills off", h.ctx, h.deps);
-    expect(h.events).toEqual(["sessionId", "load", "sync", "notify"]);
+    expect(h.events).toEqual(["sessionId", "load", "notify"]);
     expect(h.notes).toEqual([["/jev failed: Error", "error"]]);
   });
 

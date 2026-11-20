@@ -6,7 +6,7 @@ import { readLedger } from "../../src/store/ledger.ts";
 import { tempDir } from "../helpers";
 import { startFixture, type Fixture, type RecordedRequest, type ScriptEntry } from "./fixture";
 import { startHostSession, type HostSession } from "./harness";
-import { command, notifies, uiRequests } from "./rpc-helpers";
+import { report, uiRequests } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const jevs: JevFixture[] = [];
@@ -58,14 +58,6 @@ async function open(fixture: Fixture, dirs: Shared, args: string[] = []): Promis
 function saveMode(agentDir: string, mode: string): void {
   mkdirSync(join(agentDir, "jev"), { recursive: true });
   writeFileSync(join(agentDir, "jev", "state.json"), JSON.stringify({ version: 1, mode }));
-}
-
-/** Runs a `/jev` command and returns the text of the notification it produced. */
-async function report(s: HostSession, text: string): Promise<string> {
-  const before = notifies(s).length;
-  await command(s, text);
-  await s.waitFor(() => notifies(s).length > before, `notify for ${text}`);
-  return notifies(s)[before]?.message ?? "";
 }
 
 /** Waits for the status widget to show `want`, then returns its text. */

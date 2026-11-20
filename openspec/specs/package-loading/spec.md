@@ -1,7 +1,7 @@
 # package-loading Specification
 
 ## Purpose
-The repository is a Pi package whose manifest names one extension entry point that Pi loads without error and that registers only the `/jev` command, the `jev_review` tool and a bounded set of event handlers.
+The repository is a Pi package whose manifest names one extension entry point that Pi loads without error and that registers only the `/jev` command and a bounded set of event handlers.
 
 ## Requirements
 
@@ -17,11 +17,12 @@ Installing the repository checkout with `pi install` into an isolated `PI_CODING
 - **THEN** no extension resolves to that entry point and `errors` contains one entry naming its path
 
 ### Requirement: Extension registrations are bounded
-The jev-pilot extension factory (`src/extension.ts`) SHALL register exactly one command, `jev`, exactly one tool, `jev_review`, and handlers for `session_start`, `session_shutdown`, `before_agent_start`, `before_provider_request`, `turn_end` and `agent_settled` only, plus its subscriptions to the executor's `subagents:*` events on `pi.events`. It MUST NOT register `message_end`, `tool_call` or `tool_result` handlers. It MUST register no flags or shortcuts. Loading the package MUST make no network call and run no process, and in print and JSON modes MUST NOT change Pi's output.
+<!-- Intentional change: the `jev_review` tool is removed; the scenario keeps its name and now expects no tool. -->
+The jev-pilot extension factory (`src/extension.ts`) SHALL register exactly one command, `jev`, no tool, and handlers for `session_start`, `session_shutdown`, `before_agent_start`, `before_provider_request`, `turn_end` and `agent_settled` only, plus its subscriptions to the executor's `subagents:*` events on `pi.events`. It MUST NOT register `message_end`, `tool_call` or `tool_result` handlers. It MUST register no flags or shortcuts. Loading the package MUST make no network call and run no process, and in print and JSON modes MUST NOT change Pi's output.
 
 #### Scenario: Loaded extension registers only /jev and handlers
 - **WHEN** the jev-pilot extension is loaded through the installed package
-- **THEN** its commands are exactly `jev`, its tools are exactly `jev_review`, its handlers are exactly `session_start`, `session_shutdown`, `before_agent_start`, `before_provider_request`, `turn_end` and `agent_settled`, and its flags and shortcuts are empty
+- **THEN** its commands are exactly `jev`, it has no tools, its handlers are exactly `session_start`, `session_shutdown`, `before_agent_start`, `before_provider_request`, `turn_end` and `agent_settled`, and its flags and shortcuts are empty
 
 ### Requirement: Package manifest
 The repository root `package.json` SHALL declare a Pi package `@ttdua/pi-jev-pilot` (license `MIT`, keyword `pi-package`) whose `pi.extensions` lists exactly `./src/extension.ts`, with no `workspaces`. Its `peerDependencies` SHALL be exactly the four host packages named in the scenario, each `"*"`, covering every host package `src/` imports. It MUST have no runtime `dependencies` and MUST NOT name an executor package outside `devDependencies`.

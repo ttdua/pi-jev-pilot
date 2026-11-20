@@ -1,5 +1,5 @@
 export { agentFacts, executorAgents } from "./agents.ts";
-export { childContext, isChild, subscribeChildren } from "./child.ts";
+export { isChild, subscribeChildren } from "./child.ts";
 export { branchItems, holdContext, previousTurnId, scanPlatforms } from "./context.ts";
 export { setMainCwd } from "./main-cwd.ts";
 export { migrateLegacyNames } from "./migrate.ts";

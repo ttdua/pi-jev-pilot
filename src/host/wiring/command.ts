@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { runJev } from "../commands/index.ts";
 import { jevDir, loadSnapshot } from "../platform/index.ts";
-import { syncReviewTool } from "../review/index.ts";
 import { runTune } from "../tuning/index.ts";
 import type { Parts } from "./parts.ts";
 
@@ -20,9 +19,7 @@ export function registerJevCommand(pi: ExtensionAPI, parts: Parts): void {
         window: () => window.entries(),
         problems: () => routing.problems(),
         overlay: main.overlay,
-        exec: (c, a, o) => pi.exec(c, a, o),
         tune: (sub, c) => runTune(parts.tuningDeps(), sub, c),
-        sync: (s) => syncReviewTool(pi, s.settings.review.enabled),
       });
     },
   });

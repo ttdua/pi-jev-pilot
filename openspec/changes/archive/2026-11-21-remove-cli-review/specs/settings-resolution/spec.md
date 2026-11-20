@@ -1,0 +1,83 @@
+## MODIFIED Requirements
+
+### Requirement: Effective settings resolver
+<!-- Intentional change: "Everything defaulted" now has `effort.holdProviders` `[]` and no `review`; "Retired CLI review ignored" is added. -->
+Effective settings SHALL come from one pure function of:
+- a valid config;
+- the state;
+- an optional tuning layer;
+- an optional directory mode.
+
+For each value, the tuning layer wins over the state, the state over the config, and the config over the code default, subject to the tuning limits below. For the mode, the directory mode wins over the state (see State overrides switches and mode). The result MUST be complete: every setting has a value. A config read through the deprecated `subagents.forkedLaunch` alias SHALL resolve to `subagents.forkLaunch`. The function MUST do no I/O.
+
+#### Scenario: Everything defaulted
+- **WHEN** the config is empty, the state has no fields, and there is no tuning layer and no directory mode
+- **THEN** the result has:
+  - `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`;
+  - no tiers and no slots;
+  - `effort.holdProviders` `[]`, `skills.inject` `content`, `state.parentRequest` `false`;
+  - `subagents.forkLaunch` `untouched`;
+  - no `review` setting;
+  - mode `standard` with source `global` and global mode `standard`;
+  - every feature on except `verbose`
+
+#### Scenario: Config over default
+- **WHEN** the config sets `classifier.timeoutMs` to `2000`
+- **THEN** the result's `classifier.timeoutMs` is `2000`
+
+#### Scenario: Tuning over config
+- **WHEN** the config sets `classifier.timeoutMs` to `2000` and the tuning layer sets `timeoutMs` to value `2200` with base `2000`
+- **THEN** the result's `classifier.timeoutMs` is `2200`
+
+#### Scenario: Forked launch from config
+- **WHEN** the config sets `subagents.forkLaunch` to `thinking`
+- **THEN** the result's `subagents.forkLaunch` is `thinking`
+
+#### Scenario: Fork launch from the deprecated key
+- **WHEN** the config sets only `subagents.forkedLaunch` to `thinking`
+- **THEN** the result's `subagents.forkLaunch` is `thinking`
+
+#### Scenario: Ignored tools section
+- **WHEN** the config holds `{"tools":{"mode":"enforce","grantAt":0.9}}`
+- **THEN** the result has no `tools` setting and equals the result for an empty config
+
+#### Scenario: Retired CLI review ignored
+- **WHEN** `config.json` holds `{"review":{"cli":"opencode","enabled":true}}`, `state.json` holds `cliReviewEnabled` `true`, and both are read and resolved
+- **THEN** the result has no `review` setting and equals the result for an empty config and an empty state
+
+#### Scenario: Hold provider from config
+- **WHEN** the config sets `effort.holdProviders` to `["9router"]`
+- **THEN** the result's `effort.holdProviders` is `["9router"]`
+
+## ADDED Requirements
+
+### Requirement: State overrides switches and mode
+The state SHALL override the switches and mode defaults. A directory mode, when given, SHALL override the state's mode and the default for the mode only. The result MUST carry the global mode (the state's mode, else the default) and the mode's source: `local` when the directory mode was given, otherwise `global`. A directory mode MUST NOT change any other setting.
+
+#### Scenario: Switch off
+- **WHEN** the state turns `skills` off
+- **THEN** the result has `skills` off and every other feature at its default
+
+#### Scenario: Mode from state
+- **WHEN** the state sets the mode to `premium`
+- **THEN** the result's mode is `premium`, with source `global`
+
+#### Scenario: Directory mode over state
+- **WHEN** the state sets the mode to `premium` and the directory mode is `budget`
+- **THEN** the result's mode is `budget`, with source `local` and global mode `premium`
+
+#### Scenario: Directory mode over the default
+- **WHEN** the state has no mode and the directory mode is `premium`
+- **THEN** the result's mode is `premium`, with source `local` and global mode `standard`
+
+#### Scenario: Directory mode changes only the mode
+- **WHEN** the state turns `skills` off and the directory mode is `premium`
+- **THEN** the result equals the result without a directory mode, except mode `premium` and source `local`
+
+## REMOVED Requirements
+
+### Requirement: State overrides
+
+**Reason**: Restated as "State overrides switches and mode" because its CLI review scenarios are removed with the CLI review; OpenSpec cannot drop a scenario through MODIFIED.
+
+**Migration**: Replaced by "State overrides switches and mode" in this capability.

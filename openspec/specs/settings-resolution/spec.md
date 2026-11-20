@@ -5,49 +5,6 @@ One pure function merges tuning, state, config and code defaults into complete e
 
 ## Requirements
 
-### Requirement: State overrides
-The state SHALL override the switches and mode defaults. Its CLI review default SHALL replace the config's `review.cli` together with any model and effort, and its `cliReviewEnabled` SHALL override the config's `review.enabled`. Each of the two MUST resolve independently of the other. A directory mode, when given, SHALL override the state's mode and the default for the mode only. The result MUST carry the global mode (the state's mode, else the default) and the mode's source: `local` when the directory mode was given, otherwise `global`. A directory mode MUST NOT change any other setting.
-
-#### Scenario: Switch off
-- **WHEN** the state turns `skills` off
-- **THEN** the result has `skills` off and every other feature at its default
-
-#### Scenario: Mode from state
-- **WHEN** the state sets the mode to `premium`
-- **THEN** the result's mode is `premium`, with source `global`
-
-#### Scenario: Directory mode over state
-- **WHEN** the state sets the mode to `premium` and the directory mode is `budget`
-- **THEN** the result's mode is `budget`, with source `local` and global mode `premium`
-
-#### Scenario: Directory mode over the default
-- **WHEN** the state has no mode and the directory mode is `premium`
-- **THEN** the result's mode is `premium`, with source `local` and global mode `standard`
-
-#### Scenario: Directory mode changes only the mode
-- **WHEN** the state turns `skills` off and the directory mode is `premium`
-- **THEN** the result equals the result without a directory mode, except mode `premium` and source `local`
-
-#### Scenario: CLI review default from state
-- **WHEN** the config sets `review.cli` to `codex` and the state sets the CLI review default to `opencode` with no model
-- **THEN** the result's `review.cli` is `opencode`, with no model and no effort
-
-#### Scenario: CLI review on from the config
-- **WHEN** the config sets `review.enabled` to `true` and the state has no `cliReviewEnabled`
-- **THEN** the result's `review.enabled` is `true`
-
-#### Scenario: CLI review off from the state
-- **WHEN** the config sets `review.enabled` to `true` and the state sets `cliReviewEnabled` to `false`
-- **THEN** the result's `review.enabled` is `false`
-
-#### Scenario: Reviewer from state keeps the config's enabled
-- **WHEN** the config sets `review` to `{"cli":"codex","enabled":true}` and the state sets the CLI review default to `opencode` with no `cliReviewEnabled`
-- **THEN** the result's `review` is `opencode` with `enabled` `true`
-
-#### Scenario: Config review without state
-- **WHEN** the config sets `review.cli` to `opencode` and the state has no CLI review default
-- **THEN** the result's `review.cli` is `opencode`
-
 ### Requirement: Tuning is limited to tunable values
 The tuning layer SHALL accept only `timeoutMs` in this phase, as a `value` and the `base` it was tuned from, each an integer from 300 to 5000. The tuned value MUST apply only when `base` equals the untuned value (the config's `classifier.timeoutMs`, or the default). Otherwise the untuned value applies. Any other value in the tuning layer MUST be ignored by the resolver.
 
@@ -76,21 +33,23 @@ The tuning layer SHALL accept only `timeoutMs` in this phase, as a `value` and t
 - **THEN** the result's `classifier.timeoutMs` comes from the config or the default
 
 ### Requirement: Effective settings resolver
+<!-- Intentional change: "Everything defaulted" now has `effort.holdProviders` `[]` and no `review`; "Retired CLI review ignored" is added. -->
 Effective settings SHALL come from one pure function of:
 - a valid config;
 - the state;
 - an optional tuning layer;
 - an optional directory mode.
 
-For each value, the tuning layer wins over the state, the state over the config, and the config over the code default, subject to the tuning limits below. For the mode, the directory mode wins over the state (see State overrides). The result MUST be complete: every setting has a value. A config read through the deprecated `subagents.forkedLaunch` alias SHALL resolve to `subagents.forkLaunch`. The function MUST do no I/O.
+For each value, the tuning layer wins over the state, the state over the config, and the config over the code default, subject to the tuning limits below. For the mode, the directory mode wins over the state (see State overrides switches and mode). The result MUST be complete: every setting has a value. A config read through the deprecated `subagents.forkedLaunch` alias SHALL resolve to `subagents.forkLaunch`. The function MUST do no I/O.
 
 #### Scenario: Everything defaulted
 - **WHEN** the config is empty, the state has no fields, and there is no tuning layer and no directory mode
 - **THEN** the result has:
   - `classifier.url` `https://api.typesafe.ai/v1/systemone`, `classifier.model` `jev-latest`, `classifier.apiKeyEnv` `TYPESAFE_API_KEY`, `classifier.timeoutMs` `1500`;
   - no tiers and no slots;
-  - `effort.holdProviders` `["9router"]`, `skills.inject` `content`, `state.parentRequest` `false`;
-  - `review.cli` `codex`, `review.enabled` `false`, `subagents.forkLaunch` `untouched`;
+  - `effort.holdProviders` `[]`, `skills.inject` `content`, `state.parentRequest` `false`;
+  - `subagents.forkLaunch` `untouched`;
+  - no `review` setting;
   - mode `standard` with source `global` and global mode `standard`;
   - every feature on except `verbose`
 
@@ -113,3 +72,34 @@ For each value, the tuning layer wins over the state, the state over the config,
 #### Scenario: Ignored tools section
 - **WHEN** the config holds `{"tools":{"mode":"enforce","grantAt":0.9}}`
 - **THEN** the result has no `tools` setting and equals the result for an empty config
+
+#### Scenario: Retired CLI review ignored
+- **WHEN** `config.json` holds `{"review":{"cli":"opencode","enabled":true}}`, `state.json` holds `cliReviewEnabled` `true`, and both are read and resolved
+- **THEN** the result has no `review` setting and equals the result for an empty config and an empty state
+
+#### Scenario: Hold provider from config
+- **WHEN** the config sets `effort.holdProviders` to `["9router"]`
+- **THEN** the result's `effort.holdProviders` is `["9router"]`
+
+### Requirement: State overrides switches and mode
+The state SHALL override the switches and mode defaults. A directory mode, when given, SHALL override the state's mode and the default for the mode only. The result MUST carry the global mode (the state's mode, else the default) and the mode's source: `local` when the directory mode was given, otherwise `global`. A directory mode MUST NOT change any other setting.
+
+#### Scenario: Switch off
+- **WHEN** the state turns `skills` off
+- **THEN** the result has `skills` off and every other feature at its default
+
+#### Scenario: Mode from state
+- **WHEN** the state sets the mode to `premium`
+- **THEN** the result's mode is `premium`, with source `global`
+
+#### Scenario: Directory mode over state
+- **WHEN** the state sets the mode to `premium` and the directory mode is `budget`
+- **THEN** the result's mode is `budget`, with source `local` and global mode `premium`
+
+#### Scenario: Directory mode over the default
+- **WHEN** the state has no mode and the directory mode is `premium`
+- **THEN** the result's mode is `premium`, with source `local` and global mode `standard`
+
+#### Scenario: Directory mode changes only the mode
+- **WHEN** the state turns `skills` off and the directory mode is `premium`
+- **THEN** the result equals the result without a directory mode, except mode `premium` and source `local`

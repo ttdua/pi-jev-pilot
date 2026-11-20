@@ -64,16 +64,6 @@ export function resolveSubagents(config: Config): Settings["subagents"] {
   };
 }
 
-export function resolveReview(config: Config, state: State): Settings["review"] {
-  const enabled = state.cliReviewEnabled ?? config.review?.enabled ?? DEFAULTS.review.enabled;
-  const review: Settings["review"] = state.cliReview
-    ? { cli: state.cliReview.cli, enabled }
-    : { cli: config.review?.cli ?? (DEFAULTS.review.cli as "codex" | "opencode"), enabled };
-  if (state.cliReview?.model !== undefined) review.model = state.cliReview.model;
-  if (state.cliReview?.effort !== undefined) review.effort = state.cliReview.effort;
-  return review;
-}
-
 /** Effective mode: the directory override when set, else the global mode. */
 export function resolveMode(
   state: State,

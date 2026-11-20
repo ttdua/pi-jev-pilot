@@ -7,7 +7,7 @@ All under `<agentDir>/jev/`, by default `~/.pi/agent/jev/`.
 | File | Written by | Holds |
 |---|---|---|
 | `config.json` | You, `/jev` for slots, and the start-up rename of deprecated tier keys | Settings below |
-| `state.json` | `/jev` | Switches, mode, CLI review default and on/off |
+| `state.json` | `/jev` | Switches and mode |
 | `tuning.json` | Automatic tuning | Applied changes and history |
 | `ledger.jsonl` | The package | Decisions and outcomes |
 | `ledger.1.jsonl` | The package | The previous ledger segment |
@@ -75,8 +75,7 @@ Error messages name the field and what was expected, never the value found, so a
   "effort": { "holdProviders": ["9router"] },
   "skills": { "inject": "content" },
   "subagents": { "forkLaunch": "untouched" },
-  "state": { "parentRequest": false },
-  "review": { "cli": "codex" }
+  "state": { "parentRequest": false }
 }
 ```
 
@@ -108,7 +107,7 @@ A tier names how much the model knows, not how hard or long the work is; effort 
 
 The old tier keys are read for one minor release as aliases: `tiers.fast` → `tiers.basic`, `tiers.balanced` → `tiers.broad`, `tiers.expert` → `tiers.frontier` (`deep` keeps its name). `/jev` shows `tiers.<old> is deprecated; rename it to tiers.<new>` for each one. A file that sets an alias and its new key is invalid, with the problem at the alias.
 
-At each main session start, a valid `config.json` that still holds an alias is rewritten once: each key is renamed in place, and every other key, value, order and the file mode are kept. One notification names the renamed keys and the path. An invalid or conflicting file is left alone. If the write fails, the aliases keep working and the next start tries again. The same start moves `switches.expert` in `state.json` to `switches.frontier`. Child sessions never rewrite either file.
+At each main session start, a valid `config.json` that still holds an alias is rewritten once: each key is renamed in place, and the retired `review` section is removed in the same rewrite; every other key, value, order and the file mode are kept. One notification names the renamed and removed keys and the `config.json` path, for example `Jev: renamed tiers.fast → tiers.basic; removed review in <path>/config.json.` An invalid or conflicting file is left alone. If the write fails, the aliases keep working and the next start tries again. The same start moves `switches.expert` in `state.json` to `switches.frontier`. Child sessions never rewrite either file.
 
 ### `crew.slots`
 
@@ -128,9 +127,9 @@ Reserved names: `all`, `budget`, `cli-review`, `default`, `effort`, `expert`, `f
 
 | Key | Default | Notes |
 |---|---|---|
-| `holdProviders` | `["9router"]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the level of the latest decision until a compaction or a provider or model switch. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
+| `holdProviders` | `[]` | Up to 32 unique names, `^[A-Za-z0-9._-]{1,64}$`. Providers that keep the level of the latest decision until a compaction or a provider or model switch. The [WG-02 Q8](evidence/2026-11-05-host-seams.md#q8) run on `claude-code` showed no cache loss on a thinking change |
 
-Check for yourself by watching for cache misses after thinking-level changes on your provider.
+Check for yourself by watching for cache misses after thinking-level changes on your provider. The example keeps `["9router"]` as an explicit setting; the default is `[]`.
 
 ### `skills`
 
@@ -158,20 +157,11 @@ Content that leaves the machine with its own switch.
 |---|---|---|
 | `parentRequest` | `false` | Up to 500 characters of the latest prompt with each worker request |
 
-### `review`
+### Retired `review` and CLI review state
 
-| Key | Default | Values |
-|---|---|---|
-| `cli` | `codex` | `codex` or `opencode`. `/jev cli-review` stores an override in `state.json` and leaves this file alone |
-| `enabled` | `false` | `false` or `true`. `/jev cli-review on\|off` stores an override in `state.json` |
-
-`state.json` holds the reviewer override as `cliReview: { cli, model?, effort? }`, and the on/off override as `cliReviewEnabled: true|false`. The state override wins over `review.enabled`; with neither set, the CLI review is off.
-
-`cliReview.model` is 1 to 128 characters of letters, digits, `.`, `_`, `-`, `:` and `/`, and does not start with `-`, `:` or `/`, so it can never be read as a flag. It is not the word `default`: `/jev cli-review ... default` removes the field instead.
+The `review` section of `config.json` (removed CLI review) is accepted and removed from the file at the next main start. `cliReview` and `cliReviewEnabled` in `state.json` are accepted, ignored and removed at the same point.
 
 > [!WARNING]
-> **Rollback.** Before you roll back to an older build, remove `review.enabled` from `config.json`. An older build rejects unknown keys: it reports `state.json` as malformed when it holds `cliReviewEnabled` (moved aside at the next `/jev` change), and `config.json` as invalid when it holds `review.enabled`.
->
 > **Rollback past the knowledge tiers.** A build from before the knowledge tiers rejects `tiers.basic`, `tiers.broad` and `tiers.frontier`. Rename them back by hand to `tiers.fast`, `tiers.balanced` and `tiers.expert`, and `switches.frontier` in `state.json` to `switches.expert`.
 
 ## Fixed, not configurable

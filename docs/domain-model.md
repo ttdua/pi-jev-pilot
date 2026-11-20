@@ -14,7 +14,6 @@ classDiagram
     class Switches {
       feature on or off
       mode
-      CLI review default
     }
     class Mode {
       name

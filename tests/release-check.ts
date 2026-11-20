@@ -14,7 +14,6 @@ const OFF_SWITCHES = [
   "/jev skills off",
   "/jev strategy off",
   "/jev frontier off",
-  "/jev cli-review off",
 ];
 const BANNERS = [
   "design phase",

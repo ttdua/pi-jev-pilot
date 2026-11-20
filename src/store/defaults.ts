@@ -55,11 +55,10 @@ export const DEFAULTS = {
     apiKeyEnv: "TYPESAFE_API_KEY",
     timeoutMs: 1500,
   },
-  effort: { holdProviders: ["9router"] as readonly string[] },
+  effort: { holdProviders: [] as readonly string[] },
   skills: { inject: "content" },
   state: { parentRequest: false },
   subagents: { forkLaunch: "untouched" },
-  review: { cli: "codex", enabled: false },
   mode: "standard" as Mode,
   switches: {
     effort: true,

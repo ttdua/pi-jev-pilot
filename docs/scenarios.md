@@ -33,8 +33,6 @@ What each scenario changes for you, when it applies, and which rule wins.
 
 **What the package decides.** Where each launch goes. Any launch, review or not, goes to the slot when Jev's slot probability is at least .6 and the `frontier` rule did not match first. Otherwise the launch gets `frontier` or a tier from the mode's cut points; risk raises effort, never the target; see [the rules](domain-model.md#workerdecision).
 
-The reviewer slot is not the CLI review. The CLI review (`jev_review`, which runs Codex or OpenCode) is off by default and runs only when you ask. Turn it on with `/jev cli-review on` ([usage guide](usage-guide.md#reviews)).
-
 ## Which rule wins
 
 Three kinds of list follow. In a "first match wins" list, the first rule that applies decides. In an "applied in order" list, every step runs in turn. Some rules are a single line.
@@ -44,8 +42,6 @@ Three kinds of list follow. In a "first match wins" list, the first rule that ap
 1. Directory mode, from `<cwd>/.pi/jev-mode.json`
 2. Global mode, from `state.json`
 3. The default, `standard`
-
-**CLI review on or off** ([configuration](configuration.md#review)), first match wins: `state.json` `cliReviewEnabled`, then `config.json` `review.enabled`, then off.
 
 **Worker launch** ([rules](domain-model.md#workerdecision))
 

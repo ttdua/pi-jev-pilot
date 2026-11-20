@@ -28,7 +28,7 @@ Expected values come from this documentation, not from running the code. Each [i
 
 ### Host
 
-The manual Q8 run and the manual CLI review run are the only Host evidence that uses real providers and logins. They are run by hand and are never part of CI.
+The manual Q8 run is the only Host evidence that uses real providers and logins. They are run by hand and are never part of CI.
 
 - A decision applies on the first provider request of the turn, by reading what the fixture received.
 - Jev down: identical provider requests to a run without the package, apart from a status line.
@@ -37,8 +37,6 @@ The manual Q8 run and the manual CLI review run are the only Host evidence that 
 - The executor is `present` after workers were created and disposed, and the `/jev` executor line reads `no executor` without it and `unknown; no launch policy` with the original `@gotgenes/pi-subagents`.
 - Nothing from a hidden log line reaches a provider.
 - Installation from a packed tarball, not only a checkout.
-- CLI review with fake `codex` and `opencode` scripts on `PATH`: the exact command lines, success, failure and exit codes, one retry on timeout, tier resolution at each run, the output file removed, and no brief or output in details or the ledger.
-- The review tool is offered in the main session only while on, and absent in a child's provider request.
 
 The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent directory, a loopback recording provider and probe extensions. It runs `pi install` of this repository into the isolated directory, so the pinned executor (from `node_modules`) and the Jev extension load together, as for a user. Three install modes cover the capability states: `jev+executor`, `jev` (no executor) and `none`. Findings are in the [host seams report](evidence/2026-11-05-host-seams.md); Q1, Q2 and Q7 are superseded by `tests/host/launch-policy-evidence.test.ts`. The `notify_parent` and `ask_parent` escalation evidence moved to the [executor repository](https://github.com/ttdua/pi-subagents).
 
@@ -47,8 +45,6 @@ The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent 
 The executor lives in [ttdua/pi-subagents](https://github.com/ttdua/pi-subagents) and runs its own suite there. This repository pins it as a dev dependency (`github:ttdua/pi-subagents#v0.1.1`) for types and for the host harness, which installs it from `node_modules`. `tests/release.test.ts` checks that the executor install line in the README and usage guide uses the same tag. Bumping the pin reruns the host tests.
 
 **Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
-
-**Manual CLI review procedure** (not in CI): `bun tests/host/manual/cli-review-real.ts`. Needs `codex` and `opencode` logins (each is skipped when not installed). It reviews a throwaway repository and prints counts only: outcome, attempts, exit code and output length, never the text. Set `JEV_REVIEW_CODEX_MODEL` or `JEV_REVIEW_OPENCODE_MODEL` to pick a model. Run it by hand after each CLI upgrade. Last run: [CLI review evidence](evidence/2026-11-06-cli-review.md).
 
 ### Privacy
 
@@ -103,4 +99,4 @@ The `tiers` routing is an approximation (design D3). It shows the mix with no sl
 
 ## Not in CI, deliberately
 
-Live Jev calls, paid models, and CLI reviews with real logins. They would add cost and flakiness, and would need secrets.
+Live Jev calls and paid models. They would add cost and flakiness, and would need secrets.

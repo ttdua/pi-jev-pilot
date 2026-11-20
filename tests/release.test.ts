@@ -15,7 +15,6 @@ const SWITCHES = [
   "/jev skills off",
   "/jev strategy off",
   "/jev frontier off",
-  "/jev cli-review off",
 ];
 const README_OK = `${PINNED}${SWITCHES.join("\n")}\n`;
 const BASE = { pkg: PKG, changelog: ENTRY };
@@ -153,6 +152,12 @@ describe("README explains each feature's effect", () => {
     expect(readme).toMatch(/effort picks how hard it works/i);
     expect(readme).toContain("`frontier`");
     expect(readme).toContain("/jev frontier off");
+  });
+
+  test("README does not mention the removed CLI review", () => {
+    const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+    expect(readme).not.toContain("jev_review");
+    expect(readme).not.toContain("cli-review");
   });
 });
 

@@ -5,7 +5,6 @@ import {
   resolveCrew,
   resolveEffort,
   resolveMode,
-  resolveReview,
   resolveSkills,
   resolveStateSection,
   resolveSubagents,
@@ -26,7 +25,6 @@ export type Settings = {
   skills: { inject: "content" | "suggest" };
   state: { parentRequest: boolean };
   subagents: { forkLaunch: "untouched" | "thinking" };
-  review: { cli: "codex" | "opencode"; enabled: boolean; model?: string; effort?: string };
   /** Effective mode: the directory override when set, else the global mode. */
   mode: Mode;
   modeSource: "local" | "global";
@@ -50,7 +48,6 @@ export function resolveSettings(input: {
     skills: resolveSkills(config),
     state: resolveStateSection(config),
     subagents: resolveSubagents(config),
-    review: resolveReview(config, state),
     ...resolveMode(state, localMode),
     switches: resolveSwitches(state),
   };

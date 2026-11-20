@@ -158,10 +158,9 @@ describe("defaults", () => {
       apiKeyEnv: "TYPESAFE_API_KEY",
       timeoutMs: 1500,
     });
-    expect(DEFAULTS.effort.holdProviders).toEqual(["9router"]);
+    expect(DEFAULTS.effort.holdProviders).toEqual([]);
     expect(DEFAULTS.skills.inject).toBe("content");
     expect(DEFAULTS.state.parentRequest).toBe(false);
-    expect(DEFAULTS.review.cli).toBe("codex");
     expect(DEFAULTS.mode).toBe("standard");
     for (const f of FEATURES) expect(DEFAULTS.switches[f]).toBe(f !== "verbose");
   });

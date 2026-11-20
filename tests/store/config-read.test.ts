@@ -71,7 +71,7 @@ const slot = (name: string) => ({ name, model: "9router/gpt-6.1-sol", when: "Cho
 describe("readConfig", () => {
   test("Valid full example", () => {
     const r = readText(FULL);
-    const { tools: _tools, ...expected } = JSON.parse(FULL);
+    const { tools: _tools, review: _review, ...expected } = JSON.parse(FULL);
     expect(r).toEqual({
       kind: "ok",
       present: true,
@@ -177,20 +177,27 @@ describe("readConfig", () => {
     });
   });
 
-  test("CLI review enabled accepted", () => {
-    const r = readJson({ review: { cli: "opencode", enabled: true } });
+  test("Old review section accepted and ignored", () => {
+    const r = readJson({
+      review: { cli: "opencode", enabled: true },
+      skills: { inject: "suggest" },
+    });
     expectValid(r);
     expect(r).toEqual({
       kind: "ok",
       present: true,
-      config: { review: { cli: "opencode", enabled: true } },
+      config: { skills: { inject: "suggest" } },
       notices: [],
       deprecated: [],
     });
   });
 
-  test("Non-boolean review.enabled", () => {
-    expect(paths(readJson({ review: { enabled: "on" } }))).toEqual(["review.enabled"]);
+  test("Review section of any shape", () => {
+    for (const value of [{ cli: "claude" }, { enabled: "on" }, true, null, []]) {
+      const r = readJson({ review: value });
+      expectValid(r);
+      expect(r.kind === "ok" && "review" in r.config).toBe(false);
+    }
   });
 
   test("Secret-like key", () => {
@@ -287,7 +294,7 @@ describe("readConfig", () => {
   test("Router-style model keeps the other sections", () => {
     const full = JSON.parse(FULL);
     full.classifier.model = "openrouter/perplexity/pplx-decider-v1.3:free";
-    const { tools: _tools, ...expected } = full;
+    const { tools: _tools, review: _review, ...expected } = full;
     expect(readJson(full)).toEqual({
       kind: "ok",
       present: true,
@@ -365,9 +372,9 @@ describe("readConfig", () => {
   test("Enum values", () => {
     const r = readJson({
       skills: { inject: "full" },
-      review: { cli: "claude" },
+      subagents: { forkLaunch: "skip" },
     });
-    expect(paths(r).sort()).toEqual(["review.cli", "skills.inject"]);
+    expect(paths(r).sort()).toEqual(["skills.inject", "subagents.forkLaunch"]);
   });
 
   test("Forked launch setting accepted", () => {
@@ -404,10 +411,10 @@ describe("readConfig", () => {
   test("Both keys present with another field invalid", () => {
     const r = readJson({
       subagents: { forkLaunch: "thinking", forkedLaunch: "untouched" },
-      review: { cli: "claude" },
+      skills: { inject: "full" },
     });
     expect(r.kind).toBe("invalid");
-    expect(paths(r).sort()).toEqual(["review.cli", "subagents.forkedLaunch"]);
+    expect(paths(r).sort()).toEqual(["skills.inject", "subagents.forkedLaunch"]);
     expect("config" in r).toBe(false);
   });
 

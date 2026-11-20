@@ -19,7 +19,7 @@ Upgrading from 0.5.x: remove the old install, install the executor, then reinsta
 export TYPESAFE_API_KEY="…"
 ```
 
-Then create `~/.pi/agent/jev/config.json` with your model tiers. The [configuration reference](docs/configuration.md) lists every setting. The CLI review (`jev_review`) is off until you run `/jev cli-review on`.
+Then create `~/.pi/agent/jev/config.json` with your model tiers. The [configuration reference](docs/configuration.md) lists every setting.
 
 ## Check it works
 
@@ -34,7 +34,7 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 | Feature | When it is on | Turn it off |
 |---|---|---|
 | Effort | Pi sets the thinking level for each prompt. You can still change it yourself; your choice lasts until the next prompt. A current `max` is left alone, and providers in the effort hold below keep their level. | `/jev effort off` |
-| Effort hold | For providers in `effort.holdProviders` (default `9router`), the level of the latest decision stays until a compaction or a provider or model switch, and Jev is not asked about effort in between (except to gate strategy advice; that answer never moves the level). | Set `effort.holdProviders` to `[]` in `config.json` |
+| Effort hold | For providers listed in `effort.holdProviders` (none by default), the level of the latest decision stays until a compaction or a provider or model switch, and Jev is not asked about effort in between (except to gate strategy advice; that answer never moves the level). | Set `effort.holdProviders` to `[]` in `config.json` |
 | Skills | At most one skill is attached to a prompt, on top of Pi's normal catalog. | `/jev skills off` |
 | Strategy advice | Advice on how to split the work is occasionally attached to a prompt. The model may ignore it. | `/jev strategy off` |
 
@@ -48,12 +48,6 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 | Subagent list | While subagents run, a list appears below the editor; `↓` or `←` on an empty prompt enters it and `Enter` opens an agent's transcript. | `/subagents:settings` → `Fleet view` |
 | Slots | Jev can pick a model you named, such as a `reviewer`, when its description fits the task. | `/jev remove <slot>` |
 | Fallback | When the chosen model cannot run, the launch moves to a tier that can. It never falls back to `frontier`. | `/jev subagents off` |
-
-### Reviews
-
-| Feature | When it is on | Turn it off |
-|---|---|---|
-| CLI review | The `jev_review` tool runs Codex or OpenCode, read-only, when you ask for it in words. Off by default. | `/jev cli-review off` |
 
 ### Visibility and tuning
 
@@ -95,7 +89,7 @@ One command shifts the whole tier mix, for this directory or for all of them:
 ## All switches at once
 
 - `/jev all off` turns off the five decision features: effort, subagents, skills, strategy and frontier.
-- `/jev reset` puts switches, modes and the CLI review default back to your config.
+- `/jev reset` puts switches and modes back to your config.
 
 ## Documentation
 

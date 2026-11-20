@@ -4,11 +4,9 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { startFixture, type Fixture, type ScriptEntry } from "./fixture";
 import { PI_BIN, REPO_ROOT, tempDir } from "../helpers";
-import { DEFAULT_JEV_CONFIG, executorDir, startHostSession, type HostSession } from "./harness";
+import { executorDir, startHostSession, type HostSession } from "./harness";
 import { isolatedEnv } from "./rpc";
-
-// jev_review is registered only while review is enabled.
-const REVIEW_ON = { ...DEFAULT_JEV_CONFIG, reviewEnabled: true };
+import { report } from "./rpc-helpers";
 
 const fixtures: Fixture[] = [];
 const sessions: HostSession[] = [];
@@ -141,10 +139,9 @@ describe("host session harness", () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
     ]);
-    const s = await sessionWith(fixture, { probes: ["noop"], jevConfig: REVIEW_ON });
+    const s = await sessionWith(fixture, { probes: ["noop"] });
     await s.prompt("hi");
     expect(fixture.requests[0]?.toolNames).toContain("subagent");
-    expect(fixture.requests[0]?.toolNames).toContain("jev_review");
     expect(s.probeRecords()).toContainEqual(
       expect.objectContaining({ probe: "noop", event: "session_start" }),
     );
@@ -157,11 +154,9 @@ describe("host session harness", () => {
     const s = await sessionWith(fixture, {
       install: "none",
       probes: ["noop"],
-      jevConfig: REVIEW_ON,
     });
     await s.prompt("hi");
     expect(fixture.requests[0]?.toolNames).not.toContain("subagent");
-    expect(fixture.requests[0]?.toolNames).not.toContain("jev_review");
     expect(s.probeRecords()).toContainEqual(
       expect.objectContaining({ probe: "noop", event: "session_start" }),
     );
@@ -171,10 +166,10 @@ describe("host session harness", () => {
     const fixture = await fixtureWith([
       { name: "main", match: (r) => r.model === "fixture-main", reply: { text: "ok" } },
     ]);
-    const s = await sessionWith(fixture, { install: "jev", jevConfig: REVIEW_ON });
+    const s = await sessionWith(fixture, { install: "jev" });
     await s.prompt("hi");
-    expect(fixture.requests[0]?.toolNames).toContain("jev_review");
     expect(fixture.requests[0]?.toolNames).not.toContain("subagent");
+    expect(await report(s, "/jev")).toContain("executor: no executor; worker routing is off");
   }, 60_000);
 
   test("Harness installs the resolved package", async () => {

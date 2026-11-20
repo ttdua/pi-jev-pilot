@@ -2,7 +2,6 @@
 import { DECISION_FEATURES } from "../../store/defaults.ts";
 import { resetState, updateState } from "../../store/state-file.ts";
 import type { JevArgs } from "./args.ts";
-import type { CliReviewChoice } from "./cli-review.ts";
 import {
   clearDirectoryMode,
   NO_DIRECTORY_MODE,
@@ -20,28 +19,12 @@ export type ApplyOutcome =
   | { ok: true; partialReset?: string }
   | { ok: false; message: string; level: "info" | "error" };
 
-function applyChange(
-  parsed: Change,
-  dir: string,
-  cliReview: CliReviewChoice | undefined,
-): ReturnType<typeof updateState> {
+function applyChange(parsed: Change, dir: string): ReturnType<typeof updateState> {
   switch (parsed.kind) {
     case "reset":
       return resetState(dir);
     case "mode":
       return updateState(dir, (st) => ({ ...st, mode: parsed.mode }));
-    case "cli-review-switch":
-      return updateState(dir, (st) => ({ ...st, cliReviewEnabled: parsed.on }));
-    case "cli-review":
-      return updateState(dir, (st) => ({
-        ...st,
-        cliReviewEnabled: true,
-        cliReview: {
-          cli: parsed.cli,
-          ...(cliReview?.model ? { model: cliReview.model } : {}),
-          ...(cliReview?.effort ? { effort: cliReview.effort } : {}),
-        },
-      }));
     case "set":
     case "all":
       return updateState(dir, (st) => {
@@ -72,12 +55,8 @@ function refusedLocal(local: LocalOutcome): ApplyOutcome | undefined {
   return undefined;
 }
 
-function applyToState(
-  parsed: Change,
-  where: { cwd: string; dir: string },
-  cliReview: CliReviewChoice | undefined,
-): ApplyOutcome {
-  const result = applyChange(parsed, where.dir, cliReview);
+function applyToState(parsed: Change, where: { cwd: string; dir: string }): ApplyOutcome {
+  const result = applyChange(parsed, where.dir);
   if (!result.ok) {
     const message = result.issues
       .map((i) => (i.path ? `${i.path}: ${i.message}` : i.message))
@@ -91,13 +70,9 @@ function applyToState(
 }
 
 /** Does what `parsed` asks for; the status form changes nothing. */
-export function applyCommand(
-  parsed: Command,
-  where: { cwd: string; dir: string },
-  cliReview: CliReviewChoice | undefined,
-): ApplyOutcome {
+export function applyCommand(parsed: Command, where: { cwd: string; dir: string }): ApplyOutcome {
   const local = runLocalForm(parsed, where.cwd);
   if (local !== undefined) return refusedLocal(local) ?? { ok: true };
   if (parsed.kind === "status" || parsed.kind === "mode-clear") return { ok: true };
-  return applyToState(parsed, where, cliReview);
+  return applyToState(parsed, where);
 }

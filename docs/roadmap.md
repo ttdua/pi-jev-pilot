@@ -22,7 +22,7 @@ Sizes: **S** is about one task, **M** a few, **L** many. They compare work group
 | WG-12 | Modes and expert tier | M | WG-11 | Done |
 | WG-13 | Slots and fallback | M | WG-11 | Done |
 | WG-14 | ~~Tool assessment, observe only~~ | M | WG-11 | Done; removed in [#81](https://github.com/ttdua/pi-jev-pilot/issues/81) |
-| WG-15 | CLI review | M | WG-06 | Done |
+| WG-15 | ~~Reviewer tool~~ | M | WG-06 | Done; removed 2026-11-20 |
 | WG-16 | Rich state replay | M | WG-09, 13 | Done |
 | WG-17 | Tally and log | S | WG-11 | Done |
 | WG-18 | Auto-tuning | M | WG-05, 07 | Done |
@@ -52,7 +52,6 @@ flowchart TD
     W11 --> W13["WG-13 Slots, fallback"]
     W11 --> W14["WG-14 Tool assessment (removed)"]
     W11 --> W17["WG-17 Tally, log"]
-    W6 --> W15["WG-15 CLI review"]
 
     W9 --> W16["WG-16 Replay"]
     W13 --> W16
@@ -63,7 +62,6 @@ flowchart TD
     W10 --> W19
     W12 --> W19
     W14 --> W19
-    W15 --> W19
     W16 --> W19
     W17 --> W19
     W18 --> W19
@@ -109,7 +107,6 @@ Replace assumptions with evidence before building on them. **This group may chan
 
 - **Includes:** schema and validation of `config.json`; `state.json`; path handling through `PI_CODING_AGENT_DIR`; atomic writes.
 - **Done when:** malformed input reports the field and leaves the package inert; a key found in config is rejected; nothing rewrites `config.json` except `/jev` slot commands.
-- **Note:** the CLI review override from `/jev cli-review` lives in `state.json`, not `config.json`.
 - **Note:** The `classifier.url` rule is the Jev client's rule, shared through `src/shared/urls.ts`.
 
 ### WG-04: Jev client and answer reading
@@ -189,11 +186,9 @@ The pre-launch tier cascade moved here from WG-13.
 
 Removed in [#81](https://github.com/ttdua/pi-jev-pilot/issues/81). Jev no longer removes or grants worker tools; a worker's tools come from its agent definition. Evidence in [host seams](evidence/2026-11-05-host-seams.md#tool-assessment-service-lookup-wg-14) and [ADR 0009](decisions/0009-vendored-executor.md).
 
-### WG-15: CLI review
+### WG-15: Reviewer tool (removed)
 
-**F4.** `jev_review` with per-call `reviewer`, `model` and `effort`; Codex and OpenCode command lines; `/jev cli-review` with validation against each CLI's model list; Codex tier names resolved at each run; one retry on timeout only; independent of the key and the switches; hidden in children through `before_agent_start`.
-
-- **Done when:** a fake CLI covers success, failure and timeout; a real run with the operator's CLI works (`tests/host/manual/cli-review-real.ts`); the tool is absent in children.
+Removed 2026-11-20. The review tool, its slash command and the `review` config and state keys are gone; the retired keys are removed at the first main start. The `reviewer` slot is unaffected ([ADR 0004](decisions/0004-review-as-a-slot.md)).
 
 ### WG-16: Rich state replay
 

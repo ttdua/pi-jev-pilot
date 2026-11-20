@@ -1,8 +1,33 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../../src/store/defaults.ts";
 import { resolveSettings, type Settings, untunedTimeout } from "../../src/store/settings.ts";
+import { readConfig } from "../../src/store/config.ts";
+import { readState } from "../../src/store/state-file.ts";
+import { tempDir } from "../helpers.ts";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("resolveSettings", () => {
+  test("Hold provider from config", () => {
+    const s = resolveSettings({ config: { effort: { holdProviders: ["9router"] } }, state: {} });
+    expect(s.effort.holdProviders).toEqual(["9router"]);
+  });
+
+  test("Retired CLI review ignored", () => {
+    const dir = tempDir("settings-retired-");
+    try {
+      writeFileSync(join(dir, "config.json"), '{"review":{"cli":"opencode","enabled":true}}');
+      writeFileSync(join(dir, "state.json"), '{"version":1,"cliReviewEnabled":true}');
+      const read = readConfig(dir);
+      const state = readState(dir);
+      if (read.kind !== "ok" || state.kind !== "ok") throw new Error("expected ok reads");
+      expect(resolveSettings({ config: read.config, state: state.state })).toEqual(
+        resolveSettings({ config: {}, state: {} }),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   test("Forked launch from config", () => {
     const s = resolveSettings({ config: { subagents: { forkLaunch: "thinking" } }, state: {} });
     expect(s.subagents.forkLaunch).toBe("thinking");
@@ -30,11 +55,10 @@ describe("resolveSettings", () => {
       },
       tiers: {},
       crew: { slots: [] },
-      effort: { holdProviders: ["9router"] },
+      effort: { holdProviders: [] },
       skills: { inject: "content" },
       state: { parentRequest: false },
       subagents: { forkLaunch: "untouched" },
-      review: { cli: "codex", enabled: false },
       mode: "standard",
       modeSource: "global",
       globalMode: "standard",
@@ -108,42 +132,6 @@ describe("resolveSettings", () => {
       delete s.modeSource;
     }
     expect(withSession).toEqual(without);
-  });
-
-  test("CLI review default from state", () => {
-    const s = resolveSettings({
-      config: { review: { cli: "codex" } },
-      state: { cliReview: { cli: "opencode" } },
-    });
-    expect(s.review).toEqual({ cli: "opencode", enabled: false });
-    expect(Object.hasOwn(s.review, "model")).toBe(false);
-    expect(Object.hasOwn(s.review, "effort")).toBe(false);
-  });
-
-  test("CLI review on from the config", () => {
-    const s = resolveSettings({ config: { review: { enabled: true } }, state: {} });
-    expect(s.review.enabled).toBe(true);
-  });
-
-  test("CLI review off from the state", () => {
-    const s = resolveSettings({
-      config: { review: { enabled: true } },
-      state: { cliReviewEnabled: false },
-    });
-    expect(s.review.enabled).toBe(false);
-  });
-
-  test("Reviewer from state keeps the config's enabled", () => {
-    const s = resolveSettings({
-      config: { review: { cli: "codex", enabled: true } },
-      state: { cliReview: { cli: "opencode" } },
-    });
-    expect(s.review).toEqual({ cli: "opencode", enabled: true });
-  });
-
-  test("Config review without state", () => {
-    const s = resolveSettings({ config: { review: { cli: "opencode" } }, state: {} });
-    expect(s.review.cli).toBe("opencode");
   });
 
   test("Non-integer tuning ignored", () => {
@@ -222,9 +210,9 @@ describe("resolveSettings", () => {
     const d = resolveSettings({ config: {}, state: {} });
     d.effort.holdProviders.push("y");
     d.switches.verbose = true;
-    expect(DEFAULTS.effort.holdProviders).toEqual(["9router"]);
+    expect(DEFAULTS.effort.holdProviders).toEqual([]);
     expect(DEFAULTS.switches.verbose).toBe(false);
-    expect(resolveSettings({ config: {}, state: {} }).effort.holdProviders).toEqual(["9router"]);
+    expect(resolveSettings({ config: {}, state: {} }).effort.holdProviders).toEqual([]);
   });
 });
 
