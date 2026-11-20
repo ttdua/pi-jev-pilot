@@ -15,7 +15,7 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 | skill | string matching `^[a-z0-9][a-z0-9-]{0,63}$` |
 | model | string matching `^[A-Za-z0-9._-]+/[^\s]+$`, at most 128 characters |
 | caller model | string matching `^[A-Za-z0-9._:/-]{1,128}$` |
-| target | one of `fast`, `balanced`, `deep`, `expert`, or `slot::` followed by a string matching `^[a-z][a-z0-9-]{0,23}$` |
+| target | one of `basic`, `broad`, `deep`, `frontier`, the legacy names `fast`, `balanced`, `expert` (accepted on read only), or `slot::` followed by a string matching `^[a-z][a-z0-9-]{0,23}$` |
 | level | one of `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
 | mode | one of `budget`, `standard`, `premium` |
 | probability | finite number from 0 to 1 |
@@ -32,7 +32,7 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 - **THEN** validation fails with an issue at `risky`
 
 #### Scenario: Slot target accepted
-- **WHEN** a worker entry's `tier` is `slot::reviewer` and `tierP` has the keys `balanced` and `slot::reviewer`
+- **WHEN** a worker entry's `tier` is `slot::reviewer` and `tierP` has the keys `broad` and `slot::reviewer`
 - **THEN** validation passes
 
 #### Scenario: Target distribution capped at 12
@@ -81,11 +81,11 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | worker | `expertNeeded` | probability | |
 | worker | `score` | score | |
 | worker | `rubric` | rubric version | |
-| worker | `expertOffered` | flag | |
+| worker | `frontierOffered`, `expertOffered` | flag | |
 | worker | `tier`, `fallback` | target | |
 | worker | `model` | model | |
 | worker | `effort` | level | |
-| worker | `reason` | `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
+| worker | `reason` | `frontier`, `cut`, `slot`, `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
 | worker | `callerModel` | caller model | |
 | worker | `locked` | flag | |
 | worker | `toolsScored`, `toolsFlagged`, `toolsGranted`, `tokens`, `toolUses` | count | |
@@ -95,7 +95,7 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | correction | `turnId` | id | yes |
 | correction | `corrects` | probability | yes |
 
-The schema module MUST export the allowed field names per kind, so that tests can assert the exact field set. `toolsScored`, `toolsFlagged` and `toolsGranted` stay allowed so lines written before tool assessment was removed still validate; no writer emits them (see `worker-ledger`).
+Writers MUST emit only the names `basic`, `broad`, `deep` and `frontier` and the field `frontierOffered`; `expertOffered` and the legacy target names stay allowed so lines written before the rename still validate. The schema module MUST export the allowed field names per kind, so that tests can assert the exact field set. `toolsScored`, `toolsFlagged` and `toolsGranted` stay allowed so lines written before tool assessment was removed still validate; no writer emits them (see `worker-ledger`).
 
 #### Scenario: Valid main line accepted
 - **WHEN** a main entry with `v` 1, `at`, `session`, `mode` `standard`, `answered` true, `turnId`, `effortP`, `requested` `high`, `effective` `high` and `outcome` `ok` is validated
@@ -106,7 +106,7 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 - **THEN** validation passes with no issues
 
 #### Scenario: Worker line with cut-point fields accepted
-- **WHEN** a worker entry with the required fields has `reason` `cut`, `tier` `balanced`, `score` 1.3, `rubric` 2 and `expertOffered` true
+- **WHEN** a worker entry with the required fields has `reason` `cut`, `tier` `broad`, `score` 1.3, `rubric` 3 and `frontierOffered` true
 - **THEN** validation passes with no issues
 
 #### Scenario: Older worker line still accepted
@@ -139,7 +139,7 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 
 
 #### Scenario: Worker line with effective launch fields accepted
-- **WHEN** a worker entry with the required fields has `effectiveModel` `fixture/fixture-fast`, `effectiveThinking` `medium`, `toolsScored` 6, `toolsFlagged` 1 and `toolsGranted` 2
+- **WHEN** a worker entry with the required fields has `effectiveModel` `fixture/fixture-basic`, `effectiveThinking` `medium`, `toolsScored` 6, `toolsFlagged` 1 and `toolsGranted` 2
 - **THEN** validation passes with no issues
 
 #### Scenario: Bad effective thinking rejected
@@ -147,7 +147,7 @@ The schema module MUST export the allowed field names per kind, so that tests ca
 - **THEN** validation fails with an issue at `effectiveThinking`
 
 ### Requirement: Worker decisions record their tier
-A worker line whose `reason` is `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `expert`, `cut`, `expert-admitted`, `risky`, `slot`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model. The names `expert-admitted`, `expert-denied`, `fast-unsure` and `choice` are accepted so that older lines stay valid; the package MUST NOT write them.
+A worker line whose `reason` is `frontier`, `cut`, `slot`, `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `frontier`, `cut`, `slot`, `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model. The names `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure` and `choice` are accepted so that older lines stay valid; the package MUST NOT write them.
 
 #### Scenario: Deciding worker without a tier rejected
 - **WHEN** a worker entry has `reason` `cut` and no `tier`
@@ -161,8 +161,17 @@ A worker line whose `reason` is `expert`, `cut`, `expert-admitted`, `risky`, `sl
 - **WHEN** a worker entry has `reason` `untouched` and no `tier`
 - **THEN** validation passes
 
+#### Scenario: Frontier accepted
+- **WHEN** a worker entry with the required fields has `reason` `frontier`, `tier` `frontier` and `frontierOffered` true
+- **THEN** validation passes
+
 #### Scenario: Expert accepted
-- **WHEN** a worker entry with the required fields has `reason` `expert` and `tier` `expert`
+<!-- Intentional change: the tier is renamed `frontier`; old `expert` lines stay valid. -->
+- **WHEN** a worker entry with the required fields has `reason` `expert`, `tier` `expert`, `tierP` with keys `fast`, `balanced`, `deep`, `expert` and `expertOffered` true
+- **THEN** validation passes
+
+#### Scenario: Legacy risky line accepted
+- **WHEN** a worker entry with the required fields has `reason` `risky` and `tier` `deep`
 - **THEN** validation passes
 
 #### Scenario: Expert admitted accepted

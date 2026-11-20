@@ -53,8 +53,8 @@ Each worker request SHALL be built from:
 The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
 
 #### Scenario: Display name prefix
-- **WHEN** `tiers.fast` names a registry model whose display name is `Fixture Fast`
-- **THEN** the `fast` criterion in the request starts with `Fixture Fast. `
+- **WHEN** `tiers.basic` names a registry model whose display name is `Fixture Basic`
+- **THEN** the `basic` criterion in the request starts with `Fixture Basic. `
 
 #### Scenario: Slot display name
 - **WHEN** slot `reviewer` names a registry model whose display name is `Fixture Review`
@@ -85,7 +85,7 @@ For a launch whose route can write a model (its request asks the `tier` question
 
 #### Scenario: Unusable slot
 - **WHEN** slot `reviewer` names a registry model without configured credentials, and Jev decides `slot::reviewer`
-- **THEN** the slot counts as unable to run and the launch moves to `balanced`
+- **THEN** the slot counts as unable to run and the launch moves to `broad`
 
 #### Scenario: Model-locked launch not checked
 - **WHEN** the agent locks `model` and `tiers.deep` has no credentials
@@ -114,12 +114,12 @@ Routing SHALL return the route's model as the adjustment's `model` and its think
 When the decided target cannot run, routing SHALL warn through the UI, naming the target, its model, why it cannot run (`not in the model registry` or `no credentials`), the tier used instead or that the launch is left unchanged, and the setting to fix with the path of `config.json`: `tiers.<name>` for a tier, and `crew.slots "<name>" model` for a slot. A warning for the same target and model string MUST be shown at most once per session, until any `/jev` form runs (slot forms included) or that target's model string changes. No warning SHALL be drawn without a UI.
 
 #### Scenario: Warning text
-- **WHEN** `deep` has no credentials and the launch moves to `balanced`
-- **THEN** one warning names `deep`, its model, `no credentials`, `balanced` and `tiers.deep`
+- **WHEN** `deep` has no credentials and the launch moves to `broad`
+- **THEN** one warning names `deep`, its model, `no credentials`, `broad` and `tiers.deep`
 
 #### Scenario: Slot warning text
-- **WHEN** slot `reviewer` has no credentials and the launch moves to `balanced`
-- **THEN** one warning names slot `reviewer`, its model, `no credentials`, `balanced` and `crew.slots "reviewer" model`
+- **WHEN** slot `reviewer` has no credentials and the launch moves to `broad`
+- **THEN** one warning names slot `reviewer`, its model, `no credentials`, `broad` and `crew.slots "reviewer" model`
 
 #### Scenario: Once per tier
 - **WHEN** three launches in one session each cascade from `deep`
@@ -130,8 +130,8 @@ When the decided target cannot run, routing SHALL warn through the UI, naming th
 - **THEN** the warning is shown once
 
 #### Scenario: Nothing can run
-- **WHEN** `balanced` is decided and neither `balanced` nor `fast` can run
-- **THEN** one warning names `balanced` and says the launch is left unchanged
+- **WHEN** `broad` is decided and neither `broad` nor `basic` can run
+- **THEN** one warning names `broad` and says the launch is left unchanged
 
 #### Scenario: Unknown model wording
 - **WHEN** `tiers.deep` names a model the registry does not know and the launch cascades
@@ -146,7 +146,7 @@ When the decided target cannot run, routing SHALL warn through the UI, naming th
 - **THEN** no warning is drawn and the launch is still routed
 
 #### Scenario: Slot warning with nothing to fall back to
-- **WHEN** slot `reviewer` cannot run and neither `balanced` nor `fast` can run
+- **WHEN** slot `reviewer` cannot run and neither `broad` nor `basic` can run
 - **THEN** one warning names slot `reviewer` and says the launch is left unchanged
 
 #### Scenario: Slot warning shown again after its model changes
@@ -192,8 +192,8 @@ Any Jev failure (timeout, error, unreadable answers) SHALL return no model and n
 Routing SHALL read the mode once per launch, when its policy call builds the worker request, and MUST use that same mode for the launch's cut points and its ledger line. A mode change after the request is built MUST NOT affect that launch. A launch left untouched SHALL record the mode read when its policy call ran.
 
 #### Scenario: Premium launch end to end
-- **WHEN** the mode is `premium`, all four tiers are configured, the window uses the seed (`premium` `expertMin` 2.12), and Jev answers `tier` with probabilities `deep` .9 and `balanced` .1, and `effort` `xhigh`
-- **THEN** the request is the same as in `standard`, the child runs on `tiers.expert`, and the ledger line has `mode` `premium`, `reason` `expert` and a `score` of 2.275
+- **WHEN** the mode is `premium`, all four tiers are configured, the window uses the seed (whose `premium` `frontierMin` is at most 3), and Jev answers `tier` with probability `frontier` 1, and `effort` `low`
+- **THEN** the request is the same as in `standard`, the child runs on `tiers.frontier` with reasoning effort `low` clamped to its model, and the ledger line has `mode` `premium`, `reason` `frontier`, `rubric` 3 and a `score` of 3
 
 #### Scenario: Mode changed between message end and launch
 - **WHEN** a worker request is built in `standard`, then `state.json` is changed to `premium` before the child session is created
@@ -204,19 +204,23 @@ Routing SHALL read the mode once per launch, when its policy call builds the wor
 - **THEN** the launch keeps the requested values, and the ledger line has `mode` `premium`, `reason` `miss` and no `score`
 
 ### Requirement: Reviewer slot routes
-A launch whose brief Jev assigns to a configured slot at probability ≥ .6 SHALL run on that slot's model, with the thinking from the worker effort clamped to that model, in foreground and background launches alike. When Jev fails, the launch MUST keep the caller's input as for any launch.
+A launch whose brief Jev assigns to a configured slot at probability ≥ .6, and for which rule `frontier` does not match (see `worker-decision`), SHALL run on that slot's model, with the thinking from the worker effort clamped to that model, in foreground and background launches alike. When Jev fails, the launch MUST keep the caller's input as for any launch.
 
 #### Scenario: Review launch on the reviewer slot
 - **WHEN** slot `reviewer` names a usable registry model, the main model launches a review worker, and Jev answers `tier` `slot::reviewer` at .92 with `effort` `high`
 - **THEN** the child's first request uses the slot's model with reasoning effort `high`
+
+#### Scenario: Frontier wins over the reviewer slot
+- **WHEN** slot `reviewer` and `tiers.frontier` name usable registry models, and Jev answers `tier` with probabilities `slot::reviewer` .6 and `frontier` .4 while the launch's `frontierMin` is at most 3
+- **THEN** the child's first request uses the `frontier` model, and the ledger line has `reason` `frontier`
 
 #### Scenario: Background review launch
 - **WHEN** the same review launch runs with `run_in_background` true
 - **THEN** the child's first request uses the slot's model with reasoning effort `high`
 
 #### Scenario: Unusable reviewer slot falls back
-- **WHEN** slot `reviewer` has no credentials, `tiers.balanced` is usable, and Jev answers `tier` `slot::reviewer` at .92
-- **THEN** the child's first request uses the `balanced` model, and one warning names `crew.slots "reviewer" model`
+- **WHEN** slot `reviewer` has no credentials, `tiers.broad` is usable, and Jev answers `tier` `slot::reviewer` at .92
+- **THEN** the child's first request uses the `broad` model, and one warning names `crew.slots "reviewer" model`
 
 #### Scenario: Jev down with a slot configured
 - **WHEN** slot `reviewer` is configured and Jev does not answer
@@ -275,12 +279,12 @@ The policy SHALL return nothing, and ask Jev nothing, for a launch whose `parent
 - **THEN** the policy returns nothing and no worker request is sent
 
 #### Scenario: Service launch with an explicit model
-- **WHEN** an extension calls `spawn("implementer", brief, { model: "fixture/fixture-deep" })`, and Jev answers `tier` `fast` and `effort` `high`
+- **WHEN** an extension calls `spawn("implementer", brief, { model: "fixture/fixture-deep" })`, and Jev answers `tier` `basic` and `effort` `high`
 - **THEN** the child runs on `fixture/fixture-deep` with reasoning effort `high`, and the ledger line has `locked` true
 
 #### Scenario: Service launch without a model
-- **WHEN** an extension calls `spawn("implementer", brief)` and Jev's answers cut to `fast` with effort `medium`
-- **THEN** the child runs on `tiers.fast` with reasoning effort `medium`
+- **WHEN** an extension calls `spawn("implementer", brief)` and Jev's answers cut to `basic` with effort `medium`
+- **THEN** the child runs on `tiers.basic` with reasoning effort `medium`
 
 ### Requirement: Launch policy slot taken
 When registering the launch policy throws, because another extension holds the slot, routing MUST stay off for that session, and `/jev` SHALL report `launch policy held by another extension`.
