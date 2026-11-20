@@ -270,6 +270,7 @@ export function harness(
     reg?: Record<string, { name?: string; auth?: boolean }>;
     taken?: boolean;
     tools?: unknown[];
+    service?: unknown;
   } = {},
 ) {
   let allTools: unknown[] = opts.tools ?? [];
@@ -301,7 +302,12 @@ export function harness(
       lines.push(entry as Record<string, unknown>);
     },
     now: () => clock,
-    service: () => (opts.executor === false ? undefined : executor.service),
+    service: () =>
+      opts.service !== undefined
+        ? (opts.service as typeof executor.service)
+        : opts.executor === false
+          ? undefined
+          : executor.service,
     ...(opts.window === undefined ? {} : { window: opts.window }),
   };
   const routing = registerWorkerRouting(pi, deps);

@@ -213,7 +213,7 @@ describe("When routing runs", () => {
     ["Switch off", { switches: { subagents: false } }],
     ["No key", { keySet: false }],
     ["Invalid config", { valid: false }],
-    ["Executor without a launch policy", { executor: { launchPolicy: false } }],
+    ["Executor without a launch policy (snapshot gate)", { executor: { launchPolicy: false } }],
   ];
   for (const [name, o] of gated) {
     test(name, async () => {
@@ -223,6 +223,14 @@ describe("When routing runs", () => {
       expect(adjustment).toBeUndefined();
     });
   }
+
+  test("Executor without a launch policy: service has no registerLaunchPolicy", () => {
+    const h = harness({ service: {} });
+    expect(h.executor.registrations).toHaveLength(0);
+    expect(h.executor.policy()).toBeUndefined();
+    expect(h.asks).toHaveLength(0);
+    expect(h.routing.problems()).toEqual([]);
+  });
 
   test("Executor absent", async () => {
     const h = harness({ executor: false });
