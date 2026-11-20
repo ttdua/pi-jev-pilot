@@ -17,7 +17,7 @@ The agent's declared `model` and `thinking` values MUST NOT be copied into the a
 - **THEN** thinking is recorded as not set
 
 ### Requirement: Agent facts from the snapshot
-Agent facts SHALL be built by a pure function from the executor's agent snapshot (see `executor-agent-registry`), never by reading agent files. They SHALL hold `name`, `source` (any snapshot source, including `package`), `description`, `instructionsExcerpt` (first 500 code points of the trimmed body), `declaredTools` (the snapshot's `tools`, or `null`), `disallowedTools`, `maxTurns`, `runInBackground`, `context`, and `sets`.
+Agent facts SHALL be built by a pure function from the executor's agent snapshot (the `AgentTypeSnapshot` of `ttdua/pi-subagents` `executor-agent-registry`), never by reading agent files. They SHALL hold `name`, `source` (any snapshot source, including `package`), `description`, `instructionsExcerpt` (first 500 code points of the trimmed body), `declaredTools` (the snapshot's `tools`, or `null`), `disallowedTools`, `maxTurns`, `runInBackground`, `context`, and `sets`.
 
 #### Scenario: Built-in explore
 - **WHEN** the snapshot is the built-in `explore`
