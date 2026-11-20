@@ -1,5 +1,5 @@
 {
-  "ignorePatterns": ["tests/fixtures/**", "node_modules/**", "packages/**"],
+  "ignorePatterns": ["tests/fixtures/**", "node_modules/**"],
   "rules": {
     "eslint/max-lines-per-function": [
       "error",

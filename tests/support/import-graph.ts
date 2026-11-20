@@ -181,12 +181,10 @@ function relativeReason(root: string, file: string, specifier: string): string |
 
 const EXECUTOR_PACKAGE = "@ttdua/pi-subagents";
 
-/** The vendored executor may only be reached by `import type` from `src/`. */
-function executorReason(root: string, file: string, specifier: string): string | undefined {
+/** The executor package may only be reached by `import type` from `src/`. */
+function executorReason(specifier: string): string | undefined {
   const named = specifier === EXECUTOR_PACKAGE || specifier.startsWith(`${EXECUTOR_PACKAGE}/`);
-  const path = specifier.startsWith(".") ? targetPath(root, file, specifier) : undefined;
-  const vendored = path !== undefined && path.startsWith("packages/");
-  return named || vendored ? "Import the vendored executor with import type only." : undefined;
+  return named ? "Import @ttdua/pi-subagents with import type only." : undefined;
 }
 
 /** The violation of one import, or undefined when it is allowed. */
@@ -198,7 +196,7 @@ export function checkImport(
 ): string | undefined {
   const malformed = malformedReason(specifier);
   if (malformed !== undefined) return malformed;
-  const executor = executorReason(root, file, specifier);
+  const executor = executorReason(specifier);
   if (executor !== undefined) return typeOnly ? undefined : executor;
   if (specifier.startsWith("@earendil-works/")) return piReason(locate(file));
   if (!specifier.startsWith(".")) return undefined;

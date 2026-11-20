@@ -351,7 +351,7 @@ type Session = {
 function installAll(target: Target, dirs: { agentDir: string; home: string; cwd: string }): void {
   if (target.extension !== undefined) install(target.extension, dirs);
   // The executor's production entry point and this script's own extension; nothing from tests/.
-  install(join(REPO_ROOT, "packages", "pi-subagents"), dirs);
+  install(realpathSync(join(REPO_ROOT, "node_modules", "@ttdua", "pi-subagents")), dirs);
   install(join(import.meta.dir, "fork-cache-evidence-ext"), dirs);
 }
 

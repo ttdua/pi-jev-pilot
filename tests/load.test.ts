@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { realpathSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { DefaultResourceLoader, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { PI_BIN, REPO_ROOT, run, tempDir } from "./helpers";
 
@@ -41,17 +41,16 @@ function resolvesTo(path: string, target: string): boolean {
 
 describe("package loading", () => {
   const entry = join(REPO_ROOT, "src", "extension.ts");
-  const executorEntry = join(REPO_ROOT, "packages", "pi-subagents", "src", "index.ts");
 
-  test("Installed checkout is loaded; Both extensions loaded from one install", async () => {
+  test("Installed checkout is loaded", async () => {
     const result = await installAndLoad(REPO_ROOT);
     expect(result.errors).toEqual([]);
-    const matches = result.extensions.filter((e) => resolvesTo(e.resolvedPath, entry));
-    expect(matches.length).toBe(1);
-    const executors = result.extensions.filter((e) => resolvesTo(e.resolvedPath, executorEntry));
-    expect(executors.length).toBe(1);
-    const tools = [...(executors[0]?.tools.keys() ?? [])];
-    expect(tools).toContain("subagent");
+    const checkout = realpathSync(REPO_ROOT) + sep;
+    const underCheckout = result.extensions.filter((e) =>
+      realpathSync(e.resolvedPath).startsWith(checkout),
+    );
+    expect(underCheckout.length).toBe(1);
+    expect(resolvesTo(underCheckout[0]?.resolvedPath ?? "", entry)).toBe(true);
   }, 60_000);
 
   test("Loaded extension registers only /jev and handlers", async () => {
