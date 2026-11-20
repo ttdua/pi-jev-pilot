@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join } from "node:path";
 import { REPO_ROOT, tempDir } from "../helpers";
 import { assertProbeReportClean } from "./harness";
 
@@ -8,17 +8,15 @@ const read = (rel: string): string => readFileSync(join(REPO_ROOT, rel), "utf8")
 const REPORT = "docs/evidence/2026-11-05-host-seams.md";
 const MARKER_PREFIX = "JEV-MARKER-";
 const SUPERSEDED = ["Q1", "Q2", "Q7"] as const;
-const PINNED = ["Q3", "Q4", "Q5", "Q6"] as const;
+const PINNED = ["Q4", "Q5", "Q6"] as const;
 const REPLACING_TEST = "tests/host/launch-policy-evidence.test.ts";
-// The report links the living spec of the requirement that replaces Q1, Q2 and Q7.
-const LIVING_SPEC = "openspec/specs/executor-launch-policy/spec.md";
-const REPORT_DIR = "docs/evidence";
+// The report links the executor repository's spec of the requirement that replaces Q1, Q2 and Q7.
+const LIVING_SPEC =
+  "https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md";
 
-/** Repo-relative targets of the report's markdown links to `executor-launch-policy`. */
+/** Targets of the report's markdown links to `executor-launch-policy`. */
 function launchPolicyLinks(text: string): string[] {
-  return [...text.matchAll(/\]\(([^)\s]*executor-launch-policy[^)\s]*)\)/g)].map((m) =>
-    relative(REPO_ROOT, resolve(REPO_ROOT, REPORT_DIR, (m[1] ?? "").split("#")[0] ?? "")),
-  );
+  return [...text.matchAll(/\]\(([^)\s]*executor-launch-policy[^)\s]*)\)/g)].map((m) => m[1] ?? "");
 }
 const RETIRED = [
   "tests/host/q1-q7-worker-mutation.test.ts",
@@ -50,7 +48,8 @@ describe("host seam evidence", () => {
         answer.startsWith("Unsettled:") || /^(Unit|Contract|Host|Replay|Field)$/.test(level),
         `WG-02 Q${n} level or unsettled`,
       ).toBe(true);
-      if (n <= 7) expect(evidence, `WG-02 Q${n} cites a test`).toContain("tests/host/");
+      if (n <= 7 && !answer.startsWith("Moved:"))
+        expect(evidence, `WG-02 Q${n} cites a test`).toContain("tests/host/");
     }
   });
 
@@ -70,17 +69,41 @@ describe("host seam evidence", () => {
     expect(existsSync(join(REPO_ROOT, REPLACING_TEST)), "replacing test exists").toBe(true);
   });
 
-  test("replacing requirement linked at its living spec path, and the target exists", () => {
-    const report = read(REPORT);
-    const links = launchPolicyLinks(report);
+  test("replacing requirement linked at the executor repository", () => {
+    const links = launchPolicyLinks(read(REPORT));
     // Every superseded row and section links it: three rows, three sections.
     expect(links.length).toBeGreaterThanOrEqual(6);
-    for (const link of links) expect(link, "links the living spec").toBe(LIVING_SPEC);
-    expect(existsSync(join(REPO_ROOT, LIVING_SPEC)), "living spec exists").toBe(true);
-    expect(read(LIVING_SPEC)).toContain("### Requirement: One launch policy slot");
+    for (const link of links) expect(link, "links the executor spec").toBe(LIVING_SPEC);
   });
 
-  test("Q3 to Q6 stay pinned by their host tests", () => {
+  test("Q3 marked moved", () => {
+    const report = read(REPORT);
+    const [, , answer = "", evidence = ""] = tableRows(report).find((r) => r[0] === "Q3") ?? [];
+    expect(answer, "WG-02 Q3 marked moved").toStartWith("Moved:");
+    expect(answer, "WG-02 Q3 keeps its recorded answer").toContain("Yes");
+    expect(answer, "WG-02 Q3 names the executor repository").toContain("ttdua/pi-subagents");
+    expect(evidence, "WG-02 Q3 cites no jev-pilot test").not.toContain("tests/host/");
+  });
+
+  test("Service launch escalation section marked moved", () => {
+    const report = read(REPORT);
+    const section = /^## Service launch escalation$([\s\S]*?)(?=^## |$(?![\s\S]))/m.exec(
+      report,
+    )?.[1];
+    expect(section, "section exists").toBeDefined();
+    expect(section).toContain("**Moved.**");
+    expect(section).toContain("ttdua/pi-subagents");
+    expect(section).toContain("**Observed.**");
+  });
+
+  test("Q4 runs with jev-pilot", () => {
+    const text = read("tests/host/q4-child.test.ts");
+    expect(text).toContain('"WG-02 Q4');
+    expect(text).not.toContain('install: "none"');
+    expect(text).not.toContain('"jev"');
+  });
+
+  test("Q4 to Q6 stay pinned by their host tests", () => {
     const rows = tableRows(read(REPORT));
     for (const q of PINNED) {
       const [, , answer = "", evidence = ""] = rows.find((r) => r[0] === q) ?? [];
