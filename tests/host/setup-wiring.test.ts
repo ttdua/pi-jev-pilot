@@ -200,13 +200,11 @@ describe("setup session_start", () => {
     await f.fire("session_start", {}, loggingCtx("main", log));
     expect(log).toEqual([
       "getSessionId", // the child check
-      "capture",
+      "capture", // the one executor slot read, in captureMainService
       "window.load",
       "getSessionId", // log.reset(sessionId)
       "setMainCwd",
-      "capture", // readiness reads the executor slot for the status line
       "draw",
-      "capture", // and again for the tuning report
       "tuning",
     ]);
   });
@@ -225,9 +223,7 @@ describe("setup session_start", () => {
       "window.clear",
       "getSessionId",
       "setMainCwd",
-      "capture", // readiness reads the executor slot for the status line
       "draw",
-      "capture", // and again for the tuning report
       "tuning",
     ]);
   });
@@ -245,7 +241,7 @@ describe("setup session_start", () => {
     expect(log).toEqual(["getSessionId", "window.clear", "getSessionId", "draw"]);
   });
 
-  test("a throw in the service capture skips the rest of the guarded steps but not the tuning", async () => {
+  test("a throw reading the executor slot clears the capture and the other steps still run", async () => {
     writeUnseenTuning();
     const log: string[] = [];
     watchSlots(log);
@@ -259,7 +255,15 @@ describe("setup session_start", () => {
     const f = fakePi();
     setup(f.pi, { window: fakeWindow(log), readLines: () => [] });
     await f.fire("session_start", {}, loggingCtx("main", log));
-    expect(log).toEqual(["getSessionId", "capture", "capture", "tuning"]);
+    expect(log).toEqual([
+      "getSessionId",
+      "capture", // throws; captureMainService counts it as false and clears the capture
+      "window.load",
+      "getSessionId",
+      "setMainCwd",
+      "draw",
+      "tuning",
+    ]);
   });
 
   test("a throw in setMainCwd skips the draw but not the tuning, after the log reset", async () => {
@@ -282,7 +286,6 @@ describe("setup session_start", () => {
       "window.load",
       "getSessionId",
       "setMainCwd",
-      "capture", // the tuning report reads the executor slot
       "tuning",
     ]);
   });
