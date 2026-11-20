@@ -116,7 +116,7 @@ src/
       main-cwd.ts           Cwd of the newest main session, for the directory mode
       models.ts             Model id helpers shared by worker routing and slot commands
       readiness.ts          Key and executor checks; snapshot of config and state
-      service.ts            Captures the executor service at main session_start; accepts only `@ttdua/pi-subagents`
+      service.ts            Captures the executor service at main session_start; accepts any object service; routing needs `registerLaunchPolicy`, the agent list needs `listAgentTypes`
       stores.ts             Directory holding the package's files
     status/
       index.ts              Entry point for other folders
@@ -251,7 +251,7 @@ Each row is a contract the package relies on: a public Pi API, or a seam of the 
 | After a compaction | `pi.on("session_compact")` | Documented |
 | Display | `ctx.ui.setWidget`, `pi.appendEntry`, `pi.registerEntryRenderer` | Documented |
 | CLI review | `pi.registerTool`, `pi.exec` | Verified by host test `tests/host/cli-review.test.ts` (fake `codex` and `opencode` on `PATH`) |
-| Reach the executor | Service on `globalThis`, published when the executor loads and captured at main `session_start`; only a service whose `implementation` is `@ttdua/pi-subagents` counts | `tests/host/platform/service.test.ts` |
+| Reach the executor | Service on `globalThis`, published when the executor loads and captured at main `session_start`; any object service is kept; worker routing needs `registerLaunchPolicy` and the agent list needs `listAgentTypes` | `tests/host/platform/service.test.ts` |
 | Hide the review tool in a child | Child `before_agent_start` editing `systemPromptOptions.selectedTools` (the Q3 seam) | Verified by the same host test: absent in a child's request |
 
 ## Runtime contexts

@@ -239,6 +239,8 @@ Not committed. Each needs evidence or a decision first.
 | More work reaching the fast tier | Only 7 of 532 launches were `scout` | Decide whether to encourage delegation |
 | OpenRouter or Vercel backends | Excluded for now | Demand |
 
+The executor is released separately from [ttdua/pi-subagents](https://github.com/ttdua/pi-subagents). Adopting a release means bumping the pin, which re-runs the host tests.
+
 ## Working agreements
 
 - Stop and ask before adding a dependency, changing a public command or file format, or any decision whose cost, if wrong, exceeds one work group.
