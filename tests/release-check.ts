@@ -5,6 +5,7 @@ export type ReleaseFiles = {
 };
 
 const REPO_INSTALL = /pi install git:github\.com\/ttdua\/pi-jev-pilot(\S*)/g;
+const EXECUTOR_INSTALL = /pi install git:github\.com\/ttdua\/pi-subagents(\S*)/g;
 const INSTALL_FILES = ["README.md", "docs/usage-guide.md"];
 const USER_DOCS = ["README.md", "docs/scenarios.md"];
 const OFF_SWITCHES = [
@@ -44,6 +45,28 @@ function checkInstalls(docs: Record<string, string>, version: string): string[] 
     if (suffixes.length === 0) problems.push(`${file}: no install command`);
     if (suffixes.some((s) => s !== `@v${version}`)) {
       problems.push(`${file}: install command not pinned to @v${version}`);
+    }
+  }
+  return problems;
+}
+
+function executorTag(pkg: string): string {
+  const spec = JSON.parse(pkg).devDependencies?.["@ttdua/pi-subagents"];
+  return String(spec ?? "").split("#")[1] ?? "";
+}
+
+function checkExecutorInstalls(docs: Record<string, string>, tag: string): string[] {
+  const problems: string[] = [];
+  for (const file of INSTALL_FILES) {
+    const text = docs[file] ?? "";
+    const installs = [...text.matchAll(EXECUTOR_INSTALL)];
+    if (installs.length === 0) problems.push(`${file}: no executor install command`);
+    if (installs.some((m) => m[1] !== `@${tag}`)) {
+      problems.push(`${file}: executor install not pinned to @${tag}`);
+    }
+    const jev = text.search(/pi install git:github\.com\/ttdua\/pi-jev-pilot/);
+    if (installs.length > 0 && jev !== -1 && installs[0].index > jev) {
+      problems.push(`${file}: executor install must come before jev-pilot install`);
     }
   }
   return problems;
@@ -92,6 +115,7 @@ export function checkRelease(files: ReleaseFiles): string[] {
   return [
     ...checkChangelog(files.changelog, version),
     ...checkInstalls(files.docs, version),
+    ...checkExecutorInstalls(files.docs, executorTag(files.pkg)),
     ...checkBanners(files.docs),
     ...checkNoFigures(files.docs),
     ...checkOffSwitches(files.docs),

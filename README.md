@@ -4,11 +4,14 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 
 ## Install
 
-One install loads Jev and the executor it ships. If you installed `@gotgenes/pi-subagents`, uninstall it first: Pi refuses to start with two `subagent` tools.
+Install the executor first, then Jev. Worker routing needs the executor; without it `/jev` shows `executor: no executor; worker routing is off` and the rest keeps working.
 
 ```bash
-pi install git:github.com/ttdua/pi-jev-pilot@v0.5.0
+pi install git:github.com/ttdua/pi-subagents@v0.1.1
+pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0
 ```
+
+Upgrading from 0.5.x: remove the old install, install the executor, then reinstall `pi-jev-pilot@v0.6.0`.
 
 ```bash
 export TYPESAFE_API_KEY="…"
@@ -101,6 +104,6 @@ One command shifts the whole tier mix, for this directory or for all of them:
 
 - Adapted from [jev-pilot](https://github.com/Akramovic1/jev-pilot) 0.12.1, a Claude Code plugin. This is a rewrite for Pi, not a fork.
 - Replaces, and cannot run beside, [naicoi92/pi-jev-pilot](https://github.com/naicoi92/pi-jev-pilot).
-- Ships a vendored copy of [`@gotgenes/pi-subagents`](https://www.npmjs.com/package/@gotgenes/pi-subagents) as its executor, with added seams ([ADR 0009](docs/decisions/0009-vendored-executor.md)). Uninstall the original before installing this package.
+- Works with [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents) as its executor, installed separately ([ADR 0010](docs/decisions/0010-executor-as-installed-package.md)).
 
 Not affiliated with TypeSafe, Anthropic or the Pi project. See [NOTICE.md](NOTICE.md).

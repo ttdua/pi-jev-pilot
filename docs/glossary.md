@@ -54,7 +54,7 @@ Use these words consistently in code, docs and the user interface.
 | **Main session** | The session the operator talks to. |
 | **Worker** | A subagent. Runs in a child session. |
 | **Child session** | A full Pi session in the same process, created by the executor. |
-| **Executor** | The package that runs workers: the vendored `@ttdua/pi-subagents` in `packages/pi-subagents/`, derived from `@gotgenes/pi-subagents` ([ADR 0009](decisions/0009-vendored-executor.md)). |
+| **Executor** | The package that runs workers: [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), installed separately from this package ([ADR 0010](decisions/0010-executor-as-installed-package.md)). Jev detects its capabilities at run time. |
 | **Launch policy** | The one provider the executor consults for every new launch. jev-pilot registers it and answers with model and thinking only. The executor's contract still supports `addTools` and `removeTools`, but Jev no longer uses them. |
 | **Agent** | A worker's definition: a Markdown file with frontmatter, from the executor's built-in role agents, an installed package, the global or the project agents directory. |
 | **Role agent** | A built-in agent (`general`, `implementer`, `explore`, `scout`, `reviewer`, `verifier`). Its body states the role only; the process and task come from the launch. |

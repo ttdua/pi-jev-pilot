@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { REPO_ROOT } from "./helpers";
 import { checkRelease } from "./release-check";
 
-const PINNED = "pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0\n";
+const EXECUTOR = "pi install git:github.com/ttdua/pi-subagents@v0.1.1\n";
+const PINNED = `${EXECUTOR}pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0\n`;
+const PKG =
+  '{"version":"0.1.0","devDependencies":{"@ttdua/pi-subagents":"github:ttdua/pi-subagents#v0.1.1"}}';
 const ENTRY = "## [0.1.0] - 2026-11-07\n\nTag: v0.1.0\n";
 const SWITCHES = [
   "/jev effort off",
@@ -15,12 +18,12 @@ const SWITCHES = [
   "/jev cli-review off",
 ];
 const README_OK = `${PINNED}${SWITCHES.join("\n")}\n`;
-const BASE = { pkg: '{"version":"0.1.0"}', changelog: ENTRY };
+const BASE = { pkg: PKG, changelog: ENTRY };
 
 describe("release metadata fixtures", () => {
   test("missing entry fails", () => {
     const problems = checkRelease({
-      pkg: '{"version":"0.2.0"}',
+      pkg: '{"version":"0.2.0","devDependencies":{"@ttdua/pi-subagents":"github:ttdua/pi-subagents#v0.1.1"}}',
       changelog: ENTRY,
       docs: {},
     });
@@ -29,16 +32,36 @@ describe("release metadata fixtures", () => {
 
   test("unpinned install fails", () => {
     const problems = checkRelease({
-      pkg: '{"version":"0.1.0"}',
+      pkg: PKG,
       changelog: ENTRY,
       docs: { "README.md": "pi install git:github.com/ttdua/pi-jev-pilot\n" },
     });
     expect(problems).toContain("README.md: install command not pinned to @v0.1.0");
   });
 
+  test("executor install drifts from the pin", () => {
+    const stale =
+      "pi install git:github.com/ttdua/pi-subagents@v0.1.0\npi install git:github.com/ttdua/pi-jev-pilot@v0.1.0\n";
+    const problems = checkRelease({
+      ...BASE,
+      docs: { "README.md": stale, "docs/usage-guide.md": PINNED },
+    });
+    expect(problems).toContain("README.md: executor install not pinned to @v0.1.1");
+  });
+
+  test("executor install after jev-pilot fails", () => {
+    const wrong =
+      "pi install git:github.com/ttdua/pi-jev-pilot@v0.1.0\npi install git:github.com/ttdua/pi-subagents@v0.1.1\n";
+    const problems = checkRelease({
+      ...BASE,
+      docs: { "README.md": wrong, "docs/usage-guide.md": PINNED },
+    });
+    expect(problems).toContain("README.md: executor install must come before jev-pilot install");
+  });
+
   test("banner fails", () => {
     const problems = checkRelease({
-      pkg: '{"version":"0.1.0"}',
+      pkg: PKG,
       changelog: ENTRY,
       docs: { "docs/x.md": "Status: design phase." },
     });
@@ -47,7 +70,7 @@ describe("release metadata fixtures", () => {
 
   test("consistent passes", () => {
     const problems = checkRelease({
-      pkg: '{"version":"0.1.0"}',
+      pkg: PKG,
       changelog: ENTRY,
       docs: { "README.md": README_OK, "docs/usage-guide.md": PINNED },
     });

@@ -25,7 +25,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 ## Q1
 
-**Superseded.** The package no longer rewrites `subagent` input in `tool_call`; the executor's launch policy sets a worker's model and thinking ([`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md), ["Launch policy host evidence"](../../openspec/specs/host-seam-evidence/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`. The answer below is the one recorded on 2026-11-05.
+**Superseded.** The package no longer rewrites `subagent` input in `tool_call`; the executor's launch policy sets a worker's model and thinking ([`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md), [executor launch policy](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`. The answer below is the one recorded on 2026-11-05.
 
 **Observed.** A `tool_call` handler rewriting `input.model` and `input.thinking` changes the child's first request: model `fixture-fast`, `reasoning_effort` `high`. Identical for foreground and background launches. With an agent file that sets `locked: model`, the child runs the agent file's model (`fixture-main`) while thinking is still rewritten (`high`).
 
@@ -79,7 +79,7 @@ Versions: Pi 1.5.0, `@gotgenes/pi-subagents` 25.0.5. Q8 also used `pi-claude-cod
 
 ## Q7
 
-**Superseded.** Model and thinking changes on a launch with `inherit_context` go through the launch policy ([`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md), ["Inherited context with a policy model"](../../openspec/specs/host-seam-evidence/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`, test "Inherited context with a policy model". The answer below is the one recorded on 2026-11-05.
+**Superseded.** Model and thinking changes on a launch with `inherit_context` go through the launch policy ([`executor-launch-policy`](https://github.com/ttdua/pi-subagents/blob/v0.1.1/openspec/specs/executor-launch-policy/spec.md)). Host evidence: `tests/host/launch-policy-evidence.test.ts`, test "Inherited context with a policy model". The answer below is the one recorded on 2026-11-05.
 
 **Observed.** With `inherit_context: true`, a rewritten model applies and the parent conversation reaches the child. A rewritten thinking level applies too: the child's first request carried `reasoning_effort` `high` in all three runs.
 

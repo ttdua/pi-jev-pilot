@@ -4,6 +4,23 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
+Tag: v0.6.0
+
+### Changed
+
+- **Breaking: the executor is installed separately.** Install `pi install git:github.com/ttdua/pi-subagents@v0.1.1` first, then `pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0`. This package no longer ships a vendored executor and `packages/` is gone ([ADR 0010](docs/decisions/0010-executor-as-installed-package.md)).
+- `/jev` reports the executor from the capabilities its service publishes: `executor: @ttdua/pi-subagents`, `executor: no executor; worker routing is off`, or `executor: <impl>; no launch policy, worker routing is off`, with `; no agent registry` when the registry is missing. The `duplicate executor` state is gone.
+
+### Removed
+
+- The executor-only tests and `bun run test:executor`; they run in the executor repository. Q3 and service-escalation host evidence moved there too.
+
+### Migration
+
+From 0.5.x: remove the old install of this package, install the executor, then reinstall `pi-jev-pilot@v0.6.0`. Uninstalling `@gotgenes/pi-subagents` is no longer a documented step; if it is the only executor loaded, worker routing stays off.
+
 ## [0.5.0] - 2026-11-19
 
 Tag: v0.5.0
