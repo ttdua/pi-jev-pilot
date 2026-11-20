@@ -7,8 +7,6 @@ import {
   integer,
   object,
   oneOf,
-  refine,
-  string,
   type Issue,
   type V,
   type WriteResult,
@@ -17,8 +15,6 @@ import {
 export type State = {
   switches?: Partial<Record<Feature, boolean>>;
   mode?: Mode;
-  cliReview?: { cli: "codex" | "opencode"; model?: string; effort?: string };
-  cliReviewEnabled?: boolean;
 };
 
 export type StateRead =
@@ -27,36 +23,8 @@ export type StateRead =
   | { kind: "malformed"; state: {}; issues: Issue[] }
   | { kind: "unreadable"; state: {}; issues: Issue[] };
 
-const notDefault = (text: string): boolean => text !== "default";
-const NOT_DEFAULT_MESSAGE = "expected a value other than default (omit the field instead)";
-
-const cliModel = refine(
-  string({ pattern: /^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$/ }),
-  notDefault,
-  NOT_DEFAULT_MESSAGE,
-);
-
-const cliEffort = refine(
-  string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ }),
-  notDefault,
-  NOT_DEFAULT_MESSAGE,
-);
-
-const cliReviewValidator = object(
-  {
-    cli: oneOf(["codex", "opencode"] as const),
-    model: cliModel,
-    effort: cliEffort,
-  },
-  { required: ["cli"] },
-);
-
-/** Validates a candidate cliReview object; issue paths are prefixed `cliReview`. */
-export function validateCliReview(candidate: unknown): Issue[] {
-  const issues: Issue[] = [];
-  cliReviewValidator(candidate, "cliReview", issues);
-  return issues;
-}
+/** DEPRECATED(remove next minor): a retired field is accepted with any value and left out of the parsed state. */
+const retiredField: V<undefined> = () => undefined;
 
 function stateValidator(): V<State & { version: 1 }> {
   return object(
@@ -68,8 +36,8 @@ function stateValidator(): V<State & { version: 1 }> {
         Object.fromEntries([...FEATURES, "review", "tools", "expert"].map((f) => [f, boolean()])),
       ),
       mode: oneOf(MODES),
-      cliReview: cliReviewValidator,
-      cliReviewEnabled: boolean(),
+      cliReview: retiredField,
+      cliReviewEnabled: retiredField,
     },
     { required: ["version"] },
   ) as V<State & { version: 1 }>;
@@ -162,21 +130,39 @@ export function updateState(dir: string, mutate: (s: State) => State): WriteResu
   return { ok: true };
 }
 
+/** The raw object of a valid state.json; `undefined` when the file is missing, unreadable or not valid. */
+function validRawState(dir: string): Record<string, unknown> | undefined {
+  let text: string;
+  try {
+    text = readFileSync(join(dir, "state.json"), "utf8");
+  } catch {
+    return undefined;
+  }
+  if (!("state" in parseState(text))) return undefined;
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
 // DEPRECATED(remove next minor)
 /**
  * Rewrites a valid state.json that still holds `switches.expert` (the read moves it onto
  * `frontier`, the write drops it); `false` when there is nothing to do or the file is not valid.
  */
 export function migrateLegacySwitch(dir: string): boolean {
-  let text: string;
-  try {
-    text = readFileSync(join(dir, "state.json"), "utf8");
-  } catch {
-    return false;
-  }
-  if (!("state" in parseState(text))) return false;
-  const switches = (JSON.parse(text) as { switches?: Record<string, unknown> }).switches;
+  const raw = validRawState(dir);
+  const switches = raw?.switches as Record<string, unknown> | undefined;
   if (switches === undefined || !Object.hasOwn(switches, "expert")) return false;
+  return updateState(dir, (state) => state).ok;
+}
+
+// DEPRECATED(remove next minor)
+/**
+ * Rewrites a valid state.json that still holds `cliReview` or `cliReviewEnabled`, which the read
+ * drops and the write omits; `false` when there is nothing to do or the file is not valid.
+ */
+export function migrateRetiredStateFields(dir: string): boolean {
+  const raw = validRawState(dir);
+  if (raw === undefined) return false;
+  if (!Object.hasOwn(raw, "cliReview") && !Object.hasOwn(raw, "cliReviewEnabled")) return false;
   return updateState(dir, (state) => state).ok;
 }
 

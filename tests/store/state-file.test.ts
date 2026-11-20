@@ -2,10 +2,10 @@ import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
+  migrateRetiredStateFields,
   readState,
   resetState,
   updateState,
-  validateCliReview,
 } from "../../src/store/state-file.ts";
 import { tempDir } from "../helpers.ts";
 
@@ -38,15 +38,11 @@ describe("state content", () => {
     withDir((dir) => {
       put(
         dir,
-        '{"version":1,"switches":{"skills":false},"mode":"budget","cliReview":{"cli":"codex","model":"luna","effort":"high"}}',
+        '{"version":1,"switches":{"skills":false},"mode":"budget"}',
       );
       expect(readState(dir)).toEqual({
         kind: "ok",
-        state: {
-          switches: { skills: false },
-          mode: "budget",
-          cliReview: { cli: "codex", model: "luna", effort: "high" },
-        },
+        state: { switches: { skills: false }, mode: "budget" },
       });
     }));
 
@@ -57,26 +53,33 @@ describe("state content", () => {
       expect(readState(dir)).toEqual({ kind: "ok", state: { switches } });
     }));
 
-  test("Literal default rejected", () =>
+  test("Retired CLI review fields accepted and dropped", () =>
     withDir((dir) => {
-      put(dir, '{"version":1,"cliReview":{"cli":"codex","model":"default"}}');
-      const r = readState(dir);
-      expect(r.kind).toBe("malformed");
-      expect(paths(r)).toEqual(["cliReview.model"]);
+      put(
+        dir,
+        '{"version":1,"mode":"budget","cliReview":{"cli":"codex","model":"luna"},"cliReviewEnabled":true}',
+      );
+      expect(readState(dir)).toEqual({ kind: "ok", state: { mode: "budget" } });
     }));
 
-  test("CLI review switch read", () =>
+  test("Retired CLI review fields of any shape", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"cliReview":{"cli":"codex","model":"-m"}}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: {} });
+      put(dir, '{"version":1,"cliReviewEnabled":"yes"}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: {} });
+      put(dir, '{"version":1,"cliReviewEnabled":false}');
+      expect(readState(dir)).toEqual({ kind: "ok", state: {} });
+    }));
+
+  test("Retired CLI review fields gone after a write", () =>
     withDir((dir) => {
       put(dir, '{"version":1,"cliReviewEnabled":true}');
-      expect(readState(dir)).toEqual({ kind: "ok", state: { cliReviewEnabled: true } });
-    }));
-
-  test("Non-boolean CLI review switch", () =>
-    withDir((dir) => {
-      put(dir, '{"version":1,"cliReviewEnabled":"yes"}');
-      const r = readState(dir);
-      expect(r.kind).toBe("malformed");
-      expect(paths(r)).toEqual(["cliReviewEnabled"]);
+      expect(updateState(dir, (s) => ({ ...s, mode: "premium" }))).toEqual({ ok: true });
+      expect(JSON.parse(readFileSync(join(dir, "state.json"), "utf8"))).toEqual({
+        version: 1,
+        mode: "premium",
+      });
     }));
 
   test("Legacy review switch accepted and dropped", () =>
@@ -103,7 +106,7 @@ describe("state content", () => {
       expect(updateState(dir, (s) => ({ ...s, mode: "premium" })).ok).toBe(true);
       const raw = JSON.parse(readFileSync(join(dir, "state.json"), "utf8"));
       expect(raw.mode).toBe("premium");
-      expect(raw.cliReviewEnabled).toBe(true);
+      expect("cliReviewEnabled" in raw).toBe(false);
       expect(raw.switches).toEqual({ skills: false });
       expect(existsSync(join(dir, "state.json.bad"))).toBe(false);
     }));
@@ -174,43 +177,6 @@ describe("state content", () => {
       expect(r.kind).toBe("malformed");
       expect(paths(r)).toEqual(["switches.review"]);
     }));
-
-  test("OpenCode provider/model id accepted", () =>
-    withDir((dir) => {
-      put(dir, '{"version":1,"cliReview":{"cli":"opencode","model":"ollama-cloud/gpt-oss:120b"}}');
-      expect(readState(dir)).toEqual({
-        kind: "ok",
-        state: { cliReview: { cli: "opencode", model: "ollama-cloud/gpt-oss:120b" } },
-      });
-    }));
-
-  test("Model starting with dash rejected", () =>
-    withDir((dir) => {
-      put(dir, '{"version":1,"cliReview":{"cli":"codex","model":"-m"}}');
-      const r = readState(dir);
-      expect(r.kind).toBe("malformed");
-      expect(paths(r)).toEqual(["cliReview.model"]);
-    }));
-
-  test("Model over 128 characters rejected", () =>
-    withDir((dir) => {
-      put(dir, JSON.stringify({ version: 1, cliReview: { cli: "codex", model: "a".repeat(129) } }));
-      expect(readState(dir).kind).toBe("malformed");
-    }));
-
-  test("Effort with slash rejected", () =>
-    withDir((dir) => {
-      put(dir, '{"version":1,"cliReview":{"cli":"codex","effort":"a/b"}}');
-      const r = readState(dir);
-      expect(r.kind).toBe("malformed");
-      expect(paths(r)).toEqual(["cliReview.effort"]);
-    }));
-
-  test("validateCliReview reports prefixed paths", () => {
-    const bad = validateCliReview({ cli: "codex", model: "-m" });
-    expect(bad.map((i) => i.path)).toEqual(["cliReview.model"]);
-    expect(validateCliReview({ cli: "opencode", model: "p/m" })).toEqual([]);
-  });
 
   test("Unknown feature", () =>
     withDir((dir) => {
@@ -340,6 +306,37 @@ describe("Reset", () => {
       );
       expect(resetState(dir)).toEqual({ ok: true });
       expect(readState(dir)).toEqual({ kind: "ok", state: {} });
+    }));
+});
+
+describe("migrateRetiredStateFields", () => {
+  test("rewrites a valid state holding a retired field and reports true", () =>
+    withDir((dir) => {
+      put(dir, '{"version":1,"mode":"budget","cliReviewEnabled":true}');
+      expect(migrateRetiredStateFields(dir)).toBe(true);
+      expect(JSON.parse(readFileSync(join(dir, "state.json"), "utf8"))).toEqual({
+        version: 1,
+        mode: "budget",
+      });
+    }));
+
+  test("leaves the bytes and mtime alone and reports false when nothing is retired", () =>
+    withDir((dir) => {
+      const text = '{"version":1,"mode":"budget"}';
+      put(dir, text);
+      const before = statSync(join(dir, "state.json")).mtimeMs;
+      expect(migrateRetiredStateFields(dir)).toBe(false);
+      expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(text);
+      expect(statSync(join(dir, "state.json")).mtimeMs).toBe(before);
+    }));
+
+  test("reports false for a missing or malformed file, leaving it unchanged", () =>
+    withDir((dir) => {
+      expect(migrateRetiredStateFields(dir)).toBe(false);
+      const text = '{"version":1,"cliReviewEnabled":true,"mode":';
+      put(dir, text);
+      expect(migrateRetiredStateFields(dir)).toBe(false);
+      expect(readFileSync(join(dir, "state.json"), "utf8")).toBe(text);
     }));
 });
 

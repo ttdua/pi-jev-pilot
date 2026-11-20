@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
   migrateConfigFile,
-  migrateTierKeys,
+  migrateLegacyKeys,
   readConfig,
   writeSlots,
   type Slot,
@@ -93,7 +93,7 @@ describe("writeSlots", () => {
   test("Other keys kept", () =>
     withDir((dir) => {
       writeFileSync(join(dir, "config.json"), FULL);
-      const before = JSON.parse(FULL) as Record<string, unknown>;
+      const { review: _review, ...before } = JSON.parse(FULL) as Record<string, unknown>;
       const slots = [...(before.crew as { slots: Slot[] }).slots, slot("helper")];
       expect(writeSlots(dir, slots)).toEqual({ ok: true });
       const after = JSON.parse(readFileSync(join(dir, "config.json"), "utf8")) as Record<
@@ -134,11 +134,22 @@ describe("writeSlots", () => {
     withDir((dir) => {
       writeFileSync(
         join(dir, "config.json"),
-        JSON.stringify({ classifier: { model: "m" }, review: { cli: "codex" } }),
+        JSON.stringify({ classifier: { model: "m" }, skills: {} }),
       );
       expect(writeSlots(dir, [slot("a")])).toEqual({ ok: true });
       const after = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
-      expect(Object.keys(after)).toEqual(["classifier", "review", "crew"]);
+      expect(Object.keys(after)).toEqual(["classifier", "skills", "crew"]);
+    }));
+
+  test("Retired review section not written back", () =>
+    withDir((dir) => {
+      writeFileSync(
+        join(dir, "config.json"),
+        JSON.stringify({ classifier: { model: "m" }, review: { cli: "codex" }, skills: {} }),
+      );
+      expect(writeSlots(dir, [slot("a")])).toEqual({ ok: true });
+      const after = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"));
+      expect(Object.keys(after)).toEqual(["classifier", "skills", "crew"]);
     }));
 
   test("slot writer keeps an opaque tools section", () =>
@@ -235,18 +246,19 @@ describe("slot name frontier", () => {
     }));
 });
 
-describe("migrateTierKeys", () => {
+describe("migrateLegacyKeys", () => {
   test("renames in place and lists the renames", () => {
     const raw = {
       classifier: { timeoutMs: 1500 },
       tiers: { fast: "a/x", deep: "a/y", expert: "a/z" },
       skills: { inject: "content" },
     };
-    const out = migrateTierKeys(structuredClone(raw));
+    const out = migrateLegacyKeys(structuredClone(raw));
     expect(out?.renamed).toEqual([
       ["tiers.fast", "tiers.basic"],
       ["tiers.expert", "tiers.frontier"],
     ]);
+    expect(out?.removed).toEqual([]);
     expect(JSON.stringify(out?.raw)).toBe(
       JSON.stringify({
         classifier: { timeoutMs: 1500 },
@@ -258,7 +270,7 @@ describe("migrateTierKeys", () => {
 
   test("undefined when both fork keys are present", () => {
     expect(
-      migrateTierKeys({
+      migrateLegacyKeys({
         tiers: { fast: "a/x" },
         subagents: { forkLaunch: "thinking", forkedLaunch: "thinking" },
       }),
@@ -266,16 +278,33 @@ describe("migrateTierKeys", () => {
   });
 
   test("undefined when clean, conflicting or invalid", () => {
-    expect(migrateTierKeys({ tiers: { basic: "a/x" } })).toBeUndefined();
-    expect(migrateTierKeys({})).toBeUndefined();
-    expect(migrateTierKeys({ tiers: { expert: "a/x", frontier: "a/y" } })).toBeUndefined();
+    expect(migrateLegacyKeys({ tiers: { basic: "a/x" } })).toBeUndefined();
+    expect(migrateLegacyKeys({})).toBeUndefined();
+    expect(migrateLegacyKeys({ tiers: { expert: "a/x", frontier: "a/y" } })).toBeUndefined();
     expect(
-      migrateTierKeys({ tiers: { fast: "a/x" }, classifier: { timeoutMs: 100 } }),
+      migrateLegacyKeys({ tiers: { fast: "a/x" }, classifier: { timeoutMs: 100 } }),
     ).toBeUndefined();
+    expect(migrateLegacyKeys({ review: 1, classifier: { timeoutMs: 100 } })).toBeUndefined();
+  });
+
+  test("removes a top-level review key, keeping the other keys in order", () => {
+    expect(migrateLegacyKeys({ review: { enabled: true }, skills: {} })).toEqual({
+      raw: { skills: {} },
+      renamed: [],
+      removed: ["review"],
+    });
+  });
+
+  test("renames and removes in one result", () => {
+    expect(migrateLegacyKeys({ tiers: { fast: "a/x" }, review: 1 })).toEqual({
+      raw: { tiers: { basic: "a/x" } },
+      renamed: [["tiers.fast", "tiers.basic"]],
+      removed: ["review"],
+    });
   });
 
   test("a frontier slot is never renamed", () => {
-    const out = migrateTierKeys({
+    const out = migrateLegacyKeys({
       tiers: { fast: "a/x" },
       crew: { slots: [{ name: "frontier", model: "a/y", when: "Choose it." }] },
     });
@@ -300,6 +329,7 @@ describe("migrateConfigFile", () => {
           ["tiers.fast", "tiers.basic"],
           ["tiers.expert", "tiers.frontier"],
         ],
+        removed: [],
       });
       expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({
         classifier: { timeoutMs: 1500 },
@@ -316,10 +346,11 @@ describe("migrateConfigFile", () => {
   test("nothing to migrate leaves the file alone", () =>
     withDir((dir) => {
       const file = join(dir, "config.json");
-      writeFileSync(file, FULL);
+      const text = '{"classifier":{"timeoutMs":1500},"tiers":{"basic":"a/x"}}';
+      writeFileSync(file, text);
       const before = statSync(file).mtimeMs;
       expect(migrateConfigFile(dir)).toBeUndefined();
-      expect(readFileSync(file, "utf8")).toBe(FULL);
+      expect(readFileSync(file, "utf8")).toBe(text);
       expect(statSync(file).mtimeMs).toBe(before);
     }));
 
@@ -331,10 +362,24 @@ describe("migrateConfigFile", () => {
 
   test("Migration refuses an invalid file", () =>
     withDir((dir) => {
-      const text = '{"tiers":{"fast":"a/x"},"classifier":{"timeoutMs":100}}';
-      writeFileSync(join(dir, "config.json"), text);
-      expect(migrateConfigFile(dir)).toBeUndefined();
-      expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
+      for (const text of [
+        '{"tiers":{"fast":"a/x"},"classifier":{"timeoutMs":100}}',
+        '{"review":{"cli":"codex"},"classifier":{"timeoutMs":100}}',
+      ]) {
+        writeFileSync(join(dir, "config.json"), text);
+        expect(migrateConfigFile(dir)).toBeUndefined();
+        expect(readFileSync(join(dir, "config.json"), "utf8")).toBe(text);
+      }
+    }));
+
+  test("removes only a review key and keeps the mode and key order", () =>
+    withDir((dir) => {
+      const file = join(dir, "config.json");
+      writeFileSync(file, '{"review":{"cli":"codex","enabled":true},"skills":{"inject":"suggest"}}');
+      chmodSync(file, 0o640);
+      expect(migrateConfigFile(dir)).toEqual({ renamed: [], removed: ["review"] });
+      expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ skills: { inject: "suggest" } });
+      expect(statSync(file).mode & 0o777).toBe(0o640);
     }));
 
   test("Conflicting keys left alone", () =>

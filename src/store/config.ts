@@ -26,7 +26,6 @@ export type Config = {
   skills?: { inject?: "content" | "suggest" };
   state?: { parentRequest?: boolean };
   subagents?: { forkLaunch?: "untouched" | "thinking"; forkedLaunch?: "untouched" | "thinking" };
-  review?: { cli?: "codex" | "opencode"; enabled?: boolean };
 };
 
 export type ConfigRead =
@@ -94,7 +93,7 @@ const providerName = string({ pattern: /^[A-Za-z0-9._-]{1,64}$/ });
 /** The Jev classifier's model id; its own rule, so router ids like `provider/vendor/model:tag` fit. */
 const classifierModel = string({ pattern: /^[A-Za-z0-9._][A-Za-z0-9._:/-]{0,127}$/ });
 
-/** The retired `tools` section: any value is accepted and ignored. */
+/** The retired `tools` and `review` sections: any value is accepted and ignored. */
 const retiredSection: V<undefined> = () => undefined;
 
 function configValidator(): V<Config> {
@@ -113,12 +112,12 @@ function configValidator(): V<Config> {
     effort: object({ holdProviders: array(providerName, { max: 32, uniqueBy: (s) => s }) }),
     skills: object({ inject: oneOf(["content", "suggest"] as const) }),
     tools: retiredSection,
+    review: retiredSection,
     state: object({ parentRequest: boolean() }),
     subagents: object({
       forkLaunch: oneOf(["untouched", "thinking"] as const),
       forkedLaunch: oneOf(["untouched", "thinking"] as const),
     }),
-    review: object({ cli: oneOf(["codex", "opencode"] as const), enabled: boolean() }),
   }) as V<Config>;
 }
 
@@ -251,8 +250,8 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
   if (issues.length > 0) return { ok: false, issues };
   if (!current.present && slots.length === 0) return { ok: true };
 
-  // DEPRECATED(remove next minor): a slot write never re-emits the legacy tier keys.
-  const raw = { ...(migrateTierKeys(current.raw)?.raw ?? current.raw) };
+  // DEPRECATED(remove next minor): a slot write never re-emits the legacy tier keys or `review`.
+  const raw = { ...(migrateLegacyKeys(current.raw)?.raw ?? current.raw) };
   const crew = { ...(raw.crew as Record<string, unknown> | undefined) };
   if (slots.length > 0) {
     crew.slots = slots.map((s) => ({ name: s.name, model: s.model, when: s.when }));
@@ -276,37 +275,44 @@ export function writeSlots(dir: string, slots: Slot[]): WriteResult {
 
 // DEPRECATED(remove next minor)
 /**
- * Renames the legacy tier keys in place, keeping every position and value; `undefined` when the
- * file is invalid, has a legacy key beside its new key, or has nothing to rename. Does not mutate `raw`.
+ * Renames the legacy tier keys in place and removes the retired top-level `review` key, keeping
+ * every other position and value. `undefined` when the file is invalid or has nothing to rename or
+ * remove. Does not mutate `raw`.
  */
-export function migrateTierKeys(
+export function migrateLegacyKeys(
   raw: Record<string, unknown>,
-): { raw: Record<string, unknown>; renamed: [string, string][] } | undefined {
-  const tiers = rawTiers(raw);
-  if (tiers === undefined) return undefined;
+):
+  | { raw: Record<string, unknown>; renamed: [string, string][]; removed: string[] }
+  | undefined {
   const renamed: [string, string][] = [];
-  const next: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(tiers)) {
+  const nextTiers: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rawTiers(raw) ?? {})) {
     const current = (LEGACY_TIER as Record<string, string>)[key];
-    if (current === undefined) next[key] = value;
+    if (current === undefined) nextTiers[key] = value;
     else {
-      next[current] = value;
+      nextTiers[current] = value;
       renamed.push([`tiers.${key}`, `tiers.${current}`]);
     }
   }
-  if (renamed.length === 0) return undefined;
+  const removed = Object.hasOwn(raw, "review") ? ["review"] : [];
+  if (renamed.length === 0 && removed.length === 0) return undefined;
   if (validateRaw(raw).issues.length > 0) return undefined;
-  return { raw: { ...raw, tiers: next }, renamed };
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === "review") continue;
+    next[key] = key === "tiers" && renamed.length > 0 ? nextTiers : value;
+  }
+  return { raw: next, renamed, removed };
 }
 
 // DEPRECATED(remove next minor)
-/** Rewrites config.json with the new tier keys, keeping the mode; `undefined` when nothing needed to change. */
+/** Rewrites config.json with the migrated keys, keeping the mode; `undefined` when nothing needed to change. */
 export function migrateConfigFile(
   dir: string,
-): { renamed: [string, string][] } | { error: string } | undefined {
+): { renamed: [string, string][]; removed: string[] } | { error: string } | undefined {
   const current = load(dir);
   if (current.kind === "invalid" || !current.present) return undefined;
-  const migrated = migrateTierKeys(current.raw);
+  const migrated = migrateLegacyKeys(current.raw);
   if (migrated === undefined) return undefined;
   const written = writeFileAtomic(
     dir,
@@ -317,5 +323,5 @@ export function migrateConfigFile(
     },
   );
   if (!written.ok) return { error: `cannot write config.json (${written.code})` };
-  return { renamed: migrated.renamed };
+  return { renamed: migrated.renamed, removed: migrated.removed };
 }
