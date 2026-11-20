@@ -23,9 +23,6 @@ test("a status command draws and notifies before its first await yields", async 
         toolNames: [],
       }),
     decision: () => undefined,
-    exec: async () => {
-      throw new Error("exec must not run");
-    },
   };
   const p = runJev("", ctx, deps);
   log.push("handler-returned");

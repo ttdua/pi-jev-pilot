@@ -987,11 +987,16 @@ describe("hold", () => {
         reasoning: true,
         thinkingLevelMap: { xhigh: "xhigh" },
       },
+      state: { switches: { strategy: false } },
       start: "high",
       outcomes: [answer("xhigh")],
     });
     await run(t);
-    expect(keys(t, 0)).toEqual(["effort", "risky", "corrects"]);
+    expect(Object.keys(t.requests[0]!.questions as object)).toEqual([
+      "effort",
+      "risky",
+      "corrects",
+    ]);
     expect(t.sets).toEqual(["xhigh"]);
     await t.main.agentSettled(settled(false));
     expect(mainLine(t)).not.toHaveProperty("held");
