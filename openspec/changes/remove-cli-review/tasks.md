@@ -27,16 +27,16 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 Remove the CLI review from:
+- [x] 3.1 Remove the CLI review from:
   - `README.md`: the feature list and off switches (spec `release-metadata` "README explains each feature's effect"); effort hold "default `9router`" becomes "no provider by default".
   - `docs/usage-guide.md`, `docs/workflow.md` (the CLI review section and the ADR 0004 link sentence), `docs/jev-questions.md` (the `CLI review instructions` block), `docs/architecture.md`, `docs/domain-model.md`, `docs/privacy.md`, `docs/project-brief.md`, `docs/roadmap.md`, `docs/scenarios.md`, `docs/testing.md` (manual CLI review procedure), `CONTRIBUTING.md`.
   - `docs/configuration.md`: drop the `review` rows, note the retired key and its removal at start; the `holdProviders` default becomes `[]`, and the example keeps `["9router"]` as an explicit setting.
   - `tests/release-check.ts` and `tests/release.test.ts`: drop `/jev cli-review off`.
-- [ ] 3.2 `docs/decisions/0004-review-as-a-slot.md`: replace the `jev_review` sentence in Decision with a dated note that the CLI review was removed. Leave `docs/decisions/README.md` status `Accepted`. Delete `docs/evidence/2026-11-06-cli-review.md`, and fix any link to it outside `docs/evidence/` and `openspec/changes/archive/`.
-- [ ] 3.3 `CHANGELOG.md` `[Unreleased]`, with the compatibility notes for `config.json` and `state.json` (accepted, ignored, removed at the first main start):
+- [x] 3.2 `docs/decisions/0004-review-as-a-slot.md`: replace the `jev_review` sentence in Decision with a dated note that the CLI review was removed. Leave `docs/decisions/README.md` status `Accepted`. Delete `docs/evidence/2026-11-06-cli-review.md`, and fix any link to it outside `docs/evidence/` and `openspec/changes/archive/`.
+- [x] 3.3 `CHANGELOG.md` `[Unreleased]`, with the compatibility notes for `config.json` and `state.json` (accepted, ignored, removed at the first main start):
   - "Removed: CLI review (`jev_review`, `/jev cli-review`)".
   - "Changed: `effort.holdProviders` defaults to `[]`; add `\"effort\": {\"holdProviders\": [\"9router\"]}` to keep the old behaviour".
-- [ ] 3.4 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. Then run `rg -n -i "jev_review|cli-review|cliReview|cli review|review\.(cli|enabled)|9router\"\]" src tests docs README.md CONTRIBUTING.md CHANGELOG.md`; every hit must be one of:
+- [x] 3.4 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun test`. Then run `rg -n -i "jev_review|cli-review|cliReview|cli review|review\.(cli|enabled)|9router\"\]" src tests docs README.md CONTRIBUTING.md CHANGELOG.md`; every hit must be one of:
   - the retired-key read and migration code and its tests,
   - `RESERVED_SLOT_NAMES` and the reserved-names doc line,
   - `docs/evidence/`,
