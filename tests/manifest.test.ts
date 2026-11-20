@@ -29,6 +29,7 @@ describe("package manifest", () => {
     expect(Object.keys(pkg.devDependencies)).toContain("@ttdua/pi-subagents");
     expect(Object.keys(pkg.dependencies ?? {})).not.toContain("@ttdua/pi-subagents");
     expect(Object.keys(pkg.peerDependencies)).not.toContain("@ttdua/pi-subagents");
+    expect(Object.keys(pkg.optionalDependencies ?? {})).not.toContain("@ttdua/pi-subagents");
   });
 
   test("Pinned to a release tag", () => {
@@ -38,7 +39,12 @@ describe("package manifest", () => {
   });
 
   test("No published executor dependency", () => {
-    for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
+    for (const field of [
+      "dependencies",
+      "devDependencies",
+      "peerDependencies",
+      "optionalDependencies",
+    ]) {
       expect(Object.keys(pkg[field] ?? {})).not.toContain("@gotgenes/pi-subagents");
     }
   });
