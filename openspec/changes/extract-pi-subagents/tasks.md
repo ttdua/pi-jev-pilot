@@ -2,15 +2,15 @@
 
 Blocked by: none
 
-- [ ] 1.1 Update `tests/manifest.test.ts` to the `package-loading` "Package manifest" scenarios and the `host-test-harness` "Executor comes from the pinned dev dependency" scenarios (name `@ttdua/pi-jev-pilot`, `pi.extensions` = `["./src/extension.ts"]`, no `workspaces`, executor only in `devDependencies` pinned to `github:ttdua/pi-subagents#v<x.y.z>`, no `@gotgenes/pi-subagents`, imported host packages are peers); see them fail
-- [ ] 1.2 `package.json`: rename to `@ttdua/pi-jev-pilot`, drop `workspaces`, drop the executor entry from `pi.extensions`, drop `test:executor`, add dev dependency `"@ttdua/pi-subagents": "github:ttdua/pi-subagents#v0.1.1"`; `bun install` to refresh `bun.lock`
-- [ ] 1.3 `tsconfig.json`: drop the `paths` mapping and the `packages` exclude; confirm `bun run typecheck` resolves `@ttdua/pi-subagents` types from `node_modules`
-- [ ] 1.4 Delete `packages/pi-subagents/`, `scripts/vendor-manifest.ts`, `tests/vendoring.test.ts`
-- [ ] 1.5 `.oxlintrc.json`: drop `packages/**`; `.github/workflows/ci.yml`: drop `test:executor` and `verify:public-types` steps; update `tests/ci.test.ts` accordingly (remove the `packages/` and public-types tests)
-- [ ] 1.6 `tests/import-graph.test.ts`, `tests/support/import-graph.ts` and `tests/fixtures/import-graph/`: drop the `packages/` exemption and fixtures; keep the `executor-boundary` "Runtime import rejected" / "Type import allowed" cases against `@ttdua/pi-subagents`
-- [ ] 1.7 `tests/docs-old-names.test.ts`: scan `docs/**/*.md` only, exemptions per `executor-boundary` "Old names gone from current docs"
-- [ ] 1.8 `scripts/fork-cache-evidence.ts`: install the executor from the resolved `@ttdua/pi-subagents` directory under `node_modules` instead of `packages/pi-subagents`
-- [ ] 1.9 `tests/load.test.ts` (package-loading "Installed checkout is loaded"): expect exactly one extension, `src/extension.ts`, and none elsewhere in the checkout
+- [x] 1.1 Update `tests/manifest.test.ts` to the `package-loading` "Package manifest" scenarios and the `host-test-harness` "Executor comes from the pinned dev dependency" scenarios (name `@ttdua/pi-jev-pilot`, `pi.extensions` = `["./src/extension.ts"]`, no `workspaces`, executor only in `devDependencies` pinned to `github:ttdua/pi-subagents#v<x.y.z>`, no `@gotgenes/pi-subagents`, imported host packages are peers); see them fail
+- [x] 1.2 `package.json`: rename to `@ttdua/pi-jev-pilot`, drop `workspaces`, drop the executor entry from `pi.extensions`, drop `test:executor`, add dev dependency `"@ttdua/pi-subagents": "github:ttdua/pi-subagents#v0.1.1"`; `bun install` to refresh `bun.lock`
+- [x] 1.3 `tsconfig.json`: drop the `paths` mapping and the `packages` exclude; confirm `bun run typecheck` resolves `@ttdua/pi-subagents` types from `node_modules`
+- [x] 1.4 Delete `packages/pi-subagents/`, `scripts/vendor-manifest.ts`, `tests/vendoring.test.ts`
+- [x] 1.5 `.oxlintrc.json`: drop `packages/**`; `.github/workflows/ci.yml`: drop `test:executor` and `verify:public-types` steps; update `tests/ci.test.ts` accordingly (remove the `packages/` and public-types tests)
+- [x] 1.6 `tests/import-graph.test.ts`, `tests/support/import-graph.ts` and `tests/fixtures/import-graph/`: drop the `packages/` exemption and fixtures; keep the `executor-boundary` "Runtime import rejected" / "Type import allowed" cases against `@ttdua/pi-subagents`
+- [x] 1.7 `tests/docs-old-names.test.ts`: scan `docs/**/*.md` only, exemptions per `executor-boundary` "Old names gone from current docs"
+- [x] 1.8 `scripts/fork-cache-evidence.ts`: install the executor from the resolved `@ttdua/pi-subagents` directory under `node_modules` instead of `packages/pi-subagents`
+- [x] 1.9 `tests/load.test.ts` (package-loading "Installed checkout is loaded"): expect exactly one extension, `src/extension.ts`, and none elsewhere in the checkout
 
 ## 2. Capability-based executor detection
 
