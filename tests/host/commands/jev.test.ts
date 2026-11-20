@@ -33,6 +33,7 @@ function snap(
     state?: State;
     env?: Record<string, string | undefined>;
     tools?: string[];
+    executor?: Snapshot["executor"];
     tuningRead?: TuningRead;
     sessionMode?: Mode;
   } = {},
@@ -48,6 +49,7 @@ function snap(
     stateRead: o.stateRead ?? { kind: "ok", state: o.state ?? {} },
     env: o.env ?? { TYPESAFE_API_KEY: "k" },
     toolNames: o.tools ?? ["subagent"],
+    ...(o.executor === undefined ? {} : { executor: o.executor }),
     ...(o.tuningRead === undefined ? {} : { tuningRead: o.tuningRead }),
     ...(o.sessionMode === undefined
       ? {}
@@ -222,7 +224,17 @@ describe("formatStatus", () => {
   });
 
   test("default", () => {
-    const text = formatStatus(snap());
+    const text = formatStatus(
+      snap({
+        executor: {
+          kind: "present",
+          implementation: "@ttdua/pi-subagents",
+          launchPolicy: true,
+          agentRegistry: true,
+        },
+      }),
+    );
+    expect(text).toContain("executor: @ttdua/pi-subagents");
     expect(text).toContain("Jev · standard");
     expect(text).toContain("mode: standard");
     for (const f of FEATURES)
@@ -256,8 +268,7 @@ describe("formatStatus", () => {
   });
   test("no executor", () => {
     const text = formatStatus(snap({ tools: [] }));
-    expect(text).toContain("no executor");
-    expect(text).toContain("worker routing is off");
+    expect(text).toContain("executor: no executor; worker routing is off");
   });
   describe("mix", () => {
     const entries = (n: number, fast: number, balanced: number, deep: number): WindowEntry[] => {
@@ -1481,15 +1492,34 @@ describe("runJev cli-review", () => {
   });
 });
 
-describe("duplicate executor status", () => {
+describe("executor status by capability", () => {
   test("Duplicate executor reported", () => {
-    const text = formatStatus({
-      ...snap(),
-      executor: { kind: "duplicate", path: "/other/pi-subagents/index.ts" },
-    });
-    expect(text).toContain("duplicate executor");
-    expect(text).toContain("/other/pi-subagents/index.ts");
-    expect(text).toContain("uninstall @gotgenes/pi-subagents");
-    expect(text).toContain("worker routing is off");
+    const text = formatStatus(
+      snap({ executor: { kind: "present", launchPolicy: false, agentRegistry: false } }),
+      undefined,
+      [],
+    );
+    expect(text).toContain(
+      "executor: unknown; no launch policy, worker routing is off; no agent registry",
+    );
+    expect(text).not.toContain("mix (");
+    expect(text).not.toContain("uninstall");
+  });
+
+  test("Executor without an agent registry reported", () => {
+    const text = formatStatus(
+      snap({
+        executor: {
+          kind: "present",
+          implementation: "example-executor",
+          launchPolicy: true,
+          agentRegistry: false,
+        },
+      }),
+    );
+    expect(text).toContain("executor: example-executor; no agent registry");
+    expect(text.split("\n").find((l) => l.startsWith("executor:"))).toEndWith(
+      "; no agent registry",
+    );
   });
 });

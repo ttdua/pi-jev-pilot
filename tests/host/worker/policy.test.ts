@@ -195,14 +195,14 @@ describe("Launch policy slot taken", () => {
 
   test("a later start that registers clears the problem", () => {
     const executor = fakeService();
-    const blocker = executor.service.registerLaunchPolicy(() => undefined, { timeoutMs: 1 });
+    const blocker = executor.service.registerLaunchPolicy?.(() => undefined, { timeoutMs: 1 });
     const routing = registerWorkerRouting(
       { on: () => () => {}, events: { on: () => () => {} } } as never,
       { snapshot: () => snap(), service: () => executor.service },
     );
     routing.start(harness().ctx as never);
     expect(routing.problems()).toEqual([SLOT_TAKEN]);
-    blocker();
+    blocker?.();
     routing.start(harness().ctx as never);
     expect(routing.problems()).toEqual([]);
   });
@@ -213,7 +213,7 @@ describe("When routing runs", () => {
     ["Switch off", { switches: { subagents: false } }],
     ["No key", { keySet: false }],
     ["Invalid config", { valid: false }],
-    ["Duplicate executor", { executor: "duplicate" }],
+    ["Executor without a launch policy", { executor: { launchPolicy: false } }],
   ];
   for (const [name, o] of gated) {
     test(name, async () => {

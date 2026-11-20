@@ -1,5 +1,5 @@
 import type { LaunchAdjustment, LaunchPolicy, LaunchRequest } from "@ttdua/pi-subagents";
-import { isChild, type Snapshot } from "../platform/index.ts";
+import { canRoute, isChild, type Snapshot } from "../platform/index.ts";
 import { classifyLaunch, type ClassifyDeps } from "./classify.ts";
 import type { LaunchEntry } from "./entry.ts";
 import type { LaunchBook } from "./launches.ts";
@@ -25,10 +25,7 @@ export type WorkerHost = {
 /** Whether routing may act: config, key and executor first, then the routing switch. */
 function routingOpen(snap: Snapshot): boolean {
   return (
-    snap.config.valid &&
-    snap.keySet &&
-    snap.executor.kind === "present" &&
-    snap.settings.switches.subagents
+    snap.config.valid && snap.keySet && canRoute(snap.executor) && snap.settings.switches.subagents
   );
 }
 

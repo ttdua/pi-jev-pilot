@@ -7,7 +7,7 @@ import type {
 } from "@ttdua/pi-subagents";
 import type { JevOutcome, JevRequest } from "../../src/jev/client.ts";
 import type { Snapshot } from "../../src/host/platform/readiness.ts";
-import type { VendoredService } from "../../src/host/platform/service.ts";
+import type { ExecutorService } from "../../src/host/platform/service.ts";
 import { registerWorkerRouting, type WorkerDeps } from "../../src/host/worker/routing.ts";
 import type { WindowEntry } from "../../src/policy/worker/cutpoints.ts";
 import type { Mode } from "../../src/store/defaults.ts";
@@ -33,7 +33,7 @@ export type Opts = {
   switches?: Record<string, boolean>;
   valid?: boolean;
   keySet?: boolean;
-  executor?: boolean | "duplicate";
+  executor?: boolean | { launchPolicy?: boolean; agentRegistry?: boolean; implementation?: string };
   parentRequest?: boolean;
   forkLaunch?: "untouched" | "thinking";
   slots?: Slot[];
@@ -176,7 +176,7 @@ export function launchRequest(over: LaunchOver = {}): LaunchRequest {
   };
 }
 
-/** A fake vendored executor service that keeps the one registered launch policy. */
+/** A fake executor service that keeps the one registered launch policy. */
 export function fakeService(opts: { taken?: boolean } = {}) {
   let current: LaunchPolicy | undefined;
   const registrations: { timeoutMs: number }[] = [];
@@ -196,7 +196,7 @@ export function fakeService(opts: { taken?: boolean } = {}) {
     },
   };
   return {
-    service: service as unknown as VendoredService,
+    service: service as unknown as ExecutorService,
     policy: () => current,
     registrations,
     unregisters: () => unregisters,
@@ -368,7 +368,13 @@ export async function runToCompletion(
   return result;
 }
 
-function executorOf(v: boolean | "duplicate" | undefined): Snapshot["executor"] {
-  if (v === "duplicate") return { kind: "duplicate", path: "/other/executor" };
-  return { kind: v === false ? "absent" : "present" };
+function executorOf(v: Opts["executor"]): Snapshot["executor"] {
+  if (v === false) return { kind: "absent" };
+  const o = typeof v === "object" ? v : {};
+  return {
+    kind: "present",
+    ...(o.implementation === undefined ? {} : { implementation: o.implementation }),
+    launchPolicy: o.launchPolicy ?? true,
+    agentRegistry: o.agentRegistry ?? true,
+  };
 }

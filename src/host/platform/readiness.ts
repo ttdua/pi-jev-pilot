@@ -5,7 +5,7 @@ import { readState, type StateRead } from "../../store/state-file.ts";
 import { readTuning, type TuningDocument, type TuningRead } from "../../store/tuning-file.ts";
 import type { Issue } from "../../store/validate.ts";
 import { readLocalMode, type LocalModeRead } from "../../store/local-mode.ts";
-import { capturedService, publishedService } from "./service.ts";
+import { capturedService } from "./service.ts";
 import { mainCwd } from "./main-cwd.ts";
 import { jevDir } from "./stores.ts";
 
@@ -31,53 +31,45 @@ export function isKeySet(env: Record<string, string | undefined>, varName: strin
   return typeof value === "string" && value.length > 0;
 }
 
-/** Whether exactly one usable executor is installed: none, the vendored one, or a second one beside it. */
+/** The executor as readiness sees it: absent, or present with the capabilities its service offers. */
 export type ExecutorState =
-  | { kind: "present" }
   | { kind: "absent" }
-  | { kind: "duplicate"; path?: string };
+  | { kind: "present"; implementation?: string; launchPolicy: boolean; agentRegistry: boolean };
 
-const VENDORED_DIR = "/packages/pi-subagents/";
-
-function insideVendored(path: string): boolean {
-  return path.split("\\").join("/").includes(VENDORED_DIR);
-}
-
-function isOtherService(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  return (value as { implementation?: unknown }).implementation !== "@ttdua/pi-subagents";
-}
-
-/** A captured service the launch seams can be driven through. */
-function isUsableCapture(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const service = value as { implementation?: unknown; registerLaunchPolicy?: unknown };
-  return (
-    service.implementation === "@ttdua/pi-subagents" &&
-    typeof service.registerLaunchPolicy === "function"
-  );
+/** Read one property; a throwing getter reads as missing. */
+function readMember(service: unknown, key: string): unknown {
+  try {
+    return (service as Record<string, unknown> | null | undefined)?.[key];
+  } catch {
+    return undefined;
+  }
 }
 
 /**
- * Pure. `published` is the executor slot now, `captured` this package's copy of the main
- * service. Order: duplicate, then present (a usable captured service), else absent.
+ * Pure. Present when the `subagent` tool is listed; the capabilities come from the
+ * captured service, each fact read on its own so one bad getter costs only that fact.
  */
-export function executorState(
-  tools: readonly ToolInfo[],
-  published: unknown,
-  captured: unknown,
-): ExecutorState {
-  const tool = tools.find((t) => t.name === "subagent");
-  if (tool === undefined) return { kind: "absent" };
-  const path = tool.sourceInfo?.path;
-  if (path !== undefined && !insideVendored(path)) return { kind: "duplicate", path };
-  if (isOtherService(published)) return { kind: "duplicate", ...(path ? { path } : {}) };
-  return isUsableCapture(captured) ? { kind: "present" } : { kind: "absent" };
+export function executorState(tools: readonly ToolInfo[], captured: unknown): ExecutorState {
+  if (!tools.some((t) => t.name === "subagent")) return { kind: "absent" };
+  const impl = readMember(captured, "implementation");
+  return {
+    kind: "present",
+    ...(typeof impl === "string" && impl !== "" ? { implementation: impl } : {}),
+    launchPolicy: typeof readMember(captured, "registerLaunchPolicy") === "function",
+    agentRegistry: typeof readMember(captured, "listAgentTypes") === "function",
+  };
+}
+
+/** Whether worker routing can run: the executor is present with a launch policy. */
+export function canRoute(state: ExecutorState): boolean {
+  return state.kind === "present" && state.launchPolicy;
 }
 
 function toolNamesState(toolNames: readonly string[], given?: ExecutorState): ExecutorState {
   if (given !== undefined) return given;
-  return { kind: hasExecutor(toolNames) ? "present" : "absent" };
+  return hasExecutor(toolNames)
+    ? { kind: "present", launchPolicy: true, agentRegistry: true }
+    : { kind: "absent" };
 }
 
 export function hasExecutor(toolNames: readonly string[]): boolean {
@@ -150,7 +142,7 @@ export function loadSnapshot(pi: Pick<ExtensionAPI, "getAllTools">, cwd?: string
   const dir = jevDir();
   const tools = pi.getAllTools();
   return buildSnapshot({
-    executor: executorState(tools, publishedService(), capturedService()),
+    executor: executorState(tools, capturedService()),
     configRead: readConfig(dir),
     stateRead: readState(dir),
     tuningRead: readTuning(dir),

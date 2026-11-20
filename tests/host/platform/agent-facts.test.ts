@@ -94,8 +94,9 @@ describe("agentFacts", () => {
     expect(executorAgents(service)).toEqual([agentFacts(explore()), agentFacts(snapshot())]);
   });
 
-  test("No executor gives no agents", () => {
+  test("No agent registry gives no agents", () => {
     expect(executorAgents(undefined)).toEqual([]);
+    expect(executorAgents({})).toEqual([]);
   });
 
   test("Throwing registry gives no agents", () => {
