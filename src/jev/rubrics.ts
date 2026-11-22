@@ -2,6 +2,7 @@
 import { EFFORT_OPTION_ORDER, type EffortLevel } from "../policy/effort.ts";
 import type { TierName } from "../policy/launch.ts";
 import type { GateKey } from "../policy/main/index.ts";
+import { TURN_BANDS, type TurnBand } from "../policy/worker/index.ts";
 
 export type WireQuestion = {
   type: "choice" | "noul";
@@ -44,6 +45,21 @@ export const WORKER_EFFORT_QUESTION: WireQuestion = {
       "Long reasoning and verification: design across several components, a bug whose cause is unknown, a refactor with many dependents to verify, or careful reasoning about concurrency, performance or failure modes.",
     max: "Heavy care: a failure that resisted earlier attempts, or work where a subtle mistake is costly and hard to undo, such as a security or data-integrity question that must be verified step by step.",
   }),
+};
+
+const TURN_CRITERIA: Readonly<Record<TurnBand, string>> = {
+  short: "Up to about 20 steps: a lookup, a single change with its check, or a short review.",
+  medium: "About 20 to 40 steps: an ordinary change across a few files with tests to run and fix.",
+  long: "About 40 to 100 steps: a change across many files, a feature with its tests, or a migration with repeated checks.",
+  very_long:
+    "More than about 100 steps: a large refactor or sweep over many files, or a long investigation with many runs.",
+};
+
+export const WORKER_TURNS_QUESTION: WireQuestion = {
+  type: "choice",
+  instructions:
+    "How many steps and tool calls does a subagent need to finish this brief? Count the files to read and change, the commands to run and the checks to repeat until it is done. How rare the knowledge is and how much care the task needs are not turn signals.",
+  criteria: Object.fromEntries(TURN_BANDS.map((band) => [band, TURN_CRITERIA[band]])),
 };
 
 export const RISKY_QUESTION: WireQuestion = {

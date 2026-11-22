@@ -204,6 +204,7 @@ The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.
 | `tier` | choice | Configured tiers, `basic`, `broad`, `deep`, `frontier` (one knowledge rubric for every mode), and `slot::<name>` | Worker model, through the difficulty score |
 | `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max`, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
+| `turns` | choice | `short`, `medium`, `long`, `very_long` | Turn floor |
 
 ## Skill pick
 

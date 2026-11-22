@@ -17,8 +17,10 @@ import {
   WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
   WORKER_TIER_CRITERIA,
+  WORKER_TURNS_QUESTION,
   type WireQuestion,
 } from "./rubrics.ts";
+import { TURN_BANDS } from "../policy/worker/index.ts";
 
 export type { WireQuestion };
 
@@ -138,28 +140,39 @@ function slotCriterion(slot: SlotOption): string {
   return `${name}${SLOT_CRITERION_INFIX}${slot.when}`;
 }
 
+/**
+ * Worker questions. `ask.route` adds `tier`, `effort` and `risky`; `ask.turns` adds `turns` last.
+ * The default keeps the route questions only.
+ */
 export function buildWorkerQuestions(
   offered: readonly TierName[],
   displayNames: Partial<Record<TierName, string>>,
   slots: readonly SlotOption[] = [],
+  ask: { route: boolean; turns: boolean } = { route: true, turns: false },
 ): { questions: Record<string, WireQuestion>; specs: Record<string, QuestionSpec> } {
   const questions: Record<string, WireQuestion> = {};
   const specs: Record<string, QuestionSpec> = {};
-  const ordered = TIER_LADDER.filter((tier) => offered.includes(tier));
-  if (ordered.length > 0 || slots.length > 0) {
-    const criteria: Record<string, string> = {};
-    for (const tier of ordered) {
-      const name = displayNames[tier];
-      const text = WORKER_TIER_CRITERIA[tier];
-      criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
+  if (ask.route) {
+    const ordered = TIER_LADDER.filter((tier) => offered.includes(tier));
+    if (ordered.length > 0 || slots.length > 0) {
+      const criteria: Record<string, string> = {};
+      for (const tier of ordered) {
+        const name = displayNames[tier];
+        const text = WORKER_TIER_CRITERIA[tier];
+        criteria[tier] = name === undefined || name === "" ? text : `${name}. ${text}`;
+      }
+      for (const slot of slots) criteria[slotTarget(slot.name)] = slotCriterion(slot);
+      questions["tier"] = { type: "choice", instructions: TIER_INSTRUCTION, criteria };
+      specs["tier"] = { type: "choice", options: Object.keys(criteria) };
     }
-    for (const slot of slots) criteria[slotTarget(slot.name)] = slotCriterion(slot);
-    questions["tier"] = { type: "choice", instructions: TIER_INSTRUCTION, criteria };
-    specs["tier"] = { type: "choice", options: Object.keys(criteria) };
+    questions["effort"] = copy(WORKER_EFFORT_QUESTION);
+    specs["effort"] = { type: "choice", options: Object.keys(WORKER_EFFORT_QUESTION.criteria) };
+    questions["risky"] = copy(RISKY_QUESTION);
+    specs["risky"] = { type: "noul" };
   }
-  questions["effort"] = copy(WORKER_EFFORT_QUESTION);
-  specs["effort"] = { type: "choice", options: Object.keys(WORKER_EFFORT_QUESTION.criteria) };
-  questions["risky"] = copy(RISKY_QUESTION);
-  specs["risky"] = { type: "noul" };
+  if (ask.turns) {
+    questions["turns"] = copy(WORKER_TURNS_QUESTION);
+    specs["turns"] = { type: "choice", options: [...TURN_BANDS] };
+  }
   return { questions, specs };
 }
