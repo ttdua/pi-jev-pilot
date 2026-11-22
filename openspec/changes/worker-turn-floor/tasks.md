@@ -10,9 +10,9 @@ Blocked by: none
 
 Blocked by: none
 
-- [ ] 2.1 Add the `turns` wording (instruction and the four band criteria) to `docs/jev-questions.md`, and the `turns` row to the worker question table in `docs/jev-contract.md`
-- [ ] 2.2 Add `TURN_BANDS` to a pure module (`src/policy/worker/turns.ts`, bands only for now) and `WORKER_TURNS_QUESTION` to `src/jev/rubrics.ts`, with a test in `tests/jev/questions.test.ts` that the wording equals the docs text (spec `worker-request` "Turns question")
-- [ ] 2.3 Change `buildWorkerQuestions` in `src/jev/questions.ts` to take whether to ask the route questions and whether to ask `turns`; test the question sets and order, including turns-only (spec `worker-request` "Worker question set"), and the unknown-band and miss reads
+- [x] 2.1 Add the `turns` wording (instruction and the four band criteria) to `docs/jev-questions.md`, and the `turns` row to the worker question table in `docs/jev-contract.md`
+- [x] 2.2 Add `TURN_BANDS` to a pure module (`src/policy/worker/turns.ts`, bands only for now) and `WORKER_TURNS_QUESTION` to `src/jev/rubrics.ts`, with a test in `tests/jev/questions.test.ts` that the wording equals the docs text (spec `worker-request` "Turns question")
+- [x] 2.3 Change `buildWorkerQuestions` in `src/jev/questions.ts` to take whether to ask the route questions and whether to ask `turns`; test the question sets and order, including turns-only (spec `worker-request` "Worker question set"), and the unknown-band and miss reads
 
 ## 3. Pure turn floor and route
 
