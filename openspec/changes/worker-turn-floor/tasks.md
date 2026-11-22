@@ -43,6 +43,6 @@ Blocked by: 1, 4
 
 Blocked by: 5
 
-- [ ] 6.1 Update `README.md` (worker routing feature row: the turn floor and `/jev subagents off`), `docs/scenarios.md` (turn floor rules and the turns-only launch), `docs/configuration.md` (what the `subagents` switch covers) and `docs/jev-contract.md` (launches left untouched, worker questions)
-- [ ] 6.2 Add an `Unreleased` entry to `CHANGELOG.md` for the turn floor and the executor `v0.2.0` requirement
-- [ ] 6.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
+- [x] 6.1 Update `README.md` (worker routing feature row: the turn floor and `/jev subagents off`), `docs/scenarios.md` (turn floor rules and the turns-only launch), `docs/configuration.md` (what the `subagents` switch covers) and `docs/jev-contract.md` (launches left untouched, worker questions)
+- [x] 6.2 Add an `Unreleased` entry to `CHANGELOG.md` for the turn floor and the executor `v0.2.0` requirement
+- [x] 6.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
