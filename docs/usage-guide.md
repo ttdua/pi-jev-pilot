@@ -20,7 +20,7 @@ The package never edits your `settings.json` or agent files, and nothing is impo
 Worker routing needs the executor, [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), which is a separate package. Install it first, then Jev.
 
 ```bash
-pi install git:github.com/ttdua/pi-subagents@v0.1.1
+pi install git:github.com/ttdua/pi-subagents@v0.2.0
 pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0
 ```
 

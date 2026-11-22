@@ -7,7 +7,7 @@ Let [Jev](https://docs.typesafe.ai), TypeSafe's fast decision model, decide how 
 Install the executor first, then Jev. Worker routing needs the executor; without it `/jev` shows `executor: no executor; worker routing is off` and the rest keeps working.
 
 ```bash
-pi install git:github.com/ttdua/pi-subagents@v0.1.1
+pi install git:github.com/ttdua/pi-subagents@v0.2.0
 pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0
 ```
 
