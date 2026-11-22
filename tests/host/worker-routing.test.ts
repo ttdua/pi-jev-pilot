@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
@@ -63,15 +63,30 @@ const workerRequests = (j: JevFixture): JevFixture["requests"] =>
 const CALLER = { model: "fixture/fixture-balanced", thinking: "low" };
 
 function launch(extra: Record<string, unknown> = {}, brief = "CHILD-TASK do the work"): object {
-  return { prompt: brief, description: "probe", subagent_type: AGENT, ...CALLER, ...extra };
+  return {
+    prompt: brief,
+    description: "probe",
+    subagent_type: AGENT,
+    ...CALLER,
+    ...extra,
+  };
 }
 
 /** Script: child replies first, then one main call, then plain main replies. */
 function script(calls: { name: string; arguments: Record<string, unknown> }[]): ScriptEntry[] {
   return [
     { name: "child", match: isChild, reply: { text: "child done" } },
-    { name: "main-call", match: isMainFirst, reply: { toolCalls: calls }, times: 1 },
-    { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+    {
+      name: "main-call",
+      match: isMainFirst,
+      reply: { toolCalls: calls },
+      times: 1,
+    },
+    {
+      name: "main-after",
+      match: (r) => r.model === "fixture-main",
+      reply: { text: "done" },
+    },
   ];
 }
 
@@ -92,16 +107,38 @@ function jevAnswers(opts: {
   tiers?: string[];
   effort?: string;
   probs?: Record<string, number>;
+  turns?: Partial<Record<"short" | "medium" | "long" | "very_long", number>>;
 }): FixtureRoute {
   const answers: Record<string, object> = {
     effort: choice(opts.effort ?? "medium", EFFORTS),
     risky: { type: "noul", noul: 0.2 },
   };
+  if (opts.turns !== undefined) {
+    const probabilities = {
+      short: 0,
+      medium: 0,
+      long: 0,
+      very_long: 0,
+      ...opts.turns,
+    };
+    const [pick = "short"] = Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0] ?? [];
+    answers["turns"] = {
+      type: "choice",
+      choice: pick,
+      probabilities,
+      confidence: 0.9,
+    };
+  }
   if (opts.tier !== undefined) {
     answers["tier"] =
       opts.probs === undefined
         ? choice(opts.tier, opts.tiers ?? ["basic", "broad"])
-        : { type: "choice", choice: opts.tier, probabilities: opts.probs, confidence: 0.5 };
+        : {
+            type: "choice",
+            choice: opts.tier,
+            probabilities: opts.probs,
+            confidence: 0.5,
+          };
   }
   if (opts.probs?.["frontier"] !== undefined)
     answers["expert_needed"] = { type: "noul", noul: 0.2 };
@@ -142,11 +179,24 @@ function config(
   if (extra.deep) tiers["deep"] = "fixture2/fixture-deep";
   if (extra.frontier) tiers["frontier"] = "fixture/fixture-expert";
   return {
-    classifier: { url: jev.url("/classify"), timeoutMs: extra.timeoutMs ?? 1500 },
+    classifier: {
+      url: jev.url("/classify"),
+      timeoutMs: extra.timeoutMs ?? 1500,
+    },
     tiers,
     ...(extra.slotModel === undefined
       ? {}
-      : { crew: { slots: [{ name: "reviewer", model: extra.slotModel, when: "Code review." }] } }),
+      : {
+          crew: {
+            slots: [
+              {
+                name: "reviewer",
+                model: extra.slotModel,
+                when: "Code review.",
+              },
+            ],
+          },
+        }),
     ...(extra.forked === undefined ? {} : { subagents: { forkLaunch: extra.forked } }),
   };
 }
@@ -163,7 +213,12 @@ const KEY = { TYPESAFE_API_KEY: "test-key" };
 
 async function setup(
   script: ScriptEntry[],
-  opts: { keyless?: boolean; env?: Record<string, string>; probes?: string[] } = {},
+  opts: {
+    keyless?: boolean;
+    env?: Record<string, string>;
+    probes?: string[];
+    persist?: boolean;
+  } = {},
 ): Promise<{ fixture: Fixture; session: HostSession }> {
   const fixture = await startFixture(script);
   fixtures.push(fixture);
@@ -174,6 +229,7 @@ async function setup(
     agents: { [AGENT]: AGENT_TEXT },
     env: opts.env ?? KEY,
     timeoutMs: 60_000,
+    ...(opts.persist === true ? { persist: true } : {}),
   });
   sessions.push(session);
   return { fixture, session };
@@ -185,6 +241,30 @@ const ledger = (s: HostSession): Record<string, unknown>[] => {
 };
 const workerLines = (s: HostSession): Record<string, unknown>[] =>
   ledger(s).filter((e) => e["kind"] === "worker");
+
+/** `turnBudget.maxTurns` of every `subagents:record` entry in the main session files. */
+function recordedMaxTurns(s: HostSession): unknown[] {
+  const out: unknown[] = [];
+  const walk = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, e.name);
+      if (e.isDirectory()) walk(path);
+      else if (e.name.endsWith(".jsonl")) {
+        for (const l of readFileSync(path, "utf8").split("\n")) {
+          if (l.trim() === "") continue;
+          const entry = JSON.parse(l) as {
+            customType?: string;
+            data?: { turnBudget?: { maxTurns?: unknown } };
+          };
+          if (entry.customType === "subagents:record") out.push(entry.data?.turnBudget?.maxTurns);
+        }
+      }
+    }
+  };
+  const dir = join(s.agentDir, "sessions");
+  if (existsSync(dir)) walk(dir);
+  return out;
+}
 
 const childOf = (f: Fixture): RecordedRequest | undefined => f.requests.find(isChild);
 const afterTool = (f: Fixture): boolean =>
@@ -255,7 +335,11 @@ describe("worker routing through the real CLI", () => {
     async () => {
       const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium" }));
       const entries: ScriptEntry[] = [
-        { name: "resume-child", match: isResumeChild, reply: { text: "resumed done" } },
+        {
+          name: "resume-child",
+          match: isResumeChild,
+          reply: { text: "resumed done" },
+        },
         { name: "child", match: isChild, reply: { text: "child done" } },
         {
           name: "main-call",
@@ -284,7 +368,11 @@ describe("worker routing through the real CLI", () => {
           },
           times: 1,
         },
-        { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+        {
+          name: "main-after",
+          match: (r) => r.model === "fixture-main",
+          reply: { text: "done" },
+        },
       ];
       const { fixture, session } = await setup(entries);
       writeJev(session.agentDir, { config: config(jev) });
@@ -316,14 +404,19 @@ describe("worker routing through the real CLI", () => {
     async () => {
       const jev = await newJev(jevAnswers({ tier: "basic" }));
       const { fixture, session } = await setup(script([subagentCall(launch({ context: "fork" }))]));
-      writeJev(session.agentDir, { config: config(jev, { forked: "untouched" }) });
+      writeJev(session.agentDir, {
+        config: config(jev, { forked: "untouched" }),
+      });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
       expect(workerRequests(jev).length).toBe(0);
-      expect(workerLines(session)[0]).toMatchObject({ reason: "untouched", answered: false });
+      expect(workerLines(session)[0]).toMatchObject({
+        reason: "untouched",
+        answered: false,
+      });
     },
     TIMEOUT,
   );
@@ -333,16 +426,23 @@ describe("worker routing through the real CLI", () => {
     async () => {
       const jev = await newJev(jevAnswers({ effort: "high" }));
       const { fixture, session } = await setup(script([subagentCall(launch({ context: "fork" }))]));
-      writeJev(session.agentDir, { config: config(jev, { forked: "thinking" }) });
+      writeJev(session.agentDir, {
+        config: config(jev, { forked: "thinking" }),
+      });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("high");
       expect(workerRequests(jev).length).toBe(1);
-      const body = JSON.parse(workerRequests(jev)[0]?.body ?? "{}") as { questions?: object };
+      const body = JSON.parse(workerRequests(jev)[0]?.body ?? "{}") as {
+        questions?: object;
+      };
       expect(Object.keys(body.questions ?? {}).sort()).toEqual(["effort", "risky"]);
-      expect(workerLines(session)[0]).toMatchObject({ reason: "untouched", answered: true });
+      expect(workerLines(session)[0]).toMatchObject({
+        reason: "untouched",
+        answered: true,
+      });
     },
     TIMEOUT,
   );
@@ -361,7 +461,68 @@ describe("worker routing through the real CLI", () => {
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
-      expect(workerLines(session)[0]).toMatchObject({ miss, reason: "miss", answered: false });
+      expect(workerLines(session)[0]).toMatchObject({
+        miss,
+        reason: "miss",
+        answered: false,
+      });
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "turn limit raised through the executor",
+    async () => {
+      const turns = { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 };
+      const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium", turns }));
+      const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+        persist: true,
+      });
+      writeJev(session.agentDir, { config: config(jev) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+      expect(workerLines(session)[0]).toMatchObject({
+        requestedTurns: 20,
+        turnFloor: 100,
+      });
+      expect(recordedMaxTurns(session)).toEqual([100]);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "turn limit kept on Jev error",
+    async () => {
+      const jev = await newJev({ json: {}, status: 500 });
+      const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+        persist: true,
+      });
+      writeJev(session.agentDir, { config: config(jev) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+      expect(recordedMaxTurns(session)).toEqual([20]);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "turn limit kept with the switch off",
+    async () => {
+      const jev = await newJev(jevAnswers({ tier: "basic", turns: { long: 1 } }));
+      const { fixture, session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+        persist: true,
+      });
+      writeJev(session.agentDir, {
+        config: config(jev),
+        state: { version: 1, switches: { subagents: false } },
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => afterTool(fixture), "main after the launch");
+      await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+      expect(recordedMaxTurns(session)).toEqual([20]);
+      expect(workerRequests(jev).length).toBe(0);
     },
     TIMEOUT,
   );
@@ -380,7 +541,11 @@ describe("worker routing through the real CLI", () => {
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       expect(childOf(fixture)?.model).toBe("fixture-balanced");
       const line = workerLines(session)[0];
-      expect(line).toMatchObject({ miss: "timeout", reason: "miss", answered: false });
+      expect(line).toMatchObject({
+        miss: "timeout",
+        reason: "miss",
+        answered: false,
+      });
       expect(line?.["ms"] as number).toBeGreaterThanOrEqual(550);
       expect(line?.["ms"] as number).toBeLessThan(800);
     },
@@ -453,7 +618,12 @@ describe("worker routing through the real CLI", () => {
     async () => {
       const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium" }));
       const { fixture, session } = await setup(
-        script([{ name: "nest", arguments: { args: launch({ model: "fixture/fixture-main" }) } }]),
+        script([
+          {
+            name: "nest",
+            arguments: { args: launch({ model: "fixture/fixture-main" }) },
+          },
+        ]),
         { probes: ["nested"] },
       );
       writeJev(session.agentDir, { config: config(jev) });
@@ -523,7 +693,10 @@ describe("worker routing through the real CLI", () => {
       const child = childOf(fixture);
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
-      expect(workerLines(session)[0]).toMatchObject({ mode: "premium", reason: "miss" });
+      expect(workerLines(session)[0]).toMatchObject({
+        mode: "premium",
+        reason: "miss",
+      });
       expect(workerLines(session)[0]).not.toHaveProperty("score");
     },
     TIMEOUT,
@@ -539,7 +712,9 @@ describe("worker routing through the real CLI", () => {
       const { fixture, session } = await setup(
         script([subagentCall(launch({ model: "fixture/fixture-main", ...extra }))]),
       );
-      writeJev(session.agentDir, { config: config(jev, { slotModel: "fixture/fixture-review" }) });
+      writeJev(session.agentDir, {
+        config: config(jev, { slotModel: "fixture/fixture-review" }),
+      });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       const child = childOf(fixture);
@@ -569,13 +744,19 @@ describe("worker routing through the real CLI", () => {
       );
       const { fixture, session } = await setup(script([subagentCall(launch())]));
       writeJev(session.agentDir, {
-        config: config(jev, { frontier: true, slotModel: "fixture/fixture-review" }),
+        config: config(jev, {
+          frontier: true,
+          slotModel: "fixture/fixture-review",
+        }),
         state: { version: 1, mode: "premium" },
       });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       expect(childOf(fixture)?.model).toBe("fixture-expert");
-      expect(workerLines(session)[0]).toMatchObject({ reason: "frontier", tier: "frontier" });
+      expect(workerLines(session)[0]).toMatchObject({
+        reason: "frontier",
+        tier: "frontier",
+      });
     },
     TIMEOUT,
   );
@@ -591,7 +772,10 @@ describe("worker routing through the real CLI", () => {
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       expect(childOf(fixture)?.model).toBe("fixture-balanced");
-      expect(workerLines(session)[0]).toMatchObject({ tier: "broad", fallback: SLOT });
+      expect(workerLines(session)[0]).toMatchObject({
+        tier: "broad",
+        fallback: SLOT,
+      });
       const warned = warnings(session).filter((w) =>
         w.message?.includes('crew.slots "reviewer" model'),
       );
@@ -605,7 +789,9 @@ describe("worker routing through the real CLI", () => {
     async () => {
       const jev = await newJev({ json: {}, status: 500 });
       const { fixture, session } = await setup(script([subagentCall(launch())]));
-      writeJev(session.agentDir, { config: config(jev, { slotModel: "fixture/fixture-review" }) });
+      writeJev(session.agentDir, {
+        config: config(jev, { slotModel: "fixture/fixture-review" }),
+      });
       await session.prompt("START-MAIN");
       await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
       const child = childOf(fixture);
@@ -625,7 +811,9 @@ describe("worker routing through the real CLI", () => {
         {
           name: "main-two",
           match: isMainFirst,
-          reply: { toolCalls: [subagentCall(launch()), subagentCall(launch())] },
+          reply: {
+            toolCalls: [subagentCall(launch()), subagentCall(launch())],
+          },
           times: 1,
         },
         {
@@ -634,7 +822,11 @@ describe("worker routing through the real CLI", () => {
           reply: { toolCalls: [subagentCall(launch())] },
           times: 1,
         },
-        { name: "main-after", match: (r) => r.model === "fixture-main", reply: { text: "done" } },
+        {
+          name: "main-after",
+          match: (r) => r.model === "fixture-main",
+          reply: { text: "done" },
+        },
       ];
       const { fixture, session } = await setup(entries);
       writeJev(session.agentDir, { config: config(jev) });
@@ -653,7 +845,10 @@ describe("worker routing through the real CLI", () => {
       await session.waitFor(() => workerLines(session).length >= 3, "third ledger line");
       const children = fixture.requests.filter(isChild);
       expect(children.at(-1)?.model).toBe("fixture-fast");
-      expect(workerLines(session).at(-1)).toMatchObject({ tier: "basic", status: "completed" });
+      expect(workerLines(session).at(-1)).toMatchObject({
+        tier: "basic",
+        status: "completed",
+      });
     },
     TIMEOUT,
   );

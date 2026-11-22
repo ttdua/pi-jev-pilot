@@ -9,6 +9,7 @@ import {
   ok,
   runToCompletion,
   TIERS_X,
+  turns,
   type LaunchOver,
 } from "./worker-fakes.ts";
 
@@ -461,6 +462,53 @@ describe("Slot lines", () => {
     h.setScript(() => answer);
     await foreground(h);
     expect(h.lines[0]).toMatchObject({ tier: "broad", fallback: "slot::reviewer" });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+  });
+});
+
+describe("Turn fields", () => {
+  const LONG = { long: 0.6, short: 0.4 };
+  const limited = { requested: { maxTurns: 20 } };
+
+  test("Raised limit recorded", async () => {
+    const h = harness();
+    h.setScript(() => ok(body("basic", "medium", LONG)));
+    await foreground(h, limited);
+    expect(h.lines[0]).toMatchObject({
+      requestedTurns: 20,
+      turnsP: { short: 0.4, medium: 0, long: 0.6, very_long: 0 },
+      turnFloor: 100,
+    });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+  });
+
+  test("Asked but not raised", async () => {
+    const h = harness();
+    h.setScript(() => ok(body("basic", "medium", { short: 1 })));
+    await foreground(h, limited);
+    expect(h.lines[0]).toMatchObject({ requestedTurns: 20 });
+    expect(h.lines[0]).toHaveProperty("turnsP");
+    expect(h.lines[0]).not.toHaveProperty("turnFloor");
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+  });
+
+  test("Turns-only recorded", async () => {
+    const h = harness();
+    h.setScript(() => ok({ answers: { turns: turns(LONG) } }));
+    await foreground(h, {
+      requested: { maxTurns: 20, model: "fx/x", thinking: "low" },
+      locked: ["model", "thinking"],
+    });
+    expect(h.lines[0]).toMatchObject({ requestedTurns: 20, turnFloor: 100 });
+    expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
+  });
+
+  test("Turn miss recorded", async () => {
+    const h = harness();
+    h.setScript(() => ({ kind: "miss", miss: "error", reason: "HTTP 500", ms: 1 }));
+    await foreground(h, limited);
+    expect(h.lines[0]).toMatchObject({ requestedTurns: 20, miss: "error" });
+    expect(h.lines[0]).not.toHaveProperty("turnFloor");
     expect(validateLedgerEntry(h.lines[0]).ok).toBe(true);
   });
 });

@@ -348,6 +348,12 @@ describe("Worker request content", () => {
     expect(Object.keys(questionsOf(h)).sort()).toEqual(["effort", "risky"]);
   });
 
+  test("Forked launch with thinking and a turn limit also asks turns", async () => {
+    const h = harness({ forkLaunch: "thinking" });
+    await h.launch({ context: "fork", requested: { maxTurns: 20 } });
+    expect(Object.keys(questionsOf(h)).sort()).toEqual(["effort", "risky", "turns"]);
+  });
+
   test("Service launch content", async () => {
     const h = harness();
     await h.launch({
@@ -761,5 +767,70 @@ describe("Launch policy capability read", () => {
     );
     expect(() => routing.start(harness().ctx as never)).not.toThrow();
     expect(routing.problems()).toEqual([]);
+  });
+});
+
+describe("Turn floor", () => {
+  const LONG = { long: 0.6, short: 0.4 };
+  const limited = { requested: { maxTurns: 20 } };
+
+  test("Limited launch asks turns", async () => {
+    const h = harness();
+    await h.launch(limited);
+    expect(Object.keys(questionsOf(h))).toContain("turns");
+  });
+
+  test("Unlimited launch does not ask turns", async () => {
+    const h = harness();
+    await h.launch();
+    expect(Object.keys(questionsOf(h))).not.toContain("turns");
+  });
+
+  test("Turn limit raised", async () => {
+    const h = harness();
+    h.setScript(() => ok(body("basic", "medium", LONG)));
+    expect((await h.launch(limited)).adjustment).toMatchObject({ maxTurns: 100 });
+  });
+
+  test("Turn limit left alone", async () => {
+    const h = harness();
+    h.setScript(() => ok(body("basic", "medium", LONG)));
+    const locked = await h.launch({ ...limited, locked: ["max_turns"] });
+    expect(locked.adjustment).not.toHaveProperty("maxTurns");
+    const above = await h.launch({ requested: { maxTurns: 120 } });
+    expect(above.adjustment).not.toHaveProperty("maxTurns");
+    h.setScript(() => ok(body("basic", "medium", LONG)));
+    const none = await h.launch();
+    expect(none.adjustment).not.toHaveProperty("maxTurns");
+  });
+
+  test("Switch off keeps the turn limit", async () => {
+    const h = harness({ switches: { subagents: false } });
+    const { adjustment } = await h.launch(limited);
+    expect(h.asks).toHaveLength(0);
+    expect(adjustment).toBeUndefined();
+  });
+
+  test("Jev failure keeps the turn limit", async () => {
+    const h = harness();
+    h.setScript(() => ({ kind: "miss", miss: "error", reason: "HTTP 500", ms: 1 }));
+    expect((await h.launch(limited)).adjustment).toBeUndefined();
+  });
+
+  test("Turns unanswered", async () => {
+    const h = harness();
+    h.setScript(() => ok(body("basic")));
+    const { adjustment } = await h.launch(limited);
+    expect(adjustment).toMatchObject({ model: "fx/fast", thinking: "medium" });
+    expect(adjustment).not.toHaveProperty("maxTurns");
+  });
+
+  test("Both fields locked with a turn limit", async () => {
+    const h = harness();
+    await h.launch({
+      requested: { maxTurns: 20, model: "fx/x", thinking: "low" },
+      locked: ["model", "thinking"],
+    });
+    expect(Object.keys(questionsOf(h))).toEqual(["turns"]);
   });
 });
