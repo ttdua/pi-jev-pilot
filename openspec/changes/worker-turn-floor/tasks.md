@@ -2,9 +2,9 @@
 
 Blocked by: none
 
-- [ ] 1.1 Bump `devDependencies["@ttdua/pi-subagents"]` in `package.json` to `github:ttdua/pi-subagents#v0.2.0` and refresh `bun.lock` with `bun install`
-- [ ] 1.2 Update the executor install line to `pi install git:github.com/ttdua/pi-subagents@v0.2.0` in `README.md` and `docs/usage-guide.md` (the real-file check in `tests/release.test.ts` must pass; fixture strings in that test and dated `docs/evidence/` links stay as they are)
-- [ ] 1.3 Confirm `LaunchRequest["requested"]["maxTurns"]` and `LaunchAdjustment["maxTurns"]` type-check from `node_modules/@ttdua/pi-subagents`, and that `tests/host/worker-fakes.ts` `launchRequest()` still builds a valid request
+- [x] 1.1 Bump `devDependencies["@ttdua/pi-subagents"]` in `package.json` to `github:ttdua/pi-subagents#v0.2.0` and refresh `bun.lock` with `bun install`
+- [x] 1.2 Update the executor install line to `pi install git:github.com/ttdua/pi-subagents@v0.2.0` in `README.md` and `docs/usage-guide.md` (the real-file check in `tests/release.test.ts` must pass; fixture strings in that test and dated `docs/evidence/` links stay as they are)
+- [x] 1.3 Confirm `LaunchRequest["requested"]["maxTurns"]` and `LaunchAdjustment["maxTurns"]` type-check from `node_modules/@ttdua/pi-subagents`, and that `tests/host/worker-fakes.ts` `launchRequest()` still builds a valid request
 
 ## 2. Turns question and wording
 
