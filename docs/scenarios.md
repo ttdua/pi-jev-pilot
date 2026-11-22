@@ -25,6 +25,8 @@ What each scenario changes for you, when it applies, and which rule wins.
 
 **What the package decides.** The model tier and thinking level of each launch, so one command shifts the whole tier mix. The tier follows the knowledge the task needs (`basic`, `broad`, `deep`, `frontier`); the thinking level follows how much work and care it needs.
 
+**Turn floor.** A launch with a turn limit (`max_turns`) that its agent does not lock gets a question about the expected workload (`short`, `medium`, `long`, `very_long`). When the median band needs more turns than the limit allows, Jev raises the limit to that band's floor: `medium` 40, `long` 100, `very_long` 200. It never lowers a limit and never adds one. A launch whose route is otherwise untouched but that has a limit gets only this question, and nothing else changes.
+
 ## Reviews go to your reviewer model
 
 **When it applies.** You configured a `reviewer` slot in `config.json` and a worker brief asks for a review.
@@ -47,8 +49,9 @@ Three kinds of list follow. In a "first match wins" list, the first rule that ap
 
 Guards first. They leave a launch alone, or partly alone:
 
-- `resume`, or a fork with `untouched`: the launch is not changed.
-- Agent `locked`: if the model is locked, only thinking is written; if both are locked, the launch is untouched.
+- `resume`, or a fork with `untouched`: the model and thinking are not changed.
+- Agent `locked`: if the model is locked, only thinking is written; if both are locked, the model and thinking are untouched.
+- Turn floor: a launch with a limit that the agent does not lock is asked `turns` even when the guards above leave its route untouched; the floor only raises the limit.
 
 Target, first match wins:
 

@@ -42,7 +42,7 @@ Each table lists a feature, what you notice in your sessions while it is on, and
 
 | Feature | When it is on | Turn it off |
 |---|---|---|
-| Routing by knowledge and effort | Each eligible `subagent` launch gets a model tier chosen from the knowledge the task needs and a thinking level chosen from how much work and care it needs, overriding what the main model asked for. Resumed launches and, by default, forked launches are left alone. An agent file that locks only the model still gets its thinking set; lock both to leave a launch untouched. | `/jev subagents off` |
+| Routing by knowledge and effort | Each eligible `subagent` launch gets a model tier chosen from the knowledge the task needs and a thinking level chosen from how much work and care it needs, overriding what the main model asked for. Resumed launches and, by default, forked launches are left alone. An agent file that locks only the model still gets its thinking set; lock both to leave a launch untouched. A turn limit too tight for the brief is raised, never lowered and never added. | `/jev subagents off` |
 | Modes | One command shifts the whole tier mix, for this directory or for all of them. | No off switch: `standard` is the default. `/jev mode clear` removes a directory mode; `/jev subagents off` stops routing. |
 | Frontier tier | Work that needs the rarest knowledge can run on your `frontier` model, within a small cap per mode. | `/jev frontier off` |
 | Subagent list | While subagents run, a list appears below the editor; `↓` or `←` on an empty prompt enters it and `Enter` opens an agent's transcript. | `/subagents:settings` → `Fleet view` |

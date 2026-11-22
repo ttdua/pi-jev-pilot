@@ -42,7 +42,7 @@ The harness lives in `tests/host/`: the real CLI in RPC mode, an isolated agent 
 
 ### Executor dependency
 
-The executor lives in [ttdua/pi-subagents](https://github.com/ttdua/pi-subagents) and runs its own suite there. This repository pins it as a dev dependency (`github:ttdua/pi-subagents#v0.1.1`) for types and for the host harness, which installs it from `node_modules`. `tests/release.test.ts` checks that the executor install line in the README and usage guide uses the same tag. Bumping the pin reruns the host tests.
+The executor lives in [ttdua/pi-subagents](https://github.com/ttdua/pi-subagents) and runs its own suite there. This repository pins it as a dev dependency (`github:ttdua/pi-subagents#v0.2.0`) for types and for the host harness, which installs it from `node_modules`. `tests/release.test.ts` checks that the executor install line in the README and usage guide uses the same tag. Bumping the pin reruns the host tests.
 
 **Manual Q8 procedure** (not in CI): `bun tests/host/manual/q8-claude-code.ts`. Needs a `claude` login; prints counts only, never prompts or bodies.
 
