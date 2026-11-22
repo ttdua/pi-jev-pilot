@@ -27,8 +27,8 @@ Blocked by: 1, 2
 
 Blocked by: 3
 
-- [ ] 4.1 Add `requestedTurns`, `turnsP` and `turnFloor` to `WorkerEntry`, `LEDGER_FIELDS.worker` (after `locked`) and `workerShape` in `src/store/ledger-schema.ts` with a turns distribution domain; tests in `tests/store/ledger-schema.test.ts` and `tests/store/ledger-pin.test.ts` (spec `decision-ledger`)
-- [ ] 4.2 Add the turn fields to `workerLine` in `src/policy/worker/worker-line.ts` (input gains `turnsQuestion` and `requestedTurns`); tests in `tests/policy/worker/worker-line.test.ts` for each `worker-ledger` "Worker turn fields" scenario and the qualified "Untouched recorded"
+- [x] 4.1 Add `requestedTurns`, `turnsP` and `turnFloor` to `WorkerEntry`, `LEDGER_FIELDS.worker` (after `locked`) and `workerShape` in `src/store/ledger-schema.ts` with a turns distribution domain; tests in `tests/store/ledger-schema.test.ts` and `tests/store/ledger-pin.test.ts` (spec `decision-ledger`)
+- [x] 4.2 Add the turn fields to `workerLine` in `src/policy/worker/worker-line.ts` (input gains `turnsQuestion` and `requestedTurns`); tests in `tests/policy/worker/worker-line.test.ts` for each `worker-ledger` "Worker turn fields" scenario and the qualified "Untouched recorded"
 
 ## 5. Host wiring
 

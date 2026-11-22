@@ -49,7 +49,7 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 
 #### Scenario: Unknown band rejected
 - **WHEN** a worker entry's `turnsP` has the key `huge`
-- **THEN** validation fails with an issue at `turnsP`
+- **THEN** validation fails with an issue at `turnsP.huge`
 
 ### Requirement: Ledger line schema
 Every ledger line SHALL be one JSON object whose fields are exactly those allowed for its `kind` below; any other key MUST be rejected as `unknown key`. Fields marked required MUST be present.
