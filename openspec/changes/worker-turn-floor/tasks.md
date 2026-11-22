@@ -34,10 +34,10 @@ Blocked by: 3
 
 Blocked by: 1, 4
 
-- [ ] 5.1 In `src/host/worker/classify.ts`, build the request from `routeQuestions` and `turnsQuestion`, so a turns-only launch asks only `turns`
-- [ ] 5.2 Add `maxTurns` to `RouteWrite` in `src/host/worker/route.ts` and copy it from the route; pass `turnsQuestion` and `requestedTurns` to `workerLine` in `src/host/worker/outcomes.ts`
-- [ ] 5.3 Host tests in `tests/host/worker-routing.test.ts`: `max_turns` 20 rated `long` gives an adjustment `maxTurns` 100 and the executor record's `turnBudget.maxTurns` 100; an unlimited launch, a locked `max_turns` and a limit of 120 send no `maxTurns` and no `turns` question as specified; Jev HTTP 500 and unanswered `turns` keep the limit; switch off sends nothing; a locked-model-and-thinking launch with a limit sends a turns-only request
-- [ ] 5.4 Host tests in `tests/host/worker-ledger.test.ts` for the raised, asked-not-raised, turns-only and miss lines
+- [x] 5.1 In `src/host/worker/classify.ts`, build the request from `routeQuestions` and `turnsQuestion`, so a turns-only launch asks only `turns`
+- [x] 5.2 Add `maxTurns` to `RouteWrite` in `src/host/worker/route.ts` and copy it from the route; pass `turnsQuestion` and `requestedTurns` to `workerLine` in `src/host/worker/outcomes.ts`
+- [x] 5.3 Host tests in `tests/host/worker-routing.test.ts`: `max_turns` 20 rated `long` gives an adjustment `maxTurns` 100 and the executor record's `turnBudget.maxTurns` 100; an unlimited launch, a locked `max_turns` and a limit of 120 send no `maxTurns` and no `turns` question as specified; Jev HTTP 500 and unanswered `turns` keep the limit; switch off sends nothing; a locked-model-and-thinking launch with a limit sends a turns-only request
+- [x] 5.4 Host tests in `tests/host/worker-ledger.test.ts` for the raised, asked-not-raised, turns-only and miss lines
 
 ## 6. Docs and changelog
 
