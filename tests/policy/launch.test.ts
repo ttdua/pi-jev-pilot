@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   LEGACY_TIER,
   TIER_LADDER,
+  canRaiseTurns,
   effectiveLaunch,
   isSlot,
   slotName,
@@ -29,6 +30,7 @@ describe("Effective launch fields", () => {
     context: "fresh",
     isBackground: false,
     locked: [],
+    requestedMaxTurns: undefined,
     ...over,
   });
 
@@ -60,8 +62,42 @@ describe("Effective launch fields", () => {
 
   test("Resume is not a launch field", () => {
     expect(Object.keys(effectiveLaunch(request())).sort()).toEqual(
-      ["context", "modelLocked", "runInBackground", "thinkingLocked"].sort(),
+      [
+        "context",
+        "maxTurns",
+        "modelLocked",
+        "runInBackground",
+        "thinkingLocked",
+        "turnsLocked",
+      ].sort(),
     );
+  });
+});
+
+describe("Turn limit of a launch", () => {
+  type Req = Parameters<typeof effectiveLaunch>[0];
+  const turns = (over: Partial<Req>) =>
+    effectiveLaunch({
+      origin: { kind: "service" },
+      callerNamedModel: false,
+      context: "fresh",
+      isBackground: false,
+      locked: [],
+      requestedMaxTurns: undefined,
+      ...over,
+    });
+  test("Limited launch", () => {
+    const l = turns({ requestedMaxTurns: 20 });
+    expect(l).toMatchObject({ maxTurns: 20, turnsLocked: false });
+    expect(canRaiseTurns(l)).toBe(true);
+  });
+  test("Unlimited launch", () => {
+    expect(canRaiseTurns(turns({}))).toBe(false);
+  });
+  test("Locked limit", () => {
+    const l = turns({ requestedMaxTurns: 20, locked: ["max_turns"] });
+    expect(l.turnsLocked).toBe(true);
+    expect(canRaiseTurns(l)).toBe(false);
   });
 });
 

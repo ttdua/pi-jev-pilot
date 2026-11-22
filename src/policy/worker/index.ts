@@ -12,4 +12,4 @@ export {
 export { MODE_NAMES, MODE_TARGETS, type ModeName } from "./modes.ts";
 export { launchKind, type LaunchKind, type Route, routeLaunch } from "./route.ts";
 export { difficultyScore } from "./score.ts";
-export { TURN_BANDS, type TurnBand } from "./turns.ts";
+export { BAND_FLOOR, TURN_BANDS, type TurnBand, turnFloor, turnWrite } from "./turns.ts";
