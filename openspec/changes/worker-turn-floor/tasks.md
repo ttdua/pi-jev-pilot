@@ -18,10 +18,10 @@ Blocked by: none
 
 Blocked by: 1, 2
 
-- [ ] 3.1 Extend `LaunchRequestFacts` (`requestedMaxTurns`) and `EffectiveLaunch` (`maxTurns`, `turnsLocked`) in `src/policy/launch.ts`, add `canRaiseTurns`, and pass `requestedMaxTurns: request.requested.maxTurns` from `src/host/worker/request.ts`; test in `tests/policy/launch.test.ts` (spec `worker-decision` "Turn limit of a launch")
-- [ ] 3.2 Add `turnFloor` and `turnWrite` to `src/policy/worker/turns.ts` with `BAND_FLOOR`, cumulative from the top, 1e-9 tolerance, missing bands as 0; table tests in `tests/policy/worker/turns.test.ts` for every "Turn floor" and "Turn write" scenario
-- [ ] 3.3 Change `LaunchKind` in `src/policy/worker/route.ts` to `ask` with `routeQuestions`, `tierQuestion`, `turnsQuestion`, `locked`, keeping `untouched` only when the launch cannot raise; update `tests/policy/worker/route.test.ts` and the reference table in `tests/policy/worker/route-pin.test.ts` (spec "Launches left untouched")
-- [ ] 3.4 In `routeLaunch`, add the turns-only route and merge the turn write into every `routed` path (thinking-only, locked, placed, nothing can run); record `turnFloor`; miss and cancel write no `maxTurns`; tests for each `worker-decision` scenario that names a turn floor, and keep every existing route test green
+- [x] 3.1 Extend `LaunchRequestFacts` (`requestedMaxTurns`) and `EffectiveLaunch` (`maxTurns`, `turnsLocked`) in `src/policy/launch.ts`, add `canRaiseTurns`, and pass `requestedMaxTurns: request.requested.maxTurns` from `src/host/worker/request.ts`; test in `tests/policy/launch.test.ts` (spec `worker-decision` "Turn limit of a launch")
+- [x] 3.2 Add `turnFloor` and `turnWrite` to `src/policy/worker/turns.ts` with `BAND_FLOOR`, cumulative from the top, 1e-9 tolerance, missing bands as 0; table tests in `tests/policy/worker/turns.test.ts` for every "Turn floor" and "Turn write" scenario
+- [x] 3.3 Change `LaunchKind` in `src/policy/worker/route.ts` to `ask` with `routeQuestions`, `tierQuestion`, `turnsQuestion`, `locked`, keeping `untouched` only when the launch cannot raise; update `tests/policy/worker/route.test.ts` and the reference table in `tests/policy/worker/route-pin.test.ts` (spec "Launches left untouched")
+- [x] 3.4 In `routeLaunch`, add the turns-only route and merge the turn write into every `routed` path (thinking-only, locked, placed, nothing can run); record `turnFloor`; miss and cancel write no `maxTurns`; tests for each `worker-decision` scenario that names a turn floor, and keep every existing route test green
 
 ## 4. Ledger turn fields
 
