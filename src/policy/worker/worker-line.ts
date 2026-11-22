@@ -3,6 +3,7 @@ import type { TierName } from "../launch.ts";
 import type { WorkerAnswers } from "./answers.ts";
 import { decisionFields } from "./ledger-line.ts";
 import type { Route } from "./route.ts";
+import { TURN_BANDS } from "./turns.ts";
 
 /** The classifier result as the line reads it; `JevOutcome` from `jev/` satisfies it structurally. */
 export type WorkerReply =
@@ -33,6 +34,10 @@ export type WorkerLineInput = {
   route: Route | undefined;
   offered: readonly TierName[];
   tierQuestion: boolean;
+  /** Whether `turns` was asked for this launch. */
+  turnsQuestion: boolean;
+  /** The launch's own `maxTurns`; absent for an unlimited launch. */
+  requestedTurns: number | undefined;
   rubric: number;
   callerModel: string | undefined;
   outcome: ExecutorOutcome | undefined;
@@ -92,7 +97,24 @@ function answerFields(line: Line, input: WorkerLineInput): void {
   put(line, "effortP", probabilities(answers.answers["effort"], EFFORT_KEYS));
 }
 
-function routeFields(line: Line, route: Exclude<Route, { kind: "skip" }>): void {
+// Ledger order: requestedTurns, turnsP, turnFloor.
+function turnFields(
+  line: Line,
+  input: WorkerLineInput,
+  route: Exclude<Route, { kind: "skip" }>,
+): void {
+  if (input.turnsQuestion) put(line, "requestedTurns", input.requestedTurns);
+  if (input.answers?.kind === "read") {
+    put(line, "turnsP", probabilities(input.answers.answers["turns"], TURN_BANDS));
+  }
+  if (route.kind === "routed") put(line, "turnFloor", route.record.turnFloor);
+}
+
+function routeFields(
+  line: Line,
+  route: Exclude<Route, { kind: "skip" }>,
+  input: WorkerLineInput,
+): void {
   if (route.kind === "untouched") {
     line["reason"] = "untouched";
     if (route.locked === true) line["locked"] = true;
@@ -104,6 +126,7 @@ function routeFields(line: Line, route: Exclude<Route, { kind: "skip" }>): void 
   put(line, "fallback", record.fallback);
   put(line, "effort", record.effort);
   if (record.locked === true) line["locked"] = true;
+  turnFields(line, input, route);
   put(line, "model", route.write.model);
 }
 
@@ -143,7 +166,7 @@ export function workerLine(input: WorkerLineInput): Line | undefined {
       rubric: input.rubric,
     }),
   );
-  routeFields(line, route);
+  routeFields(line, route, input);
   put(line, "callerModel", input.callerModel);
   executorFields(line, input.outcome);
   put(line, "effectiveModel", input.effective?.model);

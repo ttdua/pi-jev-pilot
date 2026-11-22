@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Answer } from "../../../src/policy/answers.ts";
 import type { WorkerAnswers } from "../../../src/policy/worker/answers.ts";
 import type { Route } from "../../../src/policy/worker/route.ts";
+import { validateLedgerEntry } from "../../../src/store/ledger-schema.ts";
 import { workerLine, type WorkerLineInput } from "../../../src/policy/worker/worker-line.ts";
 
 const tierAnswer: Answer = {
@@ -36,6 +37,8 @@ const input = (over: Partial<WorkerLineInput> = {}): WorkerLineInput => ({
   route: routed,
   offered: ["basic", "broad", "deep"],
   tierQuestion: true,
+  turnsQuestion: false,
+  requestedTurns: undefined,
   rubric: 2,
   callerModel: undefined,
   outcome: { status: "completed", durationMs: 1200.6, toolUses: 3, tokens: { total: 11 } },
@@ -158,5 +161,122 @@ describe("workerLine", () => {
     const partial = workerLine(input({ effective: { model: "fx/fast" } }));
     expect(partial).toMatchObject({ effectiveModel: "fx/fast" });
     expect(partial).not.toHaveProperty("effectiveThinking");
+  });
+
+  describe("turn fields", () => {
+    const turnsAnswer: Answer = {
+      type: "choice",
+      choice: "long",
+      probabilities: { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1, bogus: 0.9 },
+    };
+    const withTurns = (answers: Record<string, Answer>): WorkerAnswers => ({
+      kind: "read",
+      answers,
+      unanswered: {},
+    });
+    const valid = (line: Record<string, unknown> | undefined) => {
+      expect(validateLedgerEntry(line).ok).toBe(true);
+    };
+
+    test("Raised limit recorded", () => {
+      const line = workerLine(
+        input({
+          turnsQuestion: true,
+          requestedTurns: 20,
+          answers: withTurns({ tier: tierAnswer, effort: effortAnswer, turns: turnsAnswer }),
+          route: {
+            kind: "routed",
+            write: { model: "fx/fast", thinking: "medium", maxTurns: 100 },
+            record: { reason: "cut", tier: "basic", effort: "medium", turnFloor: 100 },
+          },
+        }),
+      );
+      expect(line).toMatchObject({
+        requestedTurns: 20,
+        turnsP: { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 },
+        turnFloor: 100,
+        tier: "basic",
+      });
+      const keys = Object.keys(line ?? {});
+      expect(keys.slice(keys.indexOf("effort"))).toEqual(
+        expect.arrayContaining(["requestedTurns", "turnsP", "turnFloor", "model"]),
+      );
+      expect(keys.indexOf("requestedTurns")).toBeLessThan(keys.indexOf("turnsP"));
+      expect(keys.indexOf("turnsP")).toBeLessThan(keys.indexOf("turnFloor"));
+      expect(keys.indexOf("turnFloor")).toBeLessThan(keys.indexOf("model"));
+      valid(line);
+    });
+
+    test("Asked but not raised", () => {
+      const line = workerLine(
+        input({
+          turnsQuestion: true,
+          requestedTurns: 120,
+          answers: withTurns({ tier: tierAnswer, turns: turnsAnswer }),
+        }),
+      );
+      expect(line).toMatchObject({ requestedTurns: 120 });
+      expect(line).toHaveProperty("turnsP");
+      expect(line).not.toHaveProperty("turnFloor");
+      valid(line);
+    });
+
+    test("Unlimited launch", () => {
+      const line = workerLine(input());
+      for (const k of ["requestedTurns", "turnsP", "turnFloor"]) {
+        expect(line).not.toHaveProperty(k);
+      }
+      valid(line);
+    });
+
+    test("Turns-only recorded", () => {
+      const line = workerLine(
+        input({
+          turnsQuestion: true,
+          requestedTurns: 20,
+          answers: withTurns({ turns: { ...turnsAnswer, choice: "very_long" } }),
+          route: {
+            kind: "routed",
+            write: { maxTurns: 200 },
+            record: { reason: "untouched", turnFloor: 200, locked: true },
+          },
+          tierQuestion: false,
+        }),
+      );
+      expect(line).toMatchObject({
+        reason: "untouched",
+        answered: true,
+        locked: true,
+        requestedTurns: 20,
+        turnFloor: 200,
+      });
+      for (const k of ["tier", "model", "effort", "score", "rubric"]) {
+        expect(line).not.toHaveProperty(k);
+      }
+      valid(line);
+    });
+
+    test("Turn miss recorded", () => {
+      const line = workerLine(
+        input({
+          turnsQuestion: true,
+          requestedTurns: 20,
+          answers: { kind: "miss", miss: "timeout" },
+          jev: { kind: "miss", miss: "timeout", ms: 30 },
+          route: { kind: "routed", write: {}, record: { reason: "miss" } },
+        }),
+      );
+      expect(line).toMatchObject({ requestedTurns: 20, answered: false, miss: "timeout" });
+      expect(line).not.toHaveProperty("turnsP");
+      expect(line).not.toHaveProperty("turnFloor");
+      valid(line);
+    });
+
+    test("Untouched recorded", () => {
+      const line = workerLine(input({ route: { kind: "untouched", locked: true } }));
+      expect(line).toMatchObject({ reason: "untouched", locked: true });
+      expect(line).not.toHaveProperty("requestedTurns");
+      valid(line);
+    });
   });
 });
