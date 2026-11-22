@@ -14,7 +14,7 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ### Changed
 
-- Requires `@ttdua/pi-subagents` v0.2.0 (raise-only `maxTurns` in the launch policy).
+- The turn floor needs `@ttdua/pi-subagents` v0.2.0 (raise-only `maxTurns` in the launch policy); older executors keep working without it.
 - `effort.holdProviders` defaults to `[]`. To keep the old behaviour, add `"effort": {"holdProviders": ["9router"]}` to `config.json`.
 
 ## [0.6.0] - 2026-11-20

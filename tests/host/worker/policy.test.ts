@@ -777,7 +777,7 @@ describe("Turn floor", () => {
   test("Limited launch asks turns", async () => {
     const h = harness();
     await h.launch(limited);
-    expect(Object.keys(questionsOf(h))).toContain("turns");
+    expect(Object.keys(questionsOf(h))).toEqual(["tier", "effort", "risky", "turns"]);
   });
 
   test("Unlimited launch does not ask turns", async () => {

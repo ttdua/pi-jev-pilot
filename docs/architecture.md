@@ -77,6 +77,7 @@ src/
       score.ts              Difficulty score
       seed.ts               Seed cut points (data)
       tier.ts               Model decision order
+      turns.ts              Turn bands, floor and raise-only write
 
   shared/                   Dependency-free rules used by more than one module
     text.ts                 Code-point cut
