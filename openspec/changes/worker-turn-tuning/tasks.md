@@ -44,8 +44,8 @@ Blocked by: 4
 
 Blocked by: 4, 5
 
-- [ ] 6.1 Add `turnSignals(lines, floors)` in `src/policy/tuning/turn-signals.ts` using `floor-runs.ts` and `nextFloor` with no block; export it and `TurnSignal` from `src/policy/tuning/index.ts`
-- [ ] 6.2 Tests in `tests/policy/tuning/turn-signals.test.ts` for every `tuning-signals` "Turn signals per band" and "Turn signal order" scenario, plus input-unchanged
+- [x] 6.1 Add `turnSignals(lines, floors)` in `src/policy/tuning/turn-signals.ts` using `floor-runs.ts` and `nextFloor` with no block; export it and `TurnSignal` from `src/policy/tuning/index.ts`
+- [x] 6.2 Tests in `tests/policy/tuning/turn-signals.test.ts` for every `tuning-signals` "Turn signals per band" and "Turn signal order" scenario, plus input-unchanged
 
 ## 7. Texts, report and host
 
