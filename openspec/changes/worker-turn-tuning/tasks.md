@@ -51,9 +51,9 @@ Blocked by: 4, 5
 
 Blocked by: 2, 5, 6
 
-- [ ] 7.1 In `src/policy/tuning/text.ts`, add parameter-aware change lines, the multi-parameter session-start line, the floor undo message, the new reset message, the `turnFloor:` line, floor pending and block lines, floor history lines and the turn signal block; extend `TuneView`; tests in `tests/policy/tuning/text.test.ts` with the exact texts from `tuning-host` and `tune-command`
-- [ ] 7.2 In `src/host/tuning/command.ts`, build the floor parts of `TuneView` from the snapshot (effective floors, tuned-from only while the config is valid, floor pending and block from the record with counted runs), compute turn signals, and route undo and reset through the new transitions (reset writes when any band state exists); tests in `tests/host/tuning/command.test.ts` for every `tune-command` scenario
-- [ ] 7.3 Check `src/host/tuning/step.ts` and `seen.ts` pass events and history through unchanged; tests in `tests/host/tuning/step.test.ts`, `seen.test.ts` and `tests/host/tuning-host.test.ts` for the floor applied, reverted and superseded lines, the several-parameter session-start line, and a settle that tunes a floor from a ledger of 200 counted `long` runs with no Jev request beyond the turn's own
+- [x] 7.1 In `src/policy/tuning/text.ts`, add parameter-aware change lines, the multi-parameter session-start line, the floor undo message, the new reset message, the `turnFloor:` line, floor pending and block lines, floor history lines and the turn signal block; extend `TuneView`; tests in `tests/policy/tuning/text.test.ts` with the exact texts from `tuning-host` and `tune-command`
+- [x] 7.2 In `src/host/tuning/command.ts`, build the floor parts of `TuneView` from the snapshot (effective floors, tuned-from only while the config is valid, floor pending and block from the record with counted runs), compute turn signals, and route undo and reset through the new transitions (reset writes when any band state exists); tests in `tests/host/tuning/command.test.ts` for every `tune-command` scenario
+- [x] 7.3 Check `src/host/tuning/step.ts` and `seen.ts` pass events and history through unchanged; tests in `tests/host/tuning/step.test.ts`, `seen.test.ts` and `tests/host/tuning-host.test.ts` for the floor applied, reverted and superseded lines, the several-parameter session-start line, and a settle that tunes a floor from a ledger of 200 counted `long` runs with no Jev request beyond the turn's own
 
 ## 8. ADR, docs and changelog
 
