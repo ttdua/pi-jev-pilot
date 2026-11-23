@@ -68,14 +68,15 @@ describe("burst rule", () => {
 
   test("Steps under sustained timeouts", () => {
     let record = tuned(1700);
+    const ledger: DecisionLine[] = [];
     const values: number[] = [];
     for (let i = 1; i <= 5; i++) {
       const now = i * 1000 + 1000;
-      const out = step(record, timeouts(3, now - 900), 1500, now);
+      ledger.push(...timeouts(3, now - 900));
+      const out = step(record, ledger, 1500, now);
       const event = out.events[0];
       if (event !== undefined) values.push(event.to);
       record = out.record;
-      // Appending 3 timeouts per round: earlier rounds stay in the ledger too.
     }
     expect(values).toEqual([2200, 2800, 3500, 4400, 5000]);
   });

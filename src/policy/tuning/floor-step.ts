@@ -99,7 +99,7 @@ export type UndoTarget =
 
 /**
  * The `from` of the latest `rule` entry of `parameter` that raised or lowered to `value` and was
- * not undone. Each `undo` reverses one earlier `rule` entry with the opposite transition, newest first.
+ * not undone. Each `undo` or `revert` reverses one earlier `rule` entry with the opposite transition, newest first.
  */
 export function ruleOrigin(
   history: TuningRecord["history"],
@@ -109,7 +109,7 @@ export function ruleOrigin(
   const undos: Array<{ from: number; to: number }> = [];
   for (const h of [...(history ?? [])].reverse()) {
     if (h.parameter !== parameter) continue;
-    if (h.cause === "undo") undos.push({ from: h.from, to: h.to });
+    if (h.cause === "undo" || h.cause === "revert") undos.push({ from: h.from, to: h.to });
     if (h.cause !== "rule") continue;
     const undone = undos.findIndex((u) => u.from === h.to && u.to === h.from);
     if (undone >= 0) undos.splice(undone, 1);

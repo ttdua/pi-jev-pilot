@@ -285,3 +285,24 @@ describe("step from an out-of-order record", () => {
     ]);
   });
 });
+
+describe("undo of a reverted floor rule", () => {
+  test("Floor rule reversed by a revert is skipped", () => {
+    let rec: TuningRecord = {
+      turnFloors: { long: { changedAt: 40, tuned: { value: 150, base: 100 } } },
+      history: [
+        floorEntry("long", 10, 100, 120),
+        floorEntry("long", 20, 120, 150),
+        floorEntry("long", 30, 150, 120),
+        floorEntry("long", 40, 120, 150, "revert"),
+      ],
+    };
+    const values: Array<number | undefined> = [];
+    for (let i = 0; i < 2; i++) {
+      rec = undoTuning(rec, 5000 + i).record;
+      // Undone to the builtin 100 clears `tuned`.
+      values.push(rec.turnFloors?.long?.tuned?.value ?? 100);
+    }
+    expect(values).toEqual([120, 100]);
+  });
+});

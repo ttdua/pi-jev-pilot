@@ -758,4 +758,15 @@ describe("undo walk-back", () => {
     };
     expect(undoAll(rec, 3)).toEqual([2400, 3000, 2400]);
   });
+
+  test("Reverted rule skipped by repeated undo", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 3000, base: 1500 },
+      history: [
+        ...hist([1500, 1900], [1900, 2400], [2400, 3000], [3000, 2400]),
+        { at: 20, parameter: "timeoutMs", from: 2400, to: 3000, cause: "revert" },
+      ],
+    };
+    expect(undoAll(rec, 3)).toEqual([2400, 1900, 1500]);
+  });
 });
