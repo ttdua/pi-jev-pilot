@@ -15,6 +15,7 @@ export type LedgerKind = "main" | "worker" | "correction";
 
 export type Level = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
+export type TurnBandKey = "short" | "medium" | "long" | "very_long";
 export type Miss = "timeout" | "error" | "schema";
 export type Strategy = "direct" | "delegate" | "parallel" | "graph";
 export type WorkerReason =
@@ -86,11 +87,16 @@ export type WorkerEntry = Common &
     reason: WorkerReason;
     callerModel?: string;
     locked?: boolean;
+    requestedTurns?: number;
+    turnsP?: Partial<Record<TurnBandKey, number>>;
+    turnFloor?: number;
     toolsScored?: number;
     toolsFlagged?: number;
     toolsGranted?: number;
     tokens?: number;
     toolUses?: number;
+    turnsUsed?: number;
+    turnPhase?: (typeof TURN_PHASES)[number];
     effectiveModel?: string;
     effectiveThinking?: Level;
     status: "completed" | "aborted" | "stopped" | "error";
@@ -147,11 +153,16 @@ export const LEDGER_FIELDS: Readonly<Record<LedgerKind, readonly string[]>> = {
     "reason",
     "callerModel",
     "locked",
+    "requestedTurns",
+    "turnsP",
+    "turnFloor",
     "toolsScored",
     "toolsFlagged",
     "toolsGranted",
     "tokens",
     "toolUses",
+    "turnsUsed",
+    "turnPhase",
     "effectiveModel",
     "effectiveThinking",
     "status",
@@ -185,6 +196,10 @@ const DECIDING_REASONS: readonly string[] = [
   "expert", // DEPRECATED(remove next minor)
   "cut",
 ];
+/** Mirrors `TURN_PHASES` in policy/worker; the store cannot import policy, a test pins them equal. */
+export const TURN_PHASES = ["within", "warned", "exhausted"] as const;
+/** Mirrors `TURN_BANDS` in policy/worker; the store cannot import policy, a test pins them equal. */
+export const TURN_BAND_KEYS = ["short", "medium", "long", "very_long"] as const;
 const MAX_TARGETS = 12;
 
 function fail(issues: Issue[], path: string, message: string): undefined {
@@ -343,11 +358,16 @@ function workerShape(kind: LedgerKind) {
       reason: oneOf([...DECIDING_REASONS, "untouched", "miss"] as const),
       callerModel: string({ pattern: CALLER_MODEL }),
       locked: boolean(),
+      requestedTurns: count(),
+      turnsP: record(oneOf(TURN_BAND_KEYS), probability(), TURN_BAND_KEYS.length),
+      turnFloor: count(),
       toolsScored: count(),
       toolsFlagged: count(),
       toolsGranted: count(),
       tokens: count(),
       toolUses: count(),
+      turnsUsed: count(),
+      turnPhase: oneOf(TURN_PHASES),
       effectiveModel: string({ pattern: MODEL, max: 128 }),
       effectiveThinking: level(),
       status: oneOf(["completed", "aborted", "stopped", "error"] as const),

@@ -109,6 +109,7 @@ export function classifyLaunch(call: PolicyCall, deps: ClassifyDeps): LaunchEntr
     kind.tierQuestion ? offered : [],
     kind.tierQuestion ? tierNames(call.ctx, settings.tiers, offered) : {},
     kind.tierQuestion ? slotOptions(call.ctx, slots) : [],
+    { route: kind.routeQuestions, turns: kind.turnsQuestion },
   );
   const state = workerState(call, settings, entry);
   // Called detached: `ask` never receives a `this`.

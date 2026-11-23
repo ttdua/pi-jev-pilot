@@ -32,6 +32,8 @@ function writeLine(host: WorkerHost, held: Held<Decided>, outcome: ExecutorOutco
       route: launch.route,
       offered: launch.offered,
       tierQuestion: launch.kind.kind === "ask" && launch.kind.tierQuestion,
+      turnsQuestion: launch.kind.kind === "ask" && launch.kind.turnsQuestion,
+      requestedTurns: launch.launch.maxTurns,
       rubric: RUBRIC_VERSION,
       callerModel: launch.callerModel,
       outcome,

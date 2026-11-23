@@ -39,6 +39,19 @@ Offered beside the tiers, keyed `slot::<name>`, with this criterion:
 <model display name> (a custom model). <when>
 ```
 
+### Turns
+
+Choice, worker request only, asked when the launch can raise its turn limit.
+
+> How many steps and tool calls does a subagent need to finish this brief? Count the files to read and change, the commands to run and the checks to repeat until it is done. How rare the knowledge is and how much care the task needs are not turn signals.
+
+| Band | Criterion |
+|---|---|
+| `short` | Up to about 20 steps: a lookup, a single change with its check, or a short review. |
+| `medium` | About 20 to 40 steps: an ordinary change across a few files with tests to run and fix. |
+| `long` | About 40 to 100 steps: a change across many files, a feature with its tests, or a migration with repeated checks. |
+| `very_long` | More than about 100 steps: a large refactor or sweep over many files, or a long investigation with many runs. |
+
 ## `effort`
 
 Choice. The same five criteria for main and worker requests. The table lists them by rank. The options are sent in the order `high`, `medium`, `xhigh`, `low`, `max`, because Jev leans toward the first option ([replay](evidence/2026-11-07-state-replay.md#effort-option-order)).

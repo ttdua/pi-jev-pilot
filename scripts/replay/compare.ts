@@ -114,6 +114,8 @@ export const REPLAY_LAUNCH = (runInBackground: boolean): EffectiveLaunch => ({
   runInBackground,
   modelLocked: false,
   thinkingLocked: false,
+  maxTurns: undefined,
+  turnsLocked: false,
 });
 
 /** The model a target resolves to in a plain config; empty when unconfigured. */

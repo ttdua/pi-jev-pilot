@@ -104,7 +104,7 @@ The line SHALL carry the route fields: `score` when scored; `rubric` and `fronti
 - **THEN** the line has `answered` true, `reason` `untouched`, `effort` `high`, and no `tier`, `model`, `score` or `rubric`
 
 #### Scenario: Untouched recorded
-- **WHEN** a launch whose agent locks both `model` and `thinking` completes
+- **WHEN** a launch whose agent locks both `model` and `thinking`, and that has no turn limit, completes
 - **THEN** the line has `reason` `untouched`, `answered` false, and no `tier`, `model`, `score` or `rubric`
 
 #### Scenario: Tier asked, nothing decided
@@ -155,3 +155,49 @@ The `worker` line MUST NOT contain the brief, the description, tool names or too
 #### Scenario: No prompt text
 - **WHEN** a launch with a brief containing a unique marker is recorded
 - **THEN** no ledger file contains that marker
+
+### Requirement: Worker turn fields
+The line SHALL carry `requestedTurns` (the launch's `requested.maxTurns`) whenever `turns` was asked, `turnsP` (the band probabilities) when it was answered, and `turnFloor` (the `maxTurns` written) only when one was written; a launch that did not ask `turns` MUST carry none of them. They MUST pass the schema with `v` 1, and older lines MUST stay valid. A turns-only line SHALL read like a thinking-only one.
+
+#### Scenario: Raised limit recorded
+- **WHEN** a launch with `max_turns` 20 gets `turns` probabilities `short` .1, `medium` .2, `long` .6 and `very_long` .1, and is routed to `broad`
+- **THEN** its line has `requestedTurns` 20, `turnsP` with the four band keys, `turnFloor` 100, and `tier` `broad`
+
+#### Scenario: Asked but not raised
+- **WHEN** a launch with `max_turns` 120 is asked `turns` and the floor is 100
+- **THEN** its line has `requestedTurns` 120 and `turnsP`, and no `turnFloor`
+
+#### Scenario: Unlimited launch
+- **WHEN** a launch with no turn limit is routed
+- **THEN** its line has no `requestedTurns`, `turnsP` or `turnFloor`
+
+#### Scenario: Turns-only recorded
+- **WHEN** a launch whose agent locks both `model` and `thinking` has `max_turns` 20 and is rated `very_long` (floor 200)
+- **THEN** its line has `reason` `untouched`, `answered` true, `locked` true, `requestedTurns` 20, `turnFloor` 200, and no `tier`, `model`, `effort`, `score` or `rubric`
+
+#### Scenario: Turn miss recorded
+- **WHEN** a launch with `max_turns` 20 is asked `turns` and Jev times out
+- **THEN** its line has `requestedTurns` 20, `answered` false, `miss` `timeout`, and no `turnsP` or `turnFloor`
+
+#### Scenario: Old line still valid
+- **WHEN** a worker line written before this change, without the turn fields, is read
+- **THEN** it passes the ledger schema
+
+### Requirement: Worker turn use
+The line SHALL carry `turnsUsed` and `turnPhase` from the `turnBudget` of the executor's `subagents:completed` or `subagents:failed` event: `turnsUsed` from `used` and `turnPhase` from `phase`, which MUST be one of `within`, `warned` or `exhausted`. Each field SHALL be written only when the event carries a valid value, for every worker line whether or not `turns` was asked, and MUST pass the schema with `v` 1.
+
+#### Scenario: Turn use recorded
+- **WHEN** a worker with a turn limit completes and its event carries `turnBudget` `{ maxTurns: 100, used: 37, phase: "within" }`
+- **THEN** its line has `turnsUsed` 37 and `turnPhase` `within`
+
+#### Scenario: Exhausted run recorded
+- **WHEN** a worker stopped at its limit ends with `turnBudget` `{ maxTurns: 20, used: 20, phase: "exhausted" }`
+- **THEN** its line has `turnsUsed` 20 and `turnPhase` `exhausted`
+
+#### Scenario: No turn budget
+- **WHEN** a worker's event carries no `turnBudget`
+- **THEN** its line has no `turnsUsed` or `turnPhase`
+
+#### Scenario: Unknown phase dropped
+- **WHEN** a worker's event carries `turnBudget` with `used` 5 and `phase` `paused`
+- **THEN** its line has `turnsUsed` 5 and no `turnPhase`

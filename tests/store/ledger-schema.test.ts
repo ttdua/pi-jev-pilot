@@ -189,6 +189,9 @@ describe("ledger schema", () => {
         "expertOffered",
         "fallback",
         "locked",
+        "requestedTurns",
+        "turnsP",
+        "turnFloor",
         "model",
         "reason",
         "rubric",
@@ -198,6 +201,8 @@ describe("ledger schema", () => {
         "tierP",
         "tokens",
         "toolUses",
+        "turnsUsed",
+        "turnPhase",
         "toolsFlagged",
         "toolsScored",
         "toolsGranted",
@@ -206,6 +211,34 @@ describe("ledger schema", () => {
       ].sort(),
     );
     expect([...LEDGER_FIELDS.correction].sort()).toEqual([...common, "corrects", "turnId"].sort());
+  });
+
+  test("Worker line with turn fields accepted", () => {
+    const turnsP = { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 };
+    const entry = { ...base("worker"), requestedTurns: 20, turnsP, turnFloor: 100 };
+    expect(issues(entry)).toEqual([]);
+  });
+
+  test("Worker line with turn use accepted", () => {
+    expect(issues({ ...base("worker"), turnsUsed: 37, turnPhase: "warned" })).toEqual([]);
+  });
+
+  test("Bad turn phase rejected", () => {
+    expect(paths({ ...base("worker"), turnsUsed: 3, turnPhase: "paused" })).toEqual(["turnPhase"]);
+  });
+
+  test("Unknown band rejected", () => {
+    expect(paths({ ...base("worker"), turnsP: { huge: 0.5 } })).toEqual(["turnsP.huge"]);
+  });
+
+  test("Older worker line still accepted", () => {
+    expect(
+      issues({ ...base("worker"), reason: "choice", tier: "deep", expertNeeded: 0.2 }),
+    ).toEqual([]);
+  });
+
+  test("Old line still valid", () => {
+    expect(issues(base("worker"))).toEqual([]);
   });
 
   test("Worker line with effective launch fields accepted", () => {
@@ -356,6 +389,9 @@ describe("ledger schema", () => {
       reason: "expert-denied",
       callerModel: "c".repeat(128),
       locked: false,
+      requestedTurns: count,
+      turnsP: { short: p, medium: p, long: p, very_long: p },
+      turnFloor: count,
       toolsScored: count,
       toolsFlagged: count,
       toolsGranted: count,
@@ -363,6 +399,8 @@ describe("ledger schema", () => {
       effectiveThinking: "minimal",
       tokens: count,
       toolUses: count,
+      turnsUsed: count,
+      turnPhase: "exhausted",
       status: "completed",
     };
     for (const entry of [main, worker]) {

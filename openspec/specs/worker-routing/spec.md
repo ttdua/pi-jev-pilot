@@ -52,9 +52,10 @@ Worker routing SHALL act only inside its launch policy, for launches started fro
 Each worker request SHALL be built from:
 - the agent facts built from the launch request's agent snapshot;
 - the worker state, from the launch request's `prompt` and `description`;
-- its `isBackground`.
+- its `isBackground`;
+- its `requested.maxTurns` and `locked`, which decide whether `turns` is asked (see `worker-decision` "Turn limit of a launch").
 
-The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`.
+The display names for the `tier` criteria of tiers and slots (see `worker-request`) MUST come from Pi's model registry. `parent_request` MUST be included only when `state.parentRequest` is on, from the latest user message. A thinking-only launch MUST ask only `effort` and `risky`, plus `turns` when it can raise its turn limit. A launch that can raise its turn limit SHALL ask `turns`; one that cannot MUST NOT.
 
 #### Scenario: Display name prefix
 - **WHEN** `tiers.basic` names a registry model whose display name is `Fixture Basic`
@@ -69,12 +70,20 @@ The display names for the `tier` criteria of tiers and slots (see `worker-reques
 - **THEN** the request state has no `parent_request`
 
 #### Scenario: Forked launch with thinking asks fewer questions
-- **WHEN** a launch's context is `fork` and `subagents.forkLaunch` is `thinking`
+- **WHEN** a launch's context is `fork`, `subagents.forkLaunch` is `thinking`, and the launch has no turn limit
 - **THEN** the request asks exactly `effort` and `risky`
 
 #### Scenario: Service launch content
 - **WHEN** an extension calls `spawn("implementer", brief, { description: "probe" })`
 - **THEN** the worker request's agent is `implementer` and its state is built from `brief` and `probe`
+
+#### Scenario: Limited launch asks turns
+- **WHEN** the main model launches a worker with `max_turns` 20 and `tiers.basic` configured
+- **THEN** the request asks `tier`, `effort`, `risky` and `turns`
+
+#### Scenario: Unlimited launch does not ask turns
+- **WHEN** the main model launches a worker with no `max_turns`, and neither the agent nor the executor sets a limit
+- **THEN** the request has no `turns` question
 
 ### Requirement: Target check before writing
 For a launch whose route can write a model (its request asks the `tier` question and `model` is not locked), routing SHALL check the model of every offered tier and slot: the `provider/id` MUST name a model in Pi's model registry, and that model MUST have configured credentials. A target failing either check SHALL count as unable to run for the fallback choice. Other launches MUST NOT be checked or warned about.
@@ -96,7 +105,7 @@ For a launch whose route can write a model (its request asks the `tier` question
 - **THEN** no warning is shown for that launch
 
 ### Requirement: Input mutation
-Routing SHALL return the route's model as the adjustment's `model` and its thinking as `thinking`, and MUST return no other launch field. A route that writes nothing MUST return neither, so the launch runs with the requested values.
+Routing SHALL return the route's model as the adjustment's `model`, its thinking as `thinking` and its turn write as `maxTurns`, and MUST return no other launch field. A route that writes nothing MUST return none of them, so the launch runs with the requested values.
 
 #### Scenario: Caller model replaced
 - **WHEN** the caller set `model` `fixture/fixture-main` and the route writes `fixture/fixture-fast` with thinking `medium`
@@ -108,11 +117,23 @@ Routing SHALL return the route's model as the adjustment's `model` and its think
 
 #### Scenario: Resume untouched
 - **WHEN** a launch sets `resume`
-- **THEN** the policy is not called and the resumed worker keeps its model and thinking
+- **THEN** the policy is not called and the resumed worker keeps its model, thinking and turn limit
 
 #### Scenario: Effective values recorded
 - **WHEN** the route writes `fixture/fixture-fast` with thinking `medium` and the child starts
 - **THEN** the worker's ledger line has `effectiveModel` `fixture/fixture-fast` and `effectiveThinking` `medium`
+
+#### Scenario: Turn limit raised
+- **WHEN** the main model launches a worker with `max_turns` 20 and Jev rates its brief `long` (floor 100)
+- **THEN** the adjustment has `maxTurns` 100, and the executor's record of the run has `turnBudget.maxTurns` 100
+
+#### Scenario: Switch off keeps the turn limit
+- **WHEN** the `subagents` switch is off and a worker is launched with `max_turns` 20
+- **THEN** no worker request is sent and the child runs with a turn limit of 20
+
+#### Scenario: Turn limit left alone
+- **WHEN** a worker is launched with no limit, or with `max_turns` locked by its agent, or with `max_turns` 120 while the floor is 100
+- **THEN** the adjustment has no `maxTurns`
 
 ### Requirement: Fallback warning
 When the decided target cannot run, routing SHALL warn through the UI, naming the target, its model, why it cannot run (`not in the model registry` or `no credentials`), the tier used instead or that the launch is left unchanged, and the setting to fix with the path of `config.json`: `tiers.<name>` for a tier, and `crew.slots "<name>" model` for a slot. A warning for the same target and model string MUST be shown at most once per session, until any `/jev` form runs (slot forms included) or that target's model string changes. No warning SHALL be drawn without a UI.
@@ -166,7 +187,7 @@ When the decided target cannot run, routing SHALL warn through the UI, naming th
 - **THEN** the warning is shown again
 
 ### Requirement: Routing fails open
-Any Jev failure (timeout, error, unreadable answers) SHALL return no model and no thinking. A launch cancelled while its policy call runs MUST record nothing. An error inside routing itself MUST be caught, return no model and no thinking, and never block or fail the launch. If the policy call outlives its `timeoutMs`, the executor launches with the requested values (specified by the executor, `ttdua/pi-subagents` `executor-launch-policy`).
+Any Jev failure (timeout, error, unreadable answers) SHALL return no model, no thinking and no `maxTurns`. A launch cancelled while its policy call runs MUST record nothing. An error inside routing itself MUST be caught, return no model, no thinking and no `maxTurns`, and never block or fail the launch. If the policy call outlives its `timeoutMs`, the executor launches with the requested values (specified by the executor, `ttdua/pi-subagents` `executor-launch-policy`).
 
 #### Scenario: Jev timeout
 - **WHEN** Jev does not answer within `classifier.timeoutMs`
@@ -191,6 +212,14 @@ Any Jev failure (timeout, error, unreadable answers) SHALL return no model and n
 #### Scenario: Internal error
 - **WHEN** building the agent facts throws inside routing
 - **THEN** the child runs with the requested model and thinking and is not blocked
+
+#### Scenario: Jev failure keeps the turn limit
+- **WHEN** a worker is launched with `max_turns` 20 and Jev answers HTTP 500
+- **THEN** the child runs with the requested model, thinking and a turn limit of 20
+
+#### Scenario: Turns unanswered
+- **WHEN** a worker is launched with `max_turns` 20, and Jev answers `tier` and `effort` but not `turns`
+- **THEN** the model and thinking are routed as without a turn limit, and the adjustment has no `maxTurns`
 
 ### Requirement: Mode of a launch
 Routing SHALL read the mode once per launch, when its policy call builds the worker request, and MUST use that same mode for the launch's cut points and its ledger line. A mode change after the request is built MUST NOT affect that launch. A launch left untouched SHALL record the mode read when its policy call ran.

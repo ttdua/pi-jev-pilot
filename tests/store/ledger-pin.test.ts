@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { LEDGER_FIELDS, validateLedgerEntry } from "../../src/store/ledger-schema.ts";
+import { TURN_BANDS } from "../../src/policy/worker/index.ts";
+import { TURN_PHASES } from "../../src/policy/worker/worker-line.ts";
+import {
+  LEDGER_FIELDS,
+  TURN_BAND_KEYS,
+  TURN_PHASES as SCHEMA_TURN_PHASES,
+  validateLedgerEntry,
+} from "../../src/store/ledger-schema.ts";
 
 type Obj = Record<string, unknown>;
 
@@ -63,11 +70,16 @@ const WORKER: Obj = {
   reason: "cut",
   callerModel: "a/b:c",
   locked: false,
+  requestedTurns: 20,
+  turnsP: { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 },
+  turnFloor: 100,
   toolsScored: 1,
   toolsFlagged: 2,
   toolsGranted: 1,
   tokens: 3,
   toolUses: 4,
+  turnsUsed: 37,
+  turnPhase: "within",
   effectiveModel: "fixture/fixture-fast",
   effectiveThinking: "medium",
   status: "stopped",
@@ -202,11 +214,16 @@ const WORKER_BAD: Record<string, [unknown, string]> = {
   ],
   callerModel: ["a b", "expected a string matching ^[A-Za-z0-9._:/-]{1,128}$"],
   locked: [1, BOOL],
+  requestedTurns: [-1, COUNT],
+  turnsP: [[], "expected an object"],
+  turnFloor: [-1, COUNT],
   toolsScored: [-1, COUNT],
   toolsFlagged: [-1, COUNT],
   toolsGranted: [-1, COUNT],
   tokens: [-1, COUNT],
   toolUses: [-1, COUNT],
+  turnsUsed: [-1, COUNT],
+  turnPhase: ["paused", "expected one of: within, warned, exhausted"],
   effectiveModel: ["nomodel", "expected a string matching ^[A-Za-z0-9._-]+\\/[^\\s]+$"],
   effectiveThinking: ["huge", LEVELS],
   status: ["done", "expected one of: completed, aborted, stopped, error"],
@@ -442,6 +459,16 @@ describe("ledger schema pin: cross-field checks", () => {
   test("cross-checks are skipped when shape issues exist", () => {
     const { tier: _t, ...rest } = worker({ miss: "error", ms: -1 });
     expect(run(rest)).toEqual({ ok: false, issues: [{ path: "ms", message: COUNT }] });
+  });
+});
+
+describe("ledger schema pin: turn bands", () => {
+  test("turn bands agree", () => {
+    expect([...TURN_BAND_KEYS]).toEqual([...TURN_BANDS]);
+  });
+
+  test("turn phases agree", () => {
+    expect([...SCHEMA_TURN_PHASES]).toEqual([...TURN_PHASES]);
   });
 });
 

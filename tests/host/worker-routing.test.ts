@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startJevFixture, type FixtureRoute, type JevFixture } from "../jev/fixture";
 import { RUBRIC_VERSION } from "../../src/jev/rubrics.ts";
@@ -92,11 +92,17 @@ function jevAnswers(opts: {
   tiers?: string[];
   effort?: string;
   probs?: Record<string, number>;
+  turns?: Partial<Record<"short" | "medium" | "long" | "very_long", number>>;
 }): FixtureRoute {
   const answers: Record<string, object> = {
     effort: choice(opts.effort ?? "medium", EFFORTS),
     risky: { type: "noul", noul: 0.2 },
   };
+  if (opts.turns !== undefined) {
+    const probabilities = { short: 0, medium: 0, long: 0, very_long: 0, ...opts.turns };
+    const [pick = "short"] = Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0] ?? [];
+    answers["turns"] = { type: "choice", choice: pick, probabilities, confidence: 0.9 };
+  }
   if (opts.tier !== undefined) {
     answers["tier"] =
       opts.probs === undefined
@@ -163,7 +169,12 @@ const KEY = { TYPESAFE_API_KEY: "test-key" };
 
 async function setup(
   script: ScriptEntry[],
-  opts: { keyless?: boolean; env?: Record<string, string>; probes?: string[] } = {},
+  opts: {
+    keyless?: boolean;
+    env?: Record<string, string>;
+    probes?: string[];
+    persist?: boolean;
+  } = {},
 ): Promise<{ fixture: Fixture; session: HostSession }> {
   const fixture = await startFixture(script);
   fixtures.push(fixture);
@@ -174,6 +185,7 @@ async function setup(
     agents: { [AGENT]: AGENT_TEXT },
     env: opts.env ?? KEY,
     timeoutMs: 60_000,
+    ...(opts.persist === true ? { persist: true } : {}),
   });
   sessions.push(session);
   return { fixture, session };
@@ -185,6 +197,31 @@ const ledger = (s: HostSession): Record<string, unknown>[] => {
 };
 const workerLines = (s: HostSession): Record<string, unknown>[] =>
   ledger(s).filter((e) => e["kind"] === "worker");
+
+/** `turnBudget.maxTurns` of every `subagents:record` entry in the main session files. */
+function recordedMaxTurns(s: HostSession): unknown[] {
+  const out: unknown[] = [];
+  const walk = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, e.name);
+      if (e.isDirectory()) walk(path);
+      else if (e.name.endsWith(".jsonl")) {
+        for (const l of readFileSync(path, "utf8").split("\n")) {
+          let entry: { customType?: string; data?: { turnBudget?: { maxTurns?: unknown } } };
+          try {
+            entry = JSON.parse(l);
+          } catch {
+            continue;
+          }
+          if (entry.customType === "subagents:record") out.push(entry.data?.turnBudget?.maxTurns);
+        }
+      }
+    }
+  };
+  const dir = join(s.agentDir, "sessions");
+  if (existsSync(dir)) walk(dir);
+  return out;
+}
 
 const childOf = (f: Fixture): RecordedRequest | undefined => f.requests.find(isChild);
 const afterTool = (f: Fixture): boolean =>
@@ -362,6 +399,60 @@ describe("worker routing through the real CLI", () => {
       expect(child?.model).toBe("fixture-balanced");
       expect(child?.reasoningEffort).toBe("low");
       expect(workerLines(session)[0]).toMatchObject({ miss, reason: "miss", answered: false });
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "turn limit raised through the executor",
+    async () => {
+      const turns = { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 };
+      const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium", turns }));
+      const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+        persist: true,
+      });
+      writeJev(session.agentDir, { config: config(jev) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+      expect(workerLines(session)[0]).toMatchObject({ requestedTurns: 20, turnFloor: 100 });
+      expect(recordedMaxTurns(session)).toEqual([100]);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "turn limit kept on Jev error",
+    async () => {
+      const jev = await newJev({ json: {}, status: 500 });
+      const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+        persist: true,
+      });
+      writeJev(session.agentDir, { config: config(jev) });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+      await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+      expect(recordedMaxTurns(session)).toEqual([20]);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "turn limit kept with the switch off",
+    async () => {
+      const jev = await newJev(jevAnswers({ tier: "basic", turns: { long: 1 } }));
+      const { fixture, session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+        persist: true,
+      });
+      writeJev(session.agentDir, {
+        config: config(jev),
+        state: { version: 1, switches: { subagents: false } },
+      });
+      await session.prompt("START-MAIN");
+      await session.waitFor(() => afterTool(fixture), "main after the launch");
+      await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+      expect(recordedMaxTurns(session)).toEqual([20]);
+      expect(workerRequests(jev).length).toBe(0);
     },
     TIMEOUT,
   );

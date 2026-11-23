@@ -14,6 +14,40 @@ function choice(name: string, options: string[]): unknown {
   };
 }
 
+const withTurns = buildWorkerQuestions(["basic"], {}, [], { route: true, turns: true }).specs;
+
+describe("Turns answers", () => {
+  test("Unknown band", () => {
+    const body = {
+      answers: {
+        turns: choice("huge", ["short", "medium", "long", "very_long"]),
+        effort: choice("low", ["high", "medium", "xhigh", "low", "max"]),
+      },
+    };
+    const r = readWorkerOutcome({ kind: "ok", body }, withTurns);
+    if (r.kind !== "read") throw new Error("expected read");
+    expect(r.unanswered["turns"]).toBe("choice");
+    expect(r.answers["effort"]).toBeDefined();
+  });
+
+  test("Jev failure", () => {
+    const t: JevOutcome = { kind: "miss", miss: "timeout", reason: "t", ms: 1 };
+    expect(readWorkerOutcome(t, withTurns)).toEqual({ kind: "miss", miss: "timeout" });
+  });
+
+  test("Partial band map is unanswered", () => {
+    const partial = {
+      type: "choice",
+      choice: "medium",
+      probabilities: { short: 0.2, medium: 0.5, long: 0.3 },
+    };
+    const r = readWorkerOutcome({ kind: "ok", body: { answers: { turns: partial } } }, withTurns);
+    if (r.kind !== "read") throw new Error("expected read");
+    expect(r.unanswered["turns"]).toBe("probabilities");
+    expect(r.answers).toEqual({});
+  });
+});
+
 describe("Reading worker answers", () => {
   test("Jev timeout or error", () => {
     const t: JevOutcome = { kind: "miss", miss: "timeout", reason: "t", ms: 1 };

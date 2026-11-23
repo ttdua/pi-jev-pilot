@@ -143,6 +143,8 @@ Check for yourself by watching for cache misses after thinking-level changes on 
 |---|---|---|
 | `forkLaunch` | `untouched` | `untouched` leaves a fork launch (`context: fork`) alone; `thinking` keeps its model and changes only thinking. A `resume` launch is always untouched |
 
+The switch also covers the turn floor: `/jev subagents off` stops raising a too-tight `max_turns`, with the rest of worker routing.
+
 #### Deprecated: `forkedLaunch`
 
 `subagents.forkedLaunch` is the old name of `forkLaunch`. It is read as an alias, with a notice in `/jev` status, and removed in the next minor release. A file that sets both keys is invalid.

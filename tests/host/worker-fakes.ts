@@ -107,21 +107,40 @@ export function effort(level: string) {
     },
   };
 }
-export function body(tier: string, eff = "medium") {
+/** A turns answer; the probability keys are always the four bands, missing ones 0. */
+export function turns(p: Partial<Record<"short" | "medium" | "long" | "very_long", number>>) {
+  const probabilities = { short: 0, medium: 0, long: 0, very_long: 0, ...p };
+  const [pick = "short"] = Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0] ?? [];
+  return {
+    type: "choice",
+    choice: pick,
+    confidence: probabilities[pick as "short"],
+    probabilities,
+  };
+}
+type TurnsP = Parameters<typeof turns>[0];
+export function body(tier: string, eff = "medium", turnsP?: TurnsP) {
   return {
     answers: {
       tier: choice(tier),
       effort: effort(eff),
       risky: { type: "noul", noul: 0.1 },
+      ...(turnsP === undefined ? {} : { turns: turns(turnsP) }),
     },
   };
 }
-export function bodyWith(tier: string, probabilities: Record<string, number>, eff = "medium") {
+export function bodyWith(
+  tier: string,
+  probabilities: Record<string, number>,
+  eff = "medium",
+  turnsP?: TurnsP,
+) {
   return {
     answers: {
       tier: choiceWith(tier, probabilities),
       effort: effort(eff),
       risky: { type: "noul", noul: 0.1 },
+      ...(turnsP === undefined ? {} : { turns: turns(turnsP) }),
       ...("frontier" in probabilities ? { expert_needed: { type: "noul", noul: 0.1 } } : {}),
     },
   };

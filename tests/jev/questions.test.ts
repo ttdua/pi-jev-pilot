@@ -22,8 +22,10 @@ import {
   WORKER_TIER_CRITERIA,
   WHICH_INSTRUCTION,
   WORKER_EFFORT_QUESTION,
+  WORKER_TURNS_QUESTION,
 } from "../../src/jev/rubrics.ts";
 import { GATE_KEYS, skillCriterion } from "../../src/policy/main/skill.ts";
+import { TURN_BANDS, type TurnBand } from "../../src/policy/worker/turns.ts";
 import { EFFORT_LEVELS, EFFORT_OPTION_ORDER } from "../../src/policy/effort.ts";
 
 const docs = readFileSync(new URL("../../docs/jev-questions.md", import.meta.url), "utf8");
@@ -209,6 +211,36 @@ describe("Worker questions", () => {
     expect(Object.keys(questions["tier"]!.criteria)).toEqual(
       spec?.type === "choice" ? [...spec.options] : [],
     );
+  });
+});
+
+describe("Turns question", () => {
+  test("turns wording matches the docs", () => {
+    expect(DOC).toContain(WORKER_TURNS_QUESTION.instructions);
+    for (const c of Object.values(WORKER_TURNS_QUESTION.criteria)) expect(DOC).toContain(c);
+  });
+  test("Band order", () => {
+    const order: TurnBand[] = ["short", "medium", "long", "very_long"];
+    expect(Object.keys(WORKER_TURNS_QUESTION.criteria)).toEqual(order);
+    expect([...TURN_BANDS]).toEqual(order);
+    const { specs } = buildWorkerQuestions(["basic"], {}, [], { route: false, turns: true });
+    expect(specs["turns"]).toEqual({ type: "choice", options: order });
+  });
+  test("Turns with the route questions", () => {
+    const { questions, specs } = buildWorkerQuestions(["basic"], {}, [], {
+      route: true,
+      turns: true,
+    });
+    expect(Object.keys(questions)).toEqual(["tier", "effort", "risky", "turns"]);
+    expect(Object.keys(specs)).toEqual(["tier", "effort", "risky", "turns"]);
+  });
+  test("Turns only", () => {
+    const { questions, specs } = buildWorkerQuestions(["basic"], {}, [], {
+      route: false,
+      turns: true,
+    });
+    expect(Object.keys(questions)).toEqual(["turns"]);
+    expect(Object.keys(specs)).toEqual(["turns"]);
   });
 });
 

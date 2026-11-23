@@ -9,8 +9,8 @@ import type { CannotRun } from "./warnings.ts";
 type Ctx = Pick<ExtensionContext, "modelRegistry">;
 type Check = { ok: true; thinking: ModelThinking } | { ok: false; why: string };
 
-/** What a route writes into the launch: the adjustment's `model` and `thinking`, nothing else. */
-export type RouteWrite = { model?: string; thinking?: ThinkingLevel };
+/** What a route writes into the launch: the adjustment's `model`, `thinking` and `maxTurns`. */
+export type RouteWrite = { model?: string; thinking?: ThinkingLevel; maxTurns?: number };
 
 /** The route's write, and the target that could not run so the caller can warn about it. */
 export type Routed = { write: RouteWrite; problem: CannotRun | undefined };

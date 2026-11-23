@@ -20,6 +20,8 @@ function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
     runInBackground: false,
     modelLocked: false,
     thinkingLocked: false,
+    maxTurns: undefined,
+    turnsLocked: false,
     ...overrides,
   };
 }
@@ -86,13 +88,25 @@ function expectedKind(f: {
   tLock: boolean;
   noTier: boolean;
   forked: ForkLaunch;
+  raise: boolean;
 }): Record<string, unknown> {
   const locked = f.mLock || f.tLock;
   const forkedThinking = f.inherit && f.forked === "thinking";
-  if (f.inherit && f.forked === "untouched") return { kind: "untouched", locked };
-  if (f.mLock && f.tLock) return { kind: "untouched", locked };
-  if (f.tLock && (forkedThinking || f.noTier)) return { kind: "untouched", locked };
-  return { kind: "ask", tierQuestion: !forkedThinking && !f.noTier, locked };
+  const untouched =
+    (f.inherit && f.forked === "untouched") ||
+    (f.mLock && f.tLock) ||
+    (f.tLock && (forkedThinking || f.noTier));
+  if (untouched && !f.raise) return { kind: "untouched", locked };
+  if (untouched) {
+    return { kind: "ask", routeQuestions: false, tierQuestion: false, turnsQuestion: true, locked };
+  }
+  return {
+    kind: "ask",
+    routeQuestions: true,
+    tierQuestion: !forkedThinking && !f.noTier,
+    turnsQuestion: f.raise,
+    locked,
+  };
 }
 
 describe("launchKind (exhaustive pin)", () => {
@@ -103,25 +117,28 @@ describe("launchKind (exhaustive pin)", () => {
       for (const tLock of bools)
         for (const noTier of bools)
           for (const forked of ["untouched", "thinking"] as const)
-            cases.push({ inherit, mLock, tLock, noTier, forked });
+            for (const raise of bools) cases.push({ inherit, mLock, tLock, noTier, forked, raise });
 
-  test("all 32 launch combinations match the rule table", () => {
+  test("all 64 launch combinations match the rule table", () => {
     for (const c of cases) {
       const l = launch({
         context: c.inherit ? "fork" : "fresh",
         modelLocked: c.mLock,
         thinkingLocked: c.tLock,
+        maxTurns: c.raise ? 20 : undefined,
       });
       const got = launchKind(l, c.noTier ? [] : ALL, c.forked, 0);
       expect<unknown>(got).toEqual(expectedKind(c));
     }
-    expect(cases).toHaveLength(32);
+    expect(cases).toHaveLength(64);
   });
 
   test("a slot alone counts as a tier for the question", () => {
     expect(launchKind(launch(), [], "untouched", 2)).toEqual({
       kind: "ask",
+      routeQuestions: true,
       tierQuestion: true,
+      turnsQuestion: false,
       locked: false,
     });
   });
@@ -129,7 +146,9 @@ describe("launchKind (exhaustive pin)", () => {
   test("slotCount defaults to zero", () => {
     expect(launchKind(launch(), [], "untouched")).toEqual({
       kind: "ask",
+      routeQuestions: true,
       tierQuestion: false,
+      turnsQuestion: false,
       locked: false,
     });
   });
@@ -137,7 +156,9 @@ describe("launchKind (exhaustive pin)", () => {
   test("result key order", () => {
     expect(Object.keys(launchKind(launch(), ALL, "untouched"))).toEqual([
       "kind",
+      "routeQuestions",
       "tierQuestion",
+      "turnsQuestion",
       "locked",
     ]);
     expect(Object.keys(launchKind(launch({ context: "fork" }), ALL, "untouched"))).toEqual([

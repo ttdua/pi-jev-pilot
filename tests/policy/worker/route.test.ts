@@ -34,6 +34,8 @@ function launch(overrides: Partial<EffectiveLaunch> = {}): EffectiveLaunch {
     runInBackground: false,
     modelLocked: false,
     thinkingLocked: false,
+    maxTurns: undefined,
+    turnsLocked: false,
     ...overrides,
   };
 }
@@ -48,6 +50,7 @@ function serviceRequest(over: Partial<LaunchReq> = {}): LaunchReq {
     context: "fresh",
     isBackground: false,
     locked: [],
+    requestedMaxTurns: undefined,
     ...over,
   };
 }
@@ -57,6 +60,7 @@ function read(input: {
   effort?: string;
   risky?: number;
   expertNeeded?: number;
+  turns?: Record<string, number>;
 }): WorkerAnswers {
   const out: Record<string, Answer> = {};
   const unanswered: Record<string, "missing"> = {};
@@ -83,6 +87,10 @@ function read(input: {
   if (input.expertNeeded !== undefined) {
     out["expert_needed"] = { type: "noul", noul: input.expertNeeded };
   } else unanswered["expert_needed"] = "missing";
+  if (input.turns !== undefined) {
+    const choice = Object.keys(input.turns)[0] ?? "short";
+    out["turns"] = { type: "choice", choice, probabilities: input.turns };
+  }
   return { kind: "read", answers: out, unanswered };
 }
 
@@ -112,7 +120,9 @@ describe("launchKind", () => {
   test("Slot alone with thinking locked", () => {
     expect(launchKind(launch({ thinkingLocked: true }), [], "untouched", 1)).toEqual({
       kind: "ask",
+      routeQuestions: true,
       tierQuestion: true,
+      turnsQuestion: false,
       locked: true,
     });
   });
@@ -137,14 +147,18 @@ describe("launchKind", () => {
   test("forked thinking asks without a tier question", () => {
     expect(kind({ context: "fork" }, NO_EXPERT, "thinking")).toEqual({
       kind: "ask",
+      routeQuestions: true,
       tierQuestion: false,
+      turnsQuestion: false,
       locked: false,
     });
   });
   test("no tier offered asks without a tier question", () => {
     expect(kind({}, [])).toEqual({
       kind: "ask",
+      routeQuestions: true,
       tierQuestion: false,
+      turnsQuestion: false,
       locked: false,
     });
   });
@@ -157,7 +171,9 @@ describe("launchKind", () => {
   test("otherwise asks with a tier question", () => {
     expect(kind({ modelLocked: true })).toEqual({
       kind: "ask",
+      routeQuestions: true,
       tierQuestion: true,
+      turnsQuestion: false,
       locked: true,
     });
   });
@@ -579,5 +595,155 @@ describe("Recorded results", () => {
       const result = validateLedgerEntry(line);
       expect(result.ok).toBe(true);
     }
+  });
+});
+
+// Probabilities whose cumulative floors are 40 / 100 / 200.
+const FLOOR_40 = { short: 0.3, medium: 0.7, long: 0, very_long: 0 };
+const FLOOR_100 = { short: 0.1, medium: 0.1, long: 0.7, very_long: 0.1 };
+const FLOOR_200 = { short: 0, medium: 0.1, long: 0.1, very_long: 0.8 };
+const limited = (over: Partial<EffectiveLaunch> = {}) => launch({ maxTurns: 20, ...over });
+
+describe("launchKind with a turn limit", () => {
+  test("Both fields locked with a turn limit", () => {
+    const l = limited({ modelLocked: true, thinkingLocked: true });
+    expect(launchKind(l, NO_EXPERT, "untouched")).toEqual({
+      kind: "ask",
+      routeQuestions: false,
+      tierQuestion: false,
+      turnsQuestion: true,
+      locked: true,
+    });
+  });
+  test("Both fields and the limit locked", () => {
+    const l = limited({ modelLocked: true, thinkingLocked: true, turnsLocked: true });
+    expect(launchKind(l, NO_EXPERT, "untouched")).toEqual({ kind: "untouched", locked: true });
+  });
+  test("launchKind locked max_turns asks no turns", () => {
+    expect(launchKind(limited({ turnsLocked: true }), NO_EXPERT, "untouched")).toEqual({
+      kind: "ask",
+      routeQuestions: true,
+      tierQuestion: true,
+      turnsQuestion: false,
+      locked: false,
+    });
+  });
+});
+
+describe("Turn write", () => {
+  test("Next to a routed model", () => {
+    const r = routeLaunch(
+      input({
+        launch: limited(),
+        answers: read({ tier: ["broad", { broad: 0.95 }], effort: "high", turns: FLOOR_100 }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { model: "fx/broad", thinking: "high", maxTurns: 100 },
+      record: { reason: "cut", tier: "broad", effort: "high", turnFloor: 100 },
+    });
+  });
+  test("Next to a thinking-only write", () => {
+    const r = routeLaunch(
+      input({
+        launch: limited({ context: "fork" }),
+        forkLaunch: "thinking",
+        answers: read({ effort: "medium", turns: FLOOR_40 }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { thinking: "medium", maxTurns: 40 },
+      record: { reason: "untouched", effort: "medium", turnFloor: 40 },
+    });
+  });
+  test("Model locked", () => {
+    const r = routeLaunch(
+      input({
+        launch: limited({ modelLocked: true }),
+        answers: read({ tier: ["basic", { basic: 0.95 }], effort: "high", turns: FLOOR_100 }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { thinking: "high", maxTurns: 100 },
+      record: { reason: "cut", tier: "basic", locked: true, effort: "high", turnFloor: 100 },
+    });
+  });
+});
+
+describe("Turns-only route", () => {
+  test("Both fields locked with a limit", () => {
+    const r = routeLaunch(
+      input({
+        launch: limited({ modelLocked: true, thinkingLocked: true }),
+        answers: read({ turns: FLOOR_100 }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { maxTurns: 100 },
+      record: { reason: "untouched", locked: true, turnFloor: 100 },
+    });
+  });
+  test("Fork untouched with a limit", () => {
+    const r = routeLaunch(
+      input({ launch: limited({ context: "fork" }), answers: read({ turns: FLOOR_200 }) }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { maxTurns: 200 },
+      record: { reason: "untouched", turnFloor: 200 },
+    });
+  });
+  test("Turns-only miss", () => {
+    const l = limited({ modelLocked: true, thinkingLocked: true });
+    expect(routeLaunch(input({ launch: l, answers: { kind: "miss", miss: "timeout" } }))).toEqual({
+      kind: "routed",
+      write: {},
+      record: { reason: "miss", locked: true },
+    });
+  });
+  test("Turns-only cancelled", () => {
+    const l = limited({ modelLocked: true, thinkingLocked: true });
+    expect(routeLaunch(input({ launch: l, answers: { kind: "cancelled" } }))).toEqual({
+      kind: "skip",
+    });
+  });
+  test("Locked untouched launch", () => {
+    const l = launch({ modelLocked: true, thinkingLocked: true });
+    expect(routeLaunch(input({ launch: l }))).toEqual({ kind: "untouched", locked: true });
+  });
+  test("Miss with a turn limit", () => {
+    const r = routeLaunch(input({ launch: limited(), answers: { kind: "miss", miss: "error" } }));
+    expect(r).toEqual({ kind: "routed", write: {}, record: { reason: "miss" } });
+  });
+  test("Thinking locked with a turn floor", () => {
+    const r = routeLaunch(
+      input({
+        launch: limited({ thinkingLocked: true }),
+        answers: read({ effort: "high", turns: FLOOR_100 }),
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { maxTurns: 100 },
+      record: { reason: "untouched", locked: true, turnFloor: 100 },
+    });
+  });
+  test("Nothing can run with a turn floor", () => {
+    const r = routeLaunch(
+      input({
+        launch: limited(),
+        answers: read({ tier: ["broad", { broad: 0.95 }], effort: "high", turns: FLOOR_100 }),
+        canRun: (t) => t === "deep",
+      }),
+    );
+    expect(r).toEqual({
+      kind: "routed",
+      write: { maxTurns: 100 },
+      record: { reason: "cut", tier: "broad", fallback: "broad", turnFloor: 100 },
+    });
   });
 });

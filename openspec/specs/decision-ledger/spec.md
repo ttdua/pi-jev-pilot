@@ -23,6 +23,7 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 | time | integer from 0 to 8640000000000000 |
 | flag | boolean |
 | effort distribution | object whose keys are some of `low`, `medium`, `high`, `xhigh`, `max`, each a probability |
+| turns distribution | object whose keys are some of `short`, `medium`, `long`, `very_long`, each a probability |
 | target distribution | object of at most 12 keys, each a target, each value a probability |
 | score | finite number from 0 to 3.5 |
 | rubric version | integer from 1 to 99 |
@@ -50,6 +51,10 @@ Every ledger value SHALL belong to one of these domains, and a value outside its
 #### Scenario: Malformed target rejected
 - **WHEN** a worker entry's `fallback` is `slot::Code Reviewer`
 - **THEN** validation fails with an issue at `fallback`
+
+#### Scenario: Unknown band rejected
+- **WHEN** a worker entry's `turnsP` has the key `huge`
+- **THEN** validation fails with an issue at `turnsP.huge`
 
 ### Requirement: Ledger line schema
 Every ledger line SHALL be one JSON object whose fields are exactly those allowed for its `kind` below; any other key MUST be rejected as `unknown key`. Fields marked required MUST be present.
@@ -88,6 +93,10 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | worker | `reason` | `frontier`, `cut`, `slot`, `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss` | yes |
 | worker | `callerModel` | caller model | |
 | worker | `locked` | flag | |
+| worker | `requestedTurns`, `turnFloor` | count | |
+| worker | `turnsP` | turns distribution | |
+| worker | `turnsUsed` | count | |
+| worker | `turnPhase` | `within`, `warned` or `exhausted` | |
 | worker | `toolsScored`, `toolsFlagged`, `toolsGranted`, `tokens`, `toolUses` | count | |
 | worker | `effectiveModel` | model | |
 | worker | `effectiveThinking` | level | |
@@ -145,6 +154,18 @@ Writers MUST emit only the names `basic`, `broad`, `deep` and `frontier` and the
 #### Scenario: Bad effective thinking rejected
 - **WHEN** a worker entry's `effectiveThinking` is `huge`
 - **THEN** validation fails with an issue at `effectiveThinking`
+
+#### Scenario: Worker line with turn fields accepted
+- **WHEN** a worker entry with the required fields has `requestedTurns` 20, `turnsP` with the keys `short`, `medium`, `long` and `very_long`, and `turnFloor` 100
+- **THEN** validation passes with no issues
+
+#### Scenario: Worker line with turn use accepted
+- **WHEN** a worker entry with the required fields has `turnsUsed` 37 and `turnPhase` `warned`
+- **THEN** validation passes with no issues
+
+#### Scenario: Bad turn phase rejected
+- **WHEN** a worker entry's `turnPhase` is `paused`
+- **THEN** validation fails with an issue at `turnPhase`
 
 ### Requirement: Worker decisions record their tier
 A worker line whose `reason` is `frontier`, `cut`, `slot`, `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure` or `choice` SHALL carry `tier`. A worker line whose `reason` is `untouched` or `miss` MAY omit it. The worker `reason` MUST be one of `frontier`, `cut`, `slot`, `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure`, `choice`, `untouched` or `miss`; no value names a model. The names `expert`, `expert-admitted`, `risky`, `expert-denied`, `fast-unsure` and `choice` are accepted so that older lines stay valid; the package MUST NOT write them.

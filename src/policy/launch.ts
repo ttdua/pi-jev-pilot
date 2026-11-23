@@ -55,6 +55,9 @@ export type EffectiveLaunch = {
   runInBackground: boolean;
   modelLocked: boolean;
   thinkingLocked: boolean;
+  /** The turn limit the launch starts with; undefined for an unlimited launch. */
+  maxTurns: number | undefined;
+  turnsLocked: boolean;
 };
 
 /**
@@ -68,6 +71,8 @@ export type LaunchRequestFacts = {
   context: ContextMode;
   isBackground: boolean;
   locked: readonly LockableField[];
+  /** The executor's `requested.maxTurns`; undefined when the launch is unlimited. */
+  requestedMaxTurns: number | undefined;
 };
 
 /** A service launch whose caller names a model keeps it, as if the agent locked `model`. */
@@ -83,7 +88,14 @@ export function effectiveLaunch(request: LaunchRequestFacts): EffectiveLaunch {
     runInBackground: request.isBackground,
     modelLocked: locks("model") || serviceModel(request),
     thinkingLocked: locks("thinking"),
+    maxTurns: request.requestedMaxTurns,
+    turnsLocked: locks("max_turns"),
   };
+}
+
+/** A launch can raise its turn limit when it has one and the agent has not locked it. */
+export function canRaiseTurns(launch: EffectiveLaunch): boolean {
+  return launch.maxTurns !== undefined && !launch.turnsLocked;
 }
 
 // DEPRECATED(remove next minor)

@@ -140,7 +140,9 @@ Then **effort**: the choice, raised to `high` on risk, capped at `xhigh`, clampe
 
 Then **availability**: an unusable tier warns, naming the setting, and moves down, never to `frontier` (the warning is shown once per tier and model per session, and `/jev` clears it); an unusable slot moves to `broad`, then `basic`, never up; if nothing can run, the input stays unchanged. Pi does not re-validate mutated input, so the target is checked against `ctx.modelRegistry` and its credentials before writing. Errors while a child runs are not retried, because a relaunch may repeat changes.
 
-A launch with `resume` is always left untouched. A fork launch (`context: fork`) follows `subagents.forkLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
+A launch with `resume` is always left untouched. A fork launch (`context: fork`) follows `subagents.forkLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched, unless it has a turn limit to raise. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
+
+**Turn floor.** A launch with a turn limit (`max_turns`) that the agent does not lock is asked `turns` (`short`, `medium`, `long`, `very_long`), even when the route is otherwise untouched. The floors are none, 40, 100 and 200. The floor is the band whose probability, summed with all higher bands, first reaches .5, walking down from `very_long`. It is raise-only: it never lowers a limit, never adds one, and respects an agent lock on `max_turns`. A miss or an unanswered `turns` writes nothing. A launch otherwise left untouched but with a limit asks `turns` only.
 
 ### Difficulty score and cut points
 
@@ -250,9 +252,11 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | | `reason` | Which rule decided the model: `frontier`, `slot`, `cut`, `untouched` or `miss`; older lines may hold `expert`, `risky`, `expert-admitted`, `expert-denied`, `fast-unsure` or `choice`. All but the last two require `tier`. `untouched` means the model was kept, even if thinking changed |
 | | `fallback` | Target that could not run, if any |
 | | `callerModel`, `locked` | What the caller asked for; whether the agent file blocked the change |
+| | `requestedTurns`, `turnsP`, `turnFloor` | The launch's limit when `turns` was asked; the band probabilities when answered; the `maxTurns` written, when written |
 | | `effectiveModel`, `effectiveThinking` | What the executor applied to the child, joined by `agentId`; absent when the executor reported none |
 | | `toolsScored`, `toolsFlagged`, `toolsGranted` | Legacy, read only: tool assessment counts from before its removal. New lines do not carry them |
 | | `status`, `durationMs`, `tokens`, `toolUses` | Filled on completion. `status` is `completed`, `aborted`, `stopped` or `error` |
+| | `turnsUsed`, `turnPhase` | The executor's measured turn use for a run with a limit; `turnPhase` is `within`, `warned` or `exhausted` |
 | Correction | `turnId`, `corrects` | The turn being marked, and the probability that marked it (≥ .7) |
 
 Rules:

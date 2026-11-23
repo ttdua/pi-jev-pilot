@@ -148,10 +148,10 @@ A worker request is skipped when:
 
 - `subagents` is off;
 - the launch has `resume` set;
-- the launch is a fork (`context: fork`) and `subagents.forkLaunch` is `untouched`;
-- both the model and the thinking level are locked by the agent file.
+- the launch is a fork (`context: fork`) and `subagents.forkLaunch` is `untouched`, and it has no turn limit to raise;
+- both the model and the thinking level are locked by the agent file, and it has no turn limit to raise.
 
-A fork launch with `subagents.forkLaunch` set to `thinking`, or a launch with no tier configured, asks only `effort` and `risky`. When no tier is decided, only thinking is written (the request still asks `tier`). A launch whose agent file locks the model is asked the full questions, but only thinking is written.
+A launch with a turn limit that the agent file does not lock sends a `turns`-only request when the rest of its route is untouched: `turns` is the only question, and no model or thinking is written. A fork launch with `subagents.forkLaunch` set to `thinking`, or a launch with no tier configured, asks only `effort` and `risky`. When no tier is decided, only thinking is written (the request still asks `tier`). A launch whose agent file locks the model is asked the full questions, but only thinking is written.
 
 ## Main questions
 
@@ -204,6 +204,7 @@ The `effort` option order follows the [replay](evidence/2026-11-07-state-replay.
 | `tier` | choice | Configured tiers, `basic`, `broad`, `deep`, `frontier` (one knowledge rubric for every mode), and `slot::<name>` | Worker model, through the difficulty score |
 | `effort` | choice | `high`, `medium`, `xhigh`, `low`, `max`, worker wording | Worker thinking level |
 | `risky` | noul | | Risk floor |
+| `turns` | choice | `short`, `medium`, `long`, `very_long` | Turn floor |
 
 ## Skill pick
 
