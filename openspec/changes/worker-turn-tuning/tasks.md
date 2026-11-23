@@ -59,6 +59,6 @@ Blocked by: 2, 5, 6
 
 Blocked by: 7
 
-- [ ] 8.1 Add `docs/decisions/0012-tuned-turn-floors.md` (amends ADR 0005 for turn floors: automatic decreases within bounds, one applied change per step, per-parameter cooldown, the thresholds as first estimates) and list it in `docs/decisions/README.md`
-- [ ] 8.2 Update `docs/configuration.md` (`tuning.json` version 2, `turnFloors`, history parameters), `docs/usage-guide.md` (tune report, floor lines, undo and reset), `docs/domain-model.md` (turn floor tuned from data), `docs/glossary.md` (counted run, band floor), `docs/architecture.md` (new policy files and `shared/turn-floors.ts`), `docs/roadmap.md`, `docs/workflow.md` (tuning allowlist) and `docs/scenarios.md` (floors start fixed, then tuned); add an `Unreleased` entry to `CHANGELOG.md`, noting that an older package treats a `version` 2 `tuning.json` as malformed
-- [ ] 8.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
+- [x] 8.1 Add `docs/decisions/0012-tuned-turn-floors.md` (amends ADR 0005 for turn floors: automatic decreases within bounds, one applied change per step, per-parameter cooldown, the thresholds as first estimates) and list it in `docs/decisions/README.md`
+- [x] 8.2 Update `docs/configuration.md` (`tuning.json` version 2, `turnFloors`, history parameters), `docs/usage-guide.md` (tune report, floor lines, undo and reset), `docs/domain-model.md` (turn floor tuned from data), `docs/glossary.md` (counted run, band floor), `docs/architecture.md` (new policy files and `shared/turn-floors.ts`), `docs/roadmap.md`, `docs/workflow.md` (tuning allowlist) and `docs/scenarios.md` (floors start fixed, then tuned); add an `Unreleased` entry to `CHANGELOG.md`, noting that an older package treats a `version` 2 `tuning.json` as malformed
+- [x] 8.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
