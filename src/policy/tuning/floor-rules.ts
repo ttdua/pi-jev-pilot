@@ -5,6 +5,8 @@ import {
   FLOOR_BANDS,
   FLOOR_PARAMETER,
   FLOOR_RANGES,
+  inFloorRange,
+  orderedFloors,
   type BandFloors,
   type FloorBand,
 } from "../../shared/turn-floors.ts";
@@ -48,14 +50,22 @@ export function floorWindow(runs: readonly CountedRun[], since: number): Counted
   return later.length < FLOOR.runs ? undefined : later.slice(-FLOOR.runs);
 }
 
-/** Each band's tuned value when its base equals the built-in floor, else the built-in floor. */
+/**
+ * The floors routing uses, as the settings resolver reads them: a tuned value counts when it is
+ * an integer in its band's range and its base is the built-in floor; a broken order resets all.
+ */
 export function effectiveFloors(record: TuningRecord): BandFloors {
   const out = { ...BUILTIN_FLOORS };
   for (const band of FLOOR_BANDS) {
     const tuned = record.turnFloors?.[band]?.tuned;
-    if (tuned !== undefined && tuned.base === BUILTIN_FLOORS[band]) out[band] = tuned.value;
+    const ok =
+      tuned !== undefined &&
+      inFloorRange(band, tuned.value) &&
+      inFloorRange(band, tuned.base) &&
+      tuned.base === BUILTIN_FLOORS[band];
+    if (ok) out[band] = tuned.value;
   }
-  return out;
+  return orderedFloors(out);
 }
 
 /** The neighbours' limits: a lower one counts at its higher end, an upper one at its lower end. */

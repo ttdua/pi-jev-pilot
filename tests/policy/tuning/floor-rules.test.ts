@@ -4,6 +4,7 @@ import {
   applyFloor,
   blockActiveFloor,
   effectiveFloors,
+  FLOOR,
   floorSince,
   floorWindow,
   judgeFloor,
@@ -13,6 +14,7 @@ import {
 } from "../../../src/policy/tuning/floor-rules.ts";
 import type { TuningRecord } from "../../../src/policy/tuning/record.ts";
 import { FLOOR_BANDS, type FloorBand } from "../../../src/shared/turn-floors.ts";
+import { FLOOR_RUNS_MAX } from "../../../src/store/tuning-file.ts";
 import { runs } from "./worker-lines.ts";
 
 /** 200 runs whose nearest-rank p95 is `p95` and of which `exhausted` ended exhausted. */
@@ -249,4 +251,26 @@ describe("floor records", () => {
   test("every band has a parameter", () => {
     expect(FLOOR_BANDS).toHaveLength(3);
   });
+});
+
+describe("effectiveFloors rules match the settings resolver", () => {
+  const tuned = (value: number, base: number) => ({ changedAt: 1, tuned: { value, base } });
+
+  test("an out-of-order record gives the built-in floors", () => {
+    const record: TuningRecord = {
+      turnFloors: { medium: tuned(80, 40), long: tuned(50, 100) },
+    };
+    expect(effectiveFloors(record)).toEqual({ medium: 40, long: 100, very_long: 200 });
+  });
+
+  test("an out-of-range or non-integer value is built-in for its band", () => {
+    const record: TuningRecord = {
+      turnFloors: { medium: tuned(10, 40), long: tuned(75.5, 100), very_long: tuned(150, 200) },
+    };
+    expect(effectiveFloors(record)).toEqual({ medium: 40, long: 100, very_long: 150 });
+  });
+});
+
+test("the store's stored-runs bound equals the policy window", () => {
+  expect(FLOOR_RUNS_MAX).toBe(FLOOR.runs);
 });

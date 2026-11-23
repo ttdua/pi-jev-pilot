@@ -19,3 +19,16 @@ export const FLOOR_RANGES: Readonly<Record<FloorBand, { min: number; max: number
 
 /** History parameter name of a band floor. */
 export const FLOOR_PARAMETER = (band: FloorBand): `turnFloor.${FloorBand}` => `turnFloor.${band}`;
+
+/** True when `v` is an integer inside the band's allowed range. */
+export const inFloorRange = (band: FloorBand, v: unknown): v is number =>
+  typeof v === "number" &&
+  Number.isInteger(v) &&
+  v >= FLOOR_RANGES[band].min &&
+  v <= FLOOR_RANGES[band].max;
+
+/** The floors when strictly ordered `medium < long < very_long`, else the built-in floors. */
+export function orderedFloors(floors: BandFloors): BandFloors {
+  const ordered = floors.medium < floors.long && floors.long < floors.very_long;
+  return ordered ? floors : { ...BUILTIN_FLOORS };
+}

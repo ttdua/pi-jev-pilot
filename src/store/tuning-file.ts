@@ -95,7 +95,9 @@ function pairValidator<A extends string, B extends string>(
 }
 
 const beforeValidator = () => pairValidator("asked", "timeouts", 40, 40);
-const runsValidator = () => pairValidator("runs", "exhausted", 200, 200);
+/** Most runs a stored pending change may record; equals the policy window (checked in tests). */
+export const FLOOR_RUNS_MAX = 200;
+const runsValidator = () => pairValidator("runs", "exhausted", FLOOR_RUNS_MAX, FLOOR_RUNS_MAX);
 
 function floorStateValidator(band: FloorBand): V<FloorState> {
   const value = integer(FLOOR_RANGES[band]);

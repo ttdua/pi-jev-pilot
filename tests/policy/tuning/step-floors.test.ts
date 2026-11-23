@@ -258,3 +258,18 @@ describe("reset across parameters", () => {
     expect(resetTuning(rec, 1500, 5000)).toEqual({});
   });
 });
+
+describe("step from an out-of-order record", () => {
+  test("moves from the built-in floors that routing uses", () => {
+    const rec: TuningRecord = {
+      turnFloors: {
+        medium: { changedAt: 1, tuned: { value: 80, base: 40 } },
+        long: { changedAt: 1, tuned: { value: 50, base: 100 } },
+      },
+    };
+    const out = step(rec, bandRuns("medium", 20, 2));
+    expect(out.events).toEqual([
+      { kind: "applied", parameter: "turnFloor.medium", from: 40, to: 30 },
+    ]);
+  });
+});

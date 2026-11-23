@@ -1,5 +1,11 @@
 // Pure texts for tuning: change lines, session-start line, command messages and the report.
-import { BUILTIN_FLOORS, FLOOR_BANDS, type FloorBand } from "../../shared/turn-floors.ts";
+import {
+  BUILTIN_FLOORS,
+  FLOOR_BANDS,
+  FLOOR_PARAMETER,
+  type FloorBand,
+} from "../../shared/turn-floors.ts";
+import { FLOOR } from "./floor-rules.ts";
 import type { HistoryEntry, TuningEvent, TuningParameter } from "./record.ts";
 import type { ModeSignals } from "./signals.ts";
 import type { TurnSignal } from "./turn-signals.ts";
@@ -28,8 +34,6 @@ export const OFF_MESSAGE = "Jev tune: off. A tuned value stays until /jev tune u
 export const ON_MESSAGE = "Jev tune: on.";
 
 const PENDING_WINDOW = 40;
-const FLOOR_WINDOW = 200;
-const FLOOR_BLOCK_RUNS = 400;
 const HISTORY_SHOWN = 5;
 
 export function issueLines(label: string, issues: readonly Issue[]): string[] {
@@ -54,7 +58,7 @@ const REASONS = {
 
 /** The band of a floor parameter; undefined for `timeoutMs`. */
 const bandOf = (parameter: TuningParameter): FloorBand | undefined =>
-  parameter === "timeoutMs" ? undefined : (parameter.slice("turnFloor.".length) as FloorBand);
+  FLOOR_BANDS.find((b) => FLOOR_PARAMETER(b) === parameter);
 
 /** The notification for one event; `undefined` for `kept`, which shows nothing. */
 export function changeLine(e: TuningEvent): string | undefined {
@@ -87,7 +91,7 @@ export function undoneMessage(parameter: TuningParameter, from: number, to: numb
   const heldBack =
     band === undefined
       ? "The same raise is held back for 200 decisions."
-      : `The same change is held back for ${FLOOR_BLOCK_RUNS} ${band} runs.`;
+      : `The same change is held back for ${FLOOR.blockRuns} ${band} runs.`;
   return `Jev tune: ${parameter} ${arrow(from, to)} undone. ${heldBack}`;
 }
 
@@ -125,7 +129,7 @@ function timeoutStateLines(v: TuneView): string[] {
 function floorStateLines(v: TuneView): string[] {
   const pending = v.floorPending.map(
     (p) =>
-      `pending turnFloor.${p.band}: ${arrow(p.from, p.to)}, ${p.since}/${FLOOR_WINDOW} runs since`,
+      `pending turnFloor.${p.band}: ${arrow(p.from, p.to)}, ${p.since}/${FLOOR.runs} runs since`,
   );
   const blocks = v.floorBlocks.map(
     (b) => `block turnFloor.${b.band}: ${b.value} held back for ${b.remaining} more runs`,
@@ -172,8 +176,7 @@ function signalLines(signals: TuneView["signals"]): string[] {
 function turnSignalLine(s: TurnSignal): string {
   if (s.runs === 0) return `  ${s.band}: no runs yet`;
   const ratio = s.usedOverFloor === undefined ? "-" : s.usedOverFloor.toFixed(2);
-  const suggest =
-    s.suggested === undefined ? `needs ${FLOOR_WINDOW} runs` : `suggest ${s.suggested}`;
+  const suggest = s.suggested === undefined ? `needs ${FLOOR.runs} runs` : `suggest ${s.suggested}`;
   return (
     `  ${s.band}: runs ${s.runs} · p90 ${s.p90} · p95 ${s.p95} · exhausted ${s.exhausted}` +
     ` · warned ${s.warned} · used/floor ${ratio} · ${suggest}`
@@ -182,7 +185,7 @@ function turnSignalLine(s: TurnSignal): string {
 
 function turnSignalLines(signals: TuneView["turnSignals"]): string[] {
   if (signals === "ledger-unreadable") return [];
-  const head = `turn signals (observed; latest ${FLOOR_WINDOW} runs per band):`;
+  const head = `turn signals (observed; latest ${FLOOR.runs} runs per band):`;
   return [head, ...signals.map(turnSignalLine)];
 }
 

@@ -29,7 +29,6 @@ import {
   type TuningParameter,
   type TuningRecord,
 } from "./record.ts";
-import { FLOOR_BANDS } from "../../shared/turn-floors.ts";
 
 export { pushHistory, TUNING };
 export type { Counts, HistoryEntry, TuningCause, TuningEvent, TuningRecord };
@@ -248,12 +247,10 @@ function undoTimeout(record: TuningRecord, now: number): UndoResult {
 export function undoTuning(record: TuningRecord, now: number, untuned?: number): UndoResult {
   const pick = pickUndoTarget(record, untuned);
   if (pick === undefined) return { kind: "nothing", record };
-  if (pick.parameter === "timeoutMs") return undoTimeout(record, now);
-  const band = FLOOR_BANDS.find((b) => `turnFloor.${b}` === pick.parameter);
-  if (band === undefined) return { kind: "nothing", record };
-  const from = record.turnFloors?.[band]?.tuned?.value as number;
-  const undone = undoFloor(record, band, pick.target, now);
-  return { kind: "undone", parameter: pick.parameter, from, to: pick.target, record: undone };
+  if (!("band" in pick)) return undoTimeout(record, now);
+  const { band, from, target: to } = pick;
+  const undone = undoFloor(record, band, { from, to }, now);
+  return { kind: "undone", parameter: pick.parameter, from, to, record: undone };
 }
 
 /** Drops every parameter's tuned value, pending change and block; keeps `off`. */

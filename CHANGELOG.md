@@ -10,7 +10,7 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 - Tuned turn floors: `/jev tune` also moves the `medium`, `long` and `very_long` floors from counted worker runs of each band (aborted runs excluded), within ± 25%, fixed ranges and band order. Changes are reverted and blocked on more `exhausted` runs ([ADR 0012](docs/decisions/0012-tuned-turn-floors.md)). Undo and reset act on floors too.
 - Turn signals: `/jev tune` shows per-band turn signals (runs, p90, p95, `exhausted`, `warned`, turns used over the floor). Observed only.
-- `tuning.json` `version` 2 holds `turnFloors`; it is written only once a floor is tuned. An older package reads a `version` 2 file as malformed and moves it to `tuning.json.bad` on its next write, so tuned values are lost and the built-in floors apply.
+- `tuning.json` `version` 2 holds `turnFloors`; it is written once floor data exists, including floor history; `/jev tune reset` keeps `version` 2 while floor history remains. An older package reads a `version` 2 file as malformed and moves it to `tuning.json.bad` on its next write, so tuned values are lost and the built-in floors apply.
 
 ### Removed
 

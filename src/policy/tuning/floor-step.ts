@@ -92,7 +92,10 @@ function tryBand(
   };
 }
 
-export type UndoTarget = { parameter: TuningParameter; target: number };
+/** What undo moves: `timeoutMs` to `target`, or a band floor from `from` to `target`. */
+export type UndoTarget =
+  | { parameter: "timeoutMs"; target: number }
+  | { parameter: TuningParameter; band: FloorBand; from: number; target: number };
 
 /** The `from` of the latest `rule` entry of `parameter` that raised or lowered to `value`. */
 export function ruleOrigin(
@@ -126,7 +129,7 @@ function floorCandidate(record: TuningRecord, band: FloorBand): Candidate[] {
     Math.max(lower === undefined ? -Infinity : lower + FLOOR.gap, origin),
   );
   if (ordered === tuned.value) return [];
-  return [{ parameter, target: ordered, since: floorSince(record, band) }];
+  return [{ parameter, band, from: tuned.value, target: ordered, since: floorSince(record, band) }];
 }
 
 /**
@@ -143,28 +146,30 @@ export function pickUndoTarget(
   ];
   // Array.prototype.sort is stable, so ties keep the fixed parameter order.
   const [best] = candidates.sort((a, b) => b.since - a.since);
-  return best === undefined ? undefined : { parameter: best.parameter, target: best.target };
+  if (best === undefined) return undefined;
+  const { since: _since, ...target } = best;
+  return target;
 }
 
 /** Moves the band's floor to `target`, blocks the undone value and adds an `undo` entry. */
 export function undoFloor(
   record: TuningRecord,
   band: FloorBand,
-  target: number,
+  target: { from: number; to: number },
   now: number,
 ): TuningRecord {
-  const current = record.turnFloors?.[band]?.tuned?.value as number;
+  const { from: current, to } = target;
   const builtin = BUILTIN_FLOORS[band];
   const state = {
     changedAt: now,
-    ...(target === builtin ? {} : { tuned: { value: target, base: builtin } }),
+    ...(to === builtin ? {} : { tuned: { value: to, base: builtin } }),
     block: { value: current, at: now },
   };
   const entry = {
     at: now,
     parameter: FLOOR_PARAMETER(band),
     from: current,
-    to: target,
+    to,
     cause: "undo",
   } as const;
   return {
