@@ -2,8 +2,8 @@
 
 Blocked by: none
 
-- [ ] 1.1 In `src/policy/tuning/window.ts`, make `p90` count decisions that are answered or have `miss` `timeout` and carry a finite `ms`; add `latestAsked(ds, n)` (the latest `n` asked decisions, oldest first) and `rescued(ds, from)` (some answered decision has `ms > from`)
-- [ ] 1.2 Tests in `tests/policy/tuning/window.test.ts`: "Answered lines without ms" (modified), "Timeouts count in p90", "Other misses not in p90", and `latestAsked` and `rescued` cases; keep "Nearest-rank p90" green
+- [x] 1.1 In `src/policy/tuning/window.ts`, make `p90` count decisions that are answered or have `miss` `timeout` and carry a finite `ms`; add `latestAsked(ds, n)` (the latest `n` asked decisions, oldest first) and `rescued(ds, from)` (some answered decision has `ms > from`)
+- [x] 1.2 Tests in `tests/policy/tuning/window.test.ts`: "Answered lines without ms" (modified), "Timeouts count in p90", "Other misses not in p90", and `latestAsked` and `rescued` cases; keep "Nearest-rank p90" green
 
 ## 2. Burst rule, lowering and judging in the pure step
 
