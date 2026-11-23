@@ -16,7 +16,7 @@
 - **Branch**: `feat/worker-turn-tuning`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `pending (filled in after gh pr create)`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/105`
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## PR comment
 
-- **PR comment status**: `pending`
+- **PR comment status**: `posted`
 
 ---
 
