@@ -6,7 +6,7 @@
 > from "keep as-is" to PR later).
 
 **Change**: `worker-turn-floor`
-**Finalized at**: `2026-11-23 10:20`
+**Finalized at**: `2026-11-23 11:34` (updated after post-PR iteration 2)
 **Outcome**: `pr-updated`
 
 ---
@@ -48,9 +48,15 @@ Deviations from the canonical steps, per the user's AGENTS.md policy:
 
 ## Tests
 
-- **Baseline status at finish**: `passing` (`bun run test`: 2582 pass, 0 fail, in the worktree before review and again on the merged feature branch)
+- **Baseline status at finish**: `passing` — re-run after post-PR iteration 2: `bun run test` 2593 pass, 0 fail (`bun run test`: 2582 pass, 0 fail, in the worktree before review and again on the merged feature branch)
 
 ---
+
+## Post-PR iteration 2
+
+- Added measured turn use (`turnsUsed`, `turnPhase`) to the worker ledger and corrected the artifacts that called the static floors data-derived (user decision in chat; follow-up tuning in issue #104).
+- Commits `05ad01b5..` on `feat/worker-turn-floor`, task-reviewed, re-verified `PASS_WITH_WARNINGS`.
+- The code review gate was not reopened: the change is additive ledger fields that the user specified in chat, and the task reviewer and verifier both reviewed it.
 
 ## Next step
 
