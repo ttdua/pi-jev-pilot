@@ -78,8 +78,8 @@ describe("p90", () => {
 
   test("Other misses not in p90", () => {
     const ds = [
-      ...lines(36, 0, { ms: 500 }),
-      ...lines(4, 100, { answered: false, miss: "error", ms: 3000 }),
+      ...lines(35, 0, { ms: 500 }),
+      ...lines(5, 100, { answered: false, miss: "error", ms: 3000 }),
     ];
     expect(p90(ds)).toBe(500);
   });
