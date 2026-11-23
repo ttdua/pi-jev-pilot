@@ -51,5 +51,5 @@ Blocked by: 5
 
 Blocked by: 4
 
-- [ ] 7.1 Add `turnsUsed` and `turnPhase` to the worker ledger: `ExecutorOutcome` and `slim` read `turnBudget.used`/`phase`, `workerLine` writes them after `toolUses`, and `src/store/ledger-schema.ts` allows them (`count`, `within`/`warned`/`exhausted`); tests for `worker-ledger` "Worker turn use" and the two `decision-ledger` scenarios
-- [ ] 7.2 Update `docs/domain-model.md` (ledger table) and `CHANGELOG.md`; run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`
+- [x] 7.1 Add `turnsUsed` and `turnPhase` to the worker ledger: `ExecutorOutcome` and `slim` read `turnBudget.used`/`phase`, `workerLine` writes them after `toolUses`, and `src/store/ledger-schema.ts` allows them (`count`, `within`/`warned`/`exhausted`); tests for `worker-ledger` "Worker turn use" and the two `decision-ledger` scenarios
+- [x] 7.2 Update `docs/domain-model.md` (ledger table) and `CHANGELOG.md`; run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`

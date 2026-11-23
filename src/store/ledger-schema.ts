@@ -196,8 +196,9 @@ const DECIDING_REASONS: readonly string[] = [
   "expert", // DEPRECATED(remove next minor)
   "cut",
 ];
-/** Mirrors `TURN_BANDS` in policy/worker; the store cannot import policy, a test pins them equal. */
+/** Mirrors `TURN_PHASES` in policy/worker; the store cannot import policy, a test pins them equal. */
 export const TURN_PHASES = ["within", "warned", "exhausted"] as const;
+/** Mirrors `TURN_BANDS` in policy/worker; the store cannot import policy, a test pins them equal. */
 export const TURN_BAND_KEYS = ["short", "medium", "long", "very_long"] as const;
 const MAX_TARGETS = 12;
 
