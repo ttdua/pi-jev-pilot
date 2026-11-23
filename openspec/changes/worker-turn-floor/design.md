@@ -50,6 +50,8 @@ The worker line gains, in this order after `locked`:
 - `turnsP`: the `turns` probabilities, keyed by band, when answered.
 - `turnFloor`: the `maxTurns` written, only when written.
 
+After `toolUses`, the line also records the run's measured turn use from the executor's `turnBudget` in `subagents:completed`/`subagents:failed`: `turnsUsed` (`turnBudget.used`) and `turnPhase` (`within`, `warned` or `exhausted`), whenever the executor sends them, for every worker line. They are the data issue #104 needs to derive floors from measured turns instead of `toolUses`; the executor sends `turnBudget` only for a run with a limit.
+
 The schema adds them as optional (`count()` for the two numbers, a record over the four bands for `turnsP`); `v` stays 1, since the fields are additive and old lines stay valid. A turns-only line has `reason` `untouched` and `answered` from the request, like a thinking-only line. The session tally is unchanged.
 
 ### D7. Dependency bump
@@ -57,10 +59,11 @@ The schema adds them as optional (`count()` for the two numbers, a record over t
 
 ## Risks / Trade-offs
 
-- [Jev rates too high and raises the limit to 200] → Over-raising loses no work. The floor needs a median band, the top floor is the ceiling, and the ledger records `turnsP` and `turnFloor` so a later change can tune bands.
+- [Jev rates too high and raises the limit to 200] → Over-raising loses no work. The floor needs a median band, the top floor is the ceiling, and the ledger records `turnsP`, `turnFloor`, `turnsUsed` and `turnPhase` so a later change (issue #104) can tune bands from measured turns.
 - [A turns-only request adds latency to a launch that was untouched before] → These launches are rare (locked model and thinking, or fork `untouched`, and also limited). The request shares the launch's classifier deadline.
 - [Turns-only launches now count as asked decisions in the timeout tuning window (`tuning-rules`)] → Consistent with that rule; they are rare, so the window shifts little.
 - [The executor sets a default turn limit (`defaultMaxTurns`)] → Every launch then counts as limited and asks `turns`: one more question per request, and one extra call only on turns-only launches. Accepted; the ledger's `requestedTurns` shows it.
+- [The floors 40/100/200 are an estimate from overall `toolUses` percentiles, not measured turns per band] → Over-raising loses no work; `turnsUsed` and `turnPhase` are recorded from now on, and issue #104 derives floors from them.
 - [First-option bias toward `short`] → It causes a missed raise at worst; noted for a later replay.
 - [The executor changes the raise-only rules] → The pin is an exact tag; Jev's own rule matches v0.2.0.
 

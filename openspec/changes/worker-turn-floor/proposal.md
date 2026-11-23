@@ -19,7 +19,7 @@ The main model picks a worker's `max_turns` itself, often 20 or 40, whatever the
 - Reason: the executor's new raise-only field.
 - Impact: non-breaking; launches with no limit, with a locked limit or with a limit at or above the floor are unchanged.
 
-- Worker ledger line gains `requestedTurns`, `turnsP` and `turnFloor`.
+- Worker ledger line gains `requestedTurns`, `turnsP` and `turnFloor`, and the measured `turnsUsed` and `turnPhase` from the executor's `turnBudget` (data for issue #104).
 - The `subagents` switch covers the turn floor; no new switch or config key.
 - Fail open: a Jev failure, timeout or unanswered `turns` writes no `maxTurns`.
 - Bump the `@ttdua/pi-subagents` dev dependency and the install lines from `v0.1.1` to `v0.2.0`.

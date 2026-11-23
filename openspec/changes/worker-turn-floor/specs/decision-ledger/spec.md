@@ -90,6 +90,8 @@ Every ledger line SHALL be one JSON object whose fields are exactly those allowe
 | worker | `locked` | flag | |
 | worker | `requestedTurns`, `turnFloor` | count | |
 | worker | `turnsP` | turns distribution | |
+| worker | `turnsUsed` | count | |
+| worker | `turnPhase` | `within`, `warned` or `exhausted` | |
 | worker | `toolsScored`, `toolsFlagged`, `toolsGranted`, `tokens`, `toolUses` | count | |
 | worker | `effectiveModel` | model | |
 | worker | `effectiveThinking` | level | |
@@ -151,3 +153,11 @@ Writers MUST emit only the names `basic`, `broad`, `deep` and `frontier` and the
 #### Scenario: Worker line with turn fields accepted
 - **WHEN** a worker entry with the required fields has `requestedTurns` 20, `turnsP` with the keys `short`, `medium`, `long` and `very_long`, and `turnFloor` 100
 - **THEN** validation passes with no issues
+
+#### Scenario: Worker line with turn use accepted
+- **WHEN** a worker entry with the required fields has `turnsUsed` 37 and `turnPhase` `warned`
+- **THEN** validation passes with no issues
+
+#### Scenario: Bad turn phase rejected
+- **WHEN** a worker entry's `turnPhase` is `paused`
+- **THEN** validation fails with an issue at `turnPhase`

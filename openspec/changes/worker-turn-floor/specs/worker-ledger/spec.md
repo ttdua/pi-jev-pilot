@@ -27,6 +27,25 @@ The line SHALL carry `requestedTurns` (the launch's `requested.maxTurns`) whenev
 - **WHEN** a worker line written before this change, without the turn fields, is read
 - **THEN** it passes the ledger schema
 
+### Requirement: Worker turn use
+The line SHALL carry `turnsUsed` and `turnPhase` from the `turnBudget` of the executor's `subagents:completed` or `subagents:failed` event: `turnsUsed` from `used` and `turnPhase` from `phase`, which MUST be one of `within`, `warned` or `exhausted`. Each field SHALL be written only when the event carries a valid value, for every worker line whether or not `turns` was asked, and MUST pass the schema with `v` 1.
+
+#### Scenario: Turn use recorded
+- **WHEN** a worker with a turn limit completes and its event carries `turnBudget` `{ maxTurns: 100, used: 37, phase: "within" }`
+- **THEN** its line has `turnsUsed` 37 and `turnPhase` `within`
+
+#### Scenario: Exhausted run recorded
+- **WHEN** a worker stopped at its limit ends with `turnBudget` `{ maxTurns: 20, used: 20, phase: "exhausted" }`
+- **THEN** its line has `turnsUsed` 20 and `turnPhase` `exhausted`
+
+#### Scenario: No turn budget
+- **WHEN** a worker's event carries no `turnBudget`
+- **THEN** its line has no `turnsUsed` or `turnPhase`
+
+#### Scenario: Unknown phase dropped
+- **WHEN** a worker's event carries `turnBudget` with `used` 5 and `phase` `paused`
+- **THEN** its line has `turnsUsed` 5 and no `turnPhase`
+
 ## MODIFIED Requirements
 
 ### Requirement: Worker decision fields

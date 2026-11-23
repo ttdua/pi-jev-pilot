@@ -49,6 +49,8 @@
 | `RouteWrite` (`src/host/worker/route.ts`) | modified | `{ model?: string; thinking?: ThinkingLevel; maxTurns?: number }` | no |
 | `WorkerLineInput` (`src/policy/worker/worker-line.ts`) | modified | adds `turnsQuestion: boolean; requestedTurns: number \| undefined` | no |
 | Worker ledger line (`ledger.jsonl`) | modified | optional `requestedTurns: count`, `turnsP: turns distribution`, `turnFloor: count`, after `locked` | yes (file format) |
+| Worker ledger line turn use | modified | optional `turnsUsed: count`, `turnPhase: "within" \| "warned" \| "exhausted"`, after `toolUses` | yes (file format) |
+| `ExecutorOutcome` (`src/policy/worker/worker-line.ts`) | modified | adds `turnBudget?: unknown` | no |
 | `turns` Jev question | new | choice over `short`, `medium`, `long`, `very_long` (wire format of `docs/jev-questions.md`) | yes (Jev request) |
 | Launch adjustment | modified | may carry `maxTurns` (positive integer from `BAND_FLOOR`) | yes (executor contract v0.2.0) |
 | `devDependencies["@ttdua/pi-subagents"]` | modified | `github:ttdua/pi-subagents#v0.2.0` | yes |
@@ -205,6 +207,26 @@
 
 ---
 
+## Task 7: Measured turn use in the ledger — implements 7
+
+**Covers:** 7.1, 7.2
+**Difficulty:** Easy
+**Blocked by:** Task 4
+
+Added in post-PR iteration 2, approved by the user in chat (data for issue #104).
+
+**Files:**
+- Modify: `src/policy/worker/worker-line.ts`, `src/host/worker/entry.ts`, `src/store/ledger-schema.ts`, `docs/domain-model.md`, `CHANGELOG.md`
+- Test: `tests/policy/worker/worker-line.test.ts`, `tests/store/ledger-schema.test.ts`, `tests/store/ledger-pin.test.ts`, `tests/host/worker-ledger.test.ts`
+
+- [ ] **Step 1: Failing tests:** `worker-line.test.ts` "Turn use recorded" (37/`within`), "Exhausted run recorded" (20/`exhausted`), "No turn budget", "Unknown phase dropped" (5, no phase), and key order (`turnsUsed`, `turnPhase` right after `toolUses`). `ledger-schema.test.ts` "Worker line with turn use accepted", "Bad turn phase rejected" (issue at `turnPhase`), and the exported worker field list. `ledger-pin.test.ts`: `WORKER_BAD` gains `turnsUsed` (`-1`) and `turnPhase` (`"paused"`); the `WORKER` fixture and the largest-line test carry both. `worker-ledger.test.ts` host test: an outcome event with `turnBudget` writes both fields.
+- [ ] **Step 2:** Run them. Expected: FAIL.
+- [ ] **Step 3:** `slim` keeps `turnBudget: { used, phase }` when `data.turnBudget` is a record; `executorFields` writes `turnsUsed` via `count(used)` and `turnPhase` only when `phase` is one of the three; the schema adds both after `toolUses`.
+- [ ] **Step 4:** Run the tests. Expected: PASS. Update the `docs/domain-model.md` ledger table and the `CHANGELOG.md` Unreleased entry; run `bun run typecheck && bun run lint && bun run fmt:check && bun run test`.
+- [ ] **Step 5:** Commit `feat(ledger): record measured worker turn use`.
+
+---
+
 ## Scenario → test
 
 **worker-request**
@@ -251,3 +273,9 @@
 - Unknown band rejected → `tests/store/ledger-schema.test.ts` same name
 - Valid main line accepted … Bad effective thinking rejected (12 scenarios) → existing `tests/store/ledger-schema.test.ts`; Exported field sets match the table → `tests/store/ledger-schema.test.ts` (updated list)
 - Worker line with turn fields accepted → `tests/store/ledger-schema.test.ts` same name
+
+**worker-ledger (turn use)**
+- Turn use recorded, Exhausted run recorded, No turn budget, Unknown phase dropped → `tests/policy/worker/worker-line.test.ts` same names; host join → `tests/host/worker-ledger.test.ts` "Turn use joined from the executor"
+
+**decision-ledger (turn use)**
+- Worker line with turn use accepted, Bad turn phase rejected → `tests/store/ledger-schema.test.ts` same names

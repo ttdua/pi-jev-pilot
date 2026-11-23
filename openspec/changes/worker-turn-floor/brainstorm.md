@@ -7,7 +7,7 @@ Behaviour:
 - **When Jev is asked.** Only for a launch that has a turn limit (`requested.maxTurns` is set) and whose agent does not lock `max_turns`. About 99% of launches have no limit; they get no new question and behave exactly as today.
 - **The question.** A new worker question, `turns`, asks for the expected workload as a choice over four bands: `short`, `medium`, `long`, `very_long`. Its wording is about the number of steps and tool calls the brief needs, held apart from `effort` (amount of care) and `tier` (knowledge).
 - **Launches routing leaves untouched today.** A launch with a limit whose agent locks both `model` and `thinking`, or a fork with the setting `untouched`, now gets a request with `turns` only. This changes the specified requirement "Launches left untouched" (`worker-decision`), which today says such a launch sends no worker request. Model and thinking stay untouched for those launches.
-- **The floor.** Each band maps to a turn floor taken from the ledger's `toolUses` distribution (p50 18, p90 56, p99 127): `short` none, `medium` 40, `long` 100, `very_long` 200. The floor is decided on the band probabilities, never on confidence.
+- **The floor.** Each band maps to a starting turn floor, an estimate read off the ledger's overall `toolUses` percentiles (p50 18, p90 56, p99 127), not derived from measured turns: `short` none, `medium` 40, `long` 100, `very_long` 200. `toolUses` overstates turns (one turn can run several tools), so the estimate errs high. The floor is decided on the band probabilities, never on confidence.
 - **The write.** Jev writes `maxTurns` equal to the floor only when the floor is greater than `requested.maxTurns`; it never lowers a limit and never adds one. The executor enforces raise-only too; Jev's own rule keeps the ledger honest and avoids debug-note noise from the executor.
 - **The bound.** The highest band floor (200) is the ceiling. No ratio cap and no new config key.
 - **Switch.** Part of the existing `subagents` switch (`/jev subagents off` turns it off with the rest of worker routing). No new switch.
@@ -56,6 +56,8 @@ A dedicated `turns` question over four workload bands, asked only for launches w
 - Bump the pi-subagents pin and README install line to `v0.2.0` (from the issue comment).
 
 ## Open Questions
+
+- Data-driven floors (measured turns per band plus a safety margin, through tuning) are follow-up work in issue #104; this change records the measured turns (`turnsUsed`, `turnPhase`) they need.
 
 - Exact `turns` wording and its version pin, left to the design and `docs/jev-questions.md`.
 - How a `turns`-only request on an otherwise untouched launch shows in the ledger (`reason`, `answered`), left to the design, consistent with the existing worker line fields.

@@ -46,3 +46,10 @@ Blocked by: 5
 - [x] 6.1 Update `README.md` (worker routing feature row: the turn floor and `/jev subagents off`), `docs/scenarios.md` (turn floor rules and the turns-only launch), `docs/configuration.md` (what the `subagents` switch covers) and `docs/jev-contract.md` (launches left untouched, worker questions)
 - [x] 6.2 Add an `Unreleased` entry to `CHANGELOG.md` for the turn floor and the executor `v0.2.0` requirement
 - [x] 6.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
+
+## 7. Measured turn use in the ledger
+
+Blocked by: 4
+
+- [ ] 7.1 Add `turnsUsed` and `turnPhase` to the worker ledger: `ExecutorOutcome` and `slim` read `turnBudget.used`/`phase`, `workerLine` writes them after `toolUses`, and `src/store/ledger-schema.ts` allows them (`count`, `within`/`warned`/`exhausted`); tests for `worker-ledger` "Worker turn use" and the two `decision-ledger` scenarios
+- [ ] 7.2 Update `docs/domain-model.md` (ledger table) and `CHANGELOG.md`; run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`
