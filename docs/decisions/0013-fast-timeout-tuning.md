@@ -18,7 +18,7 @@ Causes in the rules before this change:
 Tuning moves `timeoutMs` up faster and down gradually. The step still applies at most one change, in this order: burst, window rule, lowering, then band floors ([ADR 0012](0012-tuned-turn-floors.md)).
 
 - **Burst:** when 3 of the latest 5 asked decisions after the latest `timeoutMs` history entry timed out, raise to `ceil100(current × 1.25)`, clamped to 5000. It ignores the 40-decision cooldown and any block, and clears the block. It replaces a pending change that is not yet judgeable.
-- **Window rule:** unchanged trigger (over 10% timeouts in 40 asked). Its p90 counts timed-out decisions at the timeout in force, so steps reflect real latency.
+- **Window rule:** unchanged trigger: the latest 40 decisions after the latest `timeoutMs` entry, at least 20 of them asked, and `timeouts × 10 > asked` (more than 10% of asked). Its p90 counts timed-out decisions at the timeout in force, so steps reflect real latency.
 - **Judging:** a raise is kept when an answer among the 40 decisions after it has `ms` above the old value. Otherwise it is reverted when the share is worse. A lowering is reverted on any timeout among at least 20 asked.
 - **Lowering:** after 200 decisions with at least 100 asked and no timeout, lower to `max(base, ceil100(p90 × 1.5), ceil100(current × 0.8))`, never below base.
 - **Block direction:** a raise block holds back raises for 200 decisions. A lowering block holds back lowerings for 400 decisions. Direction comes from the reference value, so no file change is needed.
