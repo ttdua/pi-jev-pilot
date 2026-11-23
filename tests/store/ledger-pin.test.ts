@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { TURN_BANDS } from "../../src/policy/worker/index.ts";
+import { TURN_PHASES } from "../../src/policy/worker/worker-line.ts";
 import {
   LEDGER_FIELDS,
   TURN_BAND_KEYS,
+  TURN_PHASES as SCHEMA_TURN_PHASES,
   validateLedgerEntry,
 } from "../../src/store/ledger-schema.ts";
 
@@ -463,6 +465,10 @@ describe("ledger schema pin: cross-field checks", () => {
 describe("ledger schema pin: turn bands", () => {
   test("turn bands agree", () => {
     expect([...TURN_BAND_KEYS]).toEqual([...TURN_BANDS]);
+  });
+
+  test("turn phases agree", () => {
+    expect([...SCHEMA_TURN_PHASES]).toEqual([...TURN_PHASES]);
   });
 });
 

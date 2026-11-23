@@ -96,7 +96,7 @@ export type WorkerEntry = Common &
     tokens?: number;
     toolUses?: number;
     turnsUsed?: number;
-    turnPhase?: "within" | "warned" | "exhausted";
+    turnPhase?: (typeof TURN_PHASES)[number];
     effectiveModel?: string;
     effectiveThinking?: Level;
     status: "completed" | "aborted" | "stopped" | "error";
@@ -197,6 +197,7 @@ const DECIDING_REASONS: readonly string[] = [
   "cut",
 ];
 /** Mirrors `TURN_BANDS` in policy/worker; the store cannot import policy, a test pins them equal. */
+export const TURN_PHASES = ["within", "warned", "exhausted"] as const;
 export const TURN_BAND_KEYS = ["short", "medium", "long", "very_long"] as const;
 const MAX_TARGETS = 12;
 
@@ -365,7 +366,7 @@ function workerShape(kind: LedgerKind) {
       tokens: count(),
       toolUses: count(),
       turnsUsed: count(),
-      turnPhase: oneOf(["within", "warned", "exhausted"] as const),
+      turnPhase: oneOf(TURN_PHASES),
       effectiveModel: string({ pattern: MODEL, max: 128 }),
       effectiveThinking: level(),
       status: oneOf(["completed", "aborted", "stopped", "error"] as const),

@@ -50,7 +50,8 @@ export type WorkerLineInput = {
 type Line = Record<string, unknown>;
 
 const STATUSES = ["completed", "aborted", "stopped", "error"] as const;
-const TURN_PHASES = ["within", "warned", "exhausted"] as const;
+/** Phases the executor reports; the ledger schema keeps its own copy, pinned equal by a test. */
+export const TURN_PHASES = ["within", "warned", "exhausted"] as const;
 const EFFORT_KEYS: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {

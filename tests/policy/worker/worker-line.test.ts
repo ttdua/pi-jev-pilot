@@ -108,6 +108,14 @@ describe("workerLine", () => {
     expect(line).toMatchObject({ turnsUsed: 20, turnPhase: "exhausted" });
   });
 
+  test("Negative turns dropped, phase kept", () => {
+    const line = workerLine(
+      input({ outcome: { status: "completed", turnBudget: { used: -1, phase: "within" } } }),
+    );
+    expect(line).not.toHaveProperty("turnsUsed");
+    expect(line).toMatchObject({ turnPhase: "within" });
+  });
+
   test("No turn budget", () => {
     const line = workerLine(input());
     expect(line).not.toHaveProperty("turnsUsed");
