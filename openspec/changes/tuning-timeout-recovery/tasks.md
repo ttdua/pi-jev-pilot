@@ -29,6 +29,6 @@ Blocked by: 2
 
 Blocked by: 3
 
-- [ ] 4.1 Add `docs/decisions/0013-fast-timeout-tuning.md` (amends ADR 0005: burst rule ignores cooldown and block, rescue evidence in judging, measured p90, lowering after 200 clean decisions, thresholds as first estimates, evidence from the 2026-11-21 to 2026-11-23 ledger without prompt text); add the amended-by link in `docs/decisions/0005-bounded-auto-tuning.md` and the row in `docs/decisions/README.md`
-- [ ] 4.2 Update `docs/usage-guide.md` Tuning (new lines, burst and lowering limits, lowering undo text), and `docs/configuration.md`, `docs/glossary.md`, `docs/domain-model.md`, `docs/architecture.md` (new `timeout-rules.ts`) wherever they state the timeout rules; add an `Unreleased` entry to `CHANGELOG.md`
-- [ ] 4.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
+- [x] 4.1 Add `docs/decisions/0013-fast-timeout-tuning.md` (amends ADR 0005: burst rule ignores cooldown and block, rescue evidence in judging, measured p90, lowering after 200 clean decisions, thresholds as first estimates, evidence from the 2026-11-21 to 2026-11-23 ledger without prompt text); add the amended-by link in `docs/decisions/0005-bounded-auto-tuning.md` and the row in `docs/decisions/README.md`
+- [x] 4.2 Update `docs/usage-guide.md` Tuning (new lines, burst and lowering limits, lowering undo text), and `docs/configuration.md`, `docs/glossary.md`, `docs/domain-model.md`, `docs/architecture.md` (new `timeout-rules.ts`) wherever they state the timeout rules; add an `Unreleased` entry to `CHANGELOG.md`
+- [x] 4.3 Run `bun run typecheck`, `bun run lint`, `bun run fmt:check` and `bun run test`; all pass
