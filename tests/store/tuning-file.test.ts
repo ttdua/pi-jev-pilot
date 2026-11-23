@@ -84,7 +84,7 @@ describe("tuning content", () => {
     expect(paths(read({ version: 1, pending }))).toEqual(["pending.before.timeouts"]);
   });
   test("future version", () => {
-    expect(paths(read({ version: 2 }))).toEqual(["version"]);
+    expect(paths(read({ version: 3 }))).toEqual(["version"]);
   });
 });
 
@@ -229,5 +229,105 @@ describe("tuning seen marker", () => {
       expect(r.kind).toBe("malformed");
       expect(paths(r)).toEqual(["seenAt"]);
     }
+  });
+});
+
+describe("tuning file version 2", () => {
+  const floorEntry = {
+    at: 1000,
+    parameter: "turnFloor.long",
+    from: 100,
+    to: 80,
+    cause: "rule",
+  } as const;
+  const floors = {
+    long: {
+      changedAt: 1000,
+      tuned: { value: 80, base: 100 },
+      pending: { from: 100, to: 80, at: 1000, before: { runs: 200, exhausted: 3 } },
+    },
+  };
+  const v2 = { version: 2, turnFloors: floors, history: [floorEntry] };
+  const { version: _v, ...v2Record } = v2;
+
+  test("Floor state read", () => {
+    expect(read(v2)).toEqual({ kind: "ok", record: v2Record });
+  });
+  test("Floors in a version 1 file", () => {
+    expect(paths(read({ version: 1, turnFloors: floors }))).toEqual(["turnFloors"]);
+  });
+  test("Floor history in a version 1 file", () => {
+    expect(paths(read({ version: 1, history: [floorEntry] }))).toEqual(["history[0].parameter"]);
+  });
+  test("Other parameter rejected (version 2)", () => {
+    expect(paths(read({ version: 2, riskFloor: 1 }))).toEqual(["riskFloor"]);
+  });
+  test("Floor out of its band range", () => {
+    const turnFloors = { medium: { changedAt: 1, tuned: { value: 100, base: 40 } } };
+    expect(paths(read({ version: 2, turnFloors }))).toEqual(["turnFloors.medium.tuned.value"]);
+  });
+  test("History value out of its parameter range", () => {
+    const history = [{ ...floorEntry, to: 1500 }];
+    expect(paths(read({ version: 2, history }))).toEqual(["history[0].to"]);
+  });
+  test("More exhausted than runs", () => {
+    const turnFloors = {
+      long: {
+        changedAt: 1,
+        pending: { from: 100, to: 80, at: 1, before: { runs: 10, exhausted: 11 } },
+      },
+    };
+    expect(paths(read({ version: 2, turnFloors }))).toEqual([
+      "turnFloors.long.pending.before.exhausted",
+    ]);
+  });
+  test("Band state with only changedAt is kept", () => {
+    const turnFloors = { long: { changedAt: 5 } };
+    expect(read({ version: 2, turnFloors })).toEqual({ kind: "ok", record: { turnFloors } });
+  });
+  test("Unknown version", () => {
+    expect(paths(read({ version: 3 }))).toEqual(["version"]);
+  });
+  test("Written as version 2", () =>
+    withDir((dir) => {
+      put(dir, { version: 1, timeoutMs: { value: 1700, base: 1500 } });
+      const r = updateTuning(dir, (rec) => ({
+        ...rec,
+        turnFloors: { long: { changedAt: 9, tuned: { value: 80, base: 100 } } },
+      }));
+      expect(r).toEqual({ ok: true });
+      expect(JSON.parse(readFileSync(join(dir, "tuning.json"), "utf8"))).toEqual({
+        version: 2,
+        timeoutMs: { value: 1700, base: 1500 },
+        turnFloors: { long: { changedAt: 9, tuned: { value: 80, base: 100 } } },
+      });
+    }));
+  test("Kept at version 1", () =>
+    withDir((dir) => {
+      put(dir, { version: 1, timeoutMs: { value: 1700, base: 1500 } });
+      updateTuning(dir, (rec) => ({ ...rec, off: true }));
+      expect(JSON.parse(readFileSync(join(dir, "tuning.json"), "utf8"))).toEqual({
+        version: 1,
+        timeoutMs: { value: 1700, base: 1500 },
+        off: true,
+      });
+    }));
+  test("Empty turnFloors is dropped and version stays 1", () =>
+    withDir((dir) => {
+      put(dir, v2);
+      updateTuning(dir, () => ({ off: true, turnFloors: {} }));
+      expect(JSON.parse(readFileSync(join(dir, "tuning.json"), "utf8"))).toEqual({
+        version: 1,
+        off: true,
+      });
+    }));
+  test("Floor history entry alone writes version 2", () =>
+    withDir((dir) => {
+      updateTuning(dir, () => ({ history: [floorEntry] }));
+      expect(JSON.parse(readFileSync(join(dir, "tuning.json"), "utf8")).version).toBe(2);
+    }));
+  test("Problem messages do not echo values", () => {
+    const r = read({ version: 2, turnFloors: { long: { changedAt: "secret-123" } } });
+    expect(JSON.stringify(r)).not.toContain("secret-123");
   });
 });

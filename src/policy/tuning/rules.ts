@@ -9,6 +9,7 @@ import {
   type Counts,
   type DecisionLine,
 } from "./window.ts";
+import type { FloorBand } from "../../shared/turn-floors.ts";
 
 export type { Counts };
 
@@ -28,7 +29,7 @@ export type TuningRecord = {
   block?: { value: number; at: number };
   history?: Array<{
     at: number;
-    parameter: "timeoutMs";
+    parameter: "timeoutMs" | `turnFloor.${FloorBand}`;
     from: number;
     to: number;
     cause: TuningCause;
