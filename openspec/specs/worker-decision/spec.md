@@ -554,7 +554,7 @@ A launch SHALL be able to raise its turn limit exactly when the executor's launc
 - **THEN** the launch cannot raise its turn limit
 
 ### Requirement: Turn floor
-A pure function SHALL compute a turn floor from the `turns` probabilities, never from confidence or `turns.choice` alone. Band floors: `short` none, `medium` 40, `long` 100, `very_long` 200. From `very_long` down to `medium`, the floor MUST be that of the first band whose probability plus those of all higher bands is at least .5; otherwise, or when unanswered, there SHALL be no floor. Missing bands count as 0; no normalising.
+A pure function SHALL compute a turn floor from the `turns` probabilities and the band floors passed in, never from confidence or `turns.choice` alone. `short` has no floor; `medium`, `long` and `very_long` take the floors passed in, which are the built-in 40, 100 and 200 unless tuning changed them. From `very_long` down to `medium`, the floor MUST be that of the first band whose probability plus those of all higher bands is at least .5; otherwise, or when unanswered, there SHALL be no floor. Missing bands count as 0; no normalising. The band picked this way SHALL be the band tuning assigns to a run with the same probabilities.
 
 #### Scenario: Long by majority
 - **WHEN** the `turns` probabilities are `short` .1, `medium` .2, `long` .6 and `very_long` .1
@@ -583,6 +583,10 @@ A pure function SHALL compute a turn floor from the `turns` probabilities, never
 #### Scenario: Unanswered
 - **WHEN** `turns` is unanswered
 - **THEN** there is no floor
+
+#### Scenario: Tuned floors passed in
+- **WHEN** the floors passed in are `medium` 40, `long` 80 and `very_long` 200, and the `turns` probabilities are `short` .1, `medium` .2, `long` .6 and `very_long` .1
+- **THEN** the floor is 80 and the band is `long`
 
 ### Requirement: Turn write
 The route SHALL write `maxTurns` equal to the turn floor only when the launch can raise its turn limit and the floor is greater than `requested.maxTurns`, and record that value as `turnFloor`. Otherwise it MUST write no `maxTurns` and record no `turnFloor`. The turn write MUST NOT depend on, or change, the tier, fallback, model or thinking decision, including on the thinking-only and locked paths: it is added to whatever those paths write.
