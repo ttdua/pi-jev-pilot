@@ -223,6 +223,46 @@ describe("evaluatePending", () => {
     expect(out.event).toEqual({ kind: "reverted", parameter: "timeoutMs", from: 1700, to: 1500 });
   });
 
+  const withAnswer = (ms: number): DecisionLine[] => {
+    const ds = judgedLines(40, 15);
+    ds[39] = line(1040, { ms });
+    return ds;
+  };
+
+  test("rescued answer keeps a raise", () => {
+    const rec = pendingRecord(1700, 1900, { asked: 40, timeouts: 6 });
+    const out = evaluatePending(rec, withAnswer(1850), 9000);
+    expect(out.event).toEqual({ kind: "kept", parameter: "timeoutMs", from: 1700, to: 1900 });
+  });
+
+  test("answer at the old value is no rescue", () => {
+    const rec = pendingRecord(1700, 1900, { asked: 40, timeouts: 6 });
+    const ds = judgedLines(40, 8).map((d) => (d.answered === true ? { ...d, ms: 1700 } : d));
+    expect(evaluatePending(rec, ds, 9000).event?.kind).toBe("reverted");
+  });
+
+  test("worse lowering reverted", () => {
+    const rec = pendingRecord(3000, 2400, { asked: 40, timeouts: 0 });
+    const ds = judgedLines(40, 1).map((d) => (d.answered === true ? { ...d, ms: 1000 } : d));
+    const out = evaluatePending(rec, ds, 9000);
+    expect(out.event).toEqual({ kind: "reverted", parameter: "timeoutMs", from: 2400, to: 3000 });
+    expect(out.record.timeoutMs).toEqual({ value: 3000, base: 1500 });
+  });
+
+  test("lowering with an empty before", () => {
+    const rec = pendingRecord(3000, 2400, { asked: 0, timeouts: 0 });
+    const out = evaluatePending(rec, judgedLines(20, 1), 9000);
+    expect(out.event).toEqual({ kind: "reverted", parameter: "timeoutMs", from: 2400, to: 3000 });
+  });
+
+  test("lowering at base clears the tuned value once kept", () => {
+    const rec = pendingRecord(1700, 1500, { asked: 40, timeouts: 0 });
+    const ds = lines(40, 1001, { ms: 500 });
+    const out = evaluatePending(rec, ds, 9000);
+    expect(out.event).toEqual({ kind: "kept", parameter: "timeoutMs", from: 1700, to: 1500 });
+    expect(out.record.timeoutMs).toBeUndefined();
+  });
+
   test("revert to the untuned value", () => {
     const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
     const out = evaluatePending(rec, judgedLines(40, 8), 9000);
@@ -344,7 +384,7 @@ describe("stepTuning", () => {
   const history1000 = [entryAt(1000)];
 
   test("nothing to do", () => {
-    expect(step({}, [])).toEqual({ record: {}, events: [] });
+    expect(step({}, lines(10, 1001))).toEqual({ record: {}, events: [] });
   });
 
   test("inputs unchanged", () => {
@@ -365,7 +405,16 @@ describe("stepTuning", () => {
 
   test("inside the cooldown", () => {
     const rec = { history: history1000 };
-    expect(step(rec, mixed(1001, 8).slice(0, 39)).events).toEqual([]);
+    const ls = [timeout(1001), timeout(1002), ...lines(37, 1003, { answered: false })];
+    expect(step(rec, ls).events).toEqual([]);
+  });
+
+  test("burst inside the cooldown", () => {
+    const rec = { history: history1000 };
+    const ls = Array.from({ length: 39 }, (_, i) => timeout(1001 + i));
+    expect(step(rec, ls).events).toEqual([
+      { kind: "applied", parameter: "timeoutMs", from: 1500, to: 1900 },
+    ]);
   });
 
   test("cooldown passed", () => {
@@ -378,7 +427,7 @@ describe("stepTuning", () => {
   test("decisions before the change do not count", () => {
     const rec = { history: history1000 };
     const old = Array.from({ length: 100 }, (_, i) => timeout(500 + i));
-    expect(step(rec, [...old, ...mixed(1001, 8).slice(0, 39)]).events).toEqual([]);
+    expect(step(rec, [...old, ...lines(20, 1001)]).events).toEqual([]);
   });
 
   test("kept, then the rule fires", () => {
@@ -408,6 +457,23 @@ describe("stepTuning", () => {
     expect(out.record.timeoutMs).toBeUndefined();
   });
 
+  test("no burst right after superseding", () => {
+    const rec: TuningRecord = { timeoutMs: { value: 1700, base: 1500 }, history: history1000 };
+    const out = step(rec, [...lines(37, 1001), ...[1, 2, 3].map((i) => timeout(4000 + i))], 2000);
+    expect(out.events.map((e) => e.kind)).toEqual(["superseded"]);
+  });
+
+  test("timeouts count in p90", () => {
+    const rec: TuningRecord = { timeoutMs: { value: 1700, base: 1500 }, history: history1000 };
+    // The 6 timeouts sit early, so the latest 5 asked hold none and only the window rule fires.
+    const ls = Array.from({ length: 40 }, (_, i) =>
+      i < 6 ? { ...timeout(1001 + i), ms: 1702 } : line(1001 + i, { ms: 1300 }),
+    );
+    expect(step(rec, ls).events).toEqual([
+      { kind: "applied", parameter: "timeoutMs", from: 1700, to: 2200 },
+    ]);
+  });
+
   test("off stops everything", () => {
     const rec: TuningRecord = { off: true, timeoutMs: { value: 1700, base: 1500 } };
     expect(step(rec, mixed(1001, 8), 2000)).toEqual({ record: rec, events: [] });
@@ -418,7 +484,7 @@ describe("stepTuning", () => {
       line(1001 + i, { kind: "correction", answered: false, miss: "timeout" }),
     );
     const rec = { history: history1000 };
-    const out = step(rec, [...corrections, ...mixed(1100, 8).slice(0, 39)]);
+    const out = step(rec, [...corrections, ...lines(39, 1100)]);
     expect(out.events).toEqual([]);
   });
 
@@ -661,5 +727,35 @@ describe("seen helpers", () => {
     expect(resetTuning(rec, 1500, 100).seenAt).toBe(7);
     expect(setTuningOff(rec, true).seenAt).toBe(7);
     expect(stepTuning({ record: rec, untuned: 1500, lines: [], now: 100 }).record.seenAt).toBe(7);
+  });
+});
+
+describe("undo walk-back", () => {
+  const hist = (...steps: Array<[number, number]>): HistoryEntry[] =>
+    steps.map(([from, to], i) => rule(10 + i, from, to));
+  const undoAll = (record: TuningRecord, n: number): number[] => {
+    const values: number[] = [];
+    let current = record;
+    for (let i = 0; i < n; i++) {
+      current = undoTuning(current, 5000 + i).record;
+      values.push(current.timeoutMs?.value ?? 1500);
+    }
+    return values;
+  };
+
+  test("Repeated undo walks back through a lowering", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 2400, base: 1500 },
+      history: hist([1500, 1900], [1900, 2400], [2400, 3000], [3000, 2400]),
+    };
+    expect(undoAll(rec, 3)).toEqual([3000, 2400, 1900]);
+  });
+
+  test("Repeated identical transitions undone one at a time", () => {
+    const rec: TuningRecord = {
+      timeoutMs: { value: 3000, base: 1500 },
+      history: hist([1500, 1900], [1900, 2400], [2400, 3000], [3000, 2400], [2400, 3000]),
+    };
+    expect(undoAll(rec, 3)).toEqual([2400, 3000, 2400]);
   });
 });

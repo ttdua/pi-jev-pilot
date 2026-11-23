@@ -18,6 +18,10 @@ function bandRuns(band: FloorBand, used: number, from: number, timeoutsFrom = In
   return runs(200, from, band, used, (i) => (i >= timeoutsFrom ? timeoutLine : { answered: true }));
 }
 
+/** Timeouts at indices 160-169: the latest 5 asked hold none, the window rule still fires. */
+const midTimeouts = (l: TuningLine, i: number): TuningLine =>
+  i >= 160 && i < 170 ? { ...l, answered: false, miss: "timeout" } : l;
+
 const step = (record: TuningRecord, lines: readonly TuningLine[], untuned = 1500, now = 90000) =>
   stepTuning({ record, untuned, lines, now });
 
@@ -50,9 +54,16 @@ const longPending: TuningRecord = {
 
 describe("step order across parameters", () => {
   test("One applied change per step", () => {
-    const out = step({}, bandRuns("long", 40, 1001, 190));
+    const out = step({}, bandRuns("long", 40, 1001).map(midTimeouts));
     expect(out.events).toEqual([{ kind: "applied", parameter: "timeoutMs", from: 1500, to: 1700 }]);
     expect(out.record.turnFloors).toBeUndefined();
+  });
+
+  test("Burst before the window rule", () => {
+    const ls = bandRuns("long", 40, 1001).map(midTimeouts);
+    const burst = [1, 2, 3].map((i) => ({ ...line(2000 + i, timeoutLine) }));
+    const out = step({}, [...ls, ...burst]);
+    expect(out.events).toEqual([{ kind: "applied", parameter: "timeoutMs", from: 1500, to: 1900 }]);
   });
 
   test("Floor applies when timeout does not", () => {
@@ -65,7 +76,8 @@ describe("step order across parameters", () => {
   });
 
   test("Revert blocks every apply", () => {
-    const out = step(longPending, [...bandRuns("long", 40, 1001, 190)].map(exhausted));
+    const burst = [1, 2, 3].map((i) => ({ ...line(5000 + i, timeoutLine) }));
+    const out = step(longPending, [...bandRuns("long", 40, 1001).map(exhausted), ...burst]);
     expect(out.events).toEqual([
       { kind: "reverted", parameter: "turnFloor.long", from: 75, to: 100 },
     ]);

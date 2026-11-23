@@ -1,14 +1,6 @@
 // Tuning rules: record shape, events and constants. Pure; no I/O.
 
-import {
-  after,
-  counts,
-  decisions,
-  p90,
-  shareAbove,
-  type Counts,
-  type DecisionLine,
-} from "./window.ts";
+import { after, counts, decisions, p90, type Counts, type DecisionLine } from "./window.ts";
 import {
   applyFirstFloor,
   judgeFloors,
@@ -19,6 +11,7 @@ import {
   undoFloor,
 } from "./floor-step.ts";
 import {
+  activeBlock,
   applyChange,
   ceilTo,
   clamp,
@@ -26,6 +19,7 @@ import {
   type StepInput,
   type StepResult,
 } from "./timeout-change.ts";
+import { burstRule, judgeTimeout, keptRecord, lowerRule } from "./timeout-rules.ts";
 import {
   latestEntryAt,
   pushHistory,
@@ -33,7 +27,6 @@ import {
   type HistoryEntry,
   type TuningCause,
   type TuningEvent,
-  type TuningLine,
   type TuningParameter,
   type TuningRecord,
 } from "./record.ts";
@@ -82,19 +75,17 @@ export function evaluatePending(
   if (pending === undefined) return { record };
   const judged = after(decisions(ds), pending.at).slice(0, TUNING.window);
   if (judged.length < TUNING.window) return { record };
-  const result = counts(judged);
-  const worse = result.asked >= TUNING.minAsked && shareAbove(result, pending.before);
   const { pending: _cleared, ...rest } = record;
-  if (!worse) {
-    const kept = {
-      kind: "kept",
-      parameter: "timeoutMs",
-      from: pending.from,
-      to: pending.to,
-    } as const;
-    return { record: rest, event: kept };
+  if (judgeTimeout(pending, judged) === "reverted") {
+    return { record: revertedRecord(rest, pending, now), event: revertedEvent(pending) };
   }
-  return { record: revertedRecord(rest, pending, now), event: revertedEvent(pending) };
+  const kept = {
+    kind: "kept",
+    parameter: "timeoutMs",
+    from: pending.from,
+    to: pending.to,
+  } as const;
+  return { record: keptRecord(rest), event: kept };
 }
 
 function revertedEvent(p: { from: number; to: number }): TuningEvent {
@@ -152,12 +143,13 @@ function cooledWindow(record: TuningRecord, ds: readonly DecisionLine[]): Decisi
 /** Applies the rule when the window fires; the block counts only while active. */
 function fireRule(input: StepInput, record: TuningRecord): StepResult {
   const { untuned, lines, now } = input;
+  if (record.pending !== undefined) return { record };
   const ds = decisions(lines);
   const window = cooledWindow(record, ds);
   if (!fires(window)) return { record };
   const from = record.timeoutMs?.value ?? untuned;
-  const block = blockActive(record.block, lines) ? record.block : undefined;
-  const to = nextValue(from, window, block);
+  const active = activeBlock(record, untuned, ds);
+  const to = nextValue(from, window, active?.direction === "raise" ? active : undefined);
   if (to === undefined) return { record };
   const change = { from, to, base: untuned, before: counts(window), now };
   const event = { kind: "applied", parameter: "timeoutMs", from, to } as const;
@@ -182,12 +174,23 @@ export function stepTuning(input: StepInput): { record: TuningRecord; events: Tu
     ...judgedFloors.events,
   ];
   if (head.some((e) => e.kind === "reverted")) return { record: judgedFloors.record, events: head };
-  const fired = fireRule(input, judgedFloors.record);
+  const fired = firstApplied(input, judgedFloors.record, [burstRule, fireRule, lowerRule]);
   if (fired.event !== undefined) {
     return { record: fired.record, events: [...head, fired.event] };
   }
   const floor = applyFirstFloor(fired.record, lines, now);
   return { record: floor.record, events: [...head, ...floor.events] };
+}
+
+type Rule = (input: StepInput, record: TuningRecord) => StepResult;
+
+/** The first rule that applies a change; the record unchanged when none does. */
+function firstApplied(input: StepInput, record: TuningRecord, rules: readonly Rule[]): StepResult {
+  for (const rule of rules) {
+    const out = rule(input, record);
+    if (out.event !== undefined) return out;
+  }
+  return { record };
 }
 
 export type UndoResult =

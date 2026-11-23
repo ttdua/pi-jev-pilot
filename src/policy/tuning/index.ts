@@ -9,6 +9,7 @@ export {
   undoTuning,
   unseenEntries,
 } from "./rules.ts";
+export { activeBlock, blockDirection, blockReference } from "./timeout-change.ts";
 export { countedRuns } from "./floor-runs.ts";
 export { blockActiveFloor, FLOOR } from "./floor-rules.ts";
 export { latestEntryAt, type FloorState, type TuningLine, type TuningParameter } from "./record.ts";

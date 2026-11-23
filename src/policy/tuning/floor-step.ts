@@ -97,15 +97,25 @@ export type UndoTarget =
   | { parameter: "timeoutMs"; target: number }
   | { parameter: TuningParameter; band: FloorBand; from: number; target: number };
 
-/** The `from` of the latest `rule` entry of `parameter` that raised or lowered to `value`. */
+/**
+ * The `from` of the latest `rule` entry of `parameter` that raised or lowered to `value` and was
+ * not undone. Each `undo` reverses one earlier `rule` entry with the opposite transition, newest first.
+ */
 export function ruleOrigin(
   history: TuningRecord["history"],
   parameter: TuningParameter,
   value: number,
 ): number | undefined {
-  return [...(history ?? [])]
-    .reverse()
-    .find((h) => h.parameter === parameter && h.cause === "rule" && h.to === value)?.from;
+  const undos: Array<{ from: number; to: number }> = [];
+  for (const h of [...(history ?? [])].reverse()) {
+    if (h.parameter !== parameter) continue;
+    if (h.cause === "undo") undos.push({ from: h.from, to: h.to });
+    if (h.cause !== "rule") continue;
+    const undone = undos.findIndex((u) => u.from === h.to && u.to === h.from);
+    if (undone >= 0) undos.splice(undone, 1);
+    else if (h.to === value) return h.from;
+  }
+  return undefined;
 }
 
 type Candidate = UndoTarget & { since: number };
