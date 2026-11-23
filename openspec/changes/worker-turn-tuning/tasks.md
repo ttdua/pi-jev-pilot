@@ -18,9 +18,9 @@ Blocked by: 1, 3
 
 Blocked by: 1
 
-- [ ] 3.1 In `src/store/tuning-file.ts`, add the `turnFloors` document type (per band `changedAt`, optional `tuned`, `pending` with `before { runs, exhausted }`, `block`), the history `parameter` union, and validators: per-band ranges from the shared table, `exhausted ≤ runs`, entry `from`/`to` checked against the entry's parameter range, `version` 1 or 2, `turnFloors` and floor history entries only in `version` 2
-- [ ] 3.2 Write `version` 2 only when the record holds `turnFloors` or a floor history entry, else `version` 1; keep the read, recovery and atomic write paths unchanged
-- [ ] 3.3 Tests in `tests/store/tuning-file.test.ts` for every new and modified `tuning-file` scenario (floor state read, floors or floor history in a version 1 file, written as 2, kept at 1, floor and history range problems, more exhausted than runs, unknown version), keeping the existing ones green
+- [x] 3.1 In `src/store/tuning-file.ts`, add the `turnFloors` document type (per band `changedAt`, optional `tuned`, `pending` with `before { runs, exhausted }`, `block`), the history `parameter` union, and validators: per-band ranges from the shared table, `exhausted ≤ runs`, entry `from`/`to` checked against the entry's parameter range, `version` 1 or 2, `turnFloors` and floor history entries only in `version` 2
+- [x] 3.2 Write `version` 2 only when the record holds `turnFloors` or a floor history entry, else `version` 1; keep the read, recovery and atomic write paths unchanged
+- [x] 3.3 Tests in `tests/store/tuning-file.test.ts` for every new and modified `tuning-file` scenario (floor state read, floors or floor history in a version 1 file, written as 2, kept at 1, floor and history range problems, more exhausted than runs, unknown version), keeping the existing ones green
 
 ## 4. Pure floor rules
 
