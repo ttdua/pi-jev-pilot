@@ -212,6 +212,7 @@ Decide which [state fields](jev-contract.md#main-state) ship. **Sends real promp
 
 **G3, phase 1.** `agent_settled` check, `timeoutMs` rule, cooldown, automatic revert, `/jev tune` and its subcommands, signals shown per mode.
 
+- **Turn floors:** tuning also moves the band floors from counted runs, with the same guards and an ADR amendment. See [ADR 0012](decisions/0012-tuned-turn-floors.md).
 - **Split:** `wg-18-tuning-policy` holds the rules and `tuning.json`. The host change holds `agent_settled`, `/jev tune`, the change line and the signals.
 - **Done when:** tests cover fire, cooldown, range, revert and undo; nothing outside the allowlist can change, and `config.json` is untouched.
 

@@ -208,16 +208,25 @@ Other lines you may see:
 ```text
 Jev tune: timeoutMs 1700→1500, reverted: timeouts did not improve · /jev tune
 Jev tune: timeoutMs 1700→2000, your config value replaces the tuned one
-Jev tune since your last session: timeoutMs 1500→1800 (2 changes) · /jev tune
+Jev tune: turnFloor.long 100→120 · /jev tune undo
+Jev tune: turnFloor.long 120→100, reverted: more runs ran out of turns · /jev tune
+Jev tune: turnFloor.long 120→100, the built-in floor changed
+Jev tune since your last session: timeoutMs 1500→1800, turnFloor.long 100→120 (3 changes) · /jev tune
 ```
 
 The last line appears once at session start, and only when a change was not shown before. Without a UI (print or JSON mode) no line is shown, and the next session with a UI shows it. `/jev tune off` keeps a tuned value until `/jev tune undo` or `/jev tune reset`.
 
 `/jev tune` also lists signals per mode over the latest 200 decisions: errors from `basic` (or, in older lines, `fast`) or low-effort workers, corrected main turns, large turns at low effort, and small turns at `high`. They are observed only and never change anything.
 
+It also shows `turnFloor:` (the three band floors, 40/100/200 at start) and, per band, turn signals over the latest 200 counted runs: runs, p90 and p95 of turns used, `exhausted` and `warned` counts, the mean of turns used over the floor, and `suggest <n>` or `needs 200 runs`. Aborted runs are not counted.
+
+Reset returns floors to 40/100/200 too.
+
 Tuning pauses while your config is invalid, or while `tuning.json` or the ledger cannot be read.
 
-Limits: one parameter and one step at a time, at least 40 decisions apart, and it reverts itself if results worsen. It never changes your config file, the risk rule, the effort ceiling or the frontier rule. In the first release it changes only `timeoutMs`. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions.
+Limits: one applied change per step. `timeoutMs` keeps its 40-decision cooldown. A band floor moves only after 200 counted runs of its band, by at least 10 and at most 25%, within its range (`medium` 20–80, `long` 50–200, `very_long` 100–400). Floors stay in order. A change is reverted if the next 200 runs of that band run out of turns more often. It never changes your config file, the risk rule, the effort ceiling or the frontier rule. If you edit `timeoutMs` in your config, your value replaces a tuned one. Undo also stops the same raise for 200 decisions. Undo of a floor change stops the same move for 400 runs of that band.
+
+`/jev tune undo` reverts the parameter changed most recently; `/jev tune reset` clears `timeoutMs` and every turn floor.
 
 ## All commands
 

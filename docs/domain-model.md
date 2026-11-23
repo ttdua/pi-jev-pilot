@@ -142,7 +142,7 @@ Then **availability**: an unusable tier warns, naming the setting, and moves dow
 
 A launch with `resume` is always left untouched. A fork launch (`context: fork`) follows `subagents.forkLaunch`: with `untouched`, the default, it is left alone; with `thinking`, the model is kept and only thinking is changed. An agent file with `locked` always wins and is never fought: when it locks the model, Jev is still asked, only thinking is written, and the tier is recorded (ledger `locked`); when both fields are locked, the launch is untouched, unless it has a turn limit to raise. When nothing can run, the input stays unchanged and a warning is shown. An unconfigured tier is never offered, and with no tier or slot configured, no tier question is asked and the worker keeps its model.
 
-**Turn floor.** A launch with a turn limit (`max_turns`) that the agent does not lock is asked `turns` (`short`, `medium`, `long`, `very_long`), even when the route is otherwise untouched. The floors are none, 40, 100 and 200. The floor is the band whose probability, summed with all higher bands, first reaches .5, walking down from `very_long`. It is raise-only: it never lowers a limit, never adds one, and respects an agent lock on `max_turns`. A miss or an unanswered `turns` writes nothing. A launch otherwise left untouched but with a limit asks `turns` only.
+**Turn floor.** A launch with a turn limit (`max_turns`) that the agent does not lock is asked `turns` (`short`, `medium`, `long`, `very_long`), even when the route is otherwise untouched. The floors start at 40, 100 and 200 and are tuned from counted runs (see Tuning). The floor is the band whose probability, summed with all higher bands, first reaches .5, walking down from `very_long`. It is raise-only: it never lowers a limit, never adds one, and respects an agent lock on `max_turns`. A miss or an unanswered `turns` writes nothing. A launch otherwise left untouched but with a limit asks `turns` only.
 
 ### Difficulty score and cut points
 
@@ -273,13 +273,15 @@ Stored in `tuning.json`, never in `config.json`.
 | Rule | Value |
 |---|---|
 | When checked | `agent_settled`, never during a turn |
-| Per change | One parameter, one step |
-| Cooldown | At least 40 decisions between changes |
+| Per change | At most one applied change per step, across `timeoutMs` and the three band floors |
+| Cooldown | Per parameter: at least 40 decisions for `timeoutMs`; 200 counted runs for a band floor |
 | Revert | Automatic, if the 40 decisions after a change are worse than the 40 before, by the signal that caused it |
 | Display | One line on every change, such as `Jev tune: timeoutMs 1500→1800 · /jev tune undo` |
 | Never tuned automatically | Risk floor, effort ceiling, frontier rule |
 
-**Phase 1 automatically changes `timeoutMs` only:**
+**Turn floors** (`medium`, `long`, `very_long`, starting at 40, 100 and 200) move from counted runs of their band: after 200 counted runs following the band's latest change, the new floor is p95 × 1.25 rounded up to 10, forced one full step up when more than 5% of runs ended `exhausted`. A change is at least 10 and at most 25%, inside its range (20–80, 50–200, 100–400), and bands stay in order. Aborted runs are not counted. A change is reverted if the next 200 runs run out of turns more often, and then blocked for 400 runs. See [ADR 0012](decisions/0012-tuned-turn-floors.md).
+
+**`timeoutMs`:**
 
 - Fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count).
 - New value: `max(current + 200, p90 × 1.25 rounded up to 100)`.

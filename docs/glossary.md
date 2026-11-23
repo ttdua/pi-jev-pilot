@@ -53,6 +53,8 @@ Use these words consistently in code, docs and the user interface.
 |---|---|
 | **Main session** | The session the operator talks to. |
 | **Worker** | A subagent. Runs in a child session. |
+| **Counted run** | A settled worker run that tuning may count for a band floor: a band other than `short`, measured turns, and not `aborted`. |
+| **Band floor** | The minimum `maxTurns` for a turn band (`medium`, `long`, `very_long`). Starts at 40, 100 and 200; tuning may move it. |
 | **Child session** | A full Pi session in the same process, created by the executor. |
 | **Executor** | The package that runs workers: [`@ttdua/pi-subagents`](https://github.com/ttdua/pi-subagents), installed separately from this package ([ADR 0011](decisions/0011-executor-as-installed-package.md)). Jev detects its capabilities at run time. |
 | **Launch policy** | The one provider the executor consults for every new launch. jev-pilot registers it and answers with model and thinking only. The executor's contract still supports `addTools` and `removeTools`, but Jev no longer uses them. |
