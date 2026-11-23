@@ -2,9 +2,9 @@
 
 Blocked by: none
 
-- [ ] 1.1 Add `src/shared/turn-floors.ts` with `FLOOR_BANDS`, `BUILTIN_FLOORS` (40/100/200), `FLOOR_RANGES` (20–80, 50–200, 100–400) and the `BandFloors` type; test in `tests/shared/turn-floors.test.ts` that the ranges contain the built-in floors and are ordered (spec `turn-floor-rules` "Built-in floors and ranges")
-- [ ] 1.2 In `src/policy/worker/turns.ts`, add `turnBand(probabilities)` (cumulative ≥ .5 from `very_long` down, 1e-9 tolerance), make `turnFloor(answer, floors)` return `floors[band]`, and drop `BAND_FLOOR` in favour of the shared table; export `turnBand` from `src/policy/worker/index.ts`; keep every existing case in `tests/policy/worker/turns.test.ts` green with `BUILTIN_FLOORS`, and add "Tuned floors passed in" (spec `worker-decision` "Turn floor")
-- [ ] 1.3 Add `floors: BandFloors` to `RouteInput` in `src/policy/worker/route.ts` and pass it to `turnFloor` in `withTurns`; pass `BUILTIN_FLOORS` from every caller: `src/host/worker/route.ts`, `scripts/replay/report-route.ts`, `scripts/replay/compare.ts`, and the fixtures in `tests/policy/worker/route.test.ts`, `route-pin.test.ts` and `tests/replay/report-route.test.ts`
+- [x] 1.1 Add `src/shared/turn-floors.ts` with `FLOOR_BANDS`, `BUILTIN_FLOORS` (40/100/200), `FLOOR_RANGES` (20–80, 50–200, 100–400) and the `BandFloors` type; test in `tests/shared/turn-floors.test.ts` that the ranges contain the built-in floors and are ordered (spec `turn-floor-rules` "Built-in floors and ranges")
+- [x] 1.2 In `src/policy/worker/turns.ts`, add `turnBand(probabilities)` (cumulative ≥ .5 from `very_long` down, 1e-9 tolerance), make `turnFloor(answer, floors)` return `floors[band]`, and drop `BAND_FLOOR` in favour of the shared table; export `turnBand` from `src/policy/worker/index.ts`; keep every existing case in `tests/policy/worker/turns.test.ts` green with `BUILTIN_FLOORS`, and add "Tuned floors passed in" (spec `worker-decision` "Turn floor")
+- [x] 1.3 Add `floors: BandFloors` to `RouteInput` in `src/policy/worker/route.ts` and pass it to `turnFloor` in `withTurns`; pass `BUILTIN_FLOORS` from every caller: `src/host/worker/route.ts`, `scripts/replay/report-route.ts`, `scripts/replay/compare.ts`, and the fixtures in `tests/policy/worker/route.test.ts`, `route-pin.test.ts` and `tests/replay/report-route.test.ts`
 
 ## 2. Settings resolve tuned floors
 
