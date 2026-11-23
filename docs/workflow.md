@@ -119,8 +119,8 @@ flowchart TD
     S -- no --> B{"Tuning on?"}
     B -- no --> Z["Stop"]
     B -- yes --> B2{"Config still matches<br/>the tuned base?"}
-    B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
-    B3 --> Z
+    B2 -- no --> B3["Supersede: drop tuned value, pending change<br/>and block, show a line"]
+    B3 --> J
     B2 -- yes --> J{"Any pending change (timeoutMs or floor)<br/>with enough decisions or runs after it?"}
     J -- yes --> E{"Judged worse?"}
     E -- yes --> F["Revert, show a line"]
@@ -128,14 +128,20 @@ flowchart TD
     E -- no --> G["Mark kept"]
     J -- no --> R
     G --> R{"Burst: 3 of the latest 5 asked<br/>timed out?"}
-    R -- yes --> BU["Raise at once, no cooldown,<br/>clears the block, show a line"]
-    BU --> Z
+    R -- yes --> BU{"Raise changes the value?<br/>Not at the ceiling or blocked"}
+    BU -- yes --> BA["Raise at once, no cooldown,<br/>clears the block, show a line"]
+    BA --> Z
+    BU -- no --> W
     R -- no --> W{"Window rule: cooldown passed,<br/>40 decisions with more than 10% timeouts?"}
-    W -- yes --> WA["Apply one step, show a line"]
+    W -- yes --> WC{"Step changes the value?"}
+    WC -- yes --> WA["Apply one step, show a line"]
     WA --> Z
+    WC -- no --> LW
     W -- no --> LW{"Lowering: tuned value applies, no pending change,<br/>200 decisions with no timeout, at least 100 asked,<br/>p90 defined?"}
-    LW -- yes --> LV["Lower, show a line"]
+    LW -- yes --> LC{"Lowered value is below the current one<br/>and not blocked?"}
+    LC -- yes --> LV["Lower, show a line"]
     LV --> Z
+    LC -- no --> FL
     LW -- no --> FL{"A band floor rule applies?<br/>medium, long, very_long in order"}
     FL -- yes --> FA["Apply one floor change, show a line"]
     FA --> Z
