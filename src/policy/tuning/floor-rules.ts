@@ -20,6 +20,14 @@ import {
 
 export const FLOOR = { runs: 200, blockRuns: 400, gap: 10, minMove: 10, unit: 10 } as const;
 
+/** More than 1 in `exhaustedShareDenominator` exhausted runs (5%) forces the full upward step. */
+const EXHAUSTED_SHARE_DENOMINATOR = 20;
+const PERCENTILE = 95;
+/** Wanted floor is p95 × 5/4; one step is at most +5/4 up or −3/4 down. */
+const WANTED = { num: 5, den: 4 } as const;
+const UP = { num: 5, den: 4 } as const;
+const DOWN = { num: 3, den: 4 } as const;
+
 type Bounds = { lower?: number; upper?: number };
 type Result = { record: TuningRecord; event?: TuningEvent };
 
@@ -95,13 +103,16 @@ export function nextFloor(input: {
   const { band, current, window, bounds, block } = input;
   const p95 = nearestRank(
     window.map((r) => r.used).sort((a, b) => a - b),
-    95,
+    PERCENTILE,
   );
   if (p95 === undefined) return undefined;
-  const up = Math.max(current + FLOOR.minMove, floor10((current * 5) / 4));
-  const down = Math.min(current - FLOOR.minMove, ceil10((current * 3) / 4));
+  const up = Math.max(current + FLOOR.minMove, floor10((current * UP.num) / UP.den));
+  const down = Math.min(current - FLOOR.minMove, ceil10((current * DOWN.num) / DOWN.den));
   const exhausted = window.filter((r) => r.phase === "exhausted").length;
-  let value = exhausted * 20 > window.length ? up : ceil10((p95 * 5) / 4);
+  let value =
+    exhausted * EXHAUSTED_SHARE_DENOMINATOR > window.length
+      ? up
+      : ceil10((p95 * WANTED.num) / WANTED.den);
   value = clamp(value, down, up);
   value = clamp(value, FLOOR_RANGES[band].min, FLOOR_RANGES[band].max);
   value = clamp(
@@ -138,6 +149,7 @@ export function applyFloor(
   },
 ): TuningRecord {
   const { band, from, to, before, now } = c;
+  // An existing block is kept: the spec is silent, and it still guards the reverted value.
   const state: FloorState = {
     changedAt: now,
     tuned: { value: to, base: BUILTIN_FLOORS[band] },

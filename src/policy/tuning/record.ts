@@ -55,8 +55,7 @@ export type HistoryEntry = NonNullable<TuningRecord["history"]>[number];
 
 export type TuningEvent = {
   kind: "superseded" | "kept" | "reverted" | "applied";
-  /** Absent on `timeoutMs` events until the step sets it for every event. */
-  parameter?: TuningParameter;
+  parameter: TuningParameter;
   from: number;
   to: number;
 };

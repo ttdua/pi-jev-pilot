@@ -9,6 +9,8 @@ export {
   undoTuning,
   unseenEntries,
 } from "./rules.ts";
+export { countedRuns } from "./floor-runs.ts";
+export { latestEntryAt, type FloorState, type TuningLine, type TuningParameter } from "./record.ts";
 export { signalsByMode } from "./signals.ts";
 export {
   changeLine,

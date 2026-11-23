@@ -212,7 +212,7 @@ describe("evaluatePending", () => {
   test("worse is judged a revert", () => {
     const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 6 });
     const out = evaluatePending(rec, judgedLines(40, 8), 9000);
-    expect(out.event).toEqual({ kind: "reverted", from: 1700, to: 1500 });
+    expect(out.event).toEqual({ kind: "reverted", parameter: "timeoutMs", from: 1700, to: 1500 });
   });
 
   test("revert to the untuned value", () => {
@@ -239,7 +239,7 @@ describe("evaluatePending", () => {
   test("equal, kept", () => {
     const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 8 });
     const out = evaluatePending(rec, judgedLines(40, 8), 9000);
-    expect(out.event).toEqual({ kind: "kept", from: 1500, to: 1700 });
+    expect(out.event).toEqual({ kind: "kept", parameter: "timeoutMs", from: 1500, to: 1700 });
     expect(out.record.pending).toBeUndefined();
     expect(out.record.timeoutMs).toEqual({ value: 1700, base: 1500 });
     expect(out.record.history).toEqual(rec.history);
@@ -294,7 +294,7 @@ describe("supersede", () => {
       to: 2000,
       cause: "superseded",
     });
-    expect(out.event).toEqual({ kind: "superseded", from: 1700, to: 2000 });
+    expect(out.event).toEqual({ kind: "superseded", parameter: "timeoutMs", from: 1700, to: 2000 });
   });
 
   test("matching base untouched", () => {
@@ -350,7 +350,7 @@ describe("stepTuning", () => {
 
   test("fires on a first full window", () => {
     const out = step({}, mixed(1001, 8));
-    expect(out.events).toEqual([{ kind: "applied", from: 1500, to: 1700 }]);
+    expect(out.events).toEqual([{ kind: "applied", parameter: "timeoutMs", from: 1500, to: 1700 }]);
     expect(out.record.timeoutMs).toEqual({ value: 1700, base: 1500 });
     expect(out.record.pending?.before).toEqual({ asked: 40, timeouts: 8 });
   });
@@ -362,7 +362,9 @@ describe("stepTuning", () => {
 
   test("cooldown passed", () => {
     const rec = { history: history1000 };
-    expect(step(rec, mixed(1001, 8)).events).toEqual([{ kind: "applied", from: 1500, to: 1700 }]);
+    expect(step(rec, mixed(1001, 8)).events).toEqual([
+      { kind: "applied", parameter: "timeoutMs", from: 1500, to: 1700 },
+    ]);
   });
 
   test("decisions before the change do not count", () => {
@@ -375,22 +377,26 @@ describe("stepTuning", () => {
     const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 8 });
     const out = step(rec, mixed(1001, 6));
     expect(out.events).toEqual([
-      { kind: "kept", from: 1500, to: 1700 },
-      { kind: "applied", from: 1700, to: 1900 },
+      { kind: "kept", parameter: "timeoutMs", from: 1500, to: 1700 },
+      { kind: "applied", parameter: "timeoutMs", from: 1700, to: 1900 },
     ]);
   });
 
   test("no fire right after a revert", () => {
     const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 2 });
     const out = step(rec, mixed(1001, 8));
-    expect(out.events).toEqual([{ kind: "reverted", from: 1700, to: 1500 }]);
+    expect(out.events).toEqual([
+      { kind: "reverted", parameter: "timeoutMs", from: 1700, to: 1500 },
+    ]);
     expect(out.record.timeoutMs).toBeUndefined();
   });
 
   test("no change right after superseding", () => {
     const rec: TuningRecord = { timeoutMs: { value: 1700, base: 1500 }, history: history1000 };
     const out = step(rec, mixed(1001, 8), 2000);
-    expect(out.events).toEqual([{ kind: "superseded", from: 1700, to: 2000 }]);
+    expect(out.events).toEqual([
+      { kind: "superseded", parameter: "timeoutMs", from: 1700, to: 2000 },
+    ]);
     expect(out.record.timeoutMs).toBeUndefined();
   });
 
@@ -444,7 +450,7 @@ describe("stepTuning", () => {
   test("active block caps the raise", () => {
     const rec: TuningRecord = { history: history1000, block: { value: 1700, at: 1000 } };
     const out = step(rec, mixed(1001, 8));
-    expect(out.events).toEqual([{ kind: "applied", from: 1500, to: 1600 }]);
+    expect(out.events).toEqual([{ kind: "applied", parameter: "timeoutMs", from: 1500, to: 1600 }]);
   });
 
   test("expired block is ignored", () => {
@@ -452,14 +458,16 @@ describe("stepTuning", () => {
     const ls = [...mixed(1001, 8), ...lines(200, 2000)];
     const recent = [...mixed(2200, 8)];
     const out = step(rec, [...ls, ...recent]);
-    expect(out.events).toEqual([{ kind: "applied", from: 1500, to: 1700 }]);
+    expect(out.events).toEqual([{ kind: "applied", parameter: "timeoutMs", from: 1500, to: 1700 }]);
   });
 
   test("idempotent after a revert", () => {
     const rec = pendingRecord(1500, 1700, { asked: 40, timeouts: 2 });
     const ls = mixed(1001, 8);
     const first = step(rec, ls);
-    expect(first.events).toEqual([{ kind: "reverted", from: 1700, to: 1500 }]);
+    expect(first.events).toEqual([
+      { kind: "reverted", parameter: "timeoutMs", from: 1700, to: 1500 },
+    ]);
     expect(step(first.record, ls)).toEqual({ record: first.record, events: [] });
   });
 });
@@ -482,6 +490,7 @@ describe("undoTuning", () => {
     const out = undoTuning(rec, 5000);
     expect(out).toEqual({
       kind: "undone",
+      parameter: "timeoutMs",
       from: 1700,
       to: 1500,
       record: {

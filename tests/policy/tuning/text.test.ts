@@ -49,18 +49,20 @@ describe("issueLines", () => {
 
 describe("changeLine", () => {
   test("applied, reverted, superseded", () => {
-    expect(changeLine({ kind: "applied", from: 1500, to: 1700 })).toBe(
+    expect(changeLine({ kind: "applied", parameter: "timeoutMs", from: 1500, to: 1700 })).toBe(
       "Jev tune: timeoutMs 1500→1700 · /jev tune undo",
     );
-    expect(changeLine({ kind: "reverted", from: 1700, to: 1500 })).toBe(
+    expect(changeLine({ kind: "reverted", parameter: "timeoutMs", from: 1700, to: 1500 })).toBe(
       "Jev tune: timeoutMs 1700→1500, reverted: timeouts did not improve · /jev tune",
     );
-    expect(changeLine({ kind: "superseded", from: 1700, to: 2000 })).toBe(
+    expect(changeLine({ kind: "superseded", parameter: "timeoutMs", from: 1700, to: 2000 })).toBe(
       "Jev tune: timeoutMs 1700→2000, your config value replaces the tuned one",
     );
   });
   test("kept is silent", () => {
-    expect(changeLine({ kind: "kept", from: 1500, to: 1700 })).toBeUndefined();
+    expect(
+      changeLine({ kind: "kept", parameter: "timeoutMs", from: 1500, to: 1700 }),
+    ).toBeUndefined();
   });
 });
 
