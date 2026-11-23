@@ -6,8 +6,8 @@
 > Failed checks must be fixed in the corresponding artifact, then re-run verify.
 
 **Change**: `worker-turn-floor`
-**Verified at**: `2026-11-23 00:06`
-**Iteration**: `1`
+**Verified at**: `2026-11-23 11:33` (post-PR iteration 2)
+**Iteration**: `1` (post-PR iteration 2; post-PR iterations do not count toward the 5)
 **Verifier**: parent session (checks 1, 2, 6, full test run, spot checks) + `superspec.verifier` (checks 3, 4, 5 with focused test runs)
 
 ---
@@ -30,7 +30,7 @@ exit=0
 
 - [x] Every box is ticked, or each open box has a recorded reason
 
-`grep -c "^- \[x\]" tasks.md` = 19, `grep -c "^- \[ \]"` = 0; `openspec instructions apply` progress `{"total":19,"complete":19,"remaining":0}`.
+Post-PR iteration 2: `grep -c` of open boxes in tasks.md = 0; 21 of 21 ticked (group 7 added). Iteration 1: 19 of 19.
 
 | Open task | Reason | Blocks archive? |
 |---|---|---|
@@ -64,7 +64,8 @@ exit=0
 | worker-ledger: Worker turn fields | ADDED | Pass | `src/policy/worker/worker-line.ts:100-130`; `src/host/worker/outcomes.ts:35-36` |
 | worker-ledger: Worker decision fields | MODIFIED | Pass | `src/policy/worker/worker-line.ts:124-132` (untouched path unchanged) |
 | decision-ledger: Ledger value domains | MODIFIED | Pass | `src/store/ledger-schema.ts:195-196,356` (turns distribution) |
-| decision-ledger: Ledger line schema | MODIFIED | Pass | `src/store/ledger-schema.ts:90-92,154-156,355-357` |
+| decision-ledger: Ledger line schema | MODIFIED | Pass | `src/store/ledger-schema.ts:90-92,154-156,355-357`; iteration 2 rows `turnsUsed`/`turnPhase` at `ledger-schema.ts:98-99,164-165,369-370` |
+| worker-ledger: Worker turn use (iteration 2) | ADDED | Pass | `src/host/worker/entry.ts:48-50` (`slim` keeps `turnBudget.used`/`phase`); `src/policy/worker/worker-line.ts:142-146`; executor payload `node_modules/@ttdua/pi-subagents/src/observation/notification.ts:183` |
 
 ---
 
@@ -73,8 +74,8 @@ exit=0
 - [x] Every scenario maps to a test
 - [x] The project test command was run fresh in this step
 
-**Test command**: `bun run test` (cwd: the worktree)
-**Result**: exit 0 — 2582 pass, 0 fail, 16722 expect() calls, 127 files [133.58s]. Also fresh: `bun run typecheck` (no type errors, 269 files), `bun run lint` (exit 0), `bun run fmt:check` (exit 0).
+**Test command**: `bun run test` (cwd: `/Users/naicoi/Projects/oss/pi-jev-pilot.feat-worker-turn-floor`, post-PR iteration 2)
+**Result**: exit 0 — 2593 pass, 0 fail, 16740 expect() calls, 127 files [135.25s]. Iteration-1 run: 2582 pass, 0 fail. Also fresh: `bun run typecheck` (no type errors, 269 files), `bun run lint` (exit 0), `bun run fmt:check` (exit 0).
 
 The verifier ran these focused runs, all exit 0 with 0 fail: turns 14, launch 13, route 54, route-pin 33, worker-line 18, ledger-schema 41, ledger-pin 98, questions 68, answers 7, host policy 76, worker-ledger 44, `worker-routing.test.ts -t "turn limit"` 3.
 
@@ -91,6 +92,8 @@ All 123 scenarios map to an existing test that asserts the THEN. The full map is
 | Switch off keeps the turn limit | `policy.test.ts`; `worker-routing.test.ts` "turn limit kept with the switch off" (20) |
 | Worker turn fields (6) | `tests/policy/worker/worker-line.test.ts`, `tests/host/worker-ledger.test.ts`, `tests/store/ledger-schema.test.ts` |
 | Unknown band rejected | `tests/store/ledger-schema.test.ts` (path `turnsP.huge`) |
+| Turn use recorded, Exhausted run recorded, No turn budget, Unknown phase dropped (iteration 2) | `tests/policy/worker/worker-line.test.ts` same names; host join `tests/host/worker-ledger.test.ts` "Turn use joined from the executor" |
+| Worker line with turn use accepted, Bad turn phase rejected (iteration 2) | `tests/store/ledger-schema.test.ts` same names; pins in `tests/store/ledger-pin.test.ts` ("turn phases agree") |
 
 ---
 
@@ -113,7 +116,9 @@ All 123 scenarios map to an existing test that asserts the THEN. The full map is
 | `turns` Jev question (public Jev request) | Not verified against a live Jev service (no network/paid calls in verify); shape matches `docs/jev-questions.md` |
 | Launch adjustment `maxTurns` (executor v0.2.0) | Match via the real-CLI tests reading the executor's own `turnBudget`. Executor source not re-read in this run |
 | `devDependencies` pin `#v0.2.0` | Match — `package.json:19` |
-| apply.md Contract deviations | none — nothing to compare |
+| Worker ledger line turn use (public file format, iteration 2) | Match — `turnsUsed`/`turnPhase` optional, after `toolUses`, `v` 1 |
+| `ExecutorOutcome.turnBudget` (internal, iteration 2) | Match — `src/policy/worker/worker-line.ts:21` |
+| apply.md Contract deviations | Match — the two iteration-2 entries above (user-approved) |
 
 Executor boundary: `grep -rn 'from "@ttdua/pi-subagents"' src | grep -v "import type"` → no match.
 
@@ -127,7 +132,7 @@ Executor boundary: `grep -rn 'from "@ttdua/pi-subagents"' src | grep -v "import 
 
 - [x] Working tree is clean (`git status --porcelain` empty before writing this file)
 
-**Commit range**: `00228af5..ff594e90`
+**Commit range**: `00228af5..ff594e90` (iteration 1); post-PR iteration 2 `05ad01b5..890bd843` on `feat/worker-turn-floor`
 
 ---
 
@@ -138,6 +143,7 @@ Executor boundary: `grep -rn 'from "@ttdua/pi-subagents"' src | grep -v "import 
 **WARNING**: none.
 
 **SUGGESTION**:
+- Iteration-2 verifier warnings were checked and dismissed: `turnPhase` is an inline enum in the schema table like `status` and `reason`, and the "Exported field sets match the table" scenario compares against that table, which carries the new rows.
 - `tests/host/worker-ledger.test.ts` "Turns-only recorded" (~L495-504): also assert `reason: "untouched"`, `answered: true`, `locked: true` and no `tier`/`model`, so the host test checks the whole line. The pure test already covers those fields.
 - `tests/host/worker/policy.test.ts` "Resume untouched" (~L440-447): add a comment that the executor keeps the session's turn limit on resume (`ttdua/pi-subagents` spec), since the test can only show the policy is not called.
 - Follow-up from the final review: `/jev verbose` does not show a raise; consider a `turns ≤<turnFloor>` segment in `src/host/status/line.ts`.
@@ -147,7 +153,7 @@ Executor boundary: `grep -rn 'from "@ttdua/pi-subagents"' src | grep -v "import 
 ## Overall Decision
 
 - [ ] PASS: proceed with `/opsx-continue` to finalize
-- [x] PASS_WITH_WARNINGS: proceed, noting: two public contracts (`turns` against a live Jev, the ledger format against real files on disk) were not verified outside the repo's tests, and three suggestions remain
+- [x] PASS_WITH_WARNINGS: proceed (re-confirmed after post-PR iteration 2), noting: three public contracts (now including the turn-use file format against real ledger files) (`turns` against a live Jev, the ledger format against real files on disk) were not verified outside the repo's tests, and three suggestions remain
 - [ ] FAIL: fix the cause, then re-apply (iteration N+1)
 
 Any check recorded as Not verified caps the outcome at PASS_WITH_WARNINGS.
