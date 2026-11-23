@@ -5,7 +5,7 @@
 > Overwritten on each apply iteration; iteration counter grows.
 
 **Change**: `worker-turn-floor`
-**Iteration**: `1`
+**Iteration**: `1` (post-PR iteration 2 recorded below)
 **Applied at**: `2026-11-22 23:38`
 **Executor**: `subagent-driven-development` (implementer: `superspec.implementer`; task reviewer and final whole-branch reviewer: `superspec.task-reviewer`)
 
@@ -29,14 +29,14 @@
 
 ## Tasks
 
-- **Completed**: `19 of 19` checkboxes in tasks.md flipped to `- [x]`
+- **Completed**: `21 of 21` checkboxes in tasks.md flipped to `- [x]`
 - **Remaining**: none
 
 ---
 
 ## Contract deviations
 
-- none
+- `Worker ledger line turn use` (public, file format): added `turnsUsed` and `turnPhase` after `toolUses` in post-PR iteration 2; approved by the user in chat. `ExecutorOutcome` (internal) gains `turnBudget`.
 
 ---
 
@@ -59,6 +59,15 @@ Notes:
 
 ---
 
+## Post-PR iteration 2
+
+- **Trigger**: user decision in chat after PR #103 was opened: record measured turn use so band floors can later be derived from data (issue #104), and correct the artifacts that called the static floors data-derived.
+- **Commit range**: `05ad01b5..c18ba47d` on `feat/worker-turn-floor` (no worktree; finalize removed it).
+- **Executor**: subagent-driven-development (`superspec.implementer`, `superspec.task-reviewer`).
+- **Changes**: artifacts (`brainstorm.md`, `design.md`, `proposal.md`, `specs/worker-ledger`, `specs/decision-ledger`, `tasks.md` group 7, `plan.md` Task 7 and Contracts); ledger `turnsUsed` and `turnPhase` from the executor's `turnBudget`; docs and changelog.
+- **Task review**: approve_with_notes → fix (one phase list, pinned against the policy copy; negative `used` test) → applied.
+- **Fresh checks**: typecheck, lint, fmt:check clean; `bun run test` 2593 pass, 0 fail.
+
 ## Next step
 
-Run `/opsx-verify`.
+Run `/opsx-verify`, then update `finalize.md` and push.
