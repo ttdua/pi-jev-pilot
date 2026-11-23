@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect } from "bun:test";
 import type { HostSession } from "./harness";
 import type { RpcEvent } from "./rpc";
+import { workerRuns, type WorkerRunOptions } from "./tuning-fakes";
 
 export type UiRequest = RpcEvent & {
   method?: string;
@@ -76,6 +77,20 @@ export function seedLedger(agentDir: string, n: number, opts: SeedOptions = {}):
   });
   mkdirSync(join(agentDir, "jev"), { recursive: true });
   writeFileSync(
+    jevFile(agentDir, "ledger.jsonl"),
+    lines.map((l) => `${JSON.stringify(l)}\n`).join(""),
+  );
+}
+
+/** Appends `n` valid, counted `worker` lines rated `band` to `<agentDir>/jev/ledger.jsonl`. */
+export function seedWorkerRuns(
+  agentDir: string,
+  n: number,
+  opts: Pick<WorkerRunOptions, "band" | "used">,
+): void {
+  const lines = workerRuns(n, { ...opts, from: Date.now() - 200_000 });
+  mkdirSync(join(agentDir, "jev"), { recursive: true });
+  appendFileSync(
     jevFile(agentDir, "ledger.jsonl"),
     lines.map((l) => `${JSON.stringify(l)}\n`).join(""),
   );
