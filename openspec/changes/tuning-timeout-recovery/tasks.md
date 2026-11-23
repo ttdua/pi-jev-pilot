@@ -20,10 +20,10 @@ Blocked by: 1
 
 Blocked by: 2
 
-- [ ] 3.1 In `src/policy/tuning/text.ts`: the reverted lowering change line (`to` above `from` → `reverted: timeouts came back`), the undo message by direction (`The same lowering is held back for 400 decisions.` when the undo moves the value up), and the block line by direction (`lowerings to <v> or below`); add `direction: "raise" | "lower"` to `TuneView["block"]`
-- [ ] 3.2 In `src/host/tuning/command.ts`, set the block direction and remaining count from the block value and the reference value (tuned value in the record, else the untuned value), show no block line for an equal block, and keep showing it while the config is invalid
-- [ ] 3.3 Tests: `tests/policy/tuning/text.test.ts` with the exact new texts; `tests/host/tuning/command.test.ts` for "Lowering block", "Lowering block while the config is invalid", "Block equal to the reference not shown" and "Undo a lowering", keeping the existing `tune-command` tests green
-- [ ] 3.4 In `tests/host/tuning-host.test.ts`, through the real CLI and the loopback Jev fixture: "Lowering reverted line" (seed a pending lowering with 40 judged decisions holding a timeout) and "Burst applied line" (seed `tuning.json` 1700 with a `rule` entry, then 3 hanging turns); keep "Rule fires at settle" green unchanged (its seed puts the 9 timeouts first, so the latest 5 asked hold 1 timeout and the burst rule does not fire)
+- [x] 3.1 In `src/policy/tuning/text.ts`: the reverted lowering change line (`to` above `from` → `reverted: timeouts came back`), the undo message by direction (`The same lowering is held back for 400 decisions.` when the undo moves the value up), and the block line by direction (`lowerings to <v> or below`); add `direction: "raise" | "lower"` to `TuneView["block"]`
+- [x] 3.2 In `src/host/tuning/command.ts`, set the block direction and remaining count from the block value and the reference value (tuned value in the record, else the untuned value), show no block line for an equal block, and keep showing it while the config is invalid
+- [x] 3.3 Tests: `tests/policy/tuning/text.test.ts` with the exact new texts; `tests/host/tuning/command.test.ts` for "Lowering block", "Lowering block while the config is invalid", "Block equal to the reference not shown" and "Undo a lowering", keeping the existing `tune-command` tests green
+- [x] 3.4 In `tests/host/tuning-host.test.ts`, through the real CLI and the loopback Jev fixture: "Lowering reverted line" (seed a pending lowering with 40 judged decisions holding a timeout) and "Burst applied line" (seed `tuning.json` 1700 with a `rule` entry, then 3 hanging turns); keep "Rule fires at settle" green unchanged (its seed puts the 9 timeouts first, so the latest 5 asked hold 1 timeout and the burst rule does not fire)
 
 ## 4. ADR, docs and changelog
 
