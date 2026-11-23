@@ -35,10 +35,10 @@ Blocked by: 1, 3
 
 Blocked by: 4
 
-- [ ] 5.1 In `src/policy/tuning/rules.ts`, add `parameter: "timeoutMs"` to every timeout event and scope the timeout cooldown, window, judging and block to `timeoutMs` history entries
-- [ ] 5.2 Rewrite `stepTuning` as the four phases of `tuning-rules` "Step order across parameters": supersede all, judge all, stop on any revert, then timeout rule, then bands in order, at most one `applied`; keep the `off` and out-of-range guards
-- [ ] 5.3 Make `undoTuning` pick the most recent applying parameter (band recency is the later of `changedAt` and its latest entry), clamp a floor target by the band order, skip a parameter whose clamped target equals its value, and set the floor block and `changedAt`; make `resetTuning` clear every parameter and drop band state, one `reset` entry per tuned parameter in fixed order
-- [ ] 5.4 Tests in `tests/policy/tuning/rules.test.ts` for every new and modified `tuning-rules` scenario and the `turn-floor-rules` "Floors follow the step order and off" scenarios, keeping all existing timeout tests green unchanged except where a scenario changed
+- [x] 5.1 In `src/policy/tuning/rules.ts`, add `parameter: "timeoutMs"` to every timeout event and scope the timeout cooldown, window, judging and block to `timeoutMs` history entries
+- [x] 5.2 Rewrite `stepTuning` as the four phases of `tuning-rules` "Step order across parameters": supersede all, judge all, stop on any revert, then timeout rule, then bands in order, at most one `applied`; keep the `off` and out-of-range guards
+- [x] 5.3 Make `undoTuning` pick the most recent applying parameter (band recency is the later of `changedAt` and its latest entry), clamp a floor target by the band order, skip a parameter whose clamped target equals its value, and set the floor block and `changedAt`; make `resetTuning` clear every parameter and drop band state, one `reset` entry per tuned parameter in fixed order
+- [x] 5.4 Tests in `tests/policy/tuning/rules.test.ts` for every new and modified `tuning-rules` scenario and the `turn-floor-rules` "Floors follow the step order and off" scenarios, keeping all existing timeout tests green unchanged except where a scenario changed
 
 ## 6. Turn signals
 
