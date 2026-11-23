@@ -26,10 +26,10 @@ Blocked by: 1
 
 Blocked by: 1, 3
 
-- [ ] 4.0 Move the tuning record types (`TuningRecord`, `HistoryEntry`, `TuningEvent`, `TuningCause`, new `TuningParameter` and `FloorState`), `TUNING` and `pushHistory` from `src/policy/tuning/rules.ts` into a leaf module `src/policy/tuning/record.ts`, re-exported unchanged, so the floor rules and `rules.ts` share them without an import cycle
-- [ ] 4.1 Add `src/policy/tuning/floor-runs.ts`: counted runs of a band (worker line with `turnsP`, band from `turnBand`, integer `turnsUsed`, `status` not `aborted`), order by `at` then key-sorted JSON (reuse the comparator in `signals.ts` by moving it to a shared policy helper), nearest-rank percentile, and the window after a time; tests in `tests/policy/tuning/floor-runs.test.ts` for "Band of a run" and the order scenarios
-- [ ] 4.2 Add `src/policy/tuning/floor-rules.ts` for one band: `nextFloor` (wanted, exhausted push, up/down, range, band order with pending neighbours at their worst value, block in both directions), `applyFloor`, `judgeFloor`, `revertFloor`, `supersedeFloor`, each setting `changedAt` as specified, cooldown from the later of `changedAt` and the band's latest history entry, block over 400 runs
-- [ ] 4.3 Tests in `tests/policy/tuning/floor-rules.test.ts`: one test per `turn-floor-rules` scenario (new value table, band order, apply, judge, revert, block, supersede, trimmed history), recomputing each number from the spec
+- [x] 4.0 Move the tuning record types (`TuningRecord`, `HistoryEntry`, `TuningEvent`, `TuningCause`, new `TuningParameter` and `FloorState`), `TUNING` and `pushHistory` from `src/policy/tuning/rules.ts` into a leaf module `src/policy/tuning/record.ts`, re-exported unchanged, so the floor rules and `rules.ts` share them without an import cycle
+- [x] 4.1 Add `src/policy/tuning/floor-runs.ts`: counted runs of a band (worker line with `turnsP`, band from `turnBand`, integer `turnsUsed`, `status` not `aborted`), order by `at` then key-sorted JSON (reuse the comparator in `signals.ts` by moving it to a shared policy helper), nearest-rank percentile, and the window after a time; tests in `tests/policy/tuning/floor-runs.test.ts` for "Band of a run" and the order scenarios
+- [x] 4.2 Add `src/policy/tuning/floor-rules.ts` for one band: `nextFloor` (wanted, exhausted push, up/down, range, band order with pending neighbours at their worst value, block in both directions), `applyFloor`, `judgeFloor`, `revertFloor`, `supersedeFloor`, each setting `changedAt` as specified, cooldown from the later of `changedAt` and the band's latest history entry, block over 400 runs
+- [x] 4.3 Tests in `tests/policy/tuning/floor-rules.test.ts`: one test per `turn-floor-rules` scenario (new value table, band order, apply, judge, revert, block, supersede, trimmed history), recomputing each number from the spec
 
 ## 5. Multi-parameter step, undo and reset
 
