@@ -41,7 +41,7 @@ Written by tuning, not by hand. Unknown keys are rejected, and the file is valid
 | `off` | Set when automatic changes are turned off |
 | `timeoutMs` | The tuned value: `value` and `base`, the untuned value it was tuned from. Both 300–5000 |
 | `pending` | The change still being judged: `from`, `to`, `at` and `before` (`asked`, `timeouts`, each 0–40) |
-| `block` | After a revert or undo: `value` and `at`. For 200 decisions, a raise to the blocked value or above is lowered to `blocked − 100` |
+| `block` | After a revert or undo: `value` and `at`. A block above the tuned value holds back raises for 200 decisions (a raise to the blocked value or above is lowered to `blocked − 100`). A block below it holds back lowerings for 400 decisions (raised to `blocked + 100`). A burst clears it |
 | `turnFloors` | Version 2 only. Per band (`medium`, `long`, `very_long`): `changedAt`, `tuned` (`value`, `base`: the built-in floor), `pending` (`from`, `to`, `at`, `before`: `runs`, `exhausted`) and `block` (`value`, `at`). Floors are 20–80, 50–200 and 100–400 by band; the block lasts 400 counted runs |
 | `seenAt` | Time of the latest history entry already shown to the operator. Entries after it are summarized at the next session start |
 | `history` | At most 50 entries of `at`, `parameter` (`timeoutMs`, `turnFloor.medium`, `turnFloor.long` or `turnFloor.very_long`), `from`, `to` and `cause` (`rule`, `revert`, `undo`, `reset` or `superseded`) |

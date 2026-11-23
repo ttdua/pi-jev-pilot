@@ -122,24 +122,29 @@ flowchart TD
     B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
     B3 --> Z
     B2 -- yes --> D{"A pending change with<br/>40 decisions after it?"}
-    D -- yes --> E{"Worse than the<br/>40 before it?"}
+    D -- yes --> E{"Raise without an answer<br/>above its old value, and worse?<br/>Lowering with any timeout?"}
     E -- yes --> F["Revert, show a line"]
     F --> Z
     E -- no --> G["Mark kept"]
-    D -- no --> CD
-    G --> CD{"Cooldown passed?<br/>(40 decisions since the last change)"}
-    CD -- no --> Z
+    D -- no --> BR
+    G --> BR{"3 of the latest 5 asked<br/>timed out?"}
+    BR -- yes --> BU["Raise at once, no cooldown,<br/>clears the block"]
+    BU --> Q
+    BR -- no --> CD{"Cooldown passed?<br/>(40 decisions since the last change)"}
+    CD -- no --> LW
     CD -- yes --> H{"A rule fires?"}
-    H -- no --> Z
+    H -- no --> LW
     H -- yes --> I{"Parameter allowlisted<br/>for automatic change?"}
     I -- no --> J["Keep as a signal for /jev tune"]
     I -- yes --> N["Compute and clamp the value"]
     N --> L{"Value blocked by a<br/>recent revert or undo?"}
-    L -- yes --> M["Lower to blocked − 100"]
+    L -- yes --> M["Adjust past the blocked value"]
     L -- no --> Q{"Above current?"}
     M --> Q
-    Q -- no --> Z
+    Q -- no --> LW
     Q -- yes --> K["Apply one step, show a line"]
+    LW{"200 decisions with no timeout,<br/>no pending change?"} -- no --> Z
+    LW -- yes --> LV["Lower, show a line"]
 ```
 
 Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. The allowlist is `timeoutMs` and the three band floors (`turnFloor.medium`, `turnFloor.long`, `turnFloor.very_long`). Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).
