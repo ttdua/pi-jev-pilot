@@ -265,6 +265,10 @@ describe("main effort through the real CLI", () => {
       const before = settled(s);
       // RPC abort waits for idle, which needs the handler to return: do not await it yet.
       const abort = s.send({ type: "abort" });
+      // The host reads RPC lines in order and `abort` flags the run before its first await, so a
+      // reply to a later command proves the abort landed before Jev answers. Without this, a slow
+      // host can read the Jev reply first and start the provider request, a different scenario.
+      await thinkingLevel(s);
       h.release(answers("xhigh"));
       const ar = await abort;
       expect(ar.success).toBe(true);
