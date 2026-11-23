@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { BUILTIN_FLOORS } from "../../../src/shared/turn-floors.ts";
 import type { Answer } from "../../../src/policy/answers.ts";
 import type { ModelThinking } from "../../../src/policy/effort.ts";
 import {
@@ -105,6 +106,7 @@ function input(overrides: Partial<RouteInput> = {}): RouteInput {
     thinkingOf: (): ModelThinking => ({ reasoning: true }),
     modelOf: (t) => `fx/${t}`,
     slots: [],
+    floors: BUILTIN_FLOORS,
     ...overrides,
   };
 }

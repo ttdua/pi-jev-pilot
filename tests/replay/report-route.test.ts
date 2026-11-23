@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { REPORT_MODES, routeStream } from "../../scripts/replay/report-route.ts";
 import type { PlainConfig } from "../../scripts/replay/variants.ts";
+import { BUILTIN_FLOORS } from "../../src/shared/turn-floors.ts";
 import { cutPointsFor } from "../../src/policy/worker/cutpoints.ts";
 import { SEED_CUTPOINTS } from "../../src/policy/worker/seed.ts";
 import { routeLaunch } from "../../src/policy/worker/route.ts";
@@ -45,6 +46,7 @@ const recordOf = (a: ReturnType<typeof workerAnswers>, cuts = SEED_CUTPOINTS.sta
     thinkingOf: () => ({ reasoning: true }),
     modelOf: modelOfConfig(config),
     slots: [],
+    floors: BUILTIN_FLOORS,
   });
   if (r.kind !== "routed") throw new Error("not routed");
   return r.record;

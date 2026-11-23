@@ -11,6 +11,7 @@ import {
 import { EFFORT_LEVELS } from "../../src/policy/effort.ts";
 import type { ModeName } from "../../src/policy/worker/index.ts";
 import { isSlot } from "../../src/policy/launch.ts";
+import { BUILTIN_FLOORS } from "../../src/shared/turn-floors.ts";
 import { routeLaunch } from "../../src/policy/worker/index.ts";
 import { difficultyScore } from "../../src/policy/worker/index.ts";
 import type { WorkerAnswers } from "../../src/policy/worker/index.ts";
@@ -105,6 +106,7 @@ export function routeStreamRecords(
       thinkingOf: () => ({ reasoning: true }),
       modelOf,
       slots,
+      floors: BUILTIN_FLOORS,
     });
     const record = route.kind === "routed" ? route.record : undefined;
     const target = record?.tier ?? "none";

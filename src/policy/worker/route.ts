@@ -11,6 +11,7 @@ import { canRaiseTurns, type EffectiveLaunch, type Target, type TierName } from 
 import type { CutPoints } from "./cutpoints.ts";
 import { chooseFallback, decideTier, type TierDecision } from "./tier.ts";
 import type { WorkerAnswers } from "./answers.ts";
+import type { BandFloors } from "../../shared/turn-floors.ts";
 import { turnFloor, turnWrite } from "./turns.ts";
 
 export type ForkLaunch = "untouched" | "thinking";
@@ -40,6 +41,7 @@ export type RouteInput = {
   thinkingOf: (t: Target) => ModelThinking | undefined;
   modelOf: (t: Target) => string;
   slots: readonly string[];
+  floors: BandFloors;
 };
 
 export type Route =
@@ -165,9 +167,9 @@ function decidedRoute(ctx: Ctx, decision: TierDecision): Route {
 }
 
 // Adds the turn write to a routed result; it never changes the model or thinking decision.
-function withTurns(route: Route, answers: ReadAnswers, launch: EffectiveLaunch): Route {
+function withTurns(route: Route, answers: ReadAnswers, input: RouteInput): Route {
   if (route.kind !== "routed") return route;
-  const maxTurns = turnWrite(turnFloor(answers.answers["turns"]), launch);
+  const maxTurns = turnWrite(turnFloor(answers.answers["turns"], input.floors), input.launch);
   if (maxTurns === undefined) return route;
   return {
     kind: "routed",
@@ -187,11 +189,11 @@ export function routeLaunch(input: RouteInput): Route {
   }
   if (!kind.routeQuestions) {
     const record = { reason: "untouched", ...locked } as const;
-    return withTurns({ kind: "routed", write: {}, record }, answers, input.launch);
+    return withTurns({ kind: "routed", write: {}, record }, answers, input);
   }
   const decision: TierDecision = kind.tierQuestion
     ? decideTier(answers, input.offered, input.cuts, input.slots)
     : { kind: "none" };
   const route = decidedRoute({ input, answers, locked }, decision);
-  return withTurns(route, answers, input.launch);
+  return withTurns(route, answers, input);
 }
