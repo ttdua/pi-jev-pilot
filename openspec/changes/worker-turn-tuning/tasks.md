@@ -10,9 +10,9 @@ Blocked by: none
 
 Blocked by: 1, 3
 
-- [ ] 2.1 Extend `Tuning` in `src/store/settings.ts` with `turnFloors` (per band `tuned { value, base }`, unknown values) and add `turnFloors: BandFloors` to `Settings`; add `resolveTurnFloors` in `src/store/settings-sections.ts`: a tuned value applies when integer, in its band range, base equal to the built-in floor, and only when all resolved floors stay strictly ordered, else every band falls back to built-in
-- [ ] 2.2 Tests in `tests/store/settings-sections.test.ts` and `tests/store/settings.test.ts` for every `settings-resolution` "Tuned turn floors" scenario and the unchanged `timeoutMs` scenarios; update `tests/store/settings-pin.test.ts` key order
-- [ ] 2.3 In `src/host/worker/route.ts`, pass `floors: settings.turnFloors` to `routeLaunch`; host tests in `tests/host/worker-routing.test.ts` for `tuning-host` "Tuned floors reach worker routing" (tuned 120 written, tuned 80 under a limit of 90 writes nothing, truncated `tuning.json` gives 100, Jev timeout writes nothing), using the loopback Jev fixture
+- [x] 2.1 Extend `Tuning` in `src/store/settings.ts` with `turnFloors` (per band `tuned { value, base }`, unknown values) and add `turnFloors: BandFloors` to `Settings`; add `resolveTurnFloors` in `src/store/settings-sections.ts`: a tuned value applies when integer, in its band range, base equal to the built-in floor, and only when all resolved floors stay strictly ordered, else every band falls back to built-in
+- [x] 2.2 Tests in `tests/store/settings-sections.test.ts` and `tests/store/settings.test.ts` for every `settings-resolution` "Tuned turn floors" scenario and the unchanged `timeoutMs` scenarios; update `tests/store/settings-pin.test.ts` key order
+- [x] 2.3 In `src/host/worker/route.ts`, pass `floors: settings.turnFloors` to `routeLaunch`; host tests in `tests/host/worker-routing.test.ts` for `tuning-host` "Tuned floors reach worker routing" (tuned 120 written, tuned 80 under a limit of 90 writes nothing, truncated `tuning.json` gives 100, Jev timeout writes nothing), using the loopback Jev fixture
 
 ## 3. Tuning file version 2
 
