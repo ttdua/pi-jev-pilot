@@ -201,6 +201,8 @@ describe("ledger schema", () => {
         "tierP",
         "tokens",
         "toolUses",
+        "turnsUsed",
+        "turnPhase",
         "toolsFlagged",
         "toolsScored",
         "toolsGranted",
@@ -215,6 +217,14 @@ describe("ledger schema", () => {
     const turnsP = { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 };
     const entry = { ...base("worker"), requestedTurns: 20, turnsP, turnFloor: 100 };
     expect(issues(entry)).toEqual([]);
+  });
+
+  test("Worker line with turn use accepted", () => {
+    expect(issues({ ...base("worker"), turnsUsed: 37, turnPhase: "warned" })).toEqual([]);
+  });
+
+  test("Bad turn phase rejected", () => {
+    expect(paths({ ...base("worker"), turnsUsed: 3, turnPhase: "paused" })).toEqual(["turnPhase"]);
   });
 
   test("Unknown band rejected", () => {
@@ -389,6 +399,8 @@ describe("ledger schema", () => {
       effectiveThinking: "minimal",
       tokens: count,
       toolUses: count,
+      turnsUsed: count,
+      turnPhase: "exhausted",
       status: "completed",
     };
     for (const entry of [main, worker]) {

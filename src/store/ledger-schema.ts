@@ -95,6 +95,8 @@ export type WorkerEntry = Common &
     toolsGranted?: number;
     tokens?: number;
     toolUses?: number;
+    turnsUsed?: number;
+    turnPhase?: "within" | "warned" | "exhausted";
     effectiveModel?: string;
     effectiveThinking?: Level;
     status: "completed" | "aborted" | "stopped" | "error";
@@ -159,6 +161,8 @@ export const LEDGER_FIELDS: Readonly<Record<LedgerKind, readonly string[]>> = {
     "toolsGranted",
     "tokens",
     "toolUses",
+    "turnsUsed",
+    "turnPhase",
     "effectiveModel",
     "effectiveThinking",
     "status",
@@ -360,6 +364,8 @@ function workerShape(kind: LedgerKind) {
       toolsGranted: count(),
       tokens: count(),
       toolUses: count(),
+      turnsUsed: count(),
+      turnPhase: oneOf(["within", "warned", "exhausted"] as const),
       effectiveModel: string({ pattern: MODEL, max: 128 }),
       effectiveThinking: level(),
       status: oneOf(["completed", "aborted", "stopped", "error"] as const),

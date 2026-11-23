@@ -45,7 +45,9 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 /** The only executor fields a ledger line needs. */
 export function slim(data: Record<string, unknown>): ExecutorOutcome {
   const tokens = data["tokens"];
+  const budget = data["turnBudget"];
   return {
+    ...(isRecord(budget) ? { turnBudget: { used: budget["used"], phase: budget["phase"] } } : {}),
     status: data["status"],
     durationMs: data["durationMs"],
     toolUses: data["toolUses"],

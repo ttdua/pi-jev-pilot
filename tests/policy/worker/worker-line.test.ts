@@ -89,6 +89,39 @@ describe("workerLine", () => {
     expect(line?.["effortP"]).toEqual({ low: 0.1, medium: 0.8, high: 0.1 });
   });
 
+  test("Turn use recorded", () => {
+    const line = workerLine(
+      input({
+        outcome: { status: "completed", toolUses: 3, turnBudget: { used: 37, phase: "within" } },
+      }),
+    );
+    expect(line).toMatchObject({ turnsUsed: 37, turnPhase: "within" });
+    const keys = Object.keys(line ?? {});
+    expect(keys.indexOf("turnsUsed")).toBe(keys.indexOf("toolUses") + 1);
+    expect(keys.indexOf("turnPhase")).toBe(keys.indexOf("toolUses") + 2);
+  });
+
+  test("Exhausted run recorded", () => {
+    const line = workerLine(
+      input({ outcome: { status: "stopped", turnBudget: { used: 20, phase: "exhausted" } } }),
+    );
+    expect(line).toMatchObject({ turnsUsed: 20, turnPhase: "exhausted" });
+  });
+
+  test("No turn budget", () => {
+    const line = workerLine(input());
+    expect(line).not.toHaveProperty("turnsUsed");
+    expect(line).not.toHaveProperty("turnPhase");
+  });
+
+  test("Unknown phase dropped", () => {
+    const line = workerLine(
+      input({ outcome: { status: "completed", turnBudget: { used: 5, phase: "paused" } } }),
+    );
+    expect(line).toMatchObject({ turnsUsed: 5 });
+    expect(line).not.toHaveProperty("turnPhase");
+  });
+
   test("writes no tool count fields", () => {
     const line = workerLine(input());
     for (const k of ["toolsScored", "toolsFlagged", "toolsGranted"]) {

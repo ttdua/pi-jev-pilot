@@ -17,6 +17,8 @@ export type ExecutorOutcome = {
   durationMs?: unknown;
   toolUses?: unknown;
   tokens?: unknown;
+  /** The executor's measured turn use; only `used` and `phase` are read. */
+  turnBudget?: unknown;
 };
 
 /** The model and thinking the executor reports the child session was created with. */
@@ -48,6 +50,7 @@ export type WorkerLineInput = {
 type Line = Record<string, unknown>;
 
 const STATUSES = ["completed", "aborted", "stopped", "error"] as const;
+const TURN_PHASES = ["within", "warned", "exhausted"] as const;
 const EFFORT_KEYS: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -135,6 +138,12 @@ function executorFields(line: Line, outcome: ExecutorOutcome | undefined): void 
   line["status"] = outcome === undefined ? "error" : (status ?? "error");
   put(line, "durationMs", count(outcome?.durationMs));
   put(line, "toolUses", count(outcome?.toolUses));
+  const budget = outcome?.turnBudget;
+  if (isRecord(budget)) {
+    put(line, "turnsUsed", count(budget["used"]));
+    const phase = TURN_PHASES.find((p) => p === budget["phase"]);
+    put(line, "turnPhase", phase);
+  }
   const tokens = outcome?.tokens;
   put(line, "tokens", isRecord(tokens) ? count(tokens["total"]) : undefined);
 }

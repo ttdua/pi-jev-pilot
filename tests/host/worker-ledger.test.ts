@@ -127,6 +127,13 @@ describe("Outcome joined from the executor", () => {
     });
   });
 
+  test("Turn use joined from the executor", async () => {
+    const h = harness();
+    const { request } = await h.launch();
+    h.completed(request.agentId, { turnBudget: { maxTurns: 40, used: 37, phase: "warned" } });
+    expect(h.lines[0]).toMatchObject({ turnsUsed: 37, turnPhase: "warned" });
+  });
+
   test("Background completion", async () => {
     const h = harness();
     const { request } = await h.launch({ isBackground: true });

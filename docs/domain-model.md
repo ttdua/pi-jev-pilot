@@ -256,6 +256,7 @@ One line per decision in `ledger.jsonl`, at least the latest 2000 kept, in two f
 | | `effectiveModel`, `effectiveThinking` | What the executor applied to the child, joined by `agentId`; absent when the executor reported none |
 | | `toolsScored`, `toolsFlagged`, `toolsGranted` | Legacy, read only: tool assessment counts from before its removal. New lines do not carry them |
 | | `status`, `durationMs`, `tokens`, `toolUses` | Filled on completion. `status` is `completed`, `aborted`, `stopped` or `error` |
+| | `turnsUsed`, `turnPhase` | The executor's measured turn use for a run with a limit; `turnPhase` is `within`, `warned` or `exhausted` |
 | Correction | `turnId`, `corrects` | The turn being marked, and the probability that marked it (≥ .7) |
 
 Rules:
