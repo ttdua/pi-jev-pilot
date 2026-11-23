@@ -40,6 +40,8 @@
 | `BUILTIN_FLOORS` | new | `BandFloors` = `{ medium: 40, long: 100, very_long: 200 }` | no |
 | `FLOOR_RANGES` | new | `Readonly<Record<FloorBand, { min: number; max: number }>>` = 20–80, 50–200, 100–400 | no |
 | `FLOOR_PARAMETER` | new | `(band: FloorBand) => \`turnFloor.${FloorBand}\`` | no |
+| `inFloorRange`, `orderedFloors` | new (added during apply) | `(band: FloorBand, value: unknown) => value is number`; `(floors: BandFloors) => boolean` in `src/shared/turn-floors.ts`. Reason: the final review found `effectiveFloors` (policy) and `resolveTurnFloors` (store) applied different rules; one shared helper pair keeps them identical | no |
+| `FLOOR_RUNS_MAX` | new (added during apply) | `200`, exported from `src/store/tuning-file.ts`, pinned to `FLOOR.runs` by a test. Reason: store cannot import policy, so the duplicated bound is guarded by a cross-check | no |
 | `turnBand` | new (`src/policy/worker/turns.ts`) | `(probabilities: Readonly<Record<string, number>> \| undefined) => FloorBand \| undefined` | no |
 | `turnFloor` | modified | `(answer: Answer \| undefined, floors: BandFloors) => number \| undefined` | no |
 | `BAND_FLOOR` | removed | replaced by `BUILTIN_FLOORS`; drop it from `src/policy/worker/index.ts` | no |
