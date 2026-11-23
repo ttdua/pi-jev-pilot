@@ -25,3 +25,4 @@ export {
   undoneMessage,
 } from "./text.ts";
 export { after, type DecisionLine, decisions } from "./window.ts";
+export { turnSignals, type TurnSignal } from "./turn-signals.ts";
