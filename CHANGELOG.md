@@ -4,6 +4,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-23
+
+Tag: v0.7.0
+
 ### Added
 
 - Worker turn floor: a launch with a turn limit that its agent does not lock is asked a `turns` question (`short`, `medium`, `long`, `very_long`). When the median band needs more turns, Jev raises `maxTurns` to the band's floor (40, 100 or 200). It never lowers a limit or adds one. Ledger worker lines gain `requestedTurns`, `turnsP` and `turnFloor`, plus `turnsUsed` and `turnPhase` (measured turn use, from the executor) once the run settles.
