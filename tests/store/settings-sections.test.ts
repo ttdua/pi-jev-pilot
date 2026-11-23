@@ -10,6 +10,7 @@ import {
   resolveSubagents,
   resolveSwitches,
   resolveTiers,
+  resolveTurnFloors,
 } from "../../src/store/settings-sections.ts";
 
 describe("settings sections", () => {
@@ -58,5 +59,38 @@ describe("settings sections", () => {
     expect(resolveSkills({})).toEqual({ inject: "content" });
     expect(resolveStateSection({})).toEqual({ parentRequest: false });
     expect(resolveSubagents({})).toEqual({ forkLaunch: "untouched" });
+  });
+
+  describe("turn floors", () => {
+    const tuned = (band: string, value: unknown, base: unknown) => ({
+      turnFloors: { [band]: { tuned: { value, base } } },
+    });
+    const BUILTIN = { medium: 40, long: 100, very_long: 200 };
+
+    test("built-in floors without tuning", () => {
+      expect(resolveTurnFloors(undefined)).toEqual(BUILTIN);
+    });
+    test("tuned floor applies", () => {
+      expect(resolveTurnFloors(tuned("long", 80, 100))).toEqual({ ...BUILTIN, long: 80 });
+    });
+    test("base differs keeps built-in", () => {
+      expect(resolveTurnFloors(tuned("long", 80, 90))).toEqual(BUILTIN);
+    });
+    test("out of range keeps built-in", () => {
+      expect(resolveTurnFloors(tuned("medium", 100, 40))).toEqual(BUILTIN);
+    });
+    test("broken order resets all floors", () => {
+      const t = {
+        turnFloors: {
+          medium: { tuned: { value: 80, base: 40 } },
+          long: { tuned: { value: 60, base: 100 } },
+        },
+      };
+      expect(resolveTurnFloors(t)).toEqual(BUILTIN);
+    });
+    test("non-integer values are ignored", () => {
+      expect(resolveTurnFloors(tuned("long", 80.5, 100))).toEqual(BUILTIN);
+      expect(resolveTurnFloors(tuned("long", "80", 100))).toEqual(BUILTIN);
+    });
   });
 });

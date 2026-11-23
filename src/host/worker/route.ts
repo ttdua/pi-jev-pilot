@@ -1,7 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ModelThinking, ThinkingLevel } from "../../policy/effort.ts";
 import type { Target } from "../../policy/launch.ts";
-import { BUILTIN_FLOORS } from "../../shared/turn-floors.ts";
 import { readWorkerOutcome, routeLaunch, type Route } from "../../policy/worker/index.ts";
 import { checkModel, resolveModel, type Snapshot } from "../platform/index.ts";
 import type { LaunchEntry } from "./entry.ts";
@@ -82,7 +81,7 @@ export async function routeLaunchEntry(
     },
     modelOf,
     slots: entry.slots.map((s) => s.name),
-    floors: BUILTIN_FLOORS, // Task 2 resolves tuned floors from settings.
+    floors: settings.turnFloors,
   });
   entry.answers = answers;
   entry.route = result;

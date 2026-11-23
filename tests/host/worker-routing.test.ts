@@ -421,6 +421,87 @@ describe("worker routing through the real CLI", () => {
     TIMEOUT,
   );
 
+  describe("tuned floors", () => {
+    const turns = { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 };
+    const writeTuning = (agentDir: string, body: string): void =>
+      writeFileSync(join(agentDir, "jev", "tuning.json"), body);
+    const longTuned = (value: number): string =>
+      JSON.stringify({
+        version: 2,
+        turnFloors: { long: { changedAt: 1, tuned: { value, base: 100 } } },
+      });
+
+    test(
+      "Tuned floor written",
+      async () => {
+        const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium", turns }));
+        const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+          persist: true,
+        });
+        writeJev(session.agentDir, { config: config(jev) });
+        writeTuning(session.agentDir, longTuned(120));
+        await session.prompt("START-MAIN");
+        await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+        await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+        expect(recordedMaxTurns(session)).toEqual([120]);
+        expect(workerLines(session)[0]).toMatchObject({ turnFloor: 120 });
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "Lowered floor never lowers a limit",
+      async () => {
+        const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium", turns }));
+        const { session } = await setup(script([subagentCall(launch({ max_turns: 90 }))]), {
+          persist: true,
+        });
+        writeJev(session.agentDir, { config: config(jev) });
+        writeTuning(session.agentDir, longTuned(80));
+        await session.prompt("START-MAIN");
+        await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+        await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+        expect(recordedMaxTurns(session)).toEqual([90]);
+        expect(workerLines(session)[0]).not.toHaveProperty("turnFloor");
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "Bad tuning file uses built-in floors",
+      async () => {
+        const jev = await newJev(jevAnswers({ tier: "basic", effort: "medium", turns }));
+        const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+          persist: true,
+        });
+        writeJev(session.agentDir, { config: config(jev) });
+        writeTuning(session.agentDir, '{"version":2,');
+        await session.prompt("START-MAIN");
+        await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+        await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+        expect(recordedMaxTurns(session)).toEqual([100]);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "Jev miss writes no floor",
+      async () => {
+        const jev = await newJev({ hang: true });
+        const { session } = await setup(script([subagentCall(launch({ max_turns: 20 }))]), {
+          persist: true,
+        });
+        writeJev(session.agentDir, { config: config(jev, { timeoutMs: 300 }) });
+        writeTuning(session.agentDir, longTuned(120));
+        await session.prompt("START-MAIN");
+        await session.waitFor(() => workerLines(session).length >= 1, "ledger line");
+        await session.waitFor(() => recordedMaxTurns(session).length >= 1, "run record");
+        expect(recordedMaxTurns(session)).toEqual([20]);
+      },
+      TIMEOUT,
+    );
+  });
+
   test(
     "turn limit kept on Jev error",
     async () => {

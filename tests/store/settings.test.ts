@@ -53,6 +53,7 @@ describe("resolveSettings", () => {
         apiKeyEnv: "TYPESAFE_API_KEY",
         timeoutMs: 1500,
       },
+      turnFloors: { medium: 40, long: 100, very_long: 200 },
       tiers: {},
       crew: { slots: [] },
       effort: { holdProviders: [] },
