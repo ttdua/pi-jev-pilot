@@ -81,6 +81,7 @@ export async function routeLaunchEntry(
     },
     modelOf,
     slots: entry.slots.map((s) => s.name),
+    floors: settings.turnFloors,
   });
   entry.answers = answers;
   entry.route = result;

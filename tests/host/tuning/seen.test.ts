@@ -31,10 +31,35 @@ describe("showUnseenTuning", () => {
   });
 
   test("changes that cancel out", () => {
-    const record: TuningDocument = { history: [entry(1000, 1500, 1700), entry(2000, 1700, 1500)] };
+    const record: TuningDocument = {
+      history: [entry(1000, 1500, 1700), entry(2000, 1700, 1500)],
+    };
     const ctx = fakeCtx(true);
     showUnseenTuning(fakeDeps({ record }), ctx);
     expect(ctx.notifies[0]?.[0]).toContain("1500→1500 (2 changes)");
+  });
+
+  test("several parameters", () => {
+    const floor = {
+      at: 2000,
+      parameter: "turnFloor.long",
+      from: 100,
+      to: 80,
+      cause: "rule",
+    } as const;
+    const record: TuningDocument = {
+      history: [entry(1000, 1500, 1700), floor, entry(3000, 1700, 1900)],
+    };
+    const deps = fakeDeps({ record });
+    const ctx = fakeCtx(true);
+    showUnseenTuning(deps, ctx);
+    expect(ctx.notifies).toEqual([
+      [
+        "Jev tune since your last session: timeoutMs 1500→1900, turnFloor.long 100→80 (3 changes) · /jev tune",
+        "info",
+      ],
+    ]);
+    expect(deps.stored().seenAt).toBe(3000);
   });
 
   test("shown once", () => {
@@ -48,7 +73,10 @@ describe("showUnseenTuning", () => {
   });
 
   test("everything seen", () => {
-    const record: TuningDocument = { seenAt: 1000, history: [entry(1000, 1500, 1700)] };
+    const record: TuningDocument = {
+      seenAt: 1000,
+      history: [entry(1000, 1500, 1700)],
+    };
     const deps = fakeDeps({ record });
     const ctx = fakeCtx(true);
     showUnseenTuning(deps, ctx);

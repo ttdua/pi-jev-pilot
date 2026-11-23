@@ -61,9 +61,15 @@ src/
       strategy.ts           Advice gates and advice text
     tuning/
       index.ts              Entry point for other folders
+      floor-rules.ts        Per-band turn floor rules: value, judge, revert, block
+      floor-runs.ts         Counted runs per band, p95, 200-run window
+      floor-step.ts         Floor phases of the step; undo target and reset for floors
+      order.ts              Total order of ledger lines
+      record.ts             Tuning record shape, events, history push
       rules.ts              Tuning rules: step, revert, undo, reset, off
       signals.ts            Signals per mode over the latest 200 decisions (observed only)
       text.ts               Change lines, session-start line, report text
+      turn-signals.ts       Observed per-band turn signals for the report
       window.ts             Decision counting: order, window, p90, shares
     worker/
       index.ts              Entry point for other folders
@@ -77,10 +83,11 @@ src/
       score.ts              Difficulty score
       seed.ts               Seed cut points (data)
       tier.ts               Model decision order
-      turns.ts              Turn bands, floor and raise-only write
+      turns.ts              Turn bands (`turnBand`), floor from the given floors and raise-only write
 
   shared/                   Dependency-free rules used by more than one module
     text.ts                 Code-point cut
+    turn-floors.ts          Band floors, built-in floors and ranges, used by store and policy
     urls.ts                 The Jev URL rule
 
   jev/                      Talks to TypeSafe.
@@ -164,9 +171,9 @@ src/
     ledger.ts               ledger.jsonl: append, rotate, read
     local-mode.ts           <cwd>/.pi/jev-mode.json: reads and writes the directory mode
     settings.ts             Effective settings: directory (mode only) > tuning > state > config > default
-    settings-sections.ts    One pure resolver per settings section, used by settings.ts
+    settings-sections.ts    One pure resolver per settings section, used by settings.ts (tuned floors need the built-in base)
     state-file.ts           state.json: switches and mode
-    tuning-file.ts          tuning.json: changes, history
+    tuning-file.ts          tuning.json: changes, history, turn floors
     validate.ts             Small validators that collect issues with field paths
 
 scripts/

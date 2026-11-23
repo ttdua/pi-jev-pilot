@@ -10,6 +10,7 @@ import {
   notifies,
   seedCorrections,
   seedLedger,
+  seedWorkerRuns,
   uiRequests,
   writeConfigFile,
   type SeedOptions,
@@ -315,6 +316,37 @@ describe("tuning through the real CLI", () => {
       const s = await open(env);
       await turn(s, 61);
       expect(existsSync(tuningPath(env.agentDir))).toBe(false);
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Floor applied line",
+    async () => {
+      const env = await makeEnv({ route: okAnswer });
+      seedWorkerRuns(env.agentDir, 200, { band: "long", used: 60 });
+      const s = await open(env);
+      await s.prompt("hello");
+      await s.waitFor(() => mainLines(env.agentDir).length >= 1, "turn line");
+      await s.waitFor(() => settledCount(s) >= 1, "agent_settled");
+      const asked = env.jev.requests.length;
+      await s.waitFor(() => existsSync(tuningPath(env.agentDir)), "tuning.json");
+      await s.waitFor(() => tuneNotifies(s).length >= 1, "floor notify");
+      await Bun.sleep(300);
+      const doc = tuned(env.agentDir);
+      expect(doc["version"]).toBe(2);
+      expect(doc["timeoutMs"]).toBeUndefined();
+      expect((doc["turnFloors"] as Record<string, unknown>)["long"]).toMatchObject({
+        tuned: { value: 80, base: 100 },
+      });
+      expect(tuneNotifies(s)).toEqual([
+        {
+          type: "info",
+          message: "Jev tune: turnFloor.long 100→80 · /jev tune undo",
+        },
+      ]);
+      expect(asked).toBeGreaterThan(0);
+      expect(env.jev.requests.length).toBe(asked);
     },
     TIMEOUT,
   );

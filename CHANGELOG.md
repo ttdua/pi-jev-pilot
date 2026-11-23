@@ -8,6 +8,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 - Worker turn floor: a launch with a turn limit that its agent does not lock is asked a `turns` question (`short`, `medium`, `long`, `very_long`). When the median band needs more turns, Jev raises `maxTurns` to the band's floor (40, 100 or 200). It never lowers a limit or adds one. Ledger worker lines gain `requestedTurns`, `turnsP` and `turnFloor`, plus `turnsUsed` and `turnPhase` (measured turn use, from the executor) once the run settles.
 
+- Tuned turn floors: `/jev tune` also moves the `medium`, `long` and `very_long` floors from counted worker runs of each band (aborted runs excluded), within ± 25%, fixed ranges and band order. Changes are reverted and blocked on more `exhausted` runs ([ADR 0012](docs/decisions/0012-tuned-turn-floors.md)). Undo and reset act on floors too.
+- Turn signals: `/jev tune` shows per-band turn signals (runs, p90, p95, `exhausted`, `warned`, turns used over the floor). Observed only.
+- `tuning.json` `version` 2 holds `turnFloors`; it is written once floor data exists, including floor history; `/jev tune reset` keeps `version` 2 while floor history remains. An older package reads a `version` 2 file as malformed and moves it to `tuning.json.bad` on its next write, so tuned values are lost and the built-in floors apply.
+
 ### Removed
 
 - CLI review: the `jev_review` tool and `/jev cli-review`. A `review` section in `config.json` and `cliReview` / `cliReviewEnabled` in `state.json` are accepted, ignored and removed at the first main session start.

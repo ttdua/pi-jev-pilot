@@ -10,15 +10,23 @@ import {
   resolveSubagents,
   resolveSwitches,
   resolveTiers,
+  resolveTurnFloors,
 } from "./settings-sections.ts";
+import type { BandFloors, FloorBand } from "../shared/turn-floors.ts";
 import type { State } from "./state-file.ts";
 
 export { untunedTimeout } from "./settings-sections.ts";
 
-export type Tuning = { timeoutMs?: { value?: unknown; base?: unknown } };
+type Tuned = { value?: unknown; base?: unknown };
+
+export type Tuning = {
+  timeoutMs?: Tuned;
+  turnFloors?: Partial<Record<FloorBand, { tuned?: Tuned }>>;
+};
 
 export type Settings = {
   classifier: { url: string; model: string; apiKeyEnv: string; timeoutMs: number };
+  turnFloors: BandFloors;
   tiers: Partial<Record<Tier, string>>;
   crew: { slots: Slot[] };
   effort: { holdProviders: string[] };
@@ -42,6 +50,7 @@ export function resolveSettings(input: {
   const { config, state, tuning, localMode } = input;
   return {
     classifier: resolveClassifier(config, tuning),
+    turnFloors: resolveTurnFloors(tuning),
     tiers: resolveTiers(config),
     crew: resolveCrew(config),
     effort: resolveEffort(config),

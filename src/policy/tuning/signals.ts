@@ -1,5 +1,7 @@
 // Observed per-mode signals for tuning. Pure: no I/O, inputs are never mutated.
 
+import { compareByAtThenKey } from "./order.ts";
+
 /** A ledger line read structurally; extra fields are ignored. */
 export type SignalLine = {
   kind: string;
@@ -32,32 +34,13 @@ const LOW = ["off", "minimal", "low"];
 const LARGE_TURN = 15;
 const SMALL_TURN = 2;
 
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (typeof value !== "object" || value === null) return value;
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
-  );
-  return Object.fromEntries(entries.map(([k, v]) => [k, sortKeys(v)]));
-}
-
-/** JSON text with keys sorted at every depth, so equal lines compare equal. */
-const stableKey = (line: SignalLine): string => JSON.stringify(sortKeys(line));
-
-function compareLines(a: SignalLine, b: SignalLine): number {
-  if (a.at !== b.at) return a.at < b.at ? -1 : 1;
-  const ka = stableKey(a);
-  const kb = stableKey(b);
-  return ka < kb ? -1 : ka > kb ? 1 : 0;
-}
-
 const isDecision = (l: SignalLine): boolean => l.kind === "main" || l.kind === "worker";
 
 /** The latest `SIGNAL_WINDOW` decisions of `mode`, oldest first. */
 function windowFor(lines: readonly SignalLine[], mode: string): SignalLine[] {
   return lines
     .filter((l) => isDecision(l) && l.mode === mode)
-    .sort(compareLines)
+    .sort(compareByAtThenKey)
     .slice(-SIGNAL_WINDOW);
 }
 

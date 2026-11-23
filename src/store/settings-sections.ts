@@ -1,6 +1,14 @@
 import type { Config } from "./config.ts";
 import { DEFAULTS, FEATURES, type Feature, type Mode } from "./defaults.ts";
 import type { Settings, Tuning } from "./settings.ts";
+import {
+  BUILTIN_FLOORS,
+  FLOOR_BANDS,
+  inFloorRange,
+  orderedFloors,
+  type BandFloors,
+  type FloorBand,
+} from "../shared/turn-floors.ts";
 import type { State } from "./state-file.ts";
 
 const TIMEOUT_MIN = 300;
@@ -84,4 +92,21 @@ export function resolveSwitches(state: State): Settings["switches"] {
     if (typeof v === "boolean") switches[f] = v;
   }
   return switches;
+}
+
+function tunedFloor(tuning: Tuning | undefined, band: FloorBand): number | undefined {
+  const t = tuning?.turnFloors?.[band]?.tuned;
+  return inFloorRange(band, t?.value) &&
+    inFloorRange(band, t?.base) &&
+    t.base === BUILTIN_FLOORS[band]
+    ? t.value
+    : undefined;
+}
+
+/** Tuned floors per band; any band that is invalid is built-in, and a broken order resets all. */
+export function resolveTurnFloors(tuning: Tuning | undefined): BandFloors {
+  const floors = Object.fromEntries(
+    FLOOR_BANDS.map((b) => [b, tunedFloor(tuning, b) ?? BUILTIN_FLOORS[b]]),
+  ) as Record<FloorBand, number>;
+  return orderedFloors(floors);
 }

@@ -10,6 +10,7 @@ import {
   type EffortLevel,
 } from "../../src/policy/effort.ts";
 import { isSlot, slotName, type EffectiveLaunch, type Target } from "../../src/policy/launch.ts";
+import { BUILTIN_FLOORS } from "../../src/shared/turn-floors.ts";
 import { routeLaunch } from "../../src/policy/worker/index.ts";
 import { readWorkerOutcome } from "../../src/policy/worker/index.ts";
 import { offeredTiers } from "../../src/jev/questions.ts";
@@ -141,6 +142,7 @@ function workerKeys(req: PlannedRequest, body: unknown, config: PlainConfig): De
     thinkingOf: () => ({ reasoning: true }),
     modelOf,
     slots: config.slots.map((s) => s.name),
+    floors: BUILTIN_FLOORS,
   });
   const record = route.kind === "routed" ? route.record : undefined;
   return {

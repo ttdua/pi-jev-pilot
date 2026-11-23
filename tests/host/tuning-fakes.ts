@@ -2,7 +2,8 @@
 import { buildSnapshot, type Snapshot } from "../../src/host/platform/readiness.ts";
 import type { TuningDeps, UiCtx } from "../../src/host/tuning/deps.ts";
 import type { LedgerRead } from "../../src/store/ledger.ts";
-import type { MainEntry } from "../../src/store/ledger-schema.ts";
+import type { FloorBand } from "../../src/shared/turn-floors.ts";
+import type { LedgerEntry, MainEntry, WorkerEntry } from "../../src/store/ledger-schema.ts";
 import type { TuningDocument, TuningRead } from "../../src/store/tuning-file.ts";
 import type { Issue, WriteResult } from "../../src/store/validate.ts";
 
@@ -20,7 +21,7 @@ export type FakeOptions = {
   tuningIssues?: Issue[];
   /** `load` reflects the fake store instead of the fixed `record`. */
   loadFromStore?: boolean;
-  ledger?: LedgerRead | readonly MainEntry[] | "throw";
+  ledger?: LedgerRead | readonly LedgerEntry[] | "throw";
   /** `{ok:false}` refuses the write without calling `mutate`; a function replaces the stored record first. */
   update?: WriteResult | ((stored: TuningDocument) => TuningDocument);
   now?: number;
@@ -48,7 +49,11 @@ function snapshotOf(o: FakeOptions, record: TuningDocument): Snapshot {
       ? { kind, record }
       : kind === "missing"
         ? { kind, record: {} }
-        : { kind, record: {}, issues: o.tuningIssues ?? [{ path: "", message: kind }] }
+        : {
+            kind,
+            record: {},
+            issues: o.tuningIssues ?? [{ path: "", message: kind }],
+          }
   ) as TuningRead;
   return buildSnapshot({
     configRead:
@@ -132,4 +137,42 @@ export function firing(from = 1): MainEntry[] {
 /** `count` answered main lines from `from`. */
 export function quiet(count = 10, from = 1): MainEntry[] {
   return Array.from({ length: count }, (_, i) => main(from + i, true, false));
+}
+
+/** `turnsP` peaked on each floor band, so `turnBand` rates the line in that band. */
+const PEAK: Record<FloorBand, Record<string, number>> = {
+  medium: { short: 0.1, medium: 0.7, long: 0.1, very_long: 0.1 },
+  long: { short: 0.1, medium: 0.2, long: 0.6, very_long: 0.1 },
+  very_long: { short: 0.1, medium: 0.1, long: 0.1, very_long: 0.7 },
+};
+
+export type WorkerRunOptions = {
+  band: FloorBand;
+  /** Turns used; may depend on the index. */
+  used: number | ((i: number) => number);
+  /** `at` of the first run; default 1. */
+  from?: number;
+  phase?: WorkerEntry["turnPhase"];
+  floor?: number;
+};
+
+/** `n` schema-valid, counted worker lines rated `band`, at `from`, `from + 1`, ... */
+export function workerRuns(n: number, o: WorkerRunOptions): WorkerEntry[] {
+  const from = o.from ?? 1;
+  return Array.from({ length: n }, (_, i) => ({
+    v: 1,
+    at: from + i,
+    kind: "worker",
+    session: "s-1",
+    mode: "standard",
+    answered: true,
+    agent: "worker",
+    briefChars: 100,
+    reason: "untouched",
+    status: "completed",
+    turnsP: PEAK[o.band],
+    turnsUsed: typeof o.used === "number" ? o.used : o.used(i),
+    ...(o.phase === undefined ? {} : { turnPhase: o.phase }),
+    ...(o.floor === undefined ? {} : { turnFloor: o.floor }),
+  }));
 }

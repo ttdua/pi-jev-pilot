@@ -4,6 +4,7 @@ import { resolveSettings } from "../../src/store/settings.ts";
 
 const TOP_KEYS = [
   "classifier",
+  "turnFloors",
   "tiers",
   "crew",
   "effort",

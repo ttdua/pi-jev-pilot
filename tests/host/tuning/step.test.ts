@@ -7,13 +7,18 @@ import { settleTuning } from "../../../src/host/tuning/step.ts";
 import { appendLedger, readLedger } from "../../../src/store/ledger.ts";
 import { readTuning, updateTuning, type TuningDocument } from "../../../src/store/tuning-file.ts";
 import { tempDir } from "../../helpers.ts";
-import { fakeCtx, fakeDeps, firing, quiet } from "../tuning-fakes.ts";
+import { fakeCtx, fakeDeps, firing, quiet, workerRuns } from "../tuning-fakes.ts";
 
 const isRoot = process.getuid?.() === 0;
 
 const applied: TuningDocument = {
   timeoutMs: { value: 1700, base: 1500 },
-  pending: { from: 1500, to: 1700, at: 5000, before: { asked: 40, timeouts: 10 } },
+  pending: {
+    from: 1500,
+    to: 1700,
+    at: 5000,
+    before: { asked: 40, timeouts: 10 },
+  },
   history: [{ at: 5000, parameter: "timeoutMs", from: 1500, to: 1700, cause: "rule" }],
 };
 const tuned: TuningDocument = {
@@ -66,7 +71,10 @@ describe("settleTuning with fakes", () => {
 
   test("kept is silent", () => {
     const deps = fakeDeps({
-      record: { ...tuned, pending: { ...tuned.pending!, before: { asked: 40, timeouts: 10 } } },
+      record: {
+        ...tuned,
+        pending: { ...tuned.pending!, before: { asked: 40, timeouts: 10 } },
+      },
       ledger: quiet(40, 1),
     });
     const ctx = fakeCtx(true);
@@ -106,7 +114,10 @@ describe("settleTuning with fakes", () => {
 
   test("refused write does not notify", () => {
     const ctx = fakeCtx(true);
-    const deps = fakeDeps({ ledger: firing(), update: { ok: false, issues: [] } });
+    const deps = fakeDeps({
+      ledger: firing(),
+      update: { ok: false, issues: [] },
+    });
     settleTuning(deps, ctx);
     expect(deps.updates()).toBe(1);
     expect(ctx.notifies).toEqual([]);
@@ -129,7 +140,10 @@ describe("settleTuning with fakes", () => {
 
   test("another process changed it first", () => {
     const ctx = fakeCtx(true);
-    const deps = fakeDeps({ ledger: firing(), update: () => structuredClone(applied) });
+    const deps = fakeDeps({
+      ledger: firing(),
+      update: () => structuredClone(applied),
+    });
     settleTuning(deps, ctx);
     expect(deps.lastResult()).toEqual(applied);
     expect(ctx.notifies).toEqual([]);
@@ -142,6 +156,94 @@ describe("settleTuning with fakes", () => {
     settleTuning(deps, ctx);
     expect(deps.stored().history?.filter((h) => h.cause === "rule")).toHaveLength(1);
     expect(ctx.notifies).toEqual([APPLIED_LINE]);
+  });
+});
+
+describe("settleTuning floors", () => {
+  const floorApplied: TuningDocument = {
+    turnFloors: {
+      long: {
+        changedAt: 5000,
+        tuned: { value: 80, base: 100 },
+        pending: {
+          from: 100,
+          to: 80,
+          at: 5000,
+          before: { runs: 200, exhausted: 0 },
+        },
+      },
+    },
+    history: [
+      {
+        at: 5000,
+        parameter: "turnFloor.long",
+        from: 100,
+        to: 80,
+        cause: "rule",
+      },
+    ],
+  };
+  const lowLong = () => workerRuns(200, { band: "long", used: 60 });
+
+  test("floor applied line", () => {
+    const ctx = fakeCtx(true);
+    const deps = fakeDeps({ ledger: lowLong() });
+    settleTuning(deps, ctx);
+    expect(deps.stored().turnFloors?.long?.tuned).toEqual({
+      value: 80,
+      base: 100,
+    });
+    expect(ctx.notifies).toEqual([["Jev tune: turnFloor.long 100→80 · /jev tune undo", "info"]]);
+  });
+
+  test("floor superseded line", () => {
+    const record: TuningDocument = {
+      turnFloors: { long: { changedAt: 1, tuned: { value: 120, base: 90 } } },
+    };
+    const ctx = fakeCtx(true);
+    settleTuning(fakeDeps({ record, ledger: quiet() }), ctx);
+    expect(ctx.notifies).toEqual([
+      ["Jev tune: turnFloor.long 120→100, the built-in floor changed", "info"],
+    ]);
+  });
+
+  test("floor reverted line", () => {
+    const record: TuningDocument = {
+      turnFloors: {
+        long: {
+          changedAt: 1000,
+          tuned: { value: 80, base: 100 },
+          pending: {
+            from: 100,
+            to: 80,
+            at: 1000,
+            before: { runs: 200, exhausted: 0 },
+          },
+        },
+      },
+    };
+    const ledger = workerRuns(200, {
+      band: "long",
+      used: 80,
+      from: 1001,
+      phase: "exhausted",
+    });
+    const ctx = fakeCtx(true);
+    settleTuning(fakeDeps({ record, ledger }), ctx);
+    expect(ctx.notifies).toEqual([
+      ["Jev tune: turnFloor.long 80→100, reverted: more runs ran out of turns · /jev tune", "info"],
+    ]);
+  });
+
+  test("another process applied the floor first", () => {
+    const ctx = fakeCtx(true);
+    const deps = fakeDeps({
+      ledger: lowLong(),
+      update: () => structuredClone(floorApplied),
+    });
+    settleTuning(deps, ctx);
+    expect(deps.lastResult()).toEqual(floorApplied);
+    expect(ctx.notifies).toEqual([]);
   });
 });
 
@@ -165,7 +267,13 @@ function realDeps(dir: string, spy?: () => void): TuningDeps {
     now: () => 5000,
     load: () =>
       buildSnapshot({
-        configRead: { kind: "ok", present: false, notices: [], deprecated: [], config: {} },
+        configRead: {
+          kind: "ok",
+          present: false,
+          notices: [],
+          deprecated: [],
+          config: {},
+        },
         stateRead: { kind: "missing", state: {} },
         tuningRead: readTuning(dir),
         env: {},
@@ -199,7 +307,10 @@ describe("settleTuning with real stores", () => {
 
   test.skipIf(isRoot)("unreadable tuning file is left alone", () => {
     withDir((dir) => {
-      const doc = JSON.stringify({ version: 1, timeoutMs: { value: 1700, base: 1500 } });
+      const doc = JSON.stringify({
+        version: 1,
+        timeoutMs: { value: 1700, base: 1500 },
+      });
       const file = join(dir, "tuning.json");
       writeFileSync(file, doc);
       chmodSync(file, 0o000);

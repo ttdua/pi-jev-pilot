@@ -9,53 +9,29 @@ import {
   type Counts,
   type DecisionLine,
 } from "./window.ts";
+import {
+  applyFirstFloor,
+  judgeFloors,
+  pickUndoTarget,
+  resetFloors,
+  ruleOrigin,
+  supersedeFloors,
+  undoFloor,
+} from "./floor-step.ts";
+import {
+  latestEntryAt,
+  pushHistory,
+  TUNING,
+  type HistoryEntry,
+  type TuningCause,
+  type TuningEvent,
+  type TuningLine,
+  type TuningParameter,
+  type TuningRecord,
+} from "./record.ts";
 
-export type { Counts };
-
-export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
-
-/** Same shape as the store's `TuningDocument`, declared here to keep policy/ self-contained. */
-export type TuningRecord = {
-  off?: boolean;
-  seenAt?: number;
-  timeoutMs?: { value: number; base: number };
-  pending?: {
-    from: number;
-    to: number;
-    at: number;
-    before: { asked: number; timeouts: number };
-  };
-  block?: { value: number; at: number };
-  history?: Array<{
-    at: number;
-    parameter: "timeoutMs";
-    from: number;
-    to: number;
-    cause: TuningCause;
-  }>;
-};
-
-export type HistoryEntry = NonNullable<TuningRecord["history"]>[number];
-
-export type TuningEvent = {
-  kind: "superseded" | "kept" | "reverted" | "applied";
-  from: number;
-  to: number;
-};
-
-export const TUNING = {
-  window: 40,
-  minAsked: 20,
-  shareDenominator: 10,
-  cooldown: 40,
-  blockFor: 200,
-  step: 200,
-  p90Factor: 1.25,
-  roundTo: 100,
-  min: 300,
-  max: 5000,
-  history: 50,
-} as const;
+export { pushHistory, TUNING };
+export type { Counts, HistoryEntry, TuningCause, TuningEvent, TuningRecord };
 
 const ceilTo = (x: number, unit: number): number => Math.ceil(x / unit) * unit;
 const clamp = (x: number): number => Math.min(TUNING.max, Math.max(TUNING.min, x));
@@ -96,11 +72,6 @@ function entry(at: number, from: number, to: number, cause: TuningCause): Histor
   return { at, parameter: "timeoutMs", from, to, cause };
 }
 
-/** Appends `entry`, keeping the latest `TUNING.history` entries. */
-export function pushHistory(history: TuningRecord["history"], entry: HistoryEntry): HistoryEntry[] {
-  return [...(history ?? []), entry].slice(-TUNING.history);
-}
-
 export function applyChange(
   record: TuningRecord,
   c: { from: number; to: number; base: number; before: Counts; now: number },
@@ -126,12 +97,20 @@ export function evaluatePending(
   const result = counts(judged);
   const worse = result.asked >= TUNING.minAsked && shareAbove(result, pending.before);
   const { pending: _cleared, ...rest } = record;
-  if (!worse) return { record: rest, event: { kind: "kept", from: pending.from, to: pending.to } };
+  if (!worse) {
+    const kept = {
+      kind: "kept",
+      parameter: "timeoutMs",
+      from: pending.from,
+      to: pending.to,
+    } as const;
+    return { record: rest, event: kept };
+  }
   return { record: revertedRecord(rest, pending, now), event: revertedEvent(pending) };
 }
 
 function revertedEvent(p: { from: number; to: number }): TuningEvent {
-  return { kind: "reverted", from: p.to, to: p.from };
+  return { kind: "reverted", parameter: "timeoutMs", from: p.to, to: p.from };
 }
 
 function revertedRecord(
@@ -162,14 +141,14 @@ export function supersede(record: TuningRecord, untuned: number, now: number): S
       ...rest,
       history: pushHistory(record.history, entry(now, tuned.value, untuned, "superseded")),
     },
-    event: { kind: "superseded", from: tuned.value, to: untuned },
+    event: { kind: "superseded", parameter: "timeoutMs", from: tuned.value, to: untuned },
   };
 }
 
 export type StepInput = {
   record: TuningRecord;
   untuned: number;
-  lines: readonly DecisionLine[];
+  lines: readonly TuningLine[];
   now: number;
 };
 
@@ -182,9 +161,9 @@ function dropOrphanPending(record: TuningRecord): TuningRecord {
   return rest;
 }
 
-/** The latest 40 decisions once 40 have followed the latest history entry; else none. */
+/** The latest 40 decisions once 40 have followed the latest `timeoutMs` entry; else none. */
 function cooledWindow(record: TuningRecord, ds: readonly DecisionLine[]): DecisionLine[] {
-  const lastAt = Math.max(0, ...(record.history ?? []).map((h) => h.at));
+  const lastAt = latestEntryAt(record.history, "timeoutMs");
   const since = after(ds, lastAt);
   return since.length < TUNING.cooldown ? [] : since.slice(-TUNING.window);
 }
@@ -200,62 +179,90 @@ function fireRule(input: StepInput, record: TuningRecord): StepResult {
   const to = nextValue(from, window, block);
   if (to === undefined) return { record };
   const change = { from, to, base: untuned, before: counts(window), now };
-  return { record: applyChange(record, change), event: { kind: "applied", from, to } };
+  const event = { kind: "applied", parameter: "timeoutMs", from, to } as const;
+  return { record: applyChange(record, change), event };
 }
 
 const present = (events: Array<TuningEvent | undefined>): TuningEvent[] =>
   events.filter((e) => e !== undefined);
 
-/** One tuning step: supersede, judge a pending change, then maybe raise the timeout. */
+/** One tuning step: supersede, judge pending changes, then at most one applied change. */
 export function stepTuning(input: StepInput): { record: TuningRecord; events: TuningEvent[] } {
   const { record, untuned, lines, now } = input;
   if (record.off === true || !inRange(untuned)) return { record, events: [] };
   const superseded = supersede(dropOrphanPending(record), untuned, now);
-  const judged = evaluatePending(superseded.record, lines, now);
-  const head = [superseded.event, judged.event];
-  if (judged.event?.kind === "reverted") return { record: judged.record, events: present(head) };
-  const fired = fireRule(input, judged.record);
-  return { record: fired.record, events: present([...head, fired.event]) };
+  const supersededFloors = supersedeFloors(superseded.record, now);
+  const judged = evaluatePending(supersededFloors.record, lines, now);
+  const judgedFloors = judgeFloors(judged.record, lines, now);
+  const head = [
+    ...present([superseded.event]),
+    ...supersededFloors.events,
+    ...present([judged.event]),
+    ...judgedFloors.events,
+  ];
+  if (head.some((e) => e.kind === "reverted")) return { record: judgedFloors.record, events: head };
+  const fired = fireRule(input, judgedFloors.record);
+  if (fired.event !== undefined) {
+    return { record: fired.record, events: [...head, fired.event] };
+  }
+  const floor = applyFirstFloor(fired.record, lines, now);
+  return { record: floor.record, events: [...head, ...floor.events] };
 }
 
 export type UndoResult =
-  | { kind: "undone"; record: TuningRecord; from: number; to: number }
+  | {
+      kind: "undone";
+      record: TuningRecord;
+      parameter: TuningParameter;
+      from: number;
+      to: number;
+    }
   | { kind: "nothing"; record: TuningRecord };
 
-/** The `from` of the latest `rule` entry that raised to `value`, if any. */
-function ruleOrigin(history: TuningRecord["history"], value: number): number | undefined {
-  return [...(history ?? [])].reverse().find((h) => h.cause === "rule" && h.to === value)?.from;
-}
-
-/** Moves the tuned value back one rule step (or drops it) and blocks the undone value. */
-export function undoTuning(record: TuningRecord, now: number): UndoResult {
-  const tuned = record.timeoutMs;
-  if (tuned === undefined) return { kind: "nothing", record };
-  const target = ruleOrigin(record.history, tuned.value);
+/** Moves the tuned timeout back to `to` (dropping it at its base) and blocks the undone value. */
+function undoTimeout(record: TuningRecord, now: number): UndoResult {
+  const tuned = record.timeoutMs as NonNullable<TuningRecord["timeoutMs"]>;
+  const origin = ruleOrigin(record.history, "timeoutMs", tuned.value);
+  const keep = origin !== undefined && origin !== tuned.base;
+  const to = keep ? origin : tuned.base;
   const { timeoutMs: _t, pending: _p, ...rest } = record;
-  const keep = target !== undefined && target !== tuned.base;
-  const to = keep ? target : tuned.base;
   return {
     kind: "undone",
+    parameter: "timeoutMs",
     from: tuned.value,
     to,
     record: {
       ...rest,
-      ...(keep ? { timeoutMs: { ...tuned, value: target } } : {}),
+      ...(keep ? { timeoutMs: { ...tuned, value: origin } } : {}),
       block: { value: tuned.value, at: now },
       history: pushHistory(record.history, entry(now, tuned.value, to, "undo")),
     },
   };
 }
 
-/** Drops the tuned value, pending change and block; keeps `off`. */
+/**
+ * Undoes the most recently changed parameter that applies. With `untuned` omitted, a tuned
+ * `timeoutMs` counts as applying.
+ */
+export function undoTuning(record: TuningRecord, now: number, untuned?: number): UndoResult {
+  const pick = pickUndoTarget(record, untuned);
+  if (pick === undefined) return { kind: "nothing", record };
+  if (!("band" in pick)) return undoTimeout(record, now);
+  const { band, from, target: to } = pick;
+  const undone = undoFloor(record, band, { from, to }, now);
+  return { kind: "undone", parameter: pick.parameter, from, to, record: undone };
+}
+
+/** Drops every parameter's tuned value, pending change and block; keeps `off`. */
 export function resetTuning(record: TuningRecord, untuned: number, now: number): TuningRecord {
   const { timeoutMs, pending: _p, block: _b, ...rest } = record;
-  if (timeoutMs === undefined || !inRange(untuned)) return rest;
-  return {
-    ...rest,
-    history: pushHistory(record.history, entry(now, timeoutMs.value, untuned, "reset")),
-  };
+  const entryFor = (t: { value: number }): HistoryEntry => entry(now, t.value, untuned, "reset");
+  const timeoutReset =
+    timeoutMs === undefined || !inRange(untuned)
+      ? rest
+      : { ...rest, history: pushHistory(rest.history, entryFor(timeoutMs)) };
+  // Floor entries follow the timeout entry, in band order.
+  return resetFloors(timeoutReset, now);
 }
 
 /** Sets or clears the off flag; nothing else changes. */

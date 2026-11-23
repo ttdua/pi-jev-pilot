@@ -15,5 +15,6 @@ One decision per file. To change one, add a new record that supersedes it; do no
 | [0009](0009-vendored-executor.md) | Vendor the executor and add seams | Superseded by 0011 |
 | [0010](0010-knowledge-tiers.md) | Tiers measure knowledge, effort measures work | Accepted |
 | [0011](0011-executor-as-installed-package.md) | The executor is an installed package, detected at run time | Accepted |
+| [0012](0012-tuned-turn-floors.md) | Tuned turn floors: automatic decreases in bounds; amends 0005 | Accepted |
 
 Template: Context, Decision, Consequences. Keep each under a page.
