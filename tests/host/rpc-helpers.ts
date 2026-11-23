@@ -55,12 +55,14 @@ export type SeedOptions = {
   misses?: number;
   /** Fields added to every answered line. */
   answered?: Record<string, unknown>;
+  /** Timestamp of the first line; later lines add their index. Default: 100 s ago. */
+  from?: number;
 };
 
 /** Writes `n` valid `main` lines to `<agentDir>/jev/ledger.jsonl` (replacing the file). */
 export function seedLedger(agentDir: string, n: number, opts: SeedOptions = {}): void {
   const misses = opts.misses ?? 0;
-  const base = Date.now() - 100_000;
+  const base = opts.from ?? Date.now() - 100_000;
   const lines = Array.from({ length: n }, (_, i) => {
     const common = {
       v: 1,
