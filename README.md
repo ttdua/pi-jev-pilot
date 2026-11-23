@@ -8,7 +8,7 @@ Install the executor first, then Jev. Worker routing needs the executor; without
 
 ```bash
 pi install git:github.com/ttdua/pi-subagents@v0.2.0
-pi install git:github.com/ttdua/pi-jev-pilot@v0.6.0
+pi install git:github.com/ttdua/pi-jev-pilot@v0.7.0
 ```
 
 Only one executor providing the `subagent` tool may be installed; Pi refuses to start with two. When switching to `@ttdua/pi-subagents`, remove the old executor first (for example `@gotgenes/pi-subagents`, or jev-pilot 0.5.x or older, which bundled one).
