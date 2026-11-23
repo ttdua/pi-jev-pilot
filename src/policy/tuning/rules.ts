@@ -9,54 +9,17 @@ import {
   type Counts,
   type DecisionLine,
 } from "./window.ts";
-import type { FloorBand } from "../../shared/turn-floors.ts";
+import {
+  pushHistory,
+  TUNING,
+  type HistoryEntry,
+  type TuningCause,
+  type TuningEvent,
+  type TuningRecord,
+} from "./record.ts";
 
-export type { Counts };
-
-export type TuningCause = "rule" | "revert" | "undo" | "reset" | "superseded";
-
-/** Same shape as the store's `TuningDocument`, declared here to keep policy/ self-contained. */
-export type TuningRecord = {
-  off?: boolean;
-  seenAt?: number;
-  timeoutMs?: { value: number; base: number };
-  pending?: {
-    from: number;
-    to: number;
-    at: number;
-    before: { asked: number; timeouts: number };
-  };
-  block?: { value: number; at: number };
-  history?: Array<{
-    at: number;
-    parameter: "timeoutMs" | `turnFloor.${FloorBand}`;
-    from: number;
-    to: number;
-    cause: TuningCause;
-  }>;
-};
-
-export type HistoryEntry = NonNullable<TuningRecord["history"]>[number];
-
-export type TuningEvent = {
-  kind: "superseded" | "kept" | "reverted" | "applied";
-  from: number;
-  to: number;
-};
-
-export const TUNING = {
-  window: 40,
-  minAsked: 20,
-  shareDenominator: 10,
-  cooldown: 40,
-  blockFor: 200,
-  step: 200,
-  p90Factor: 1.25,
-  roundTo: 100,
-  min: 300,
-  max: 5000,
-  history: 50,
-} as const;
+export { pushHistory, TUNING };
+export type { Counts, HistoryEntry, TuningCause, TuningEvent, TuningRecord };
 
 const ceilTo = (x: number, unit: number): number => Math.ceil(x / unit) * unit;
 const clamp = (x: number): number => Math.min(TUNING.max, Math.max(TUNING.min, x));
@@ -95,11 +58,6 @@ export type StepResult = { record: TuningRecord; event?: TuningEvent };
 
 function entry(at: number, from: number, to: number, cause: TuningCause): HistoryEntry {
   return { at, parameter: "timeoutMs", from, to, cause };
-}
-
-/** Appends `entry`, keeping the latest `TUNING.history` entries. */
-export function pushHistory(history: TuningRecord["history"], entry: HistoryEntry): HistoryEntry[] {
-  return [...(history ?? []), entry].slice(-TUNING.history);
 }
 
 export function applyChange(
