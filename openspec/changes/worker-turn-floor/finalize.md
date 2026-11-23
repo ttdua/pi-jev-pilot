@@ -16,7 +16,7 @@
 - **Branch**: `feat/worker-turn-floor`
 - **Base branch**: `main`
 - **Final state**: `pr-updated`
-- **PR URL**: `N/A` (no PR yet; filled in after the PR prompt)
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/103`
 
 ---
 
@@ -28,13 +28,13 @@
 Deviations from the canonical steps, per the user's AGENTS.md policy:
 - The feature branch lives in its own Worktrunk worktree (`/Users/naicoi/Projects/oss/pi-jev-pilot.feat-worker-turn-floor`), so steps 3–5 ran there instead of checking it out in the main checkout. Step 3's `git pull` was skipped: the branch had no upstream yet.
 - Step 6 used `wt remove worker-turn-floor` instead of `git worktree remove` (worktrees are managed with Worktrunk). Step 7 used `git branch -d` after confirming `worker-turn-floor` is an ancestor of `feat/worker-turn-floor`.
-- The user approved merge and push in chat before step 3.
+- The user approved merge and push in chat before step 3, and approved opening the PR with the suggested title at step 11. No PR existed before finalize, so it was opened at step 11 (`gh pr create`, closes #102).
 
 ---
 
 ## PR comment
 
-- **PR comment status**: `skipped (no PR)` (updated after the PR prompt)
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/103#issuecomment-7090686012)
 
 ---
 
