@@ -43,7 +43,7 @@
 | `judgeTimeout(pending, judged)`, `keptRecord(record)` (`timeout-rules.ts`) | new | `judgeTimeout`: lowering reverts iff asked ≥ 20 and a timeout; raise kept on `rescued`, else the `shareAbove` rule. `keptRecord` drops a tuned value equal to its base. Placed in `timeout-rules.ts` (not `rules.ts`) to keep `rules.ts` from growing | no |
 | `blockActive(block, ds)` (`rules.ts`) | kept | still exported for floor-free callers; timeout code uses `activeBlock` | no |
 | `burstRule(input: StepInput, record: TuningRecord): StepResult`, `lowerRule(input: StepInput, record: TuningRecord): StepResult`, `lowerValue(current: number, base: number, p90: number, block: { value: number } \| undefined): number \| undefined` (`timeout-rules.ts`) | new | design D2, D6 | no |
-| `ruleOrigin(history, parameter, value)` (`floor-step.ts`) | modified | skips a `rule` entry reversed by a later `undo` of the same parameter (`undo.from === rule.to && undo.to === rule.from`) | no |
+| `ruleOrigin(history, parameter, value)` (`floor-step.ts`) | modified | skips a `rule` entry reversed by a later `undo` or `revert` of the same parameter (`from === rule.to && to === rule.from`), newest first, one to one | no |
 | `TuneView["block"]` (`text.ts`) | modified | `{ value: number; remaining: number; direction: "raise" \| "lower" }` | no |
 | `undoneMessage(parameter, from, to)` (`text.ts`) | modified | same signature; `timeoutMs` with `to > from` → lowering text (400 decisions) | no |
 | Change line, undo message, block state line | modified | exact texts in `specs/tuning-host` and `specs/tune-command` | yes (user-visible strings) |
@@ -244,7 +244,7 @@ Files: `R` = `tests/policy/tuning/rules.test.ts`, `T` = `tests/policy/tuning/tim
 - Evaluating a pending change: Worse is judged a revert → R (modified); Rescued answer keeps a raise, Answer at the old value is no rescue, Worse lowering reverted, Lowering with an empty before → R; Equal, kept; Too few asked, kept; Kept, then the rule fires → R (existing); Not yet judged → R (modified)
 - Block after a revert or an undo: Blocked raise lowered, Blocked raise dropped, Block at the ceiling, Block expired → R `describe("nextValue")` and `describe("blockActive")` (existing); Blocked lowering raised, Blocked lowering dropped, Raise block does not hold back a lowering, Lowering block expired, Block equal to the reference holds back nothing → T
 - Config edit supersedes tuning: Operator edits config, Matching base untouched, Floors kept on a config edit → R / F (existing); No change right after superseding → R (modified)
-- Undo: Undo a change, Undo after a revert, Second undo, Nothing to undo → R (existing); Floor undo kept in order, Floor undo against a pending neighbour, Floor undo blocked by the order, Latest change undone first → F (existing); Repeated undo walks back through a lowering, Repeated identical transitions undone one at a time → R
+- Undo: Undo a change, Undo after a revert, Second undo, Nothing to undo → R (existing); Floor undo kept in order, Floor undo against a pending neighbour, Floor undo blocked by the order, Latest change undone first → F (existing); Repeated undo walks back through a lowering, Reverted rule skipped by repeated undo, Repeated identical transitions undone one at a time → R
 - Step order across parameters: One applied change per step → F (fixture modified, same expectation); Burst before the window rule → F; Floor applies when timeout does not → F (existing); Revert blocks every apply → F (modified)
 
 **tune-command**

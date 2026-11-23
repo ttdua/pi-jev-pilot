@@ -70,7 +70,7 @@ It applies only when all of the following hold:
 - **Undo message:** a timeout undo that moves the value down keeps `The same raise is held back for 200 decisions.`; one that moves it up says `The same lowering is held back for 400 decisions.`
 
 ### D7b. Undo skips undone rules
-Undo looks up the latest `rule` entry whose `to` equals the tuned value. After a lowering, that lookup alternates forever between two values (3000 → 2400 → 3000 …). An undo now skips a `rule` entry that a later `undo` entry of the same parameter reversed (`undo.from == rule.to` and `undo.to == rule.from`), matched newest first and one to one, so a transition repeated in history is undone once per undo. Repeated undos then walk back through the history, and no file change is needed.
+Undo looks up the latest `rule` entry whose `to` equals the tuned value. After a lowering, that lookup alternates forever between two values (3000 → 2400 → 3000 …). An undo now skips a `rule` entry that a later `undo` or `revert` entry of the same parameter reversed (`from == rule.to` and `to == rule.from`), matched newest first and one to one, so a transition repeated in history is undone once per undo. Repeated undos then walk back through the history, and no file change is needed.
 - **Report block line:** a raise block keeps `block: raises to <v> or above held back for <k> more decisions`; a lowering block reads `block: lowerings to <v> or below held back for <k> more decisions`. The direction and remaining count come from the same `activeBlock` helper the policy uses (reference from the record, D5), not from the effective value.
 
 ### D8. Module layout
