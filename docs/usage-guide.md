@@ -218,7 +218,7 @@ The last line appears once at session start, and only when a change was not show
 
 `/jev tune` also lists signals per mode over the latest 200 decisions: errors from `basic` (or, in older lines, `fast`) or low-effort workers, corrected main turns, large turns at low effort, and small turns at `high`. They are observed only and never change anything.
 
-It also shows `turnFloor:` (the three band floors, 40/100/200 at start) and, per band, turn signals over the latest 200 counted runs: runs, p90 and p95 of turns used, `exhausted` and `warned` counts, the mean of turns used over the floor, and `suggest <n>` or `needs 200 runs`. Aborted runs are not counted.
+It also shows `turnFloor:` (the three band floors, 40/100/200 at start) and, per band, turn signals over the latest 200 counted runs: runs, p90 and p95 of turns used, `exhausted` and `warned` counts, used/floor (mean of turns used ÷ floor per run), and `suggest <n>` or `needs 200 runs`. Aborted runs are not counted.
 
 Reset returns floors to 40/100/200 too.
 

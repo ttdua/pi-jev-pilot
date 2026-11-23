@@ -64,7 +64,6 @@ src/
       floor-rules.ts        Per-band turn floor rules: value, judge, revert, block
       floor-runs.ts         Counted runs per band, p95, 200-run window
       floor-step.ts         Floor phases of the step; undo target and reset for floors
-      index.ts              Entry point for other folders
       order.ts              Total order of ledger lines
       record.ts             Tuning record shape, events, history push
       rules.ts              Tuning rules: step, revert, undo, reset, off
@@ -88,6 +87,7 @@ src/
 
   shared/                   Dependency-free rules used by more than one module
     text.ts                 Code-point cut
+    turn-floors.ts          Band floors, built-in floors and ranges, used by store and policy
     urls.ts                 The Jev URL rule
 
   jev/                      Talks to TypeSafe.
@@ -174,7 +174,6 @@ src/
     settings-sections.ts    One pure resolver per settings section, used by settings.ts (tuned floors need the built-in base)
     state-file.ts           state.json: switches and mode
     tuning-file.ts          tuning.json: changes, history, turn floors
-    turn-floors.ts          Band floors, built-in floors and ranges, shared by store and policy
     validate.ts             Small validators that collect issues with field paths
 
 scripts/

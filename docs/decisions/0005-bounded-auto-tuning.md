@@ -2,6 +2,8 @@
 
 **Status:** Accepted, 2026-11-05
 
+Amended by [0012](0012-tuned-turn-floors.md) for turn floors.
+
 ## Context
 
 Upstream proposes tuning and waits for `/jev tune apply`, which the operator expects to forget. Asking at idle would interrupt. On 500 real turns, upstream's rules also never fired, so remembering was not the only problem. See the [evidence](../evidence/2026-11-05-replay.md#main-session).

@@ -26,4 +26,4 @@ The thresholds (p95 × 1.25, 5%, ±25%, 200 runs) are first estimates. Review th
 - Floors can move down as well as up, so a bad decrease can make long tasks run out of turns. The bounds, the forced step on `exhausted` runs and the revert limit that damage.
 - `tuning.json` gains `version` 2 with `turnFloors`, written only once a floor has been tuned. An older package reads a `version` 2 file as malformed, so tuned values are lost until the operator reconfigures; the built-in floors apply.
 - ADR 0005's "one parameter and one step at a time" becomes "one applied change per step".
-- `very_long` may never reach 200 counted runs. Its floor then stays at the built-in value, and `/jev tune` shows `needs 200`.
+- `very_long` may never reach 200 counted runs. Its floor then stays at the built-in value, and `/jev tune` shows `needs 200 runs`.

@@ -37,7 +37,7 @@ Written by tuning, not by hand. Unknown keys are rejected, and the file is valid
 
 | Field | Meaning |
 |---|---|
-| `version` | `1`, or `2` once a turn floor has been tuned. Version 1 has no `turnFloors` key and no floor history |
+| `version` | `2` whenever the file holds turn floor state or floor history, else `1` |
 | `off` | Set when automatic changes are turned off |
 | `timeoutMs` | The tuned value: `value` and `base`, the untuned value it was tuned from. Both 300–5000 |
 | `pending` | The change still being judged: `from`, `to`, `at` and `before` (`asked`, `timeouts`, each 0–40) |
