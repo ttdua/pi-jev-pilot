@@ -128,7 +128,7 @@ flowchart TD
     E -- no --> G["Mark kept"]
     J -- no --> R
     G --> R{"Burst: 3 of the latest 5 asked<br/>timed out?"}
-    R -- yes --> BU{"Raise changes the value?<br/>Not at the ceiling or blocked"}
+    R -- yes --> BU{"Raise changes the value?<br/>Not at the ceiling"}
     BU -- yes --> BA["Raise at once, no cooldown,<br/>clears the block, show a line"]
     BA --> Z
     BU -- no --> W
