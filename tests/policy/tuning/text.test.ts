@@ -141,6 +141,25 @@ describe("sessionStartLine", () => {
   });
 });
 
+describe("direction-aware texts", () => {
+  test("reverted lowering", () => {
+    expect(changeLine({ kind: "reverted", parameter: "timeoutMs", from: 2400, to: 3000 })).toBe(
+      "Jev tune: timeoutMs 2400→3000, reverted: timeouts came back · /jev tune",
+    );
+  });
+  test("undone lowering", () => {
+    expect(undoneMessage("timeoutMs", 2400, 3000)).toBe(
+      "Jev tune: timeoutMs 2400→3000 undone. The same lowering is held back for 400 decisions.",
+    );
+  });
+  test("lowering block line", () => {
+    const block = { value: 2400, remaining: 350, direction: "lower" as const };
+    expect(tuneReport(view({ block }))).toContain(
+      "block: lowerings to 2400 or below held back for 350 more decisions",
+    );
+  });
+});
+
 describe("messages", () => {
   test("exact strings", () => {
     expect(undoneMessage("timeoutMs", 1700, 1500)).toBe(
@@ -179,7 +198,7 @@ describe("tuneReport", () => {
     const lines = tuneReport(
       view({
         pending: { from: 1500, to: 1700, since: 12 },
-        block: { value: 1900, remaining: 3 },
+        block: { value: 1900, remaining: 3, direction: "raise" },
         floors: [
           { band: "medium", value: 40 },
           { band: "long", value: 80, tunedFrom: 100 },
@@ -264,9 +283,9 @@ describe("tuneReport", () => {
     expect(tuneReport(view({ pending: { from: 1500, to: 1700, since: 40 } }))).toContain(
       "40/40 decisions since",
     );
-    expect(tuneReport(view({ block: { value: 1700, remaining: 150 } }))).toContain(
-      "block: raises to 1700 or above held back for 150 more decisions",
-    );
+    expect(
+      tuneReport(view({ block: { value: 1700, remaining: 150, direction: "raise" } })),
+    ).toContain("block: raises to 1700 or above held back for 150 more decisions");
   });
   test("neither pending nor blocked", () => {
     const r = tuneReport(view({ effective: 1700, tunedFrom: 1500 }));
@@ -312,7 +331,7 @@ describe("tuneReport", () => {
         signals: "ledger-unreadable",
         turnSignals: "ledger-unreadable",
         pending: { from: 1500, to: 1700, since: 3 },
-        block: { value: 1700, remaining: 5 },
+        block: { value: 1700, remaining: 5, direction: "raise" },
         floorPending: [{ band: "long", from: 100, to: 80, since: 3 }],
         floorBlocks: [{ band: "long", value: 80, remaining: 5 }],
         problems: ["  tuning (malformed) (file): m"],

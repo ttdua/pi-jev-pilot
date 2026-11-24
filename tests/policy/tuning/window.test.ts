@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { after, counts, decisions, p90, shareAbove } from "../../../src/policy/tuning/window.ts";
+import {
+  after,
+  counts,
+  decisions,
+  latestAsked,
+  p90,
+  rescued,
+  shareAbove,
+} from "../../../src/policy/tuning/window.ts";
 import { line, lines } from "./lines.ts";
 
 describe("decisions", () => {
@@ -57,7 +65,23 @@ describe("p90", () => {
       ...lines(10, 200, { answered: false, miss: "timeout" }),
     ];
     expect(p90(ds)).toBe(1800);
-    expect(counts(ds).asked).toBe(40);
+    expect(counts(ds)).toEqual({ asked: 40, timeouts: 10 });
+  });
+
+  test("Timeouts count in p90", () => {
+    const ds = [
+      ...Array.from({ length: 34 }, (_, i) => line(i, { ms: 300 + Math.round((i * 1000) / 33) })),
+      ...lines(6, 100, { answered: false, miss: "timeout", ms: 1702 }),
+    ];
+    expect(p90(ds)).toBe(1702);
+  });
+
+  test("Other misses not in p90", () => {
+    const ds = [
+      ...lines(35, 0, { ms: 500 }),
+      ...lines(5, 100, { answered: false, miss: "error", ms: 3000 }),
+    ];
+    expect(p90(ds)).toBe(500);
   });
 
   test("no values gives undefined", () => {
@@ -70,6 +94,38 @@ describe("p90", () => {
       const sorted = Array.from({ length: n }, (_, i) => (i + 1) * 7);
       expect(p90(ds)).toBe(sorted[Math.floor((9 * n + 9) / 10) - 1]!);
     }
+  });
+});
+
+describe("latestAsked", () => {
+  test("Latest asked lines in at order", () => {
+    const timeout = { answered: false, miss: "timeout" };
+    const ds = [
+      line(5, timeout),
+      line(4, { answered: false }),
+      line(3, timeout),
+      line(2, { answered: false }),
+      line(1, timeout),
+    ];
+    expect(latestAsked(ds, 5).map((d) => d.at)).toEqual([1, 3, 5]);
+  });
+
+  test("Keeps only the latest n asked", () => {
+    const ds = lines(7, 0);
+    expect(latestAsked(ds, 5).map((d) => d.at)).toEqual([2, 3, 4, 5, 6]);
+  });
+});
+
+describe("rescued", () => {
+  test("Rescue needs an answer above the floor", () => {
+    const ds = [line(1, { ms: 1650 }), line(2, { ms: 1700 })];
+    expect(rescued(ds, 1700)).toBe(false);
+    expect(rescued([...ds, line(3, { ms: 1701 })], 1700)).toBe(true);
+  });
+
+  test("A timeout above the floor does not rescue", () => {
+    const ds = [line(1, { answered: false, miss: "timeout", ms: 1900 })];
+    expect(rescued(ds, 1700)).toBe(false);
   });
 });
 

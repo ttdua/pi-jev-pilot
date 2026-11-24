@@ -4,6 +4,13 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- Faster timeout tuning ([ADR 0013](docs/decisions/0013-fast-timeout-tuning.md)): when 3 of the latest 5 asked requests time out, `timeoutMs` rises at once to `current × 1.25`, without the cooldown or a block. The window rule's p90 counts timed-out requests at the timeout in force, so its steps follow real latency.
+- `timeoutMs` can be lowered: after 200 decisions with no timeout, it moves back toward its base, at most 20% a step. A lowering that brings timeouts back is reverted and blocked for 400 decisions.
+- Rescue-aware judging: a raise is kept when an answer used the extra time, even if the timeout share rose. Undo skips a rule that a later undo reversed, so repeated undo walks back.
+- `/jev tune` shows two new lines: `timeoutMs <from>→<to>, reverted: timeouts came back` for a reverted lowering, and the block line for lowerings.
+
 ## [0.7.0] - 2026-11-23
 
 Tag: v0.7.0

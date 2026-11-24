@@ -50,10 +50,26 @@ export function counts(ds: readonly DecisionLine[]): Counts {
   return { asked: asked.length, timeouts: asked.filter((d) => d.miss === "timeout").length };
 }
 
-/** Nearest-rank 90th percentile of `ms` over answered lines; integer arithmetic only. */
+/** The latest `n` asked lines of `decisions(ds)`, oldest first. */
+export function latestAsked(ds: readonly DecisionLine[], n: number): DecisionLine[] {
+  const asked = decisions(ds).filter(isAsked);
+  return asked.slice(Math.max(0, asked.length - n));
+}
+
+/** Whether some answered line took longer than `from` ms. */
+export function rescued(ds: readonly DecisionLine[], from: number): boolean {
+  return ds.some((d) => d.answered === true && typeof d.ms === "number" && d.ms > from);
+}
+
+/** Nearest-rank 90th percentile of `ms` over answered and timed-out lines; integer arithmetic only. */
 export function p90(ds: readonly DecisionLine[]): number | undefined {
   const values = ds
-    .filter((d) => d.answered === true && typeof d.ms === "number" && Number.isFinite(d.ms))
+    .filter(
+      (d) =>
+        (d.answered === true || d.miss === "timeout") &&
+        typeof d.ms === "number" &&
+        Number.isFinite(d.ms),
+    )
     .map((d) => d.ms as number)
     .sort((a, b) => a - b);
   if (values.length === 0) return undefined;

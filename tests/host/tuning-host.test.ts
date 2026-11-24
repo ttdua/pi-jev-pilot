@@ -169,6 +169,62 @@ describe("tuning through the real CLI", () => {
   );
 
   test(
+    "Lowering reverted line",
+    async () => {
+      const T = Date.now() - 50_000;
+      const env = await makeEnv({
+        route: okAnswer,
+        seed: { n: 40, misses: 1, from: T },
+        tuning: {
+          version: 1,
+          timeoutMs: { value: 2400, base: 1500 },
+          pending: { from: 3000, to: 2400, at: T - 1, before: { asked: 40, timeouts: 0 } },
+          history: [
+            { at: T - 3, parameter: "timeoutMs", from: 1500, to: 3000, cause: "rule" },
+            { at: T - 1, parameter: "timeoutMs", from: 3000, to: 2400, cause: "rule" },
+          ],
+        },
+      });
+      const s = await open(env);
+      await s.waitFor(() => tuneNotifies(s).length >= 1, "session-start line");
+      await turn(s, 41);
+      await s.waitFor(
+        () => tuneNotifies(s).some((n) => n.message.includes("reverted")),
+        "reverted notify",
+      );
+      expect(tuneNotifies(s).map((n) => n.message)).toContain(
+        "Jev tune: timeoutMs 2400→3000, reverted: timeouts came back · /jev tune",
+      );
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "Burst applied line",
+    async () => {
+      const at = Date.now() - 10_000;
+      const env = await makeEnv({
+        route: HANG,
+        tuning: {
+          version: 1,
+          timeoutMs: { value: 1700, base: 1500 },
+          history: [{ at, parameter: "timeoutMs", from: 1500, to: 1700, cause: "rule" }],
+          seenAt: at,
+        },
+      });
+      const s = await open(env);
+      await turn(s, 1);
+      await turn(s, 2);
+      await turn(s, 3);
+      await s.waitFor(() => tuneNotifies(s).length >= 1, "burst notify");
+      expect(tuneNotifies(s).map((n) => n.message)).toEqual([
+        "Jev tune: timeoutMs 1700→2200 · /jev tune undo",
+      ]);
+    },
+    TIMEOUT,
+  );
+
+  test(
     "Tuning makes no Jev call",
     async () => {
       const env = await setupFiring();

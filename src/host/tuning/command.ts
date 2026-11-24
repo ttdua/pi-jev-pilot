@@ -1,7 +1,7 @@
 // `/jev tune`: the report and the undo, reset, on and off subcommands. Never throws.
 import {
   TUNING,
-  blockActive,
+  activeBlock,
   markSeen,
   resetTuning,
   setTuningOff,
@@ -73,17 +73,16 @@ function pendingOf(
 function blockOf(
   record: TuningDocument,
   ds: readonly DecisionLine[],
-): TuneView["block"] | undefined {
-  const b = record.block;
-  if (b === undefined || !blockActive(b, ds)) return undefined;
-  return { value: b.value, remaining: TUNING.blockFor - after(ds, b.at).length };
+  untuned: number,
+): TuneView["block"] {
+  return activeBlock(record, untuned, ds);
 }
 
 export function buildTuneView(snapshot: Snapshot, ledger: LedgerRead): TuneView {
   const { record } = snapshot.tuning;
   const ds = ledger.kind === "ok" ? decisions(ledger.entries) : [];
   const pending = pendingOf(record, ds);
-  const block = blockOf(record, ds);
+  const block = blockOf(record, ds, snapshot.untunedTimeoutMs);
   const tunedFrom = timeoutApplies(snapshot) ? record.timeoutMs?.base : undefined;
   const lines = ledger.kind === "ok" ? ledger.entries : [];
   return {

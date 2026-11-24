@@ -79,6 +79,8 @@ Use these words consistently in code, docs and the user interface.
 | **Signal** | A measure tuning watches, such as the share of unanswered requests. |
 | **Cooldown** | The minimum number of decisions between two tuning changes. |
 | **Revert** | Tuning undoing its own change when results worsen. |
+| **Burst** | Fast `timeoutMs` raise when 3 of the latest 5 asked requests time out. Ignores the cooldown and any block. |
+| **Lowering** | Gradual return of a tuned `timeoutMs` toward its base after 200 decisions with no timeout. |
 | **Replay** | Sending saved prompts through Jev offline to measure a change. Costs money and sends data, so it needs approval. |
 
 ## People

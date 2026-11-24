@@ -19,7 +19,7 @@ export type TuneView = {
   tunedFrom?: number;
   configValid: boolean;
   pending?: { from: number; to: number; since: number };
-  block?: { value: number; remaining: number };
+  block?: { value: number; remaining: number; direction: "raise" | "lower" };
   history: readonly HistoryEntry[];
   signals: readonly ModeSignals[] | "ledger-unreadable";
   floors: { band: FloorBand; value: number; tunedFrom?: number }[];
@@ -64,7 +64,11 @@ const bandOf = (parameter: TuningParameter): FloorBand | undefined =>
 export function changeLine(e: TuningEvent): string | undefined {
   if (e.kind === "kept") return undefined;
   const reasons = e.parameter === "timeoutMs" ? REASONS.timeoutMs : REASONS.floor;
-  return `Jev tune: ${e.parameter} ${arrow(e.from, e.to)}${reasons[e.kind]}`;
+  const reason =
+    e.kind === "reverted" && e.parameter === "timeoutMs" && e.to > e.from
+      ? ", reverted: timeouts came back · /jev tune"
+      : reasons[e.kind];
+  return `Jev tune: ${e.parameter} ${arrow(e.from, e.to)}${reason}`;
 }
 
 /** Per parameter, in order of first appearance: the earliest `from` and the latest `to`. */
@@ -90,7 +94,9 @@ export function undoneMessage(parameter: TuningParameter, from: number, to: numb
   const band = bandOf(parameter);
   const heldBack =
     band === undefined
-      ? "The same raise is held back for 200 decisions."
+      ? to > from
+        ? "The same lowering is held back for 400 decisions."
+        : "The same raise is held back for 200 decisions."
       : `The same change is held back for ${FLOOR.blockRuns} ${band} runs.`;
   return `Jev tune: ${parameter} ${arrow(from, to)} undone. ${heldBack}`;
 }
@@ -119,9 +125,10 @@ function timeoutStateLines(v: TuneView): string[] {
     lines.push(`pending: ${arrow(from, to)}, ${since}/${PENDING_WINDOW} decisions since`);
   }
   if (v.block) {
-    lines.push(
-      `block: raises to ${v.block.value} or above held back for ${v.block.remaining} more decisions`,
-    );
+    const { value, remaining, direction } = v.block;
+    const what =
+      direction === "raise" ? `raises to ${value} or above` : `lowerings to ${value} or below`;
+    lines.push(`block: ${what} held back for ${remaining} more decisions`);
   }
   return lines;
 }

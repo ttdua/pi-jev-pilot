@@ -72,6 +72,14 @@ export const TUNING = {
   min: 300,
   max: 5000,
   history: 50,
+  burstWindow: 5,
+  burstTimeouts: 3,
+  burstFactor: 1.25,
+  lowerAfter: 200,
+  lowerMinAsked: 100,
+  lowerFactor: 1.5,
+  lowerStep: 0.8,
+  lowerBlockFor: 400,
 } as const;
 
 /** Appends `entry`, keeping the latest `TUNING.history` entries. */

@@ -119,27 +119,33 @@ flowchart TD
     S -- no --> B{"Tuning on?"}
     B -- no --> Z["Stop"]
     B -- yes --> B2{"Config still matches<br/>the tuned base?"}
-    B2 -- no --> B3["Drop tuned value, pending change<br/>and block, show a line"]
-    B3 --> Z
-    B2 -- yes --> D{"A pending change with<br/>40 decisions after it?"}
-    D -- yes --> E{"Worse than the<br/>40 before it?"}
+    B2 -- no --> B3["Supersede: drop tuned value, pending change<br/>and block, show a line"]
+    B3 --> J
+    B2 -- yes --> J{"Any pending change (timeoutMs or floor)<br/>with enough decisions or runs after it?"}
+    J -- yes --> E{"Judged worse?"}
     E -- yes --> F["Revert, show a line"]
     F --> Z
     E -- no --> G["Mark kept"]
-    D -- no --> CD
-    G --> CD{"Cooldown passed?<br/>(40 decisions since the last change)"}
-    CD -- no --> Z
-    CD -- yes --> H{"A rule fires?"}
-    H -- no --> Z
-    H -- yes --> I{"Parameter allowlisted<br/>for automatic change?"}
-    I -- no --> J["Keep as a signal for /jev tune"]
-    I -- yes --> N["Compute and clamp the value"]
-    N --> L{"Value blocked by a<br/>recent revert or undo?"}
-    L -- yes --> M["Lower to blocked − 100"]
-    L -- no --> Q{"Above current?"}
-    M --> Q
-    Q -- no --> Z
-    Q -- yes --> K["Apply one step, show a line"]
+    J -- no --> R
+    G --> R{"Burst: 3 of the latest 5 asked<br/>timed out?"}
+    R -- yes --> BU{"Raise changes the value?<br/>Not at the ceiling"}
+    BU -- yes --> BA["Raise at once, no cooldown,<br/>clears the block, show a line"]
+    BA --> Z
+    BU -- no --> W
+    R -- no --> W{"Window rule: cooldown passed,<br/>40 decisions with more than 10% timeouts?"}
+    W -- yes --> WC{"Step changes the value?"}
+    WC -- yes --> WA["Apply one step, show a line"]
+    WA --> Z
+    WC -- no --> LW
+    W -- no --> LW{"Lowering: tuned value applies, no pending change,<br/>200 decisions with no timeout, at least 100 asked,<br/>p90 defined?"}
+    LW -- yes --> LC{"Lowered value is below the current one<br/>and not blocked?"}
+    LC -- yes --> LV["Lower, show a line"]
+    LV --> Z
+    LC -- no --> FL
+    LW -- no --> FL{"A band floor rule applies?<br/>medium, long, very_long in order"}
+    FL -- yes --> FA["Apply one floor change, show a line"]
+    FA --> Z
+    FL -- no --> Z
 ```
 
 Tuning is skipped in child sessions, with an invalid config (the untuned value would be wrong) and when `tuning.json` or the ledger is unreadable. A change line is shown only when a UI exists. The allowlist is `timeoutMs` and the three band floors (`turnFloor.medium`, `turnFloor.long`, `turnFloor.very_long`). Everything else stays visible through `/jev tune`. See [ADR 0005](decisions/0005-bounded-auto-tuning.md).

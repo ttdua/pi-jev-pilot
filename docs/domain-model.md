@@ -214,7 +214,7 @@ stateDiagram-v2
     [*] --> Observed: rule fires
     Observed --> Applied: cooldown passed, parameter allowlisted
     Observed --> Shown: parameter not allowlisted
-    Applied --> Kept: next 40 decisions not worse
+    Applied --> Kept: next 40 decisions not worse, or a raise rescued an answer
     Applied --> Reverted: next 40 decisions worse
     Applied --> Undone: /jev tune undo
     Shown --> [*]
@@ -274,8 +274,8 @@ Stored in `tuning.json`, never in `config.json`.
 |---|---|
 | When checked | `agent_settled`, never during a turn |
 | Per change | At most one applied change per step, across `timeoutMs` and the three band floors |
-| Cooldown | Per parameter: at least 40 decisions for `timeoutMs`; 200 counted runs for a band floor |
-| Revert | Automatic, if the 40 decisions after a change are worse than the 40 before, by the signal that caused it |
+| Cooldown | Per parameter: at least 40 decisions for `timeoutMs` (none for a burst raise); 200 counted runs for a band floor |
+| Revert | Automatic, by the signal that caused it: a raise with no answer above its old value and a worse timeout share over the 40 decisions after it; a lowering with any timeout among at least 20 asked; a floor by `exhausted` runs |
 | Display | One line on every change, such as `Jev tune: timeoutMs 1500→1800 · /jev tune undo` |
 | Never tuned automatically | Risk floor, effort ceiling, frontier rule |
 
@@ -283,11 +283,12 @@ Stored in `tuning.json`, never in `config.json`.
 
 **`timeoutMs`:**
 
-- Fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count).
-- New value: `max(current + 200, p90 × 1.25 rounded up to 100)`.
+- **Burst:** fires when 3 of the latest 5 asked requests after the latest `timeoutMs` change timed out. New value: `current × 1.25` rounded up to 100, clamped to 5000. It ignores the cooldown and any block, and clears the block.
+- **Window:** fires when more than 10% of at least 20 asked requests timed out (`miss: timeout`; errors and schema misses do not count). New value: `max(current + 200, p90 × 1.25 rounded up to 100)`, where p90 counts timed-out requests at the timeout in force.
+- **Lowering:** fires after 200 decisions with no timeout, at least 100 asked, and p90 defined. New value: `max(base, p90 × 1.5 rounded up to 100, current × 0.8 rounded up to 100)`.
 - Range 300–5000.
 - **Skipped** when the config is invalid (the untuned value would then be the code default, not yours), when `tuning.json` or the ledger is unreadable, and in child sessions.
-- **Block:** after a revert or an undo, the same raise is held back for 200 decisions. A raise to the blocked value or above is lowered to `blocked − 100`.
+- **Block:** after a revert or an undo, a raise is held back for 200 decisions: a raise to the blocked value or above is lowered to `blocked − 100`. A block below the tuned value holds back lowerings for 400 decisions, the same way, raised to `blocked + 100`. A burst clears it.
 - **Base value:** a tuned value records the `base` it was tuned from. It applies only while the config value (or the default) equals that base. If you edit `timeoutMs` in config, the tuned value, the pending change and the block are dropped, and that counts as a change for the cooldown.
 
 **Signals observed and shown by `/jev tune`, per mode, not applied.** Each is a count over the latest 200 decisions of that mode (modes are never mixed), shown as `count/of`:

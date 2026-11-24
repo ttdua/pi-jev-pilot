@@ -2,7 +2,7 @@
 
 **Status:** Accepted, 2026-11-05
 
-Amended by [0012](0012-tuned-turn-floors.md) for turn floors.
+Amended by [0012](0012-tuned-turn-floors.md) for turn floors and by [0013](0013-fast-timeout-tuning.md) for `timeoutMs`.
 
 ## Context
 

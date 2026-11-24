@@ -9,6 +9,7 @@ import {
   OFF_MESSAGE,
   ON_MESSAGE,
   resetMessage,
+  tuneReport,
   undoneMessage,
 } from "../../../src/policy/tuning/text.ts";
 import { readLedger } from "../../../src/store/ledger.ts";
@@ -58,7 +59,33 @@ describe("buildTuneView", () => {
       record: { block: { value: 1700, at: 1000 } },
       ledger: quiet(50, 1001),
     });
-    expect(v.block).toEqual({ value: 1700, remaining: 150 });
+    expect(v.block).toEqual({ value: 1700, remaining: 150, direction: "raise" });
+  });
+  test("lowering block", () => {
+    const record = {
+      timeoutMs: { value: 3000, base: 1500 },
+      block: { value: 2400, at: 1000 },
+    };
+    const v = view({ record, ledger: quiet(50, 1001) });
+    expect(v.block).toEqual({ value: 2400, remaining: 350, direction: "lower" });
+    expect(tuneReport(v)).toContain(
+      "block: lowerings to 2400 or below held back for 350 more decisions",
+    );
+  });
+  test("lowering block while the config is invalid", () => {
+    const record = {
+      timeoutMs: { value: 3000, base: 1500 },
+      block: { value: 2400, at: 1000 },
+    };
+    const r = tuneReport(view({ record, ledger: quiet(50, 1001), configValid: false }));
+    expect(r).toContain("tuning paused: config error");
+    expect(r).toContain("block: lowerings to 2400 or below held back for 350 more decisions");
+  });
+  test("block equal to the reference not shown", () => {
+    const record = { block: { value: 1700, at: 1000 } };
+    const v = view({ record, ledger: quiet(50, 1001), configTimeoutMs: 1700 });
+    expect(v.block).toBeUndefined();
+    expect(tuneReport(v)).not.toContain("block:");
   });
   test("config edited", () => {
     const v = view({ record: tuned, configTimeoutMs: 2000 });
@@ -268,6 +295,23 @@ describe("runTune", () => {
     expect(s.block).toEqual({ value: 1700, at: 5000 });
     expect(s.history?.at(-1)?.cause).toBe("undo");
     expect(s.seenAt).toBe(5000);
+  });
+  test("undo a lowering", () => {
+    const record: TuningDocument = {
+      timeoutMs: { value: 2400, base: 1500 },
+      history: [
+        { ...rule, to: 3000 },
+        { ...rule, at: 600, from: 3000, to: 2400 },
+      ],
+    };
+    const deps = fakeDeps({ record });
+    const out = runTune(deps, "undo", fakeCtx(true));
+    const s = deps.stored();
+    expect(out.message).toBe(
+      "Jev tune: timeoutMs 2400→3000 undone. The same lowering is held back for 400 decisions.",
+    );
+    expect(s.timeoutMs?.value).toBe(3000);
+    expect(s.block?.value).toBe(2400);
   });
   test("undo without a UI", () => {
     const deps = fakeDeps({ record: tuned });

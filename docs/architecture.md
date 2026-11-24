@@ -69,6 +69,8 @@ src/
       rules.ts              Tuning rules: step, revert, undo, reset, off
       signals.ts            Signals per mode over the latest 200 decisions (observed only)
       text.ts               Change lines, session-start line, report text
+      timeout-change.ts     Timeout step types, applyChange, rounding, block direction and lifetime
+      timeout-rules.ts      Timeout burst and lowering rules
       turn-signals.ts       Observed per-band turn signals for the report
       window.ts             Decision counting: order, window, p90, shares
     worker/
