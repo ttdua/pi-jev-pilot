@@ -21,7 +21,7 @@ Worker routing needs the executor, [`@ttdua/pi-subagents`](https://github.com/tt
 
 ```bash
 pi install git:github.com/ttdua/pi-subagents@v0.2.0
-pi install git:github.com/ttdua/pi-jev-pilot@v0.7.0
+pi install git:github.com/ttdua/pi-jev-pilot@v0.8.0
 ```
 
 Without the executor, `/jev` shows `executor: no executor; worker routing is off` and everything else keeps working.

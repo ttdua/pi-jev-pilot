@@ -4,6 +4,10 @@ All notable changes to pi-jev-pilot are listed here, newest first.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-24
+
+Tag: v0.8.0
+
 ### Changed
 
 - Faster timeout tuning ([ADR 0013](docs/decisions/0013-fast-timeout-tuning.md)): when 3 of the latest 5 asked requests time out, `timeoutMs` rises at once to `current × 1.25`, without the cooldown or a block. The window rule's p90 counts timed-out requests at the timeout in force, so its steps follow real latency.
