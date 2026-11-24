@@ -16,7 +16,7 @@
 - **Branch**: `feat/tuning-timeout-recovery`
 - **Base branch**: `main`
 - **Final state**: `pr-open`
-- **PR URL**: `<filled after gh pr create>`
+- **PR URL**: `https://github.com/ttdua/pi-jev-pilot/pull/108`
 
 The worktree branch `tuning-timeout-recovery` was fast-forward merged into `feat/tuning-timeout-recovery` (HEAD `a595e51e`). There was no remote PR before finalize, so this run opens a new PR instead of updating one (`pr-created` instead of `pr-updated`). The user approved merge, push and PR in chat.
 
@@ -33,7 +33,7 @@ Deviation from step 6 and step 7 (project `AGENTS.md` policy): worktrees are man
 
 ## PR comment
 
-- **PR comment status**: `<filled after the comment subroutine>`
+- **PR comment status**: `posted` (https://github.com/ttdua/pi-jev-pilot/pull/108#issuecomment-7130986283)
 
 ---
 
